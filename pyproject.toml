@@ -1,3 +1,7 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
 [project]
 name = "controlproof"
 version = "0.1.0"
@@ -14,3 +18,8 @@ testpaths = ["tests"]
 [tool.ruff]
 line-length = 100
 target-version = "py312"
+extend-exclude = [".specify", ".agents"]
+
+[tool.setuptools.packages.find]
+include = ["engine*", "seeds*"]
+exclude = ["tests*", "specs*", "scenarios*", "docs*"]

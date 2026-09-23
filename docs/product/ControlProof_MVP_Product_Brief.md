@@ -8,7 +8,7 @@
 - 작성 기준일: 2026-09-23
 - 결정 상태: 팀 동기화 전 제품 책임자의 위임에 따라 MVP 구현 기준을 임시 확정했다. 변경은 [MVP 결정 기록](./ControlProof_MVP_Decision_Log.md)에 이유와 영향을 남긴다.
 - 문서 성격: PRD-lite. 제품 관점의 결정 문서이며 상세 API, DB 스키마, 배포 구조와 구현 프레임워크는 후속 Spec과 Plan에서 정한다.
-- 현재 산출물: [Spec Kit Constitution](./.specify/memory/constitution.md), [기능 Spec 001](./specs/001-execution-evidence-h03/spec.md)
+- 현재 산출물: [Spec Kit Constitution](../../.specify/memory/constitution.md), [기능 Spec 001](../../specs/001-execution-evidence-h03/spec.md)
 - 다음 산출물: 기능 Spec 001의 기술 Plan과 Tasks, 후속 목업 UI
 
 ### 0.1 기준 문서의 우선순위
@@ -17,7 +17,7 @@
 
 1. V4의 제품 범위와 팀 공통 원칙
 2. 이 Product Brief의 사용자 흐름과 제품 상태 정의
-3. 승인된 [Spec Kit Constitution](./.specify/memory/constitution.md)과 향후 기능별 Spec
+3. 승인된 [Spec Kit Constitution](../../.specify/memory/constitution.md)과 향후 기능별 Spec
 4. 향후 승인된 기술 Plan과 ADR
 5. 첨부 골격의 문서와 코드
 
@@ -55,7 +55,7 @@ ControlProof는 이 질문을 문답이나 체크리스트가 아니라 실제 �
 
 ## 2. 절대 원칙
 
-다음 원칙은 [Constitution](./.specify/memory/constitution.md)으로 승격되었으며, 기능별 Spec이나 구현 편의를 이유로 바꾸지 않는다.
+다음 원칙은 [Constitution](../../.specify/memory/constitution.md)으로 승격되었으며, 기능별 Spec이나 구현 편의를 이유로 바꾸지 않는다.
 
 ### 2.1 AI 점수는 참고 정보다
 
@@ -673,7 +673,7 @@ H-03과 E-03은 같은 장애 실행에서 서로 다른 통제 관점으로 판
 
 ### 14.1 Constitution
 
-상태: 완료 — [ControlProof Constitution](./.specify/memory/constitution.md) v1.0.0
+상태: 완료 — [ControlProof Constitution](../../.specify/memory/constitution.md) v1.0.0
 
 다음 원칙을 프로젝트 헌법으로 고정한다.
 
@@ -687,7 +687,7 @@ H-03과 E-03은 같은 장애 실행에서 서로 다른 통제 관점으로 판
 
 ### 14.2 기능 Spec 001 — 실행·증적 기본 모델과 H-03 최소 수직 흐름
 
-상태: 완료 — [Feature Specification](./specs/001-execution-evidence-h03/spec.md), [품질 체크리스트](./specs/001-execution-evidence-h03/checklists/requirements.md)
+상태: 완료 — [Feature Specification](../../specs/001-execution-evidence-h03/spec.md), [품질 체크리스트](../../specs/001-execution-evidence-h03/checklists/requirements.md)
 
 - 시나리오 준비 상태
 - 실행 ID와 실행 생명주기
