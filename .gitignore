@@ -9,3 +9,17 @@ htmlcov/
 runs/
 *.db
 .env
+.env.*
+!.env.example
+.controlproof/
+playwright-report/
+test-results/
+blob-report/
+fault-markers/
+fault-receipts/
+*.tmp
+*.swp
+.DS_Store
+Thumbs.db
+.vscode/
+.idea/

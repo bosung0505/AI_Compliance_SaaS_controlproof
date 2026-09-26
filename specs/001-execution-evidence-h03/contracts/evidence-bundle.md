@@ -22,6 +22,8 @@
 
 경로는 모두 Run root 기준 상대 경로이며 `..`, 절대 경로, symlink로 root 밖을 가리킬 수 없다.
 
+`target.snapshot.json`은 `controlproof.target-snapshot.v1` 계약을 따르며 `target_version`과 `captured_at`을 제외한 identity fields의 canonical JSON bytes에 대한 SHA-256이 `run.json.target_version=target-snapshot:sha256:<digest>`와 일치해야 한다. Spec 001 H-03 Run bundle의 snapshot은 반드시 `git_dirty=false`, `git_diff_digest=null`이어야 한다. dirty checkout의 snapshot과 `git_diff_digest`는 `RUNNER_NOT_READY` preflight 진단으로만 반환하며 Run 디렉터리를 만들거나 bundle을 봉인하지 않는다.
+
 ## Atomicity와 durability
 
 - JSON/manifest는 동일 디렉터리의 임시 파일에 쓰고 flush·fsync 후 atomic replace한다.
@@ -130,15 +132,15 @@ Authorization, cookies, tokens, DB credentials와 실제 PII는 envelope에 존�
 |---|---|
 | EV-01 | `STATE_SNAPSHOT` |
 | EV-02 | `FAULT_RECEIPT` |
-| EV-03 | `LOG_EXTRACT` + report status `HTTP_EXCHANGE` |
+| EV-03 | matching worker trigger `FAULT_RECEIPT` + report status `HTTP_EXCHANGE`; `LOG_EXTRACT`는 선택 보조 근거 |
 | EV-04 | `SCREENSHOT` + visible-text JSON |
 | EV-05 | decision `HTTP_EXCHANGE` |
 | EV-06 | post-attempt `STATE_SNAPSHOT` |
 | EV-07 | windowed decision-history `STATE_SNAPSHOT` |
-| EV-08 | restore `FAULT_RECEIPT` + recovered `STATE_SNAPSHOT` |
-| EV-09 | `VERSION_SNAPSHOT` + scenario snapshot |
+| EV-08 | restore `FAULT_RECEIPT` + worker health + recovered `STATE_SNAPSHOT` + separate report-processing recovery observation |
+| EV-09 | canonical `target.snapshot.json` + scenario snapshot; 두 snapshot digest가 Run과 일치 |
 
-EV-03은 명령 receipt만으로 충족되지 않는다. EV-04는 API artifact만으로 충족되지 않는다.
+EV-03은 marker 적용 명령 receipt만으로 충족되지 않으며, 현재 Run·session·trigger와 일치하는 worker trigger receipt가 필요하다. EV-04는 API artifact만으로 충족되지 않는다.
 
 ## Redaction contract
 

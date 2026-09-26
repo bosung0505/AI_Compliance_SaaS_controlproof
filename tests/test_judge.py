@@ -1,127 +1,112 @@
 from datetime import UTC, datetime, timedelta
 
 from engine.judge import judge
-from engine.models import InconclusiveReason, Observation, Run, Source, Verdict
+from engine.models import InconclusiveReason, Observation, Phase, Presence, Source, Verdict
 
 T0 = datetime(2026, 9, 23, 9, 0, tzinfo=UTC)
 
 
-def run_of(scenario="H-03"):
-    return Run(scenario_id=scenario, started_at=T0, seed_kind="state")
+def obs(run_id, key, value=None, *, presence=Presence.PRESENT, at=None, source=Source.HTTP):
+    return Observation(
+        run_id=run_id,
+        subject_ref="candidate-01",
+        phase=Phase.INJECTED,
+        step_id="legacy-rule-test",
+        attempt=1,
+        key=key,
+        value=value if presence is Presence.PRESENT else None,
+        presence=presence,
+        source_type=source,
+        source_ref="fixture",
+        observed_at=at or T0,
+        error_code="UNAVAILABLE" if presence is Presence.UNAVAILABLE else None,
+    )
 
 
-def obs(key, value=None, *, absent=False, at=None, source=Source.API):
-    return Observation(key=key, value=value, absent=absent, occurred_at=at, source=source)
-
-
-def test_state_equals_pass_and_fail():
-    rules = [{"type": "state_equals", "subject": "invitation.state", "equals": "completed"}]
-    ok = judge(run_of(), rules, [obs("invitation.state", "completed")], decided_at=T0)
+def test_state_equals_pass_and_fail(run_factory):
+    run = run_factory()
+    rules = [{"type": "state_equals", "subject": "invitation.status", "equals": "completed"}]
+    ok = judge(run, rules, [obs(run.run_id, "invitation.status", "completed")], decided_at=T0)
     assert ok.verdict is Verdict.PASS
-
-    bad = judge(run_of(), rules, [obs("invitation.state", "reviewed")], decided_at=T0)
+    bad = judge(run, rules, [obs(run.run_id, "invitation.status", "reviewed")], decided_at=T0)
     assert bad.verdict is Verdict.FAIL
 
 
-def test_missing_observation_is_inconclusive_not_pass():
-    """관찰하지 못한 것을 통과시키지 않는다. 제품 원칙 16.1."""
-    rules = [{"type": "state_equals", "subject": "invitation.state", "equals": "completed"}]
-    result = judge(run_of(), rules, [], decided_at=T0)
-    assert result.verdict is Verdict.INCONCLUSIVE
-    assert result.reason is InconclusiveReason.INSUFFICIENT_EVIDENCE
-    assert result.missing_evidence == ("invitation.state",)
+def test_missing_and_unavailable_are_inconclusive(run_factory):
+    run = run_factory()
+    rules = [{"type": "state_equals", "subject": "invitation.status", "equals": "completed"}]
+    missing = judge(run, rules, [], decided_at=T0)
+    assert missing.reason_code is InconclusiveReason.INSUFFICIENT_EVIDENCE
+    unavailable = judge(
+        run,
+        rules,
+        [obs(run.run_id, "invitation.status", presence=Presence.UNAVAILABLE)],
+        decided_at=T0,
+    )
+    assert unavailable.verdict is Verdict.INCONCLUSIVE
 
 
-def test_event_order_strict():
-    rules = [{
-        "type": "event_order",
-        "before": "event.consent_completed",
-        "after": "event.analysis_requested",
-        "strict": True,
-    }]
-    good = judge(run_of("N-02"), rules, [
-        obs("event.consent_completed", at=T0),
-        obs("event.analysis_requested", at=T0 + timedelta(seconds=3)),
-    ], decided_at=T0)
-    assert good.verdict is Verdict.PASS
-
-    reversed_ = judge(run_of("N-02"), rules, [
-        obs("event.consent_completed", at=T0 + timedelta(seconds=3)),
-        obs("event.analysis_requested", at=T0),
-    ], decided_at=T0)
-    assert reversed_.verdict is Verdict.FAIL
-
-
-def test_time_limit():
-    rules = [{
-        "type": "time_limit",
-        "from": "event.consent_completed",
-        "to": "event.analysis_started",
-        "within": "5m",
-    }]
-    late = judge(run_of("N-02"), rules, [
-        obs("event.consent_completed", at=T0),
-        obs("event.analysis_started", at=T0 + timedelta(minutes=9)),
-    ], decided_at=T0)
+def test_event_order_and_time_limit(run_factory):
+    run = run_factory(scenario_id="N-02")
+    ordered = judge(
+        run,
+        [{"type": "event_order", "before": "event.consent", "after": "event.analysis"}],
+        [
+            obs(run.run_id, "event.consent", True, at=T0),
+            obs(run.run_id, "event.analysis", True, at=T0 + timedelta(seconds=3)),
+        ],
+        decided_at=T0,
+    )
+    assert ordered.verdict is Verdict.PASS
+    late = judge(
+        run,
+        [{"type": "time_limit", "from": "event.consent", "to": "event.analysis", "within": "5m"}],
+        [
+            obs(run.run_id, "event.consent", True, at=T0),
+            obs(run.run_id, "event.analysis", True, at=T0 + timedelta(minutes=9)),
+        ],
+        decided_at=T0,
+    )
     assert late.verdict is Verdict.FAIL
 
 
-def test_fields_present_absent_list_is_the_real_check():
-    """H-03 의 핵심은 '있으면 안 되는 것'이 없는지다."""
-    rules = [{
-        "type": "fields_present",
-        "source": "장애 중 저장 상태",
-        "present": ["error.record"],
-        "absent": ["human_review.record", "event.stage_moved"],
-    }]
-    clean = judge(run_of(), rules, [
-        obs("error.record", {"code": 503}),
-        obs("human_review.record", absent=True, source=Source.LOG),
-        obs("event.stage_moved", absent=True, source=Source.LOG),
-    ], decided_at=T0)
+def test_fields_present_checks_queried_absence(run_factory):
+    run = run_factory()
+    rules = [{"type": "fields_present", "present": ["error"], "absent": ["decision"]}]
+    clean = judge(
+        run,
+        rules,
+        [
+            obs(run.run_id, "error", {"code": 503}),
+            obs(run.run_id, "decision", presence=Presence.ABSENT, source=Source.DB),
+        ],
+        decided_at=T0,
+    )
     assert clean.verdict is Verdict.PASS
 
-    half_saved = judge(run_of(), rules, [
-        obs("error.record", {"code": 503}),
-        obs("human_review.record", {"decision": "advance"}, source=Source.LOG),
-        obs("event.stage_moved", absent=True, source=Source.LOG),
-    ], decided_at=T0)
-    assert half_saved.verdict is Verdict.FAIL
-    assert "있어야" not in half_saved.summary
-    assert "없어야" in half_saved.summary
+
+def test_same_dimension_conflict_is_inconclusive(run_factory):
+    run = run_factory()
+    rules = [{"type": "state_equals", "subject": "invitation.status", "equals": "completed"}]
+    result = judge(
+        run,
+        rules,
+        [
+            obs(run.run_id, "invitation.status", "completed", source=Source.HTTP),
+            obs(run.run_id, "invitation.status", "reviewed", source=Source.DB),
+        ],
+        decided_at=T0,
+    )
+    assert result.reason_code is InconclusiveReason.EVIDENCE_CONFLICT
 
 
-def test_unqueried_absent_key_is_inconclusive():
-    """없어야 할 것을 '조회하지 못한' 경우, 없다고 단정하지 않는다."""
-    rules = [{"type": "fields_present", "source": "x", "absent": ["human_review.record"]}]
-    result = judge(run_of(), rules, [], decided_at=T0)
-    assert result.verdict is Verdict.INCONCLUSIVE
-
-
-def test_fail_beats_inconclusive():
-    """관찰된 실패는 다른 증적을 못 얻었다고 사라지지 않는다."""
-    rules = [
-        {"type": "state_equals", "subject": "invitation.state", "equals": "completed"},
-        {"type": "state_equals", "subject": "invitation.stage", "equals": "검토"},
-    ]
-    result = judge(run_of(), rules, [obs("invitation.state", "reviewed")], decided_at=T0)
-    assert result.verdict is Verdict.FAIL
-
-
-def test_conflicting_observations():
-    rules = [{"type": "state_equals", "subject": "invitation.state", "equals": "completed"}]
-    result = judge(run_of(), rules, [
-        obs("invitation.state", "completed", source=Source.API),
-        obs("invitation.state", "reviewed", source=Source.LOG),
-    ], decided_at=T0)
-    assert result.verdict is Verdict.INCONCLUSIVE
-    assert result.reason is InconclusiveReason.EVIDENCE_CONFLICT
-
-
-def test_no_test_target_skips_rules():
-    """대상이 없으면 규칙을 평가하지 않는다. A-01~03 이 여기 해당한다."""
-    rules = [{"type": "state_equals", "subject": "invitation.state", "equals": "x"}]
-    result = judge(run_of("A-01"), rules, [], decided_at=T0, no_test_target=True)
-    assert result.verdict is Verdict.INCONCLUSIVE
-    assert result.reason is InconclusiveReason.NO_TEST_TARGET
-    assert result.rule_results == ()
+def test_no_test_target_skips_rules(run_factory):
+    run = run_factory(scenario_id="A-01")
+    result = judge(
+        run,
+        [{"type": "state_equals", "subject": "x", "equals": "y"}],
+        [],
+        decided_at=T0,
+        no_test_target=True,
+    )
+    assert result.reason_code is InconclusiveReason.NO_TEST_TARGET

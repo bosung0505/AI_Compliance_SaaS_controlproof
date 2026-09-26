@@ -70,6 +70,28 @@ Readiness의 `RUNNER_NOT_READY`와 `ACCESS_BLOCKED`는 verdict reason이 아니�
 
 `PASS`, `FAIL`, `INCONCLUSIVE`
 
+### ImplementationStatus
+
+| 값 | 산정 규칙 | Run 생성 |
+|---|---|---|
+| `NOT_IMPLEMENTED` | scenario 필수 capability handler가 하나도 등록되지 않음 | 금지; 대상 기능 존재 시 `RUNNER_NOT_READY` |
+| `PARTIAL` | 일부 handler가 없거나 등록된 contract version이 scenario 요구와 다름 | 금지; 대상 기능 존재 시 `RUNNER_NOT_READY` |
+| `IMPLEMENTED` | 모든 필수 handler가 등록되고 contract version이 일치함 | 다른 readiness 조건도 READY이면 허용 |
+
+구현 상태는 ControlProof code/adapter 등록 상태만 표현한다. target verdict, credential·network 장애, Run 성공·실패로 변경하지 않는다. 대상 기능 자체가 없으면 구현 상태와 별개로 readiness `NO_TEST_TARGET`가 우선한다.
+
+### ComparatorKind
+
+`EXACT`, `ABSOLUTE_TOLERANCE`
+
+- `EXACT`: type과 canonical value가 모두 같아야 한다. 문자열 숫자와 숫자는 같지 않다.
+- `ABSOLUTE_TOLERANCE`: 숫자 또는 UTC datetime key에만 허용하며 scenario에 `tolerance >= 0`을 함께 선언한다.
+- comparator가 없는 key는 `EXACT`다. 비율 오차와 암묵적 형변환은 지원하지 않는다.
+
+### TargetSourceKind
+
+`GIT_WORKTREE`, `CONTAINER_IMAGE`, `GIT_AND_CONTAINER`
+
 ## Entity: ScenarioDefinition
 
 버전 관리되는 실행 의도다. 실행할 때 전체 정의를 snapshot으로 복사한다.
@@ -80,14 +102,46 @@ Readiness의 `RUNNER_NOT_READY`와 `ACCESS_BLOCKED`는 verdict reason이 아니�
 | `version` | string | 내용 변경 시 증가, 예: `1.0.0` |
 | `title` | string | 필수 |
 | `control_intent` | string | 필수 |
-| `required_capabilities` | list[string] | target 중립 capability 명칭 |
+| `required_capabilities` | map[string, string] | target 중립 capability ID → 요구 contract version; H-03은 모두 `v1` |
 | `preconditions` | list[Precondition] | 대상 존재와 runner 준비 조건을 구분 |
 | `steps` | ordered list[ScenarioStep] | `step_id` 중복 금지 |
 | `assertions` | list[AssertionDefinition] | H03-A1~A6 모두 존재 |
 | `required_evidence` | list[EvidenceRequirement] | EV-01~EV-09 모두 존재 |
 | `timing_policy` | TimingPolicy | polling/deadline/stability 고정 |
 | `restore_policy` | RestorePolicy | 장애 단계가 있으면 필수 |
+| `observation_comparators` | map[string, ComparatorPolicy] | 미선언 key는 `EXACT`; H-03 assertion 입력 key는 전부 `EXACT` |
 | `source_requirements` | list[string] | FR/AC 추적 ID |
+
+### ComparatorPolicy
+
+| 필드 | 형식 | 규칙 |
+|---|---|---|
+| `kind` | ComparatorKind | 필수 |
+| `tolerance` | decimal? | `ABSOLUTE_TOLERANCE`이면 0 이상 필수, `EXACT`이면 null |
+| `value_type` | string | `string`, `integer`, `boolean`, `decimal`, `datetime` 중 하나 |
+
+`observed_at`은 Observation의 수집 metadata이며 comparator registry의 key가 아니다.
+
+H-03 v1 comparator registry는 아래 key를 모두 `EXACT`로 선언한다. spelling이 다른 key는 별도 key이며 자동 alias하지 않는다.
+
+| Observation key | value_type | comparator |
+|---|---|---|
+| `fault.marker.applied` | boolean | `EXACT` |
+| `fault.effect.receipt_match` | boolean | `EXACT` |
+| `report.api.presence` | string | `EXACT` |
+| `report.api.status` | string | `EXACT` |
+| `report.ui.ready_content_visible` | boolean | `EXACT` |
+| `report.ui.status_class` | string | `EXACT` |
+| `decision.attempt.accepted` | boolean | `EXACT` |
+| `decision.attempt.reason_present` | boolean | `EXACT` |
+| `decision.attempt.reason_code` | string | `EXACT` |
+| `invitation.status` | string | `EXACT` |
+| `recruiting.stage_id` | string | `EXACT` |
+| `pipeline.row_version` | integer | `EXACT` |
+| `final_decision.count` | integer | `EXACT` |
+| `final_decision.latest_actor_type` | string | `EXACT` |
+| `fault.environment_restore` | string | `EXACT` |
+| `report.processing_recovery` | string | `EXACT` |
 
 ### ScenarioStep
 
@@ -110,13 +164,39 @@ Run 생성 전에 계산하는 결과다.
 | `scenario_id` | string | 필수 |
 | `scenario_version` | string | 필수 |
 | `target_id` | string | 환경 식별자 |
+| `implementation_status` | ImplementationStatus | 필수; capability handler/contract 등록에서 계산 |
 | `status` | ReadinessStatus | 필수 |
 | `checks` | list[ReadinessCheck] | capability별 결과 |
 | `checked_at` | datetime | 필수 |
-| `target_version` | string? | 읽을 수 있으면 필수 |
+| `target_version` | string? | target 존재·접근 가능 시 canonical TargetSnapshot digest 필수; 캡처 실패는 `RUNNER_NOT_READY` |
+| `model_fixture_id` | string? | H-03에서는 결정론적 대역 확인 시 필수 |
+| `model_fixture_digest` | sha256? | H-03에서는 허용 fixture digest와 일치해야 함 |
 | `operator_action` | string? | READY가 아니면 해결 방법 |
 
-`status` 집계 우선순위는 `NO_TEST_TARGET`(기능 자체 없음) → `ACCESS_BLOCKED` → `RUNNER_NOT_READY` → `READY`다. 단, fault hook만 없으면 reporting 대상은 존재하므로 반드시 `RUNNER_NOT_READY`다.
+`status` 집계 우선순위는 `NO_TEST_TARGET`(기능 자체 없음) → `ACCESS_BLOCKED` → `RUNNER_NOT_READY` → `READY`다. 단, fault hook, shared trigger receipt 또는 결정론적 모델 대역만 없으면 reporting 대상은 존재하므로 반드시 `RUNNER_NOT_READY`다.
+
+## Entity: TargetSnapshot
+
+실행 직전 대상의 코드·배포·계약·schema·고정 모델 fixture를 하나의 canonical JSON으로 고정한다.
+
+| 필드 | 형식 | 규칙 |
+|---|---|---|
+| `schema_version` | string | `controlproof.target-snapshot.v1` |
+| `target_id` | string | Run의 target과 일치 |
+| `source_kind` | TargetSourceKind | 필수 |
+| `git_commit_sha` | string? | git 포함 kind이면 40자 lowercase hex 필수 |
+| `git_dirty` | boolean? | git 포함 kind이면 필수 |
+| `git_diff_digest` | sha256? | `git_dirty=true`이면 아래 diagnostic manifest hash 필수, false이면 null |
+| `container_image_digests` | map[string, string] | H-03 container kind이면 `backend`, `reporting-worker`, `company-console` 세 key 필수; 값은 `sha256:<64 lowercase hex>` |
+| `openapi_digest` | sha256 | canonical OpenAPI 문서 hash |
+| `schema_migration_head` | string | WhyYou migration head |
+| `schema_signature_digest` | sha256 | H-03 사용 table/column signature hash |
+| `model_fixture_id` | string | 허용된 deterministic fixture |
+| `model_fixture_digest` | sha256 | canonical fixture hash |
+| `captured_at` | datetime | timezone-aware UTC |
+| `target_version` | string | 아래 canonical snapshot digest |
+
+`target_version`은 `target_version`과 관찰 metadata인 `captured_at`을 제외한 identity 필드를 key 정렬·공백 없는 UTF-8 JSON으로 직렬화한 bytes의 SHA-256이며 형식은 `target-snapshot:sha256:<64 lowercase hex>`다. 같은 identity를 다른 시각에 수집해도 digest는 같다. `GIT_WORKTREE`는 git identity, `CONTAINER_IMAGE`는 image identity, `GIT_AND_CONTAINER`는 둘 다 요구한다. H-03 actual Run은 `git_dirty=false`만 허용한다. dirty 진단 시 `git status --porcelain=v1 -z --untracked-files=all`의 status·forward-slash 상대 경로와 각 현재 파일의 SHA-256 또는 `DELETED`를 path byte-order로 정렬한 canonical JSON array로 만들고 그 bytes를 `git_diff_digest`로 hash한다. 재시험 diff는 `captured_at`과 `target_version`을 제외한 identity field path와 before/after digest 또는 비민감 값만 기록한다.
 
 ## Entity: Run
 
@@ -129,7 +209,9 @@ Run 생성 전에 계산하는 결과다.
 | `scenario_version` | string | snapshot과 일치 |
 | `scenario_digest` | sha256 | canonical snapshot hash |
 | `target_id` | string | 예: `whyyou-local` |
-| `target_version` | string | git SHA + dirty flag 또는 image digest |
+| `target_version` | string | 연결된 TargetSnapshot의 `target-snapshot:sha256:<digest>`와 일치 |
+| `model_fixture_id` | string | 연결된 TargetSnapshot 값과 일치하는 편의 projection |
+| `model_fixture_digest` | sha256 | 연결된 TargetSnapshot 값과 일치하는 편의 projection |
 | `state` | RunState | 전이 규칙 준수 |
 | `started_at` | datetime? | RUNNING 진입 시 필수 |
 | `ended_at` | datetime? | terminal state에서 필수 |
@@ -139,7 +221,7 @@ Run 생성 전에 계산하는 결과다.
 | `operator_id` | string | 비식별 운영자 ref |
 | `fault_ever_applied` | boolean | false→true만 허용 |
 | `manual_cleanup_required` | boolean | RESTORE_FAILED면 true |
-| `implementation_status` | string | `IMPLEMENTED` 등, verdict와 독립 |
+| `implementation_status` | ImplementationStatus | 생성된 Run은 반드시 `IMPLEMENTED`; verdict와 독립 |
 
 ### Run state transitions
 
@@ -157,6 +239,7 @@ RESTORING ──(restore 성공, 실행 미완주)──> ABORTED
 - `COMPLETED`, `ABORTED`, `RESTORE_FAILED`은 terminal이다.
 - terminal Run의 canonical 파일은 수정하지 않는다.
 - `RESTORE_FAILED`는 target+subject block marker를 요구한다.
+- `implementation_status != IMPLEMENTED`이면 Run을 생성하지 않는다.
 
 ## Entity: TestSubject
 
@@ -181,14 +264,16 @@ RESTORING ──(restore 성공, 실행 미완주)──> ABORTED
 | `requested_at` | datetime | 필수 |
 | `applied_at` | datetime? | marker 확인 시 |
 | `effect_observed_at` | datetime? | worker trigger 관찰 시 |
+| `effect_receipt_locator` | string? | fault root 내부 상대 경로만 허용 |
 | `expires_at` | datetime | applied 전 필수 |
 | `restored_at` | datetime? | marker 제거+확인 시 |
 | `apply_success` | boolean? | 시도 전 null |
 | `effect_confirmed` | boolean? | 명령 성공과 별도 |
-| `restore_success` | boolean? | restore 전 null |
+| `environment_restore_success` | boolean? | marker 비활성+worker 정상 확인 전 null |
+| `report_processing_recovery` | string? | `READY`, `PARTIAL`, `FAILED`, `TIMEOUT`, `UNAVAILABLE` 중 하나 |
 | `actor_ref` | string | ControlProof runner ref |
 
-`apply_success=true`만으로 H03-A1 PASS를 만들 수 없다. `effect_confirmed=true`와 관련 evidence가 모두 필요하다.
+`apply_success=true`만으로 H03-A1 PASS를 만들 수 없다. 현재 Run·session·trigger와 일치하는 receipt에 근거한 `effect_confirmed=true`와 관련 evidence가 모두 필요하다. `environment_restore_success`와 `report_processing_recovery`는 서로 다른 축이며 후자의 `FAILED|TIMEOUT`이 전자의 성공을 덮어쓰지 않는다.
 
 ## Entity: Observation
 

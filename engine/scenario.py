@@ -1,135 +1,170 @@
-"""시나리오 로더.
-
-YAML 을 읽어 검증한다. 여기서 막아야 하는 것:
-  - 관찰값 키 오타 (사전에 없는 키를 규칙이 가리킴)
-  - 알 수 없는 규칙 타입
-  - 전제조건이 비어 있는 시나리오
-
-전제조건에 required 이면서 absent 인 단계가 있으면 대상 부재로 표시한다.
-이 판단을 로드 시점에 하는 이유는, 대상이 없는 시나리오를 실행 큐에
-올리지 않기 위해서다. 없는 것을 실행한 척하지 않는다.
-"""
+"""Versioned scenario definition loader and cross-reference validation."""
 
 from __future__ import annotations
 
-from dataclasses import dataclass, field
 from pathlib import Path
 from typing import Any
 
 import yaml
+from pydantic import BaseModel, ConfigDict, Field, model_validator
 
-from engine.judge import RULES
-from engine.observations import validate as validate_keys
+from engine.models import (
+    ComparatorPolicy,
+    Phase,
+    ScenarioSnapshot,
+    canonical_json_bytes,
+    sha256_bytes,
+)
+from engine.observations import H03_EXACT_COMPARATORS
 
-_RULE_KEY_FIELDS = {
-    "state_equals": ("subject",),
-    "event_order": ("before", "after"),
-    "time_limit": ("from", "to"),
-}
-
-
-@dataclass
-class Scenario:
-    id: str
-    control: str
-    name: str
-    intent: str
-    beneficiary: str
-    initiator: str
-    seed: str
-    adapters: tuple[str, ...]
-    injection: tuple[str, ...]
-    preconditions: tuple[dict[str, Any], ...]
-    steps: tuple[dict[str, Any], ...]
-    expected: str
-    rules: tuple[dict[str, Any], ...]
-    evidence_required: tuple[str, ...]
-    implementation: dict[str, Any] = field(default_factory=dict)
-    legal_basis: tuple[str, ...] = ()
-    fault: dict[str, Any] = field(default_factory=dict)
-    raw: dict[str, Any] = field(default_factory=dict)
-
-    @property
-    def no_test_target(self) -> bool:
-        return any(
-            p.get("required") and p.get("status") == "absent"
-            for p in self.preconditions
-        )
-
-    @property
-    def missing_preconditions(self) -> tuple[str, ...]:
-        return tuple(
-            p["step"] for p in self.preconditions
-            if p.get("required") and p.get("status") == "absent"
-        )
-
-    def rule_keys(self) -> list[str]:
-        keys: list[str] = []
-        for rule in self.rules:
-            for f in _RULE_KEY_FIELDS.get(rule["type"], ()):
-                keys.append(rule[f])
-            if rule["type"] == "fields_present":
-                keys += list(rule.get("present", []))
-                keys += list(rule.get("absent", []))
-        return keys
+H03_ASSERTIONS = tuple(f"H03-A{index}" for index in range(1, 7))
+H03_EVIDENCE = tuple(f"EV-{index:02d}" for index in range(1, 10))
 
 
 class ScenarioError(ValueError):
     pass
 
 
-_REQUIRED = (
-    "id", "control", "name", "intent", "beneficiary", "initiator",
-    "seed", "preconditions", "steps", "expected", "rules",
-)
+class ScenarioModel(BaseModel):
+    model_config = ConfigDict(extra="forbid", frozen=True)
 
 
-def load(path: str | Path) -> Scenario:
-    data = yaml.safe_load(Path(path).read_text(encoding="utf-8"))
-    if not isinstance(data, dict):
-        raise ScenarioError(f"{path}: 최상위가 매핑이 아님")
+class Precondition(ScenarioModel):
+    precondition_id: str
+    kind: str
+    description: str
+    required: bool = True
 
-    missing = [f for f in _REQUIRED if f not in data]
-    if missing:
-        raise ScenarioError(f"{path}: 필수 항목 누락 {missing}")
 
-    if data["seed"] not in ("state", "path"):
-        raise ScenarioError(f"{path}: seed 는 state 또는 path (3.3절)")
+class ScenarioStep(ScenarioModel):
+    step_id: str
+    phase: Phase
+    action: str
+    attempt_policy: dict[str, Any] = Field(default_factory=lambda: {"max_attempts": 1})
+    outputs: tuple[str, ...] = ()
+    evidence_requirements: tuple[str, ...] = ()
+    always_run: bool = False
 
-    for rule in data["rules"]:
-        if rule["type"] not in RULES:
-            raise ScenarioError(f"{path}: 알 수 없는 규칙 타입 {rule['type']!r}")
 
-    scenario = Scenario(
-        id=data["id"],
-        control=data["control"],
-        name=data["name"],
-        intent=data["intent"],
-        beneficiary=data["beneficiary"],
-        initiator=data["initiator"],
-        seed=data["seed"],
-        adapters=tuple(data.get("adapters", ())),
-        injection=tuple(data.get("injection", ())),
-        preconditions=tuple(data["preconditions"]),
-        steps=tuple(data["steps"]),
-        expected=data["expected"],
-        rules=tuple(data["rules"]),
-        evidence_required=tuple(data.get("evidence_required", ())),
-        implementation=data.get("implementation", {}),
-        legal_basis=tuple(data.get("legal_basis", ())),
-        fault=data.get("fault", {}),
-        raw=data,
-    )
+class AssertionDefinition(ScenarioModel):
+    assertion_id: str
+    description: str
+    expectation: dict[str, Any]
+    fail_condition: dict[str, Any] | None = None
+    required_observation_keys: tuple[str, ...]
+    required_evidence_ids: tuple[str, ...]
+    source_requirements: tuple[str, ...]
 
-    unknown = validate_keys(scenario.rule_keys())
-    if unknown:
-        raise ScenarioError(
-            f"{path}: 관찰값 키 사전에 없는 키 {unknown}. "
-            f"오타이거나 engine/observations.py 에 등록이 필요함"
+
+class EvidenceRequirement(ScenarioModel):
+    evidence_id: str
+    description: str
+    artifact_types: tuple[str, ...]
+
+
+class TimingPolicy(ScenarioModel):
+    poll_seconds: float = Field(gt=0)
+    injected_deadline_seconds: float = Field(gt=0)
+    automatic_decision_window_seconds: float = Field(gt=0)
+    environment_restore_deadline_seconds: float = Field(gt=0)
+    stability_consecutive: int = Field(ge=1)
+    stability_seconds: float = Field(ge=0)
+
+
+class RestorePolicy(ScenarioModel):
+    mandatory: bool
+    action: str
+    report_processing_result_field: str
+
+
+class ScenarioDefinition(ScenarioModel):
+    scenario_id: str
+    version: str
+    title: str
+    control_intent: str
+    required_capabilities: dict[str, str]
+    preconditions: tuple[Precondition, ...]
+    steps: tuple[ScenarioStep, ...]
+    assertions: tuple[AssertionDefinition, ...]
+    required_evidence: tuple[EvidenceRequirement, ...]
+    timing_policy: TimingPolicy
+    restore_policy: RestorePolicy
+    observation_comparators: dict[str, ComparatorPolicy]
+    source_requirements: tuple[str, ...]
+    allowed_model_fixtures: dict[str, str]
+    excluded_scope: tuple[str, ...] = ()
+
+    @model_validator(mode="after")
+    def validate_definition(self) -> ScenarioDefinition:
+        if len({step.step_id for step in self.steps}) != len(self.steps):
+            raise ValueError("scenario step_id values must be unique")
+        if any(version != "v1" for version in self.required_capabilities.values()):
+            raise ValueError("H-03 capability contract versions must all be v1")
+        assertion_ids = tuple(item.assertion_id for item in self.assertions)
+        evidence_ids = tuple(item.evidence_id for item in self.required_evidence)
+        if self.scenario_id == "H-03":
+            if set(assertion_ids) != set(H03_ASSERTIONS) or len(assertion_ids) != 6:
+                raise ValueError("H-03 requires exactly H03-A1 through H03-A6")
+            if set(evidence_ids) != set(H03_EVIDENCE) or len(evidence_ids) != 9:
+                raise ValueError("H-03 requires exactly EV-01 through EV-09")
+            required_keys = {
+                key for assertion in self.assertions for key in assertion.required_observation_keys
+            }
+            missing = required_keys - set(self.observation_comparators)
+            if missing:
+                raise ValueError(f"H-03 comparator registry is incomplete: {sorted(missing)}")
+            for key in required_keys:
+                if self.observation_comparators[key].kind.value != "EXACT":
+                    raise ValueError("H-03 assertion inputs must use EXACT")
+            if set(self.observation_comparators) != set(H03_EXACT_COMPARATORS):
+                raise ValueError("H-03 comparator registry must match the canonical key set")
+        known_evidence = set(evidence_ids)
+        for step in self.steps:
+            unknown = set(step.evidence_requirements) - known_evidence
+            if unknown:
+                raise ValueError(
+                    f"step {step.step_id} references unknown evidence {sorted(unknown)}"
+                )
+            if step.always_run and step.phase is not Phase.RECOVERED:
+                raise ValueError("only RECOVERED steps may be always_run")
+        for assertion in self.assertions:
+            unknown = set(assertion.required_evidence_ids) - known_evidence
+            if unknown:
+                raise ValueError(
+                    f"assertion {assertion.assertion_id} references unknown evidence {sorted(unknown)}"
+                )
+        if not self.restore_policy.mandatory:
+            raise ValueError("fault scenario requires mandatory restore")
+        if not self.allowed_model_fixtures:
+            raise ValueError("H-03 requires at least one deterministic model fixture")
+        if any(len(digest) != 64 for digest in self.allowed_model_fixtures.values()):
+            raise ValueError("model fixture digest must be SHA-256 lowercase hex")
+        return self
+
+    def snapshot(self) -> ScenarioSnapshot:
+        definition = self.model_dump(mode="json")
+        digest = sha256_bytes(canonical_json_bytes(definition))
+        return ScenarioSnapshot(
+            scenario_id=self.scenario_id,
+            version=self.version,
+            digest=digest,
+            definition=definition,
         )
-    return scenario
 
 
-def load_all(directory: str | Path = "scenarios") -> list[Scenario]:
-    paths = sorted(p for p in Path(directory).glob("*.yaml") if not p.name.startswith("_"))
-    return [load(p) for p in paths]
+def load(path: str | Path) -> ScenarioDefinition:
+    source = Path(path)
+    try:
+        raw = yaml.safe_load(source.read_text(encoding="utf-8"))
+        if not isinstance(raw, dict):
+            raise ScenarioError(f"{source}: top level must be a mapping")
+        return ScenarioDefinition.model_validate(raw)
+    except (OSError, yaml.YAMLError, ValueError) as exc:
+        if isinstance(exc, ScenarioError):
+            raise
+        raise ScenarioError(f"{source}: {exc}") from exc
+
+
+def load_all(directory: str | Path = "scenarios") -> list[ScenarioDefinition]:
+    paths = sorted(path for path in Path(directory).glob("*.yaml") if not path.name.startswith("_"))
+    return [load(path) for path in paths]

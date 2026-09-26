@@ -38,7 +38,9 @@ WhyYou는 local/test profile로 시작하고 다음 조건을 만족해야 한�
 - PostgreSQL, local SQS/LocalStack, object storage가 격리됨
 - 외부 LLM/음성 호출은 WhyYou의 deterministic local substitute 사용
 - `CONTROLPROOF_TEST_HOOKS_ENABLED=true`
+- `CONTROLPROOF_MODEL_SUBSTITUTE_ENABLED=true`와 허용된 고정 fixture ID 사용
 - `CONTROLPROOF_FAULT_ROOT`가 WhyYou worker와 ControlProof host가 공유하는 test-only 경로를 가리킴
+- `${CONTROLPROOF_FAULT_ROOT}/receipts/`는 worker가 append+fsync하고 ControlProof가 읽을 수 있음
 - production profile이 아님
 
 fault hook이 없는 WhyYou commit에서는 ControlProof가 `RUNNER_NOT_READY`로 멈추는 것이 정상이다. hook을 우회해 실행하지 않는다.
@@ -56,6 +58,8 @@ $env:WHYYOU_DATABASE_URL = "postgresql+psycopg://<local-test-credential>@localho
 $env:WHYYOU_COMPANY_TOKEN = "<local-test-company-token>"
 $env:WHYYOU_REPO_PATH = "C:\path\to\gbsa_aws"
 $env:CONTROLPROOF_FAULT_ROOT = "C:\path\to\shared\controlproof-faults"
+$env:CONTROLPROOF_MODEL_SUBSTITUTE_ENABLED = "true"
+$env:CONTROLPROOF_MODEL_FIXTURE_ID = "h03-report-v1"
 ```
 
 ControlProof 출력에 위 credential이 보이면 실행을 중단하고 evidence redaction 결함으로 처리한다.
@@ -69,8 +73,11 @@ python -m engine.cli preflight H-03 --target whyyou-local --json
 기대 결과:
 
 - `readiness=READY`
-- target git SHA와 OpenAPI digest 존재
-- report read, final-decision, seed, browser, fault apply/probe/restore capability 모두 READY
+- `implementation_status=IMPLEMENTED`
+- `target_version=target-snapshot:sha256:<digest>`와 canonical TargetSnapshot 존재
+- 실행 형태에 맞는 git commit·dirty/diff 또는 image digest와 OpenAPI·schema·model fixture digest 존재
+- report read, final-decision, seed, browser, fault apply/trigger-receipt probe/restore capability 모두 READY
+- deterministic model substitute의 fixture ID와 canonical digest가 scenario 허용값과 일치
 - active fault/block marker 없음
 
 대표 비정상 결과:
@@ -93,11 +100,11 @@ python -m engine.cli run H-03 --target whyyou-local --label first-h03 --json
 2. pending-report 합성 지원자 seed
 3. baseline 상태와 버전 수집
 4. session-scoped fault marker 적용
-5. reporting event trigger와 실제 fault 발동 확인
+5. reporting event trigger와 현재 Run·session·event가 일치하는 worker trigger receipt로 실제 fault 발동 확인
 6. report API polling과 회사 콘솔 screenshot
 7. 정상 final-decision endpoint 시도
 8. decision/stage/invitation 전후 비교와 자동결정 부재 관찰
-9. marker 제거와 report 처리 복구 확인
+9. marker 비활성·worker health로 환경 복구 확인하고 report 처리 결과를 별도 상태로 기록
 10. assertion, verdict, bundle manifest 생성 및 봉인
 
 WhyYou가 FAIL하더라도 ControlProof가 정확한 증적과 verdict를 만들었다면 구현 실행은 성공한 것이다. exit 3은 실행기 오류가 아니라 target FAIL 결과다.
@@ -122,8 +129,10 @@ bundle 경로:
 - EV-01~EV-09가 manifest에 연결됨
 - screenshot에 실제 담당자 표시가 있음
 - final decision request/response와 사후 state snapshot이 있음
-- restore 성공 여부와 미검증 범위(DLQ 등)가 명시됨
+- 환경 복구 성공 여부와 별도 `report_processing_recovery` 및 미검증 범위(DLQ 등)가 명시됨
 - bundle verify가 VERIFIED임
+
+SC-008은 눈으로 “빨리 찾을 수 있다”고 판단하지 않는다. bundle을 만들지 않은 검토자 1명이 `specs/001-execution-evidence-h03/review-usability-checklist.md`에 따라 canonical PASS·FAIL·INCONCLUSIVE 3건을 각각 검토한다. Run ID를 받은 시점부터 타이머를 시작하고 `controlproof show`만 사용해 verdict, 핵심 이유, 실패/판정 불가 assertion, 증적 링크, 환경 복구 상태를 답한다. 세 건 모두 정답이고 각각 120초 이하여야 하며 결과를 `validation.md`에 기록한다.
 
 ## 8. Tamper smoke test
 
@@ -151,6 +160,7 @@ python -m engine.cli retest <PARENT_RUN_ID> --target whyyou-local --label after-
 - `parent_run_id=<PARENT_RUN_ID>`
 - parent bundle digest 불변
 - target version 차이 기록
+- TargetSnapshot digest가 다르면 변경된 JSON field path 기록
 - 첫 FAIL과 새 결과를 둘 다 조회 가능
 
 최초 Run이 이미 PASS라면 데모를 위해 WhyYou에 인위적인 결함을 만들지 않는다.
@@ -178,5 +188,7 @@ python -m engine.cli cleanup-confirm --target whyyou-local --subject candidate-0
 - 격리 WhyYou 최초 Run 생성
 - Run이 PASS/FAIL/INCONCLUSIVE 중 실제 사실과 일치
 - EV-01~EV-09 연결과 SHA-256 검증 성공
-- restore 성공 또는 RESTORE_FAILED 안전 차단 확인
+- canonical TargetSnapshot/run linkage와 implementation status 분리 확인
+- 환경 복구 성공 또는 RESTORE_FAILED 안전 차단 확인, report 처리 결과는 별도 필드로 보존
+- SC-008 비작성자 검토 3건 모두 정답·각 120초 이하
 - 실제 개인정보 0건

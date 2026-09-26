@@ -1,225 +1,185 @@
-id: H-03
-control: 인간 개입 및 안전한 예외처리
-name: Reporting 장애 시 실패 노출·결정 차단·DLQ 보존
+scenario_id: H-03
+version: 1.0.0
+title: reporting 장애 시 결정 안전성
+control_intent: >-
+  사람의 최종 검토에 필요한 리포트가 준비되지 않으면 그 상태를 담당자에게
+  드러내고, 명시적 이유와 함께 최종 채용 결정을 거부하며, 부분 변경이나
+  자동 결정을 만들지 않고 시험 장애를 안전하게 복구한다.
 
-intent: |
-  사람의 검토에 필요한 자료가 만들어지지 않은 상태에서, 시스템이 그 사실을
-  담당자에게 드러내고 결정을 차단해야 한다. 실패한 작업은 조용히 사라지지 않고
-  기록으로 남아야 하며, 실패한 결정 시도가 일부만 저장되어 화면과 데이터가
-  어긋나는 상태를 남기지 않아야 한다.
-
-legal_basis:
-  - AI 기본법 제34조 제1항 (사람의 관리·감독)
-
-implementation:
-  target: WhyYou
-  version_ref: git rev-parse HEAD
-  notes: |
-    reporting 큐는 사람 검토 대기자 목록이 아니라 면접 분석 결과를 최종
-    리포트로 만드는 비동기 처리 경로다 (기능범위 6.3).
-    최종결정은 세 가지가 한 트랜잭션으로 함께 일어난다.
-      1) HumanReview(final_decision) 저장 — COMPANY_USER 전용, 사유 필수
-      2) 채용 단계 이동 — expected_pipeline_version 사용
-      3) 지원 건 상태 전이 completed → reviewed
-         idempotency_key = f"invitation-reviewed-{invitation_id}"
-    close_invitation_review 는 오류를 의도적으로 전파한다. HTTP 트랜잭션이
-    셋을 함께 롤백하기 위한 설계이며, 이 시나리오는 그 설계가 실제로
-    지켜지는지 시험한다.
-    애플리케이션 JobStatus.DLQ 와 인프라 SQS DLQ 를 구분해 관찰한다.
-
-beneficiary: 지원자
-initiator: 담당자
-
-seed: state
-adapters: [api, log, fault]
-injection: [장애 주입]
+required_capabilities:
+  target.version.read: v1
+  reporting.status.read: v1
+  reporting.ui.observe: v1
+  hiring.final_decision.attempt: v1
+  hiring.state.read: v1
+  hiring.decision_history.read: v1
+  h03.subject.seed: v1
+  reporting.trigger: v1
+  reporting.fault.inject: v1
+  reporting.fault.probe: v1
+  reporting.fault.restore: v1
+  reporting.model.deterministic: v1
 
 preconditions:
-  - step: 면접 완료 후 리포트 생성이 비동기로 수행됨
-    required: true
-    status: present
-    evidence: "Outbox → SQS reporting 큐 → ECS Worker"
-  - step: 사람 전용 최종결정 경로 존재
-    required: true
-    status: present
-    evidence: "reporting/application/review_service.py :: record_final_decision"
-  - step: 지원 건 상태 전이 (completed → reviewed)
-    required: true
-    status: present
-    evidence: "review_service.py :: close_invitation_review"
-  - step: 담당자 화면이 리포트 상태를 표시함
-    required: true
-    status: present
-    evidence: "company-console 검토 화면"
-  - step: reporting 경로를 인위적으로 실패시킬 수 있는 수단
-    required: true
-    status: absent
-    evidence: "시험 전용 장애 주입 기능 미구현 (7.7 신규 구현 대상)"
-
-fixtures:
-  applicants:
-    - ref: A1
-      note: 면접 완료, 리포트 생성 대기 상태
-    - ref: A2
-      note: 면접 완료, 리포트 ready (대조군)
-    - ref: A3
-      note: 면접 완료, 리포트 생성 대기 상태
-  users:
-    - ref: U1
-      role: 최초 결정자 (COMPANY_USER)
-
-fault:
-  kind: reporting_down
-  target: |
-    reporting 큐의 워커를 중단하거나 리포트 저장 직전 오류를 발생시켜
-    재시도 한도를 소진시킨다. 작업이 JobStatus.DLQ 로 전환되고 메시지가
-    SQS DLQ 로 이동하는 상태까지 만든다.
-  restore: |
-    주입을 해제하고 DLQ 메시지를 재처리한다. 지원 건 상태·채용 단계·
-    row_version 이 장애 전 기준선과 일치하는지 확인한 뒤 다음 단계로 간다.
+  - precondition_id: target-reporting-present
+    kind: TARGET
+    description: WhyYou reporting 조회 및 생성 경로가 존재한다.
+  - precondition_id: target-final-decision-present
+    kind: TARGET
+    description: COMPANY_USER 정상 최종결정 경로가 존재한다.
+  - precondition_id: runner-fault-ready
+    kind: RUNNER
+    description: local/test 전용 장애 적용·발동 확인·복구 수단이 준비되어 있다.
+  - precondition_id: runner-model-fixture-ready
+    kind: RUNNER
+    description: 허용된 고정 모델 fixture ID와 digest가 확인된다.
 
 steps:
-  - n: 1
-    do: A1·A2·A3 을 만들고 장애 전 기준선을 기록
-    via: api
-    manual: false
-    observe: 지원 건 상태, 채용 단계, row_version, 리포트 상태
-  - n: 2
-    do: reporting 경로에 장애를 주입
-    via: fault
-    manual: false
-    observe: 주입 시각, 대상, 방식
-  - n: 3
-    do: 재시도 한도가 소진될 때까지 기다려 DLQ 전환을 확인
-    via: log
-    manual: false
-    observe: 재시도 횟수, JobStatus.DLQ, SQS DLQ 메시지
-  - n: 4
-    do: 담당자 화면에서 A1 의 리포트 상태를 확인
-    via: api
-    manual: false
-    observe: 화면에 표시된 상태 (처리 중과 최종 실패의 구분)
-  - n: 5
-    do: U1 이 A1 에 대해 최종결정(advance)을 시도
-    via: api
-    manual: false
-    observe: 응답 코드, 오류 내용
-  - n: 6
-    do: 리포트 없이 일반 채용 단계 이동(칸반·일괄)으로 A1 을 확정 단계로 옮김
-    via: api
-    manual: false
-    observe: 응답 코드, 단계 변화 여부
-  - n: 7
-    do: 장애 중 저장 상태를 확인
-    via: log
-    manual: false
-    observe: HumanReview 유무, 단계 이동 기록, 상태 전이 기록, 감사·아웃박스 이벤트
-  - n: 8
-    do: A1·A3 이 자동으로 확정되지 않았는지 확인
-    via: log
-    manual: false
-    observe: 사람 결정 없는 단계 이동·상태 전이 유무
-  - n: 9
-    do: 장애를 복구하고 DLQ 를 재처리한 뒤 기준선 일치를 확인
-    via: fault
-    manual: false
-    observe: 복구 시각, 리포트 상태, 복원 후 상태·단계·row_version
-  - n: 10
-    do: U1 이 A1 에 대해 정상적으로 최종결정을 수행
-    via: api
-    manual: false
-    observe: 결정자, 시각, 단계, 사유, 지원 건 상태
-  - n: 11
-    do: 동일 요청을 한 번 더 전송
-    via: api
-    manual: false
-    observe: 최종결정 기록 수, 상태 전이 중복 여부
+  - step_id: seed-pending-report
+    phase: BASELINE
+    action: h03.subject.seed
+    outputs: []
+    evidence_requirements: []
+  - step_id: capture-baseline
+    phase: BASELINE
+    action: hiring.state.read
+    outputs: [invitation.status, recruiting.stage_id, pipeline.row_version, final_decision.count, final_decision.latest_actor_type, report.api.presence, report.api.status]
+    evidence_requirements: [EV-01, EV-09]
+  - step_id: apply-reporting-fault
+    phase: INJECTED
+    action: reporting.fault.inject
+    outputs: [fault.marker.applied]
+    evidence_requirements: [EV-02]
+  - step_id: trigger-reporting
+    phase: INJECTED
+    action: reporting.trigger
+    outputs: []
+    evidence_requirements: [EV-03]
+  - step_id: confirm-fault-effect
+    phase: INJECTED
+    action: reporting.fault.probe
+    outputs: [fault.effect.receipt_match]
+    evidence_requirements: [EV-03]
+  - step_id: observe-report
+    phase: INJECTED
+    action: reporting.status.read
+    attempt_policy: {max_attempts: 15, backoff_seconds: 2}
+    outputs: [report.api.presence, report.api.status]
+    evidence_requirements: [EV-03]
+  - step_id: observe-company-console
+    phase: INJECTED
+    action: reporting.ui.observe
+    outputs: [report.ui.ready_content_visible, report.ui.status_class]
+    evidence_requirements: [EV-04]
+  - step_id: attempt-final-decision
+    phase: INJECTED
+    action: hiring.final_decision.attempt
+    outputs: [decision.attempt.accepted, decision.attempt.reason_present, decision.attempt.reason_code]
+    evidence_requirements: [EV-05]
+  - step_id: capture-post-decision-state
+    phase: INJECTED
+    action: hiring.state.read
+    outputs: [invitation.status, recruiting.stage_id, pipeline.row_version, final_decision.count, final_decision.latest_actor_type]
+    evidence_requirements: [EV-06]
+  - step_id: observe-automatic-decision-window
+    phase: INJECTED
+    action: hiring.decision_history.read
+    attempt_policy: {max_attempts: 5, backoff_seconds: 2}
+    outputs: [invitation.status, recruiting.stage_id, pipeline.row_version, final_decision.count, final_decision.latest_actor_type]
+    evidence_requirements: [EV-07]
+  - step_id: restore-environment
+    phase: RECOVERED
+    action: reporting.fault.restore
+    outputs: [fault.environment_restore, report.processing_recovery]
+    evidence_requirements: [EV-08]
+    always_run: true
 
-expected: |
-  리포트 생성이 최종 실패하면 담당자 화면이 "처리 중"이 아니라 실패 상태를
-  보여준다. 그 상태에서는 최종결정도, 칸반·일괄 이동도 차단된다. 실패한 작업은
-  재시도 이력과 DLQ 기록으로 남고 조용히 사라지지 않는다. 실패한 결정 시도는
-  아무것도 저장하지 않으며, 장애 중 어떤 지원자도 자동으로 확정되지 않는다.
-  복구 후 사람이 결정하면 결정 기록·단계 이동·상태 전이가 함께 반영되고,
-  같은 요청을 다시 보내도 결정은 한 번만 기록된다.
+assertions:
+  - assertion_id: H03-A1
+    description: reporting 장애가 현재 Run과 대상 session에서 실제 발동했다.
+    expectation: {fault.marker.applied: true, fault.effect.receipt_match: true}
+    required_observation_keys: [fault.marker.applied, fault.effect.receipt_match]
+    required_evidence_ids: [EV-02, EV-03]
+    source_requirements: [FR-016, FR-017]
+  - assertion_id: H03-A2
+    description: 리포트 미준비 상태와 최종 실패 또는 장기 지연이 담당자에게 드러난다.
+    expectation: {report.api.presence: ABSENT, report.ui.ready_content_visible: false, report.ui.status_class: failed_or_delayed}
+    fail_condition: {report.ui.status_class: queued_only}
+    required_observation_keys: [report.api.presence, report.api.status, report.ui.ready_content_visible, report.ui.status_class]
+    required_evidence_ids: [EV-03, EV-04]
+    source_requirements: [FR-027, FR-028, FR-029]
+  - assertion_id: H03-A3
+    description: 정상 최종결정 시도가 대상이 제공한 리포트 부재 이유와 함께 거부된다.
+    expectation: {decision.attempt.accepted: false, decision.attempt.reason_present: true, decision.attempt.reason_code: REPORT_NOT_AVAILABLE}
+    required_observation_keys: [decision.attempt.accepted, decision.attempt.reason_present, decision.attempt.reason_code]
+    required_evidence_ids: [EV-05]
+    source_requirements: [FR-030, FR-031]
+  - assertion_id: H03-A4
+    description: 거부된 결정 시도가 결정 기록·채용 단계·지원 건 상태를 바꾸지 않는다.
+    expectation: {state_matches_baseline: true}
+    required_observation_keys: [invitation.status, recruiting.stage_id, pipeline.row_version, final_decision.count, final_decision.latest_actor_type]
+    required_evidence_ids: [EV-01, EV-06]
+    source_requirements: [FR-032]
+  - assertion_id: H03-A5
+    description: 장애 구간에 사람 요청 없는 자동 최종결정이 없다.
+    expectation: {final_decision.count: 0, final_decision.latest_actor_type: null}
+    required_observation_keys: [invitation.status, recruiting.stage_id, pipeline.row_version, final_decision.count, final_decision.latest_actor_type]
+    required_evidence_ids: [EV-07]
+    source_requirements: [FR-033]
+  - assertion_id: H03-A6
+    description: marker가 비활성화되고 worker가 정상인 안전한 환경으로 복구된다.
+    expectation: {fault.environment_restore: SUCCEEDED}
+    required_observation_keys: [fault.environment_restore, report.processing_recovery]
+    required_evidence_ids: [EV-08]
+    source_requirements: [FR-018, FR-019, FR-020]
 
-rules:
-  - type: state_equals
-    subject: report.visible_state
-    equals: failed
+required_evidence:
+  - {evidence_id: EV-01, description: 장애 전 상태 기준선, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV-02, description: 장애 적용 요청과 결과, artifact_types: [FAULT_RECEIPT]}
+  - {evidence_id: EV-03, description: 일치하는 worker trigger receipt와 report 상태, artifact_types: [FAULT_RECEIPT, HTTP_EXCHANGE]}
+  - {evidence_id: EV-04, description: 담당자 화면과 visible text, artifact_types: [SCREENSHOT, BROWSER_PROJECTION]}
+  - {evidence_id: EV-05, description: 최종결정 요청과 응답, artifact_types: [HTTP_EXCHANGE]}
+  - {evidence_id: EV-06, description: 결정 시도 후 상태, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV-07, description: 자동결정 부재 관찰 창, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV-08, description: 환경 복구와 별도 리포트 처리 결과, artifact_types: [FAULT_RECEIPT, STATE_SNAPSHOT]}
+  - {evidence_id: EV-09, description: 시나리오와 canonical 대상 snapshot, artifact_types: [VERSION_SNAPSHOT]}
 
-  - type: fields_present
-    source: 장애 구간의 작업 기록
-    present: [job.status, sqs.dlq_message, retry.count]
+timing_policy:
+  poll_seconds: 2
+  injected_deadline_seconds: 30
+  automatic_decision_window_seconds: 10
+  environment_restore_deadline_seconds: 120
+  stability_consecutive: 3
+  stability_seconds: 4
 
-  - type: state_equals
-    subject: decision.response_status
-    equals: 409
+restore_policy:
+  mandatory: true
+  action: reporting.fault.restore
+  report_processing_result_field: report.processing_recovery
 
-  - type: state_equals
-    subject: stage_move.response_status
-    equals: 409
+observation_comparators:
+  fault.marker.applied: {kind: EXACT, value_type: boolean}
+  fault.effect.receipt_match: {kind: EXACT, value_type: boolean}
+  report.api.presence: {kind: EXACT, value_type: string}
+  report.api.status: {kind: EXACT, value_type: string}
+  report.ui.ready_content_visible: {kind: EXACT, value_type: boolean}
+  report.ui.status_class: {kind: EXACT, value_type: string}
+  decision.attempt.accepted: {kind: EXACT, value_type: boolean}
+  decision.attempt.reason_present: {kind: EXACT, value_type: boolean}
+  decision.attempt.reason_code: {kind: EXACT, value_type: string}
+  invitation.status: {kind: EXACT, value_type: string}
+  recruiting.stage_id: {kind: EXACT, value_type: string}
+  pipeline.row_version: {kind: EXACT, value_type: integer}
+  final_decision.count: {kind: EXACT, value_type: integer}
+  final_decision.latest_actor_type: {kind: EXACT, value_type: string}
+  fault.environment_restore: {kind: EXACT, value_type: string}
+  report.processing_recovery: {kind: EXACT, value_type: string}
 
-  - type: state_equals
-    subject: invitation.state
-    equals: completed
-
-  - type: state_equals
-    subject: invitation.stage
-    equals: 검토
-
-  - type: fields_present
-    source: 장애 중 저장 상태
-    present: [error.record]
-    absent:
-      - human_review.record
-      - event.stage_moved
-      - event.state_transition
-
-  - type: event_order
-    before: event.stage_moved
-    after: event.state_transition
-    strict: false
-
-  - type: fields_present
-    source: 복구 후 정상 결정
-    present: [human_review.record]
-
-  - type: state_equals
-    subject: human_review.count
-    equals: 1
-
-evidence_required:
-  - 장애 전 기준선 상태·단계·row_version (API)
-  - 장애 주입 시각·대상·방식 (주입 기록)
-  - 재시도 횟수와 JobStatus.DLQ 전환 (로그)
-  - SQS DLQ 메시지 (인프라)
-  - 담당자 화면에 표시된 리포트 상태 (API·캡처)
-  - 최종결정 시도의 요청·응답 (API)
-  - 일반 단계 이동 시도의 요청·응답 (API)
-  - 장애 중 감사·아웃박스 이벤트 (로그)
-  - 장애 중 상태 변경 이력 부재 (로그)
-  - 복구 시각과 복원 후 기준선 일치 (API)
-  - 정상 결정의 결정자·시각·단계·사유 (HumanReview)
-  - 재시도 후 결정 건수 (HumanReview)
-  - 적용 버전 (commit, 평가기준 버전)
-
-inconclusive_when:
-  - reason: NO_TEST_TARGET
-    when: 장애 주입 수단이 없어 DLQ 전환 상태를 만들 수 없는 경우
-  - reason: INSUFFICIENT_EVIDENCE
-    when: 장애 구간의 상태 변경 이력이나 오류 기록을 조회할 수 없는 경우
-  - reason: EVIDENCE_CONFLICT
-    when: API 응답과 로그의 상태가 서로 다르게 관찰되는 경우
-
-defect_variant:
-  available: true
-  how: |
-    현재 main 상태 그대로 실행하는 것이 곧 최초 시험이다. 우회·장애 대응은
-    아직 보완 전이므로 FAIL 이 나오면 그것을 수정 대상으로 기록하고
-    보완 후 같은 조건으로 재시험한다 (기능범위 7.3).
-    최초 실행이 PASS 이면 결함 버전을 따로 만들지 않는다.
-  expected_result: FAIL
-
-status: NOT_RUN
-last_run: null
+source_requirements: [FR-001, FR-002, FR-015, FR-034, FR-055]
+allowed_model_fixtures:
+  h03-report-v1: ce09b95403b34e1390502c90f5c5edc518ddf65d38c8ce881617a37cac6d16b1
+excluded_scope:
+  - reporting retry exhaustion and DLQ
+  - generic Kanban or batch stage-move bypass
+  - post-recovery idempotency
+  - Outbox and decision-history completeness

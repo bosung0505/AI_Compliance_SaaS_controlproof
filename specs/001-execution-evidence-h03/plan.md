@@ -24,7 +24,7 @@ WhyYou 현재 구현을 기준으로 한 연결 지점은 다음과 같다.
 
 **Primary Dependencies**: Pydantic 2.x, PyYAML 6.x, HTTPX 0.27+, Jinja2 3.x, Python Playwright 1.55+, SQLAlchemy 2.x와 Psycopg 3.x(WhyYou 상태 seed·제한 조회), 표준 라이브러리 `hashlib`, `json`, `pathlib`, `uuid`, `fcntl/msvcrt` 호환 잠금
 
-**Storage**: ControlProof는 `.controlproof/runs/{run_id}/`의 append-only JSONL 및 JSON manifest와 원본 artifact 파일을 사용한다. WhyYou 시험 데이터는 기존 PostgreSQL·SQS/LocalStack·로컬 object storage를 사용하며 운영 데이터는 사용하지 않는다.
+**Storage**: ControlProof는 `.controlproof/runs/{run_id}/`의 append-only JSONL 및 JSON manifest와 원본 artifact 파일을 사용한다. Run마다 canonical `TargetSnapshot` JSON과 그 SHA-256 기반 `target_version`을 저장한다. WhyYou 시험 데이터는 기존 PostgreSQL·SQS/LocalStack·로컬 object storage를 사용하며 운영 데이터는 사용하지 않는다.
 
 **Testing**: pytest 단위·계약·통합 테스트, HTTPX `MockTransport`, Playwright Chromium 화면 검증, Ruff 정적 검사
 
@@ -48,13 +48,13 @@ WhyYou 현재 구현을 기준으로 한 연결 지점은 다음과 같다.
 | II. 대상·준비·결과 분리 | capability 존재, runner 준비, 접근 가능성을 Readiness에서 별도로 계산한다. 훅 부재는 `RUNNER_NOT_READY`다. | PASS |
 | III. 사람의 최종 결정 권한 | ControlProof는 회사 사용자 자격으로 정상 endpoint의 거부 여부만 시험하고 결정을 대신 만들지 않는다. 점수 임계값을 사용하지 않는다. | PASS |
 | IV. 시나리오/어댑터 분리 | H-03 YAML은 의도·step·assertion을, WhyYou adapter는 API·DB·브라우저·fault 연결을 소유한다. | PASS |
-| V. 격리·결정론·복구 | 합성 데이터, 테스트 전용 만료형 fault marker, LLM 대역, finally 복구와 환경 lock을 사용한다. | PASS |
+| V. 격리·결정론·복구 | 합성 데이터, 테스트 전용 만료형 fault marker, preflight로 확인하는 고정 LLM 대역, finally 복구와 환경 lock을 사용한다. | PASS |
 | VI. 불변 결과·재시험 계보 | 완료 Run 디렉터리는 봉인하고 자식 Run은 `parent_run_id`로 연결한다. | PASS |
 | VII. 명세-증적 추적성 | FR/AC → scenario step/assertion → task/test → observation/evidence/verdict ID를 보존한다. | PASS |
 
 ### Phase 1 재확인
 
-데이터 모델은 Run 상태와 Verdict를 분리하고, 계약은 저장 전 마스킹·해시, target-scoped lock, 강제 복구, 불변 bundle을 명시한다. WhyYou test hook은 기본 비활성·테스트 profile·세션 allowlist·TTL을 모두 요구한다. 설계 후 위반 사항은 없으며 Complexity Tracking 예외도 없다.
+데이터 모델은 Run 상태와 Verdict를 분리하고, 계약은 저장 전 마스킹·해시, target-scoped lock, 강제 복구, 불변 bundle을 명시한다. WhyYou test hook은 기본 비활성·테스트 profile·세션 allowlist·TTL을 모두 요구한다. 외부 LLM을 호출하는 실제 경로는 fixture ID와 digest가 고정된 대역이 활성화되지 않으면 `RUNNER_NOT_READY`로 차단한다. 설계 후 위반 사항은 없으며 Complexity Tracking 예외도 없다.
 
 ## Architectural Decisions
 
@@ -75,32 +75,50 @@ Spec 001은 별도 ControlProof 작업 큐를 만들지 않는다. `RunOrchestra
 - marker의 run/session/fault type이 스키마와 allowlist에 일치
 - marker가 만료되지 않음
 
-발동 시 worker는 `CONTROLPROOF_FAULT_TRIGGERED` 구조화 로그를 남긴 뒤 기존 재시도 경로로 진입한다. production profile에서 훅 활성화 요청은 시작 단계에서 실패해야 한다. 첫 Spec은 재시도 소진과 DLQ를 기다리지 않는다.
+발동 시 worker는 `CONTROLPROOF_FAULT_TRIGGERED` 구조화 로그를 남기고, 같은 필드를 `${CONTROLPROOF_FAULT_ROOT}/receipts/{run_id}.jsonl`에 append+fsync한 뒤 기존 재시도 경로로 진입한다. receipt는 `run_id`, `session_id`, `outbox_event_id`, `delivery_attempt`, `fault_type`, `triggered_at`을 포함하며 ControlProof가 직접 읽을 수 있는 EV-03의 1차 원본이다. 전체 worker 로그는 보조 관찰일 뿐 필수 수집 대상이 아니다. production profile에서 훅 활성화 요청은 시작 단계에서 실패해야 한다. 첫 Spec은 재시도 소진과 DLQ를 기다리지 않는다.
 
-### 4. 실제 제품 동작은 어댑터로 읽고 판정을 미리 정하지 않는다
+### 4. 결정론적 WhyYou 모델 대역
+
+H-03의 복구 단계에서 reporting 처리가 재개되어도 외부 LLM의 응답·지연·가용성 때문에 Run 결과가 달라지지 않도록 WhyYou의 기존 report 생성 의존성 주입 경계에 고정 결과 대역을 연결한다. 대역은 local/test profile에서만 활성화할 수 있고, fixture ID와 canonical fixture digest를 health/capability probe로 노출한다. production profile에서 활성화 요청은 startup 실패다. ControlProof preflight는 대역 활성화, 허용된 fixture ID, digest 읽기를 모두 확인하지 못하면 `RUNNER_NOT_READY`로 중단한다.
+
+### 5. 실제 제품 동작은 어댑터로 읽고 판정을 미리 정하지 않는다
 
 현재 리포트 미존재 API는 `202 queued`, 콘솔은 “최종 리포트를 생성하고 있습니다.”를 계속 표시한다. H03-A2는 30초 관찰 창 안에 ready와 구별되는 상태뿐 아니라 최종 실패/장기 지연이 드러나는지도 평가한다. 단순 `queued` 반복은 원시 사실로 보존하며 Spec의 규칙대로 FAIL 여부를 계산한다.
 
-최종결정은 동일한 회사 사용자 bearer와 공개된 정상 endpoint로 시도한다. 화면에 버튼이 없어 API를 호출하더라도 권한·route·payload는 실제 정상 경로와 동일해야 하며, 별도 관리자 DB write는 금지한다. 응답 status/detail과 전후 DB/API 상태가 함께 A3/A4의 근거가 된다.
+최종결정은 동일한 회사 사용자 bearer와 공개된 정상 endpoint로 시도한다. 화면에 버튼이 없어 API를 호출하더라도 권한·route·payload는 실제 정상 경로와 동일해야 하며, 별도 관리자 DB write는 금지한다. 응답 status/detail과 전후 DB/API 상태가 함께 A3/A4의 근거가 된다. adapter는 대상 응답 body나 안정된 target error code에 리포트 부재 의미가 실제 존재할 때만 `REPORT_NOT_AVAILABLE`로 정규화한다. 일반 404, 빈 detail, 네트워크 오류에서 이유를 추론하지 않으며, 거부됐어도 명시적 이유가 없으면 H03-A3은 FAIL이다.
 
-### 5. seed와 trigger 분리
+### 6. seed와 trigger 분리
 
 H-03 seed는 리포트가 없는 completed session, final video, 최종 turn·transcript, 회사 사용자, 채용 단계까지 준비한다. `report.generation_requested` 이벤트 발행은 장애 marker가 적용된 뒤 별도 trigger step에서 수행한다. 기존 `state_seed.py`의 ready report fixture는 E 계열 기준선용으로 남기고 H-03에 재사용하지 않는다.
 
-### 6. 판정 우선순위
+### 7. 판정 우선순위
 
 직접 관찰한 보호조치 위반은 finding으로 보존한다. 다만 Run이 `ABORTED`/`RESTORE_FAILED`이거나 A1/A6을 평가할 수 없으면 전체 verdict는 `INCONCLUSIVE`이고 발견된 위험을 summary에 병기한다. 정상 완료 Run에서는 직접 FAIL이 하나라도 있으면 전체 FAIL, FAIL이 없고 필수 평가 공백이 있으면 INCONCLUSIVE, 나머지만 PASS다.
+
+### 8. Canonical TargetSnapshot과 구현 상태
+
+대상 버전은 git SHA, image digest, OpenAPI digest 중 하나를 임의로 선택하는 문자열이 아니다. adapter가 `controlproof.target-snapshot.v1` JSON을 만들고 identity fields의 canonical JSON bytes에 대한 SHA-256을 `target_version=target-snapshot:sha256:<64 lowercase hex>`로 사용한다. snapshot에는 `target_id`, source kind, git commit/dirty/diff digest, service별 container image digest, OpenAPI digest, schema migration head/signature digest, model fixture ID/digest와 수집 시각을 담되 `captured_at`과 `target_version`은 identity hash와 재시험 component diff에서 제외한다. Git 또는 image identity 중 하나 이상이 필수다. H-03 actual Run은 clean git checkout만 허용하며 dirty면 diagnostic snapshot을 만든 뒤 `RUNNER_NOT_READY`로 중단한다. dirty diagnostic의 `git_diff_digest`는 porcelain-v1-z 상태·경로와 현재 파일 hash/`DELETED`를 canonical JSON으로 만든 hash다. container를 사용하면 `backend`, `reporting-worker`, `company-console` 세 canonical component digest가 모두 필요하다. 재시험 비교는 identity digest가 다를 때 변경된 identity field path만 출력한다.
+
+ControlProof 구현 상태는 `NOT_IMPLEMENTED|PARTIAL|IMPLEMENTED` 세 값만 사용한다. scenario가 요구하는 capability handler 등록과 contract version 일치 여부만으로 계산하고 target verdict나 일시적 접근 실패로 바꾸지 않는다. 대상 기능이 존재하는 경우 `PARTIAL|NOT_IMPLEMENTED`는 readiness를 `RUNNER_NOT_READY`로 만들며 Run을 생성하지 않는다. 대상 기능 자체가 없으면 구현 상태와 별개로 `NO_TEST_TARGET`가 우선한다. 따라서 생성된 Run은 당시 `IMPLEMENTED` 상태를 snapshot으로 가진다.
+
+### 9. SC-008 시간 측정 검증
+
+자동 traceability 시험과 별도로 결과 bundle을 만들지 않은 검토자 1명이 canonical PASS·FAIL·INCONCLUSIVE bundle 각 1건을 검토한다. 각 건은 Run ID 전달 시각부터 타이머를 시작하고 문서화된 `controlproof show`만 사용한다. verdict, 핵심 이유, 실패/판정 불가 assertion, 증적 링크, 환경 복구 상태의 정답과 소요 시간을 기록하며 3건 모두 120초 이하이고 오답·누락이 0개여야 SC-008 PASS다. 결과는 비식별 reviewer ref와 함께 `validation.md`에 남긴다.
 
 ## Observation and Timing Policy
 
 - 기본 polling 간격: 2초
-- 장애 효과 확인: worker 발동 로그와 `report absent/queued`가 모두 관찰될 때 성립
+- 장애 효과 확인: worker trigger receipt와 `report absent/queued`가 모두 관찰될 때 성립; 구조화 로그는 보조 근거
 - 담당자 표시 관찰 창: fault 발동 확인 시점부터 30초
 - 안정화 조건: 같은 의미의 상태가 3회 연속 관찰되고 최소 4초 이상 지속
 - 자동결정 부재 창: decision 거부 뒤 10초 동안 decision history와 3개 상태 필드를 2초 간격으로 관찰
-- 복구 기한: marker 제거 후 120초 안에 report `ready|partial` 도달 및 worker 재처리 확인
+- 환경 복구 기한: marker 제거 후 120초 안에 marker 비활성 및 worker health 정상 확인
+- 리포트 처리 복구: 같은 120초 창에서 `ready|partial|failed|timeout`을 별도 상태로 기록; `failed|timeout`은 finding이지만 환경 복구 성공을 덮어쓰지 않음
 - 원시 polling 결과: 모두 JSONL로 보존
 - 판정 입력: 관찰 창의 마지막 안정 상태와 필요한 전후 비교값
+- 같은 차원 값 비교: scenario snapshot의 key별 comparator 사용; 미선언 key는 `EXACT`
+- Spec 001 comparator: assertion 입력 key는 모두 `EXACT`; `observed_at`은 비교값이 아닌 metadata
+- 향후 허용 오차: `ABSOLUTE_TOLERANCE`와 0 이상의 절대값을 scenario에 함께 선언한 경우만 허용; 비율·암묵적 형변환 금지
 
 이 수치는 `scenario_version`에 포함된다. 변경하면 새 scenario version으로만 적용하며 과거 Run 해석을 바꾸지 않는다.
 
@@ -121,6 +139,8 @@ specs/001-execution-evidence-h03/
 │   └── whyyou-adapter.md
 ├── checklists/
 │   └── requirements.md
+├── review-usability-checklist.md # SC-008 120초 검토 프로토콜과 정답 양식
+├── validation.md            # 자동·실제 스택·시간 측정 결과
 └── tasks.md                 # $speckit-tasks 단계에서 생성
 ```
 
@@ -130,6 +150,7 @@ specs/001-execution-evidence-h03/
 engine/
 ├── __init__.py
 ├── cli.py                   # preflight/run/show/verify/retest 명령
+├── config.py                # 환경설정·allowlist·timing policy
 ├── models.py                # 공통 enum·entity·식별 차원
 ├── lifecycle.py             # Run 상태 전이와 target lock
 ├── readiness.py             # capability/runner/access 평가
@@ -138,11 +159,14 @@ engine/
 ├── observations.py          # polling, 존재 상태, 안정화, 충돌 판정
 ├── evidence.py              # redact → persist → hash → manifest
 ├── judge.py                 # assertion 및 전체 verdict
+├── presentation.py          # 비개발자용 결과 projection
+├── retest.py                # 부모 불변 확인과 자식 Run 비교
 └── adapters/
     ├── __init__.py
     ├── base.py              # 서비스 중립 Protocol
     └── whyyou/
         ├── __init__.py
+        ├── adapter.py       # WhyYou capability 구현 조합
         ├── client.py        # 회사 API·인증·버전
         ├── capability.py    # endpoint/hook/access 점검
         ├── seed.py          # H-03 pending-report fixture
@@ -186,23 +210,24 @@ WhyYou의 테스트 전용 변경은 WhyYou 저장소에서 별도 커밋으로 
 | 요구사항 묶음 | 주요 구현 | 계약/시험 |
 |---|---|---|
 | FR-001~006 | `scenario.py`, `readiness.py`, capability adapter | scenario/adapter contract tests |
-| FR-007~014 | `models.py`, `lifecycle.py`, `runner.py` | lifecycle unit, CLI contract |
+| FR-007~014 | `models.py`, `lifecycle.py`, `runner.py`, canonical TargetSnapshot | lifecycle/model unit, CLI contract |
 | FR-015~020 | `fault.py`, target lock, restore guard | fault adapter contract, restore-failure integration |
-| FR-021~026 | `observations.py`, dimension-complete model | observation/conflict unit tests |
+| FR-021~026 | `observations.py`, dimension-complete model, comparator registry | observation/conflict unit tests |
 | FR-027~034 | WhyYou API/browser/state adapters | H-03 orchestration integration |
 | FR-035~041 | `evidence.py`, bundle manifest | evidence-bundle contract, tamper tests |
-| FR-042~050 | `judge.py` | normal/fail/missing/conflict/abort fixtures |
+| FR-042~050 | `judge.py`, implementation status projection | normal/fail/missing/conflict/abort fixtures, readiness matrix |
 | FR-051~054 | `retest`, sealed parent bundle | retest lineage tests |
+| FR-055 | WhyYou fixed model substitute, capability preflight | deterministic substitute contract/real-stack test |
 
 ## Implementation Sequence
 
-1. 공통 enum/entity와 lifecycle/observation identity를 고치고 기존 테스트를 새 계약으로 전환한다.
+1. 공통 enum/entity, canonical TargetSnapshot, implementation status와 lifecycle/observation identity·comparator를 고치고 기존 테스트를 새 계약으로 전환한다.
 2. Evidence Bundle writer와 마스킹·해시·검증을 만든다.
 3. H-03 YAML을 6개 assertion/9종 evidence/복구 단계에 맞게 교체한다.
-4. WhyYou capability/state/seed adapter를 구현하고 read-only contract tests를 통과시킨다.
-5. WhyYou 저장소에 test-only reporting fault hook을 별도 커밋으로 추가하고 production-disable test를 만든다.
+4. WhyYou capability/state/seed adapter를 구현하고 fault receipt·고정 모델 대역을 포함한 read-only contract tests를 통과시킨다.
+5. WhyYou 저장소에 test-only reporting fault hook과 deterministic model substitute를 별도 커밋으로 추가하고 production-disable test를 만든다.
 6. `RunOrchestrator`와 CLI를 연결해 fake adapter E2E를 먼저 통과시킨다.
-7. 격리된 WhyYou 로컬 스택에서 최초 H-03 Run을 수행하고 원본 결과를 봉인한다.
+7. capability 구현과 preflight가 모두 통과한 뒤에만 격리된 WhyYou 로컬 스택에서 최초 H-03 Run을 수행하고 원본 결과를 봉인한다.
 8. 실제 FAIL이 확인되고 수정이 승인된 경우에만 WhyYou 보호조치를 수정하고 자식 Run으로 재시험한다.
 
 ## Migration and Compatibility
@@ -219,13 +244,19 @@ WhyYou의 테스트 전용 변경은 WhyYou 저장소에서 별도 커밋으로 
 | 위험 | 대응 |
 |---|---|
 | test hook이 운영에서 활성화됨 | profile+env+allowlist+TTL 4중 gate, production startup rejection, 계약 테스트 |
+| 실제 외부 LLM 변동이 Run을 바꿈 | local/test 전용 고정 fixture 대역과 digest preflight; 미확인 시 `RUNNER_NOT_READY` |
 | marker가 남아 후속 Run에 영향 | finally restore, expiry, target lock, restore 실패 차단 파일 |
+| worker 로그 접근 방식이 환경마다 다름 | 공유 fault root의 append-only trigger receipt를 EV-03 1차 원본으로 사용 |
 | 화면과 API가 다른 사실을 말함 | 동일 차원의 독립 source로 수집하고 conflict 또는 assertion FAIL을 명시 |
 | 202 polling이 무한 지속 | 30초 deadline과 raw timeline 보존, timeout을 성공으로 취급하지 않음 |
 | direct DB seed가 WhyYou schema와 어긋남 | WhyYou version/OpenAPI/migration hash preflight, adapter contract fixture, 실패 시 `RUNNER_NOT_READY` |
 | 최종결정 거부 뒤 일부 상태 변경 | 세 필드와 decision history를 같은 전후 snapshot으로 비교 |
+| 일반 404가 명시적 거부 이유로 오인됨 | target body/code에 근거한 allowlist mapping만 허용하고 generic 404는 `reason_present=false` |
 | 증적에 bearer/이메일이 남음 | allowlist projection, header/body redactor, 저장 전 검증, raw response 직접 write 금지 |
 | WhyYou 업데이트로 endpoint/status가 바뀜 | adapter mapping에 target version을 연결하고 contract failure를 target FAIL로 오판하지 않음 |
+| 같은 target을 서로 다른 버전 문자열로 기록 | canonical TargetSnapshot JSON과 digest만 `target_version`으로 사용하고 component diff를 별도 표시 |
+| 구현 상태와 대상 FAIL이 혼동됨 | handler/contract 등록으로만 구현 상태를 계산하고 verdict·readiness와 별도 출력 |
+| 2분 검토 기준이 주관적으로 통과됨 | 비작성자 1명·canonical 3건·지정 5개 답안·건별 120초·validation 기록으로 gate 고정 |
 
 ## Complexity Tracking
 

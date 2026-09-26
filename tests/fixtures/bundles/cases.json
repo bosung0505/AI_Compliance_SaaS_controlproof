@@ -1,0 +1,12 @@
+{
+  "schema_version": "controlproof.canonical-cases.v1",
+  "synthetic_only": true,
+  "cases": {
+    "pass": {},
+    "fail": {"status_class": "queued_only"},
+    "missing": {"effect": false},
+    "conflict": {"fixture_transform": "same-dimension-contradiction"},
+    "aborted": {"fixture_transform": "raise-after-fault"},
+    "restore_failed": {"restore": false}
+  }
+}

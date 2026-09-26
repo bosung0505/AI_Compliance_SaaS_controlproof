@@ -33,7 +33,8 @@ $speckit-implement
 $speckit-converge
 ```
 
-현재 Spec 001은 작성과 품질 검토가 끝났으므로 다음 단계는 `$speckit-clarify`다. 모호성이 없음을 확인한 뒤 `$speckit-plan`으로 이동한다.
+현재 Spec 001은 clarify, plan, tasks, analyze를 거쳐 구현 단계에 들어갔다. fake adapter 기반
+H-03 수직 흐름, 봉인 증적, 검토, 무결성 확인, 재시험 계보, readiness CLI까지 구현되어 있다.
 
 ## 개발 환경
 
@@ -52,7 +53,32 @@ python3.12 -m venv .venv
 .\.venv\Scripts\python.exe -m pytest
 ```
 
-## 현재 골격
+## H-03 실행 흐름
+
+실제 실행 전 `.env.example`의 로컬 전용 변수들을 별도 `.env` 또는 shell에 설정한다. 운영 URL,
+운영 DB, 실제 지원자 자료를 사용하면 안 된다.
+
+```powershell
+controlproof preflight H-03 --target whyyou-local --json
+controlproof run H-03 --target whyyou-local --label first-h03 --json
+controlproof show <RUN_ID> --json
+controlproof verify <RUN_ID> --json
+controlproof retest <RUN_ID> --target whyyou-local --label after-fix --json
+```
+
+- preflight가 `READY`가 아니면 Run은 만들어지지 않는다.
+- target의 보호조치가 실제로 실패한 정상 시험 결과는 exit 3이다. 이는 ControlProof 구현 실패가 아니다.
+- 실행 중 오류나 중단 뒤에도 restore를 먼저 수행한다.
+- `RESTORE_FAILED`이면 같은 target/subject의 다음 Run이 막힌다. marker 부재와 target 안전을
+  확인한 evidence 파일로만 `cleanup-confirm`할 수 있으며 force 해제는 없다.
+- `verify`는 원본을 고치지 않고 hash, manifest, artifact envelope, scenario/target 연결을 검사한다.
+- `retest`는 부모 bundle을 수정하지 않고 새 Run과 `retest-diff.json`을 만든다. 부모가 이미
+  PASS라면 데모를 위해 결함 버전을 만들 필요가 없다.
+
+상세 재현 절차는 [quickstart](./specs/001-execution-evidence-h03/quickstart.md), 검토 기준은
+[review usability checklist](./specs/001-execution-evidence-h03/review-usability-checklist.md)를 따른다.
+
+## 구현 구조
 
 - `engine/`: 실행·관찰·판정 모델의 초기 spike
 - `scenarios/`: H-03 초기 시나리오와 템플릿
@@ -62,4 +88,11 @@ python3.12 -m venv .venv
 - `.specify/`: Spec Kit 설정·스크립트·템플릿·Constitution
 - `.agents/skills/`: Codex용 Spec Kit skills
 
-현재 골격의 데이터 계약은 확정본이 아니다. Spec 001의 Plan에서 readiness 분리, Observation 식별 차원, 증적 무결성, Run 생명주기와 reason code를 반영한 뒤 구현한다.
+- `engine/runner.py`: H-03 순서와 의무 restore
+- `engine/evidence.py`: redaction, 원자 저장, manifest 봉인, 읽기 전용 검증
+- `engine/judge.py`: H03-A1~A6와 verdict 우선순위
+- `engine/presentation.py`: 비개발자 검토용 요약
+- `engine/retest.py`: 부모 불변 재시험 계보와 diff
+- `engine/adapters/whyyou/`: WhyYou HTTP/DB/브라우저/fault/capability 경계
+- `scenarios/H-03.yaml`: 버전 고정 시나리오 정의
+- `tests/`: 단위, 계약, 통합 및 합성 bundle case

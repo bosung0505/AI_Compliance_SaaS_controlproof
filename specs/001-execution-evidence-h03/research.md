@@ -52,13 +52,13 @@ Product Brief와 Spec 001의 제품 의미를 유지하면서 현재 WhyYou 공�
 
 | 확인할 사실 | 1차 관측 | 보조 관측 |
 |---|---|---|
-| fault 적용 | marker apply receipt | worker의 `CONTROLPROOF_FAULT_TRIGGERED` 로그 |
+| fault 적용 | worker의 공유 `CONTROLPROOF_FAULT_TRIGGERED` receipt | marker apply receipt와 구조화 로그 |
 | report 미준비 | report API `202 queued` | report row 부재 제한 조회 |
 | 담당자 표시 | Playwright 화면 캡처와 visible text | 2초 polling timeline |
 | decision 거부 | 정상 final-decision API status/detail | human review row 부재 |
 | 부분 변경 없음 | invitation status, stage, pipeline version 전후 비교 | decision history count |
 | 자동결정 없음 | 관찰 창의 decision history | invitation/stage 상태 시계열 |
-| 복구 | marker 부재 + report 생성 재개 | worker 처리 로그와 report status |
+| 환경 복구 | marker 부재 + worker health | report 처리 결과는 별도 recovery status |
 
 **Rationale**: 화면만으로 backend side effect를 증명할 수 없고, DB만으로 담당자가 무엇을 보았는지 증명할 수 없다. 독립 source는 같은 차원에서만 충돌을 판정한다.
 
@@ -119,7 +119,7 @@ Product Brief와 Spec 001의 제품 의미를 유지하면서 현재 WhyYou 공�
 
 ## R-08. Run concurrency와 복구
 
-**Decision**: `target_id + subject_ref` 기준의 host file lock을 Run 시작부터 복구 완료까지 유지한다. 장애 적용 성공 여부와 무관하게 marker 생성 시도 이후는 `finally`에서 restore를 호출한다. restore 성공을 확인하지 못하면 `RESTORE_FAILED`와 block marker를 저장한다.
+**Decision**: `target_id + subject_ref` 기준의 host file lock을 Run 시작부터 복구 완료까지 유지한다. 장애 적용 성공 여부와 무관하게 marker 생성 시도 이후는 `finally`에서 restore를 호출한다. marker 비활성과 worker 정상으로 환경 restore 성공을 확인하지 못하면 `RESTORE_FAILED`와 block marker를 저장한다. 이후 report 처리 결과는 환경 restore와 별도 기록한다.
 
 **Rationale**: 같은 세션에 두 Run이 marker를 적용·삭제하면 한 Run의 복구가 다른 Run의 fault를 풀 수 있다. 단일 host MVP에는 파일 잠금이 충분하며, 이후 분산 실행 시 lease 저장소로 대체한다.
 
@@ -152,7 +152,7 @@ Product Brief와 Spec 001의 제품 의미를 유지하면서 현재 WhyYou 공�
 
 ## R-12. 대상 수정과 검증 도구의 저장소 경계
 
-**Decision**: WhyYou hook과 향후 보호조치 수정은 WhyYou 저장소의 별도 commit/PR로 관리한다. ControlProof 저장소에는 adapter와 계약, target commit SHA만 보존한다.
+**Decision**: WhyYou hook과 향후 보호조치 수정은 WhyYou 저장소의 별도 commit/PR로 관리한다. ControlProof 저장소에는 adapter와 계약, git commit을 포함한 canonical TargetSnapshot과 그 digest를 보존하며 target 코드를 복사하지 않는다.
 
 **Rationale**: target 코드 복사본을 ControlProof 안에 두면 어떤 버전을 실제 시험했는지 모호해진다. target 수정 전 Run과 수정 후 Run의 `target_version`이 달라야 FAIL→PASS 계보가 설명된다.
 
@@ -165,3 +165,59 @@ Phase 0에서 구현을 막는 미결정 사항은 없다. 다음 항목은 제�
 - 로컬 회사 사용자 bearer 획득 방식
 
 세 값은 adapter config로 외부화하며 의미나 판정 규칙을 바꾸지 않는다.
+
+## Analyze 보완 결정 (2026-09-25)
+
+### R-13. 외부 AI는 preflight로 확인되는 고정 대역만 사용
+
+**Decision**: H-03의 report 생성 경로는 local/test 전용 고정 fixture 대역을 사용한다. fixture ID와 canonical SHA-256을 capability probe와 Run snapshot에 남기며, 대역 비활성·digest 불일치·probe 실패는 `RUNNER_NOT_READY`다. 실제 외부 LLM으로 자동 fallback하지 않는다.
+
+**Rationale**: “고정 대역을 사용한다”는 계획 문구만으로는 Constitution의 결정론 요구를 구현하거나 시험할 수 없다. 특히 장애 해제 뒤 report 처리가 재개되면 외부 모델 응답이 Run 결과를 바꿀 수 있으므로 실행 전에 강제해야 한다.
+
+### R-14. 장애 발동 증적은 공유 trigger receipt가 1차 원본
+
+**Decision**: WhyYou worker가 fault를 실제 발동하는 순간 `${CONTROLPROOF_FAULT_ROOT}/receipts/{run_id}.jsonl`에 상관관계 필드를 append+fsync한다. 구조화 로그는 운영 진단용 보조 증적으로만 사용한다.
+
+**Rationale**: 컨테이너 runtime마다 로그 조회 방법과 권한이 달라지면 EV-03 수집이 구현 시점까지 미정으로 남는다. marker와 같은 공유 경계의 작은 receipt는 2주 MVP에서 결정론적으로 수집·검증할 수 있고 전체 로그 저장도 피한다.
+
+### R-15. 최종결정 거부 이유는 대상 응답에서만 정규화
+
+**Decision**: target body 또는 안정된 target error code가 리포트 부재를 명시한 경우에만 `REPORT_NOT_AVAILABLE`로 정규화한다. 일반 404·빈 detail·adapter 사전 지식은 `reason_present=false`이며 H03-A3 FAIL이다.
+
+**Rationale**: adapter가 이유를 만들어내면 WhyYou가 실제로 사용자에게 설명했는지 검증할 수 없고, 부실한 응답이 PASS로 세탁된다.
+
+### R-16. 환경 복구와 업무 처리 복구를 분리
+
+**Decision**: `environment_restore`는 marker 비활성과 worker 정상으로 판정한다. report의 후속 결과는 `READY|PARTIAL|FAILED|TIMEOUT|UNAVAILABLE`로 별도 기록한다. 후자의 실패는 finding이지만 전자의 성공을 덮어쓰지 않는다.
+
+**Rationale**: ControlProof가 주입한 장애를 안전하게 제거했는지와 WhyYou의 report가 정상 생성됐는지는 서로 다른 사실이다. 두 값을 하나로 합치면 안전한 정리는 실패로 보이거나, 반대로 제품 처리 실패가 사라질 수 있다.
+
+### R-17. 실제 WhyYou Run은 capability 구현 이후에만 수행
+
+**Decision**: US1의 독립 시험은 credential-free deterministic adapter harness로 완료한다. 실제 WhyYou local-stack Run은 capability classifier와 preflight, target-side safety test가 모두 통과한 T077에서 처음 수행한다.
+
+**Rationale**: capability 구현보다 먼저 실제 통합시험을 배치하면 RunOrchestrator가 readiness 단계에서 멈추므로 작업 순서가 실행 불가능하다. fake 수직 흐름과 실제 환경 검증의 시점을 분리하면 US1은 독립적으로 개발하면서도 실제 시험의 안전 gate를 유지할 수 있다.
+
+### R-18. SC-008은 비작성자 1명·3개 bundle의 실측 gate
+
+**Decision**: 결과 bundle을 만들지 않은 검토자 1명이 canonical PASS·FAIL·INCONCLUSIVE 3건을 각각 `controlproof show`만으로 검토한다. Run ID 전달부터 답안 완료까지 건별 120초 이하이고 지정된 5개 답이 모두 맞아야 하며 원시 시각·소요 시간·답안을 `validation.md`에 남긴다.
+
+**Rationale**: 출력 필드가 존재한다는 자동시험만으로는 사람이 2분 안에 찾는다는 성공 기준을 증명하지 못한다. 반대로 자유 형식 사용성 평가는 통과 기준이 주관적이므로 대상·도구·답안·타이머 경계를 고정했다.
+
+### R-19. Spec 001의 관찰값 비교는 기본·명시 모두 EXACT
+
+**Decision**: 모든 미선언 observation key는 type-strict `EXACT`로 비교하고 H-03 assertion 입력 key도 scenario registry에 `EXACT`로 명시한다. `observed_at`은 metadata라 비교하지 않는다. 이후 다른 scenario가 오차를 필요로 할 때만 key별 `ABSOLUTE_TOLERANCE`와 0 이상의 절대값을 버전에 포함한다.
+
+**Rationale**: “허용 범위”를 구현자 판단에 맡기면 같은 증적이 환경마다 conflict 또는 정상으로 달라질 수 있다. 현재 H-03에는 실제 tolerance가 필요한 assertion 값이 없으므로 0 오차가 가장 재현 가능하다.
+
+### R-20. target_version은 TargetSnapshot canonical digest
+
+**Decision**: git SHA나 image digest 하나를 `target_version`으로 고르지 않는다. git·image·OpenAPI·schema·model fixture를 `controlproof.target-snapshot.v1` JSON에 모으고, `target_version`은 `captured_at`과 `target_version`을 제외한 identity fields canonical JSON의 `target-snapshot:sha256:<digest>`다. H-03 actual Run은 clean git만 허용하고 dirty checkout은 deterministic porcelain/file-hash diagnostic을 남긴 뒤 중단한다. container 사용 시 `backend`, `reporting-worker`, `company-console` digest를 모두 요구하며 재시험은 metadata를 제외한 변경 identity field path만 기록한다.
+
+**Rationale**: 같은 commit이라도 dirty patch, container image, API/schema가 다르면 실제 시험 대상은 다르다. 반대로 여러 문자열을 제각각 version으로 쓰면 Run 비교가 불가능하다. snapshot digest 하나를 식별자로 쓰고 사람이 필요한 component를 별도 표시하는 방식이 두 요구를 모두 만족한다.
+
+### R-21. 구현 상태는 capability 등록 완성도만 표현
+
+**Decision**: `NOT_IMPLEMENTED|PARTIAL|IMPLEMENTED` 세 값만 사용한다. 필수 handler가 0개면 NOT_IMPLEMENTED, 일부 누락 또는 contract version 불일치면 PARTIAL, 모두 등록·일치하면 IMPLEMENTED다. 대상 기능이 존재할 때 앞의 두 상태는 `RUNNER_NOT_READY`이며 Run을 만들지 않는다. 대상 기능 자체가 없으면 `NO_TEST_TARGET`가 우선한다. target verdict와 runtime 오류는 구현 상태를 바꾸지 않는다.
+
+**Rationale**: WhyYou가 FAIL했다는 이유로 ControlProof를 미구현으로 표시하거나, 접근 차단을 PARTIAL로 표시하면 제품 완성도·환경 준비·대상 결과가 다시 섞인다. 계산 입력을 code registration으로 제한하면 세 축이 독립적으로 유지된다.

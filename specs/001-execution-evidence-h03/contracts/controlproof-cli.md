@@ -37,7 +37,21 @@ python -m engine.cli preflight H-03 --target whyyou-local --json
   "scenario_id": "H-03",
   "scenario_version": "1.0.0",
   "target_id": "whyyou-local",
-  "target_version": "git:<sha>",
+  "target_version": "target-snapshot:sha256:<64-lowercase-hex>",
+  "target_snapshot": {
+    "source_kind": "GIT_AND_CONTAINER",
+    "git_commit_sha": "40-lowercase-hex",
+    "git_dirty": false,
+    "container_image_digests": {"backend": "sha256:<64-lowercase-hex>"},
+    "openapi_digest": "64-lowercase-hex",
+    "schema_migration_head": "migration-head",
+    "schema_signature_digest": "64-lowercase-hex",
+    "model_fixture_id": "h03-report-v1",
+    "model_fixture_digest": "64-lowercase-hex"
+  },
+  "model_fixture_id": "h03-report-v1",
+  "model_fixture_digest": "64-lowercase-hex",
+  "implementation_status": "IMPLEMENTED",
   "readiness": "READY",
   "checks": [
     {
@@ -58,6 +72,7 @@ python -m engine.cli preflight H-03 --target whyyou-local --json
   "command": "preflight",
   "scenario_id": "H-03",
   "target_id": "whyyou-local",
+  "implementation_status": "IMPLEMENTED",
   "readiness": "RUNNER_NOT_READY",
   "checks": [
     {
@@ -71,7 +86,8 @@ python -m engine.cli preflight H-03 --target whyyou-local --json
 }
 ```
 
-대상 reporting API가 존재하고 훅만 없으면 `NO_TEST_TARGET`를 반환하면 안 된다.
+대상 reporting API가 존재하고 fault hook, shared trigger receipt 또는 deterministic model substitute만 없으면 `NO_TEST_TARGET`가 아니라 `RUNNER_NOT_READY`를 반환해야 한다.
+대상 기능이 존재할 때 `implementation_status=PARTIAL|NOT_IMPLEMENTED`도 `RUNNER_NOT_READY`다. 대상 기능 자체가 없으면 구현 상태와 독립적으로 `NO_TEST_TARGET`가 우선하며 어떤 경우에도 Run은 생성하지 않는다.
 
 ## `run`
 
@@ -102,21 +118,25 @@ python -m engine.cli run H-03 --target whyyou-local --label first-h03 --json
   "scenario_id": "H-03",
   "scenario_version": "1.0.0",
   "target_id": "whyyou-local",
-  "target_version": "git:<sha>",
+  "target_version": "target-snapshot:sha256:<64-lowercase-hex>",
+  "model_fixture_id": "h03-report-v1",
+  "model_fixture_digest": "64-lowercase-hex",
   "run_state": "COMPLETED",
+  "implementation_status": "IMPLEMENTED",
   "verdict": "FAIL",
   "reason_code": null,
   "summary": "리포트 생성 장애가 담당자 화면에서 기한 내 실패로 드러나지 않았습니다.",
   "failed_assertions": ["H03-A2"],
   "inconclusive_assertions": [],
-  "restore_status": "SUCCEEDED",
+  "environment_restore_status": "SUCCEEDED",
+  "report_processing_recovery": "FAILED",
   "bundle_path": ".controlproof/runs/0199...",
   "started_at": "2026-09-24T00:00:00Z",
   "ended_at": "2026-09-24T00:02:00Z"
 }
 ```
 
-Run 시작 뒤 Ctrl+C 또는 내부 오류가 발생해도 restore를 먼저 수행한다. restore 성공 시 `ABORTED`/INCONCLUSIVE, 실패 시 `RESTORE_FAILED`/INCONCLUSIVE와 exit 6이다.
+Run 시작 뒤 Ctrl+C 또는 내부 오류가 발생해도 restore를 먼저 수행한다. marker 비활성·worker 정상 확인으로 환경 복구가 성공하면 중단 Run은 `ABORTED`/INCONCLUSIVE이고, 환경 복구 실패는 `RESTORE_FAILED`/INCONCLUSIVE와 exit 6이다. `report_processing_recovery=FAILED|TIMEOUT`은 별도 finding이며 그 자체로 환경 복구 실패나 exit 6을 만들지 않는다.
 
 ## `show`
 
@@ -157,7 +177,7 @@ python -m engine.cli retest 0199... --target whyyou-local --label after-fix --js
 - 새 `run_id`를 생성한다.
 - child `run.json.parent_run_id`에 parent를 기록한다.
 - parent bundle은 읽기 전용으로 열고 어떤 파일도 수정하지 않는다.
-- target/scenario/config 차이를 `retest-diff.json`에 저장한다.
+- target/scenario/config 차이를 `retest-diff.json`에 저장한다. TargetSnapshot digest가 다르면 변경된 JSON field path와 before/after digest 또는 비민감 값을 함께 기록한다.
 
 출력은 `run`과 같고 `parent_run_id`를 추가한다.
 

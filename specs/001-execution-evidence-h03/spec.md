@@ -57,8 +57,8 @@
 4. **Given** 리포트가 준비되지 않은 지원자와 권한 있는 회사 사용자가 있을 때, **When** 사용자가 정상 최종결정 경로로 채용 결정을 시도하면, **Then** 요청은 리포트 부재를 설명하는 이유와 함께 거부되고 최종결정·채용 단계·지원 건 상태에 부분 변경이 없어야 한다.
 5. **Given** 보호조치 assertion H03-A2~A5 중 하나가 실제 관찰값과 다를 때, **When** ControlProof가 판정하면, **Then** 해당 assertion과 전체 H-03 결과를 `FAIL`로 표시하고 기대값·관찰값·사용 증적을 연결한다.
 6. **Given** 직접 관찰된 보호조치 위반은 없지만 필수 관찰이나 증적을 얻지 못했을 때, **When** ControlProof가 판정하면, **Then** `PASS`가 아니라 적절한 reason code를 가진 `INCONCLUSIVE`를 표시한다.
-7. **Given** 장애 조건이 적용된 Run일 때, **When** 정상 실행이 끝나거나 중단되면, **Then** ControlProof는 장애 해제와 복구 확인을 반드시 시도하고 그 결과를 증적으로 남긴다.
-8. **Given** 복구가 성공했을 때, **When** Run이 종료되면, **Then** 실행 상태는 `COMPLETED`가 되고 H-03 판정과 복구 증적을 조회할 수 있다.
+7. **Given** 장애 조건이 적용된 Run일 때, **When** 정상 실행이 끝나거나 중단되면, **Then** ControlProof는 장애 해제와 환경 복구 확인을 반드시 시도하고, 이후 리포트 처리 결과를 환경 복구 결과와 구분해 증적으로 남긴다.
+8. **Given** fault marker가 제거되고 worker가 정상 동작하여 환경 복구가 확인되었을 때, **When** Run이 종료되면, **Then** 리포트 처리 결과가 `ready`, `partial`, `failed`, `timeout` 중 무엇이든 환경 복구와 별도 필드로 기록되고 실행 상태는 `COMPLETED`가 된다.
 9. **Given** 복구가 실패했을 때, **When** Run이 종료되면, **Then** 실행 상태는 `RESTORE_FAILED`, 표시 결과는 `INCONCLUSIVE`가 되고 수동 정리 확인 전 같은 대상의 후속 장애 실행은 차단된다.
 
 ---
@@ -120,14 +120,17 @@
 - 합성 지원자의 리포트가 장애 주입 전에 이미 생성되면 기준선 전제조건 실패로 실행을 중단하고, H-03 FAIL이 아닌 `INCONCLUSIVE: INSUFFICIENT_EVIDENCE`로 기록한다.
 - 장애 적용 명령은 성공했지만 실제 대상 경로에 영향이 없으면 장애 주입 실패로 기록하고 보호조치 PASS를 만들지 않는다.
 - 장애 적용 여부 자체를 관찰할 수 없으면 `INCONCLUSIVE: INSUFFICIENT_EVIDENCE`다.
+- worker 로그를 찾지 못했다는 사실만으로 장애 미발동을 확정하지 않는다. Run·session·event와 연결된 공유 trigger receipt를 읽을 수 없으면 H03-A1을 평가 불가로 처리한다.
 - 장애 구간 중 reporting 경로가 예기치 않게 복구되면 그 시각을 남기고, 필요한 관찰 창을 충족하지 못한 경우 판정 불가로 처리한다.
 - 담당자 표시가 계속 `처리 중`으로만 남고 시나리오가 정한 관찰 기한까지 실패·지연을 구분하지 못하면 `reporting 실패 노출` assertion은 FAIL이다.
 - 최종결정 요청은 거부됐지만 결정 기록, 채용 단계 또는 지원 건 상태 중 하나라도 바뀌면 `결정 원자성` assertion은 FAIL이다.
+- 최종결정 요청이 거부됐더라도 대상 응답이 리포트 부재를 명시적으로 설명하지 않으면 H03-A3은 FAIL이다. adapter가 일반 404나 빈 detail에서 이유를 추론해 만들어서는 안 된다.
 - 최종결정 요청 결과는 성공처럼 보이지만 이후 상태 조회가 불가능하면 직접 확인된 성공 응답은 FAIL 근거로 보존하고 상태 부작용 확인 불가는 별도 증적 공백으로 표시한다.
 - 서로 다른 phase, step 또는 attempt의 값 변화는 증적 충돌이 아니다.
 - 같은 사실을 관찰한 출처가 잠시 다르다가 관찰 기한 안에 같은 안정 상태가 되면 원시 관찰은 모두 보존하고 안정화된 값을 판정에 사용한다.
 - 증적 저장이나 SHA-256 생성에 실패하면 해당 증적은 완전한 필수 증적으로 인정하지 않는다.
 - 실행 담당자가 취소하거나 ControlProof가 비정상 종료되어도 장애 해제와 복구 시도는 생략할 수 없다.
+- marker 제거와 worker 정상 상태가 확인되면 환경 복구는 성공이다. 그 뒤 리포트가 `failed` 또는 `timeout`이 된 사실은 별도 제품 처리 결과와 finding으로 남기며 환경 복구 실패로 합치지 않는다.
 - 복구 실패 뒤 수동 정리 완료를 확인하지 않은 상태에서 새 장애 실행 요청이 오면 거부한다.
 - 동시에 실행한 다른 Run의 관찰값이나 증적이 현재 Run에 연결되면 증적 충돌이 아니라 상관관계 오류로 취급하고 해당 Run을 PASS로 만들지 않는다.
 - 재시험의 합성 데이터 식별자는 새로 만들 수 있지만 역할·초기 상태·시험 조건 차이는 비교 가능하게 기록해야 한다.
@@ -150,7 +153,7 @@
 #### 실행과 시험 대상
 
 - **FR-007**: 실행 가능한 H-03 시작 요청은 고유한 Run을 만들어야 한다.
-- **FR-008**: Run은 시나리오 ID·버전, 대상 서비스와 버전, 시작·종료 시각, 실행 상태, seed 종류, 장애 종류와 재시험 관계를 기록해야 한다.
+- **FR-008**: Run은 시나리오 ID·버전, 대상 서비스, canonical `TargetSnapshot`과 그 digest인 `target_version`, 시작·종료 시각, 실행 상태, seed 종류, 장애 종류와 재시험 관계를 기록해야 한다. `TargetSnapshot`은 실행 형태에 따라 git commit·dirty 상태와 diff digest, container image digest를 포함하고 OpenAPI·DB schema signature·고정 모델 fixture digest를 함께 고정해야 한다. Spec 001의 실제 H-03 Run은 clean git checkout만 허용하며 container를 사용하면 canonical component `backend`, `reporting-worker`, `company-console`의 image digest를 모두 요구한다.
 - **FR-009**: Spec 001의 H-03 Run은 리포트 생성 대기 상태인 합성 지원자 한 명과 정상 최종결정 권한을 가진 합성 회사 사용자 한 명을 사용해야 한다.
 - **FR-010**: 모든 관찰값과 증적은 Run과 `subject_ref`에 연결되어야 한다.
 - **FR-011**: ControlProof는 장애 적용 전에 리포트 상태, 지원 건 상태, 채용 단계와 최종결정 기록 유무의 기준선을 수집해야 한다.
@@ -164,7 +167,7 @@
 - **FR-016**: ControlProof는 장애 종류, 적용 대상, 적용 시각, 실행 주체와 적용 성공 여부를 기록해야 한다.
 - **FR-017**: 장애가 실제 reporting 처리에 영향을 주었다는 사실을 별도 관찰값으로 확인해야 하며, 명령 성공만으로 장애 적용 성공을 추정해서는 안 된다.
 - **FR-018**: 장애가 적용된 Run은 정상 종료·실패·취소와 관계없이 장애 해제와 복구 확인 단계로 진입해야 한다.
-- **FR-019**: 복구 결과에는 해제 시각, 해제 성공 여부와 기준선 대비 대상 상태를 포함해야 한다.
+- **FR-019**: 복구 결과에는 해제 시각, marker 비활성 확인, worker 정상 여부와 기준선 대비 대상 상태를 포함해야 하며, 이 환경 복구 결과와 이후 리포트 처리 결과를 별도 필드로 기록해야 한다.
 - **FR-020**: 복구 실패 시 Run을 `RESTORE_FAILED`로 표시하고 같은 대상에 대한 후속 장애 실행을 수동 정리 확인 전까지 차단해야 한다.
 
 #### 관찰과 상태 의미
@@ -173,7 +176,7 @@
 - **FR-022**: `phase`는 `BASELINE`, `INJECTED`, `RECOVERED` 중 하나여야 한다.
 - **FR-023**: ControlProof는 `조회했고 값 또는 기록이 없음`과 `조회하지 못함`을 서로 다른 상태로 보존하고 표시해야 한다.
 - **FR-024**: 같은 key라도 phase, step 또는 attempt가 다르면 시간에 따른 별도 관찰로 취급해야 한다.
-- **FR-025**: 같은 Run·대상·phase·step·attempt에서 같은 사실을 표현해야 하는 비결측 관찰들이 허용 범위를 넘어 다를 때만 증적 충돌로 취급해야 한다.
+- **FR-025**: 같은 Run·대상·phase·step·attempt에서 같은 사실을 표현해야 하는 비결측 관찰들은 시나리오 버전에 고정된 key별 comparator로 비교해야 한다. comparator가 없으면 `EXACT`가 기본이며, 허용 오차는 `ABSOLUTE_TOLERANCE`와 0 이상의 절대값이 명시된 key에만 적용할 수 있다. Spec 001 H-03의 assertion 입력 key는 모두 `EXACT`이고 `observed_at`은 값 충돌 비교 대상이 아닌 관찰 메타데이터다.
 - **FR-026**: 비동기 상태 관찰은 시나리오에 정의된 관찰 기한과 안정화 조건을 가져야 하며, 원시 관찰 순서를 보존해야 한다.
 
 #### H-03 최소 assertion
@@ -181,8 +184,8 @@
 - **FR-027**: ControlProof는 장애 구간에서 리포트가 준비되지 않았음을 확인해야 한다.
 - **FR-028**: ControlProof는 담당자에게 표시되는 상태가 준비 완료 리포트로 오인되지 않는지 확인해야 한다.
 - **FR-029**: 담당자 상태가 관찰 기한까지 계속 처리 중으로만 표시되어 실제 최종 실패나 장기 지연을 구분할 수 없으면 실패 노출 assertion을 FAIL로 판정해야 한다.
-- **FR-030**: ControlProof는 권한 있는 회사 사용자의 정상 최종결정 시도를 수행하고 수락 또는 거부 결과와 이유를 관찰해야 한다.
-- **FR-031**: 리포트가 준비되지 않은 상태의 최종결정 시도는 거부되어야 한다.
+- **FR-030**: ControlProof는 권한 있는 회사 사용자의 정상 최종결정 시도를 수행하고 수락 또는 거부 결과, 대상 응답이 제공한 이유와 그 출처를 관찰해야 하며, adapter가 일반 오류로부터 이유를 만들어서는 안 된다.
+- **FR-031**: 리포트가 준비되지 않은 상태의 최종결정 시도는 리포트 부재를 명시적으로 설명하는 대상 응답과 함께 거부되어야 한다.
 - **FR-032**: 거부된 최종결정 시도 뒤 최종결정 기록, 채용 단계와 지원 건 상태가 기준선에서 바뀌지 않아야 한다.
 - **FR-033**: ControlProof는 장애 구간에 시스템이 사람의 요청 없이 최종결정을 만들지 않았음을 확인해야 한다.
 - **FR-034**: Spec 001의 H-03 판정은 일반 칸반·일괄 단계 이동 우회, 재시도 소진, DLQ, 복구 후 멱등성을 필수 assertion으로 삼아서는 안 된다.
@@ -207,14 +210,18 @@
 - **FR-047**: Run이 `ABORTED` 또는 `RESTORE_FAILED`이면 H-03 전체 결과는 INCONCLUSIVE여야 하며, 중단 전 관찰된 위험은 별도 finding으로 숨김없이 표시해야 한다.
 - **FR-048**: 판정 불가 reason code는 `NO_TEST_TARGET`, `ACCESS_LIMITED`, `INSUFFICIENT_EVIDENCE`, `EVIDENCE_CONFLICT`만 사용해야 한다.
 - **FR-049**: 결과는 비개발자가 이해할 수 있는 한 문장 설명과 검증하지 못한 범위를 포함해야 한다.
-- **FR-050**: ControlProof 구현 완료 여부와 WhyYou의 H-03 판정 결과를 별도로 표시해야 하며, 올바른 FAIL을 제품 구현 실패로 취급해서는 안 된다.
+- **FR-050**: ControlProof 구현 완료 여부는 `NOT_IMPLEMENTED`, `PARTIAL`, `IMPLEMENTED` 중 하나로 표시하고 WhyYou의 H-03 판정 결과와 분리해야 한다. 필수 capability handler가 0개면 `NOT_IMPLEMENTED`, 일부만 등록됐거나 계약 버전이 맞지 않으면 `PARTIAL`, 전부 등록되고 계약 버전이 일치하면 `IMPLEMENTED`다. 대상 기능이 존재할 때 `PARTIAL|NOT_IMPLEMENTED`는 `RUNNER_NOT_READY`로 Run 생성을 막고, 대상 기능 자체가 없으면 구현 상태와 별개로 `NO_TEST_TARGET`다. 대상의 `PASS|FAIL|INCONCLUSIVE`나 실행 중 오류는 구현 상태를 바꾸지 않는다.
 
 #### 재시험과 불변성
 
 - **FR-051**: 완료된 Run에서 재시험을 시작하면 새 Run을 만들고 최초 Run을 부모로 연결해야 한다.
 - **FR-052**: 재시험은 이전 Run의 판정, 관찰값과 증적을 수정하거나 삭제해서는 안 된다.
-- **FR-053**: 최초 Run과 재시험 Run은 시나리오 버전, 대상 버전, 시험 대상 역할, 초기 상태와 장애 조건의 차이를 확인할 수 있어야 한다.
+- **FR-053**: 최초 Run과 재시험 Run은 시나리오 버전, canonical `TargetSnapshot` digest와 변경된 component path, 시험 대상 역할, 초기 상태와 장애 조건의 차이를 확인할 수 있어야 한다.
 - **FR-054**: 최초 Run이 실제로 PASS하면 FAIL 데모를 위해 WhyYou의 결함 버전을 새로 만들도록 강제해서는 안 된다.
+
+#### 결정론적 시험 환경
+
+- **FR-055**: H-03 Run은 외부 AI 서비스의 변동에 의존하지 않는 결정론적 대역이 활성화되고 그 fixture 식별자와 digest를 확인할 수 있을 때만 `READY`여야 한다.
 
 ### Required Assertions
 
@@ -222,12 +229,14 @@
 |---|---|---|---|---|
 | H03-A1 | reporting 장애가 실제 적용됨 | 명령 기록과 실제 처리 영향이 모두 관찰됨 | 해당 없음. 적용 실패는 보호조치 평가 전 판정 불가 | 장애 적용 기록, 영향 관찰 |
 | H03-A2 | 리포트 미준비 상태가 담당자에게 드러남 | 준비 완료와 구분되는 실제 상태가 관찰 기한 안에 표시됨 | 준비 완료로 표시되거나, 최종 실패·장기 지연을 계속 단순 처리 중으로 숨김 | 담당자 표시 캡처, 상태 조회 결과 |
-| H03-A3 | 리포트 없이 최종결정 불가 | 정상 최종결정 시도가 명시적 이유와 함께 거부됨 | 결정 요청이 수락됨 | 결정 요청·응답 |
+| H03-A3 | 리포트 없이 최종결정 불가 | 정상 최종결정 시도가 대상이 제공한 리포트 부재 이유와 함께 거부됨 | 결정 요청이 수락되거나, 거부됐지만 대상 응답에 명시적 리포트 부재 이유가 없음 | 결정 요청·응답 |
 | H03-A4 | 거부 시 부분 변경 없음 | 결정 기록·채용 단계·지원 건 상태가 모두 기준선과 같음 | 하나라도 변경됨 | 기준선과 시도 후 상태 비교 |
 | H03-A5 | 자동 최종결정 없음 | 장애 구간에 사람 요청 없는 최종결정이 없음 | 시스템 주체의 최종결정 또는 확정 상태 변화가 있음 | 결정 이력과 상태 변화 조회 |
-| H03-A6 | 장애 해제와 환경 복구 | 장애가 해제되고 대상이 안전한 상태임을 확인 | 해당 없음. 복구 실패는 Run 상태와 전체 결과를 판정 불가로 전환 | 해제 기록, 복구 후 상태 |
+| H03-A6 | 장애 해제와 환경 복구 | marker 비활성 및 worker 정상 상태로 대상이 안전함을 확인 | 해당 없음. 환경 복구 확인 실패는 Run 상태와 전체 결과를 판정 불가로 전환 | 해제 기록, worker health, 복구 후 상태, 별도 리포트 처리 결과 |
 
 H03-A1과 H03-A6은 시험 유효성과 안전을 확인하는 assertion이다. A1을 평가할 수 없거나 A6 복구가 실패하면 WhyYou 보호조치의 PASS/FAIL을 확정하지 않고 전체 결과를 INCONCLUSIVE로 표시한다. 단, 그 전에 직접 관찰된 위험은 finding으로 유지한다.
+
+H03-A6의 `환경 복구`는 ControlProof가 주입한 장애가 제거되고 worker가 정상 실행 가능한 상태로 돌아왔는지를 뜻한다. 복구 뒤 리포트가 `ready|partial`이 되는지, 명시적 `failed`로 끝나는지, 120초 안에 끝나지 않는지는 `report_processing_recovery`로 별도 기록한다. `failed|timeout`은 숨기지 않고 finding으로 남기지만 marker 부재와 worker 정상성이 확인된 환경 복구 성공을 실패로 바꾸지는 않는다.
 
 ### Key Entities
 
@@ -281,13 +290,13 @@ H03-A1과 H03-A6은 시험 유효성과 안전을 확인하는 assertion이다. 
 |---|---|---|---|
 | EV-01 | 실행 전 지원 건·채용 단계·리포트·결정 기준선 | Run, subject, `BASELINE`, step, captured time | 필수 |
 | EV-02 | 장애 적용 요청과 결과 | Run, subject, `INJECTED`, step, fault condition | 필수 |
-| EV-03 | 장애가 실제 reporting 처리에 미친 영향 | Run, subject, `INJECTED`, step, attempt | 필수 |
+| EV-03 | 현재 Run·session·trigger와 일치하는 worker trigger receipt 및 장애 구간 report 상태 | Run, subject, `INJECTED`, step, attempt, outbox event | 필수 |
 | EV-04 | 담당자에게 표시된 리포트 상태 | Run, subject, `INJECTED`, step, capture context | 필수 |
 | EV-05 | 최종결정 시도의 요청·응답 | Run, subject, `INJECTED`, step, actor | 필수 |
 | EV-06 | 결정 시도 후 결정 기록·채용 단계·지원 건 상태 | Run, subject, `INJECTED`, step | 필수 |
 | EV-07 | 장애 구간의 자동 최종결정 부재 확인 | Run, subject, `INJECTED`, observation window | 필수 |
-| EV-08 | 장애 해제 기록과 복구 후 상태 | Run, subject, `RECOVERED`, step | 필수 |
-| EV-09 | 시나리오와 WhyYou 적용 버전 | Run, scenario version, target version | 필수 |
+| EV-08 | marker 비활성·worker health 기반 환경 복구와 별도 리포트 처리 결과 | Run, subject, `RECOVERED`, step | 필수 |
+| EV-09 | 시나리오 snapshot과 canonical `TargetSnapshot` | Run, scenario version/digest, target snapshot/digest, fixture ID/digest | 필수 |
 
 각 증적은 판정에 필요한 최소 범위만 저장하며 비밀값과 개인정보가 제거된 상태여야 한다.
 
@@ -339,7 +348,7 @@ H03-A1과 H03-A6은 시험 유효성과 안전을 확인하는 assertion이다. 
 - **SC-005**: 장애가 적용된 Run의 100%에서 복구가 시도되고, 복구 실패 fixture의 100%가 `RESTORE_FAILED`와 후속 실행 차단으로 나타난다.
 - **SC-006**: 저장 후 변경한 증적 fixture의 100%에서 무결성 오류를 탐지하며 해당 자료로 PASS를 만들지 않는다.
 - **SC-007**: 재시험 후 최초 Run의 판정·관찰·증적 변경 건수가 0건이고, 새 Run의 부모 관계와 버전 차이를 모두 확인할 수 있다.
-- **SC-008**: 결과 검토자는 2분 안에 최종 verdict, 핵심 이유, 실패 또는 판정 불가 assertion, 사용 증적과 복구 성공 여부를 찾을 수 있다.
+- **SC-008**: 결과 bundle을 만들지 않은 검토자 1명이 canonical PASS·FAIL·INCONCLUSIVE bundle 3건을 대상으로 각 Run ID를 전달받은 시점부터 120초 안에 문서화된 `show` 명령만 사용해 최종 verdict, 핵심 이유, 실패 또는 판정 불가 assertion, 사용 증적 링크와 환경 복구 성공 여부를 모두 정확히 기록한다. 3건 모두 항목 누락·오답 없이 120초 이하여야 통과하며 검토자 ref, 시작·종료 시각, 소요 시간과 답안을 `validation.md`에 남겨야 한다.
 - **SC-009**: 전체 시연과 자동 시험에서 실제 지원자 개인정보 사용 건수는 0건이다.
 - **SC-010**: reporting 기능 존재·장애 주입기 미준비 조합의 100%가 `RUNNER_NOT_READY`로 표시되고 `NO_TEST_TARGET`로 표시되는 경우는 0건이다.
 
