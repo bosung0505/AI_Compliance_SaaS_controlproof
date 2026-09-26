@@ -289,3 +289,15 @@ US4 tests T064 | T065 | T066; then readiness T067 and capability T068 can procee
 - Do not add DLQ exhaustion, general Kanban bypass, post-recovery idempotency, or E-03 Outbox completeness to this Spec; they belong to Spec 002.
 - Do not store actual applicant data, raw bearer values, full logs, or full database dumps.
 - A task is complete only when its linked tests fail before implementation where applicable and pass afterward.
+
+---
+
+## Phase 8: Convergence
+
+**Purpose**: 완료 표시된 구현과 승인된 Spec·Plan·계약 사이에 남은 실행 의미 차이를 제거한다. 이 Phase는 H-03의 제품 범위를 넓히지 않으며, T055·T075·T077·T078의 사람 검토·clean-environment·실제 스택 검증을 대체하지 않는다.
+
+- [ ] T079 [US1] Add integration tests for delayed worker receipts, transient report states, no-stable-state deadlines, and delayed restore health; then wire `engine/runner.py`, `engine/observations.py`, and `engine/adapters/whyyou/fault.py` so EV-03 receipt probing uses the injected deadline, assertion inputs use the scenario's 3-consecutive/4-second stable observation rather than the last sample, all raw samples stay append-only, and marker/worker recovery is re-probed through the 120-second restore deadline while `environment_restore` remains separate from `report_processing_recovery` [FR-017~019, FR-026, H03-A1~A2, H03-A6]
+- [ ] T080 [P] [US2] Add adversarial bundle tests for omitted canonical files, manifest/run ID mismatch, artifact envelope dimension mismatch, EV-to-envelope cross-link mismatch, wrong artifact type/cardinality per EV-01~EV-09, dirty actual-Run target snapshots, and PASS bundles containing an unverified mapped artifact; then harden read-only verification in `engine/evidence.py` without repairing the source bundle [FR-008, FR-035~041, SC-003, SC-006]
+- [ ] T081 [P] [US3] Add lineage tests that vary the synthetic subject role and baseline initial state independently; then persist a canonical `TestSubject` projection with sanitized locators and a baseline-derived `initial_state_digest` in `engine/runner.py`, and compare parent/child subject role plus initial-state digest from their actual bundle records in `engine/retest.py` and `retest-diff.json` instead of emitting fixed subject text [FR-009~012, FR-051~053]
+- [ ] T082 [P] [US1] Add CLI contract tests for `run`, `show`, and `retest` proving the outer machine envelope always keeps `schema_version=controlproof.cli.v1` and the command name cannot be overwritten by the review projection; then fix payload composition in `engine/cli.py`, preserving any review projection version under an unambiguous nested or separately named field [FR-049~050]
+- [ ] T083 [US1] Add interruption tests after seed, baseline, trigger, decision attempt, and restore entry; then persist an append-only, fsync-backed step checkpoint record from `engine/runner.py` for every scenario step with Run/subject/phase/step/attempt, started/succeeded/failed outcome, timestamp, and sanitized error code so an unsealed or ABORTED bundle can prove the last completed step without inferring it from missing files [FR-007, FR-010, FR-013, FR-018, FR-021]
