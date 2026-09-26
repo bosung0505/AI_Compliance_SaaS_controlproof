@@ -175,7 +175,7 @@ def _run(args: argparse.Namespace) -> int:
 def _show(args: argparse.Namespace) -> int:
     bundle = _resolve_bundle(args.run, args.run_root)
     summary = load_bundle_summary(bundle)
-    payload = {"schema_version": SCHEMA_VERSION, "command": "show", **summary}
+    payload = _projection_payload("show", summary)
     _emit(payload, as_json=args.json, human=render_human(summary))
     return 0
 
@@ -269,11 +269,17 @@ def _readiness_payload(readiness) -> dict[str, Any]:
 
 def _run_payload(run, judgement, bundle: Path) -> dict[str, Any]:
     summary = load_bundle_summary(bundle)
+    return {**_projection_payload("run", summary), "bundle_path": str(bundle)}
+
+
+def _projection_payload(command: str, summary: dict[str, Any]) -> dict[str, Any]:
+    projection = dict(summary)
+    projection_schema = projection.pop("schema_version", None)
     return {
+        **projection,
+        "projection_schema_version": projection_schema,
         "schema_version": SCHEMA_VERSION,
-        "command": "run",
-        **summary,
-        "bundle_path": str(bundle),
+        "command": command,
     }
 
 

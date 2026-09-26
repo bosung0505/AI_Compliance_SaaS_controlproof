@@ -8,13 +8,18 @@
 | 검증 | 결과 |
 |---|---|
 | `python -m ruff check .` | PASS |
-| `python -m ruff format --check .` | PASS, 84 files formatted |
-| `python -m pytest -q` | PASS, 112 tests |
+| `python -m ruff format --check .` | PASS, 86 files formatted |
+| `python -m pytest -q` | PASS, 130 tests in 132.13s |
 | WhyYou ControlProof target tests 3개 파일 | PASS, 20 tests |
 | WhyYou 변경 파일 `ruff check` | PASS |
 | `controlproof --help` | PASS, 6개 명령 노출 |
 | fake H-03 EV-01~EV-09 manifest/link와 verify | PASS |
 | fake FAIL→PASS child retest 후 parent verify/digest 불변 | PASS |
+| delayed receipt·transient/no-stable report·delayed restore convergence | PASS |
+| adversarial bundle semantic linkage verification | PASS |
+| actual subject role·initial-state retest comparison | PASS |
+| `run`·`show`·`retest` CLI envelope stability | PASS |
+| 단계별 durable checkpoint와 중단·restore 예외 보존 | PASS |
 
 자동 검증은 실제 개인정보와 외부 네트워크 없이 수행했다. target-side 시험은 WhyYou의 전체
 의존성 설치 도구가 Windows 보안 계층의 Python 탐색 출력에 영향을 받는 문제를 피하기 위해,

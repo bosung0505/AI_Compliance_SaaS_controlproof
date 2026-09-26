@@ -196,3 +196,8 @@ python -m engine.cli cleanup-confirm --target whyyou-local --subject candidate-0
 ## 출력 안정성
 
 `schema_version` major가 같으면 필드 제거·의미 변경을 금지한다. 필드는 추가할 수 있다. 사람이 읽는 Korean detail은 비교 대상이 아니며 자동화는 enum, ID, code를 사용한다.
+
+`run`, `show`, `retest`의 바깥 machine envelope는 항상
+`schema_version=controlproof.cli.v1`을 유지한다. 내부 review projection의 버전은
+`projection_schema_version=controlproof.review.v1`으로 별도 제공하며 바깥 `schema_version`이나
+`command`를 덮어쓸 수 없다.

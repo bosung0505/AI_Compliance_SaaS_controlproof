@@ -8,7 +8,14 @@ from typing import Any
 from uuid import UUID
 
 from engine.evidence import verify_bundle
-from engine.models import TERMINAL_RUN_STATES, RetestLink, Run, TargetSnapshot, utcnow
+from engine.models import (
+    TERMINAL_RUN_STATES,
+    RetestLink,
+    Run,
+    TargetSnapshot,
+    TestSubject,
+    utcnow,
+)
 
 
 class RetestError(RuntimeError):
@@ -33,6 +40,13 @@ def prepare_retest(
     if parent_run.run_id == child_run_id:
         raise RetestError("retest child must use a new Run ID")
     parent_target = TargetSnapshot.model_validate(_read(directory / "target.snapshot.json"))
+    parent_subjects = _read(directory / "subjects.json")
+    if not isinstance(parent_subjects, list) or len(parent_subjects) != 1:
+        raise RetestError("retest parent must contain exactly one canonical subject")
+    try:
+        parent_subject = TestSubject.model_validate(parent_subjects[0])
+    except (TypeError, ValueError) as exc:
+        raise RetestError("retest parent subject contract is invalid") from exc
     parent_digest = _read(directory / "manifest.json")["bundle_digest"]
     changed_target = _diff(parent_target.identity(), child_target.identity())
     diff = {
@@ -58,7 +72,19 @@ def prepare_retest(
             "after_digest": child_target.target_version,
             "changed_fields": changed_target,
         },
-        "subject": {"role": "synthetic_applicant", "subject_ref": "candidate-01"},
+        "subject": {
+            "subject_ref": parent_subject.subject_ref,
+            "role": {
+                "before": parent_subject.subject_type,
+                "after": None,
+                "changed": None,
+            },
+            "initial_state_digest": {
+                "before": parent_subject.initial_state_digest,
+                "after": None,
+                "changed": None,
+            },
+        },
         "config": {
             "model_fixture_id": {
                 "before": parent_run.model_fixture_id,
@@ -90,8 +116,38 @@ def prepare_retest(
         {
             "link": link.model_dump(mode="json"),
             "diff": diff,
+            "_parent_subject": parent_subject.model_dump(mode="json"),
         },
     )
+
+
+def finalize_retest_records(records: dict[str, Any], child_subject: TestSubject) -> None:
+    """Complete subject comparison from the actual child baseline before bundle sealing."""
+    try:
+        parent_subject = TestSubject.model_validate(records["_parent_subject"])
+        subject_diff = records["diff"]["subject"]
+        link = records["link"]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RetestError("retest subject comparison context is invalid") from exc
+    if parent_subject.subject_ref != child_subject.subject_ref:
+        raise RetestError("retest subject_ref must remain comparable")
+    comparisons = {
+        "role": (parent_subject.subject_type, child_subject.subject_type),
+        "initial_state_digest": (
+            parent_subject.initial_state_digest,
+            child_subject.initial_state_digest,
+        ),
+    }
+    for key, (before, after) in comparisons.items():
+        subject_diff[key] = {
+            "before": before,
+            "after": after,
+            "changed": before != after,
+        }
+    link.setdefault("changed_dimensions", {})["subject_role"] = subject_diff["role"]["changed"]
+    link["changed_dimensions"]["subject_initial_state"] = subject_diff["initial_state_digest"][
+        "changed"
+    ]
 
 
 def assert_parent_unchanged(parent_bundle: Path, expected_bundle_digest: str) -> None:

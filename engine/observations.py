@@ -143,6 +143,27 @@ def stable_observation(
     return last if elapsed >= minimum_seconds else None
 
 
+def last_stable_observation(
+    timeline: Sequence[Observation],
+    *,
+    consecutive: int = 3,
+    minimum_seconds: float = 4.0,
+    comparator: ComparatorPolicy | None = None,
+) -> Observation | None:
+    """Return the most recent completed stable window, ignoring a later transient tail."""
+    if consecutive < 1:
+        raise ValueError("consecutive must be positive")
+    candidate: Observation | None = None
+    for end in range(consecutive, len(timeline) + 1):
+        window = timeline[end - consecutive : end]
+        if any(not _observations_equal(window[0], row, comparator) for row in window[1:]):
+            continue
+        elapsed = (window[-1].observed_at - window[0].observed_at).total_seconds()
+        if elapsed >= minimum_seconds:
+            candidate = window[-1]
+    return candidate
+
+
 class ObservationTimeline:
     """Append-only in-memory view; durable append is owned by EvidenceBundleWriter."""
 

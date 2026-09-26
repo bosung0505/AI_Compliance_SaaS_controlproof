@@ -22,17 +22,29 @@ def complete_bundle(tmp_path: Path, run, target_snapshot):
     writer.write_bytes("observations.jsonl", b"", "application/x-ndjson")
     writer.write_json("assertions.json", [])
     writer.write_json("judgement.json", {"verdict": "INCONCLUSIVE"})
-    for index in range(1, 10):
-        writer.collect_json_artifact(
-            subject_ref="candidate-01",
-            phase=Phase.BASELINE,
-            step_id="fixture",
-            attempt=1,
-            evidence_requirement_ids=(f"EV-{index:02d}",),
-            artifact_type="STATE_SNAPSHOT",
-            source_locator={"fixture": True},
-            content={"index": index},
-        )
+    requirements = {
+        "EV-01": ("STATE_SNAPSHOT",),
+        "EV-02": ("FAULT_RECEIPT",),
+        "EV-03": ("FAULT_RECEIPT", "HTTP_EXCHANGE"),
+        "EV-04": ("SCREENSHOT", "BROWSER_PROJECTION"),
+        "EV-05": ("HTTP_EXCHANGE",),
+        "EV-06": ("STATE_SNAPSHOT",),
+        "EV-07": ("STATE_SNAPSHOT",),
+        "EV-08": ("FAULT_RECEIPT", "STATE_SNAPSHOT"),
+        "EV-09": ("VERSION_SNAPSHOT",),
+    }
+    for evidence_id, artifact_types in requirements.items():
+        for artifact_type in artifact_types:
+            writer.collect_json_artifact(
+                subject_ref="candidate-01",
+                phase=Phase.BASELINE,
+                step_id="fixture",
+                attempt=1,
+                evidence_requirement_ids=(evidence_id,),
+                artifact_type=artifact_type,
+                source_locator={"fixture": True},
+                content={"evidence_id": evidence_id, "artifact_type": artifact_type},
+            )
     writer.seal()
     return writer
 

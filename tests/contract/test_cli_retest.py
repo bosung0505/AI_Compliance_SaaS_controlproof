@@ -26,6 +26,8 @@ def test_retest_cli_outputs_parent_link_without_demanding_defect_variant(
     exit_code = cli.main(["retest", str(parent_bundle), "--target", "whyyou-local", "--json"])
     output = json.loads(capsys.readouterr().out)
     assert exit_code == 0
+    assert output["schema_version"] == "controlproof.cli.v1"
+    assert output["projection_schema_version"] == "controlproof.review.v1"
     assert output["command"] == "retest"
     assert output["parent_run_id"] == str(parent.run_id)
     assert output["run_id"] != str(parent.run_id)

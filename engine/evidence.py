@@ -58,6 +58,18 @@ CANONICAL_FILES = {
     "judgement.json",
 }
 
+REQUIRED_EVIDENCE_ARTIFACT_TYPES: dict[str, frozenset[str]] = {
+    "EV-01": frozenset({"STATE_SNAPSHOT"}),
+    "EV-02": frozenset({"FAULT_RECEIPT"}),
+    "EV-03": frozenset({"FAULT_RECEIPT", "HTTP_EXCHANGE"}),
+    "EV-04": frozenset({"SCREENSHOT", "BROWSER_PROJECTION"}),
+    "EV-05": frozenset({"HTTP_EXCHANGE"}),
+    "EV-06": frozenset({"STATE_SNAPSHOT"}),
+    "EV-07": frozenset({"STATE_SNAPSHOT"}),
+    "EV-08": frozenset({"FAULT_RECEIPT", "STATE_SNAPSHOT"}),
+    "EV-09": frozenset({"VERSION_SNAPSHOT"}),
+}
+
 
 def redact(value: Any) -> Any:
     if isinstance(value, dict):
@@ -196,6 +208,12 @@ class EvidenceBundleWriter:
             "application/json",
             artifact_id=str(active_id),
             redaction_profile="controlproof-redaction-v1",
+            subject_ref=subject_ref,
+            phase=phase.value,
+            step_id=step_id,
+            attempt=attempt,
+            evidence_requirement_ids=evidence_requirement_ids,
+            artifact_type=artifact_type,
         )
         for evidence_id in evidence_requirement_ids:
             if evidence_id not in self._required:
@@ -245,6 +263,12 @@ class EvidenceBundleWriter:
             mime_type,
             artifact_id=str(active_id),
             redaction_profile="controlproof-redaction-v1",
+            subject_ref=subject_ref,
+            phase=phase.value,
+            step_id=step_id,
+            attempt=attempt,
+            evidence_requirement_ids=evidence_requirement_ids,
+            artifact_type=artifact_type,
         )
         for evidence_id in evidence_requirement_ids:
             if evidence_id not in self._required:
@@ -276,6 +300,12 @@ class EvidenceBundleWriter:
         *,
         artifact_id: str | None = None,
         redaction_profile: str | None = None,
+        subject_ref: str | None = None,
+        phase: str | None = None,
+        step_id: str | None = None,
+        attempt: int | None = None,
+        evidence_requirement_ids: tuple[str, ...] | None = None,
+        artifact_type: str | None = None,
     ) -> None:
         record: dict[str, Any] = {
             "path": relative_path.replace("\\", "/"),
@@ -287,6 +317,17 @@ class EvidenceBundleWriter:
             record["artifact_id"] = artifact_id
         if redaction_profile:
             record["redaction_profile"] = redaction_profile
+        if artifact_id:
+            record.update(
+                {
+                    "subject_ref": subject_ref,
+                    "phase": phase,
+                    "step_id": step_id,
+                    "attempt": attempt,
+                    "evidence_requirement_ids": list(evidence_requirement_ids or ()),
+                    "artifact_type": artifact_type,
+                }
+            )
         self._files[record["path"]] = record
 
     def seal(self) -> dict[str, Any]:
@@ -372,6 +413,9 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
                 result["mismatched_files"].append(f"artifact:{artifact_id}:duplicate")
             artifact_records[artifact_id] = record
             _verify_artifact_envelope(directory, record, result)
+    for canonical in sorted(CANONICAL_FILES):
+        if canonical not in registered or not (directory / canonical).is_file():
+            result["missing_files"].append(canonical)
     actual = {
         item.relative_to(directory).as_posix()
         for item in directory.rglob("*")
@@ -397,6 +441,27 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
                     result["mismatched_files"].append(
                         f"evidence:{evidence_id}:unknown-artifact:{artifact_id}"
                     )
+                    continue
+                record = artifact_records[artifact_id]
+                declared = record.get("evidence_requirement_ids")
+                if not isinstance(declared, list) or evidence_id not in declared:
+                    result["mismatched_files"].append(
+                        f"evidence:{evidence_id}:cross-link:{artifact_id}"
+                    )
+            linked_types = {
+                artifact_records[artifact_id].get("artifact_type")
+                for artifact_id in linked
+                if artifact_id in artifact_records
+                and isinstance(artifact_records[artifact_id].get("evidence_requirement_ids"), list)
+                and evidence_id in artifact_records[artifact_id]["evidence_requirement_ids"]
+            }
+            for artifact_type in sorted(
+                REQUIRED_EVIDENCE_ARTIFACT_TYPES[evidence_id] - linked_types
+            ):
+                result["mismatched_files"].append(
+                    f"evidence:{evidence_id}:artifact-type:{artifact_type}"
+                )
+    _verify_manifest_run_link(directory, manifest, result)
     _verify_snapshot_links(directory, result)
     if result["missing_files"] or result["mismatched_files"]:
         result["bundle_status"] = "INVALID"
@@ -439,12 +504,39 @@ def _verify_artifact_envelope(
         result["mismatched_files"].append(f"{relative_path}:schema_version")
     if payload.get("artifact_id") != record.get("artifact_id"):
         result["mismatched_files"].append(f"{relative_path}:artifact_id")
+    dimensions = (
+        "subject_ref",
+        "phase",
+        "step_id",
+        "attempt",
+        "evidence_requirement_ids",
+        "artifact_type",
+    )
+    for key in dimensions:
+        if key not in record:
+            result["mismatched_files"].append(f"{relative_path}:manifest_metadata")
+            break
+        if payload.get(key) != record.get(key):
+            result["mismatched_files"].append(f"{relative_path}:{key}")
     try:
         run = json.loads((directory / "run.json").read_text(encoding="utf-8"))
     except (OSError, json.JSONDecodeError):
         return
     if payload.get("run_id") != run.get("run_id"):
         result["mismatched_files"].append(f"{relative_path}:run_id")
+
+
+def _verify_manifest_run_link(
+    directory: Path,
+    manifest: dict[str, Any],
+    result: dict[str, Any],
+) -> None:
+    try:
+        run = json.loads((directory / "run.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(run, dict) or manifest.get("run_id") != run.get("run_id"):
+        result["mismatched_files"].append("manifest.json:run_id")
 
 
 def _verify_snapshot_links(directory: Path, result: dict[str, Any]) -> None:
@@ -463,6 +555,8 @@ def _verify_snapshot_links(directory: Path, result: dict[str, Any]) -> None:
         or target.get("target_version") != target_version
     ):
         result["mismatched_files"].append("target.snapshot.json:link")
+    if target.get("git_dirty") is not False or target.get("git_diff_digest") is not None:
+        result["mismatched_files"].append("target.snapshot.json:dirty-run")
     try:
         scenario = json.loads(scenario_payload)
     except json.JSONDecodeError:

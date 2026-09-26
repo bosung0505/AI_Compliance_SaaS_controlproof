@@ -23,7 +23,7 @@ from engine.models import (
     RunState,
     Verdict,
 )
-from engine.observations import conflicting_dimensions
+from engine.observations import conflicting_dimensions, last_stable_observation
 
 _UNIT = {"s": 1, "m": 60, "h": 3600, "d": 86400}
 
@@ -50,6 +50,31 @@ class ObservationSet:
 
     def actual(self, key: str, *, step_id: str | None = None) -> Any:
         row = self.latest(key, step_id=step_id)
+        if row is None or row.presence is Presence.UNAVAILABLE:
+            return _Missing
+        if row.presence is Presence.ABSENT:
+            return None
+        return row.value
+
+    def timeline(self, key: str, *, step_id: str | None = None) -> tuple[Observation, ...]:
+        rows = self._by_key.get(key, [])
+        if step_id:
+            rows = [row for row in rows if row.step_id == step_id]
+        return tuple(rows)
+
+    def stable_actual(
+        self,
+        key: str,
+        *,
+        step_id: str,
+        consecutive: int,
+        minimum_seconds: float,
+    ) -> Any:
+        row = last_stable_observation(
+            self.timeline(key, step_id=step_id),
+            consecutive=consecutive,
+            minimum_seconds=minimum_seconds,
+        )
         if row is None or row.presence is Presence.UNAVAILABLE:
             return _Missing
         if row.presence is Presence.ABSENT:
@@ -234,6 +259,8 @@ def judge_h03(
     artifacts: Sequence[EvidenceArtifact],
     *,
     integrity_ok: bool = True,
+    stability_consecutive: int = 3,
+    stability_seconds: float = 4.0,
     unverified_scope: Sequence[str] = (
         "reporting retry exhaustion and DLQ",
         "generic stage-move bypass",
@@ -250,7 +277,13 @@ def judge_h03(
 
     results = (
         _a1(view, artifacts_by_evidence, conflict_keys),
-        _a2(view, artifacts_by_evidence, conflict_keys),
+        _a2(
+            view,
+            artifacts_by_evidence,
+            conflict_keys,
+            stability_consecutive=stability_consecutive,
+            stability_seconds=stability_seconds,
+        ),
         _a3(view, artifacts_by_evidence, conflict_keys),
         _a4(view, artifacts_by_evidence, conflict_keys),
         _a5(view, artifacts_by_evidence, conflict_keys),
@@ -376,14 +409,24 @@ def _result(
         assertion_id=assertion_id,
         subject_ref="candidate-01",
         status=status,
-        expected=expected,
-        actual=actual,
+        expected=_project_missing(expected),
+        actual=_project_missing(actual),
         observation_ids=observations,
         artifact_ids=_evidence(ASSERTION_EVIDENCE[assertion_id], by_evidence),
         reason_code=reason,
         detail=detail,
         source_requirements=(assertion_id,),
     )
+
+
+def _project_missing(value: Any) -> Any:
+    if value is _Missing:
+        return None
+    if isinstance(value, dict):
+        return {key: _project_missing(item) for key, item in value.items()}
+    if isinstance(value, (list, tuple)):
+        return [_project_missing(item) for item in value]
+    return value
 
 
 def _a1(view, evidence, conflicts) -> AssertionResult:
@@ -419,21 +462,52 @@ def _a1(view, evidence, conflicts) -> AssertionResult:
     )
 
 
-def _a2(view, evidence, conflicts) -> AssertionResult:
+def _a2(
+    view,
+    evidence,
+    conflicts,
+    *,
+    stability_consecutive: int = 3,
+    stability_seconds: float = 4.0,
+) -> AssertionResult:
     keys = (
         "report.api.presence",
         "report.api.status",
         "report.ui.ready_content_visible",
         "report.ui.status_class",
     )
-    reason = _required_missing(keys, view, conflicts)
-    actual = {key: view.actual(key) for key in keys}
+    actual = {
+        "report.api.presence": view.stable_actual(
+            "report.api.presence",
+            step_id="observe-report",
+            consecutive=stability_consecutive,
+            minimum_seconds=stability_seconds,
+        ),
+        "report.api.status": view.stable_actual(
+            "report.api.status",
+            step_id="observe-report",
+            consecutive=stability_consecutive,
+            minimum_seconds=stability_seconds,
+        ),
+        "report.ui.ready_content_visible": view.actual("report.ui.ready_content_visible"),
+        "report.ui.status_class": view.actual("report.ui.status_class"),
+    }
+    reason = (
+        InconclusiveReason.EVIDENCE_CONFLICT
+        if any(key in conflicts for key in keys)
+        else InconclusiveReason.INSUFFICIENT_EVIDENCE
+        if any(value is _Missing for value in actual.values())
+        else None
+    )
     if reason:
+        projected_actual = {
+            key: None if value is _Missing else value for key, value in actual.items()
+        }
         return _result(
             "H03-A2",
             AssertionStatus.INCONCLUSIVE,
             "failed_or_delayed",
-            actual,
+            projected_actual,
             "담당자 표시 상태를 평가할 수 없습니다.",
             view,
             keys,
@@ -575,7 +649,18 @@ def _a5(view, evidence, conflicts) -> AssertionResult:
             evidence,
             reason,
         )
-    passed = rows["final_decision.count"] == 0 and rows["final_decision.latest_actor_type"] is None
+    decision_counts = view.timeline(
+        "final_decision.count", step_id="observe-automatic-decision-window"
+    )
+    decision_actors = view.timeline(
+        "final_decision.latest_actor_type", step_id="observe-automatic-decision-window"
+    )
+    passed = (
+        bool(decision_counts)
+        and bool(decision_actors)
+        and all(row.presence is Presence.PRESENT and row.value == 0 for row in decision_counts)
+        and all(row.presence is Presence.ABSENT for row in decision_actors)
+    )
     return _result(
         "H03-A5",
         AssertionStatus.PASS if passed else AssertionStatus.FAIL,

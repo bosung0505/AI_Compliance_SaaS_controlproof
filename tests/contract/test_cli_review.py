@@ -1,7 +1,9 @@
 from __future__ import annotations
 
 import json
+from types import SimpleNamespace
 
+from engine import cli
 from engine.cli import main
 from engine.runner import RunOrchestrator
 from engine.scenario import load
@@ -18,7 +20,8 @@ def test_show_contract_exposes_six_linked_assertions(tmp_path, capsys):
     bundle = _bundle(tmp_path)
     assert main(["show", str(bundle), "--json"]) == 0
     output = json.loads(capsys.readouterr().out)
-    assert output["schema_version"] == "controlproof.review.v1"
+    assert output["schema_version"] == "controlproof.cli.v1"
+    assert output["projection_schema_version"] == "controlproof.review.v1"
     assert output["command"] == "show"
     assert output["implementation_status"] == "IMPLEMENTED"
     assert output["target_version"].startswith("target-snapshot:sha256:")
@@ -37,3 +40,17 @@ def test_verify_contract_returns_exit_five_on_tamper(tmp_path, capsys):
     assert output["schema_version"] == "controlproof.cli.v1"
     assert output["command"] == "verify"
     assert output["bundle_status"] == "INVALID"
+
+
+def test_run_contract_keeps_cli_envelope_over_review_projection(tmp_path, monkeypatch, capsys):
+    adapters, _ = make_adapters()
+    runner = RunOrchestrator(load("scenarios/H-03.yaml"), adapters, tmp_path, clock=FakeClock())
+    monkeypatch.setattr(cli, "_settings", lambda _args: SimpleNamespace(run_root=tmp_path))
+    monkeypatch.setattr(cli, "create_runtime", lambda _settings, _path: runner)
+
+    assert main(["run", "H-03", "--target", "whyyou-local", "--json"]) == 0
+    output = json.loads(capsys.readouterr().out)
+
+    assert output["schema_version"] == "controlproof.cli.v1"
+    assert output["projection_schema_version"] == "controlproof.review.v1"
+    assert output["command"] == "run"

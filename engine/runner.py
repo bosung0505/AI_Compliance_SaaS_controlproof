@@ -21,6 +21,9 @@ from engine.models import (
     RunState,
     ScenarioReadiness,
     Source,
+    TestSubject,
+    canonical_json_bytes,
+    sha256_bytes,
     utcnow,
 )
 from engine.readiness import evaluate_readiness
@@ -112,8 +115,42 @@ class RunOrchestrator:
         observations: list[Observation] = []
         artifacts: list[EvidenceArtifact] = []
         subject: dict[str, Any] = {}
+        test_subject: TestSubject | None = None
         execution_error: BaseException | None = None
         restored = False
+        active_checkpoint: tuple[Phase, str, int] | None = None
+
+        def start_step(phase: Phase, step_id: str, attempt: int = 1) -> None:
+            nonlocal active_checkpoint
+            if active_checkpoint is not None:
+                raise RuntimeError("a scenario step checkpoint is already active")
+            active_checkpoint = (phase, step_id, attempt)
+            self._checkpoint(
+                writer,
+                run,
+                subject_ref,
+                phase,
+                step_id,
+                attempt,
+                "STARTED",
+            )
+
+        def finish_step(outcome: str, error_code: str | None = None) -> None:
+            nonlocal active_checkpoint
+            if active_checkpoint is None:
+                return
+            phase, step_id, attempt = active_checkpoint
+            self._checkpoint(
+                writer,
+                run,
+                subject_ref,
+                phase,
+                step_id,
+                attempt,
+                outcome,
+                error_code,
+            )
+            active_checkpoint = None
 
         writer.write_json("run.json", run.model_dump(mode="json"))
         writer.write_json(
@@ -145,13 +182,17 @@ class RunOrchestrator:
                 run = transition(run, RunState.RUNNING)
                 writer.run = run
                 writer.write_json("run.json", run.model_dump(mode="json"))
+                start_step(Phase.BASELINE, "seed-pending-report")
                 seeded = self.adapters.seed.seed(run_id=str(run.run_id), subject_ref=subject_ref)
                 _require(seeded, "seed")
                 subject = dict(seeded.data)
-                writer.write_json("subjects.json", [subject])
+                finish_step("SUCCEEDED")
 
+                start_step(Phase.BASELINE, "capture-baseline")
                 baseline = self.adapters.state.snapshot(subject=subject, phase="BASELINE")
                 _require(baseline, "baseline")
+                test_subject = self._test_subject(subject_ref, subject, baseline)
+                writer.write_json("subjects.json", [test_subject.model_dump(mode="json")])
                 artifacts.append(
                     self._state_artifact(
                         writer, subject_ref, Phase.BASELINE, "capture-baseline", "EV-01", baseline
@@ -166,7 +207,9 @@ class RunOrchestrator:
                     "capture-baseline",
                     baseline,
                 )
+                finish_step("SUCCEEDED")
 
+                start_step(Phase.INJECTED, "apply-reporting-fault")
                 expires_at = self.clock.now() + timedelta(minutes=5)
                 applied = self.adapters.fault.apply(
                     run_id=str(run.run_id),
@@ -202,42 +245,33 @@ class RunOrchestrator:
                     True,
                     Source.FAULT,
                 )
+                finish_step("SUCCEEDED")
 
+                start_step(Phase.INJECTED, "trigger-reporting")
                 triggered = self.adapters.seed.trigger(run_id=str(run.run_id), subject=subject)
                 _require(triggered, "reporting trigger")
-                effect = self.adapters.fault.probe_effect(
-                    run_id=str(run.run_id),
-                    subject=subject,
-                    trigger=dict(triggered.data),
-                )
-                artifacts.append(
-                    self._json_artifact(
-                        writer,
-                        subject_ref,
-                        Phase.INJECTED,
-                        "confirm-fault-effect",
-                        "EV-03",
-                        "FAULT_RECEIPT",
-                        effect,
-                    )
-                )
-                self._observe(
-                    observations,
+                finish_step("SUCCEEDED")
+
+                start_step(Phase.INJECTED, "confirm-fault-effect")
+                effect = self._poll_fault_effect(
                     writer,
+                    observations,
+                    artifacts,
                     run,
                     subject_ref,
-                    Phase.INJECTED,
-                    "confirm-fault-effect",
-                    "fault.effect.receipt_match",
-                    effect.ok,
-                    Source.FAULT,
+                    subject,
+                    dict(triggered.data),
                 )
+                finish_step("SUCCEEDED" if effect and effect.ok else "FAILED", effect.code)
 
+                start_step(Phase.INJECTED, "observe-report")
                 report = self._poll_report(
                     writer, observations, artifacts, run, subject_ref, subject
                 )
                 _require(report, "report observation")
+                finish_step("SUCCEEDED")
 
+                start_step(Phase.INJECTED, "observe-company-console")
                 browser = self.adapters.browser.capture_review(subject=subject)
                 _require(browser, "browser capture")
                 projection = dict(browser.data["projection"])
@@ -290,7 +324,9 @@ class RunOrchestrator:
                     projection["status_class"],
                     Source.BROWSER,
                 )
+                finish_step("SUCCEEDED")
 
+                start_step(Phase.INJECTED, "attempt-final-decision")
                 decision = self.adapters.state.attempt_final_decision(subject=subject)
                 _require(decision, "decision attempt")
                 artifacts.append(
@@ -320,7 +356,9 @@ class RunOrchestrator:
                         decision.data.get(field),
                         Source.HTTP,
                     )
+                finish_step("SUCCEEDED")
 
+                start_step(Phase.INJECTED, "capture-post-decision-state")
                 post = self.adapters.state.snapshot(subject=subject, phase="INJECTED")
                 _require(post, "post-decision state")
                 artifacts.append(
@@ -342,7 +380,9 @@ class RunOrchestrator:
                     "capture-post-decision-state",
                     post,
                 )
+                finish_step("SUCCEEDED")
 
+                start_step(Phase.INJECTED, "observe-automatic-decision-window")
                 automatic = self._observe_automatic_window(
                     writer, observations, run, subject_ref, subject
                 )
@@ -356,7 +396,9 @@ class RunOrchestrator:
                         automatic,
                     )
                 )
+                finish_step("SUCCEEDED")
         except BaseException as exc:  # noqa: BLE001 - restore must run for interrupts too
+            finish_step("FAILED", _checkpoint_error_code(exc))
             execution_error = exc
         finally:
             try:
@@ -364,40 +406,46 @@ class RunOrchestrator:
                     run = transition(run, RunState.RESTORING)
                     writer.run = run
                     writer.write_json("run.json", run.model_dump(mode="json"))
-                    restore = self.adapters.fault.restore(run_id=str(run.run_id), subject=subject)
-                    writer.append_jsonl("faults.jsonl", restore.data)
+                    start_step(Phase.RECOVERED, "restore-environment")
+                    restore = self._restore_until_deadline(
+                        writer,
+                        observations,
+                        artifacts,
+                        run,
+                        subject_ref,
+                        subject,
+                    )
+                    try:
+                        recovered = self.adapters.state.snapshot(subject=subject, phase="RECOVERED")
+                    except Exception as exc:  # noqa: BLE001 - preserve recovery uncertainty
+                        recovered = AdapterResult(
+                            False,
+                            "RECOVERED_STATE_UNAVAILABLE",
+                            detail=type(exc).__name__,
+                        )
                     artifacts.append(
-                        self._json_artifact(
+                        self._state_artifact(
                             writer,
                             subject_ref,
                             Phase.RECOVERED,
                             "restore-environment",
                             "EV-08",
-                            "FAULT_RECEIPT",
-                            restore,
+                            recovered,
                         )
                     )
-                    self._observe(
-                        observations,
-                        writer,
-                        run,
-                        subject_ref,
-                        Phase.RECOVERED,
-                        "restore-environment",
-                        "fault.environment_restore",
-                        restore.data.get("environment_restore", "FAILED"),
-                        Source.FAULT,
-                    )
-                    self._observe(
-                        observations,
-                        writer,
-                        run,
-                        subject_ref,
-                        Phase.RECOVERED,
-                        "restore-environment",
-                        "report.processing_recovery",
-                        restore.data.get("report_processing_recovery", "UNAVAILABLE"),
-                        Source.HTTP,
+                    if recovered.ok:
+                        self._record_state(
+                            observations,
+                            writer,
+                            run,
+                            subject_ref,
+                            Phase.RECOVERED,
+                            "restore-environment",
+                            recovered,
+                        )
+                    finish_step(
+                        "SUCCEEDED" if restore.ok and recovered.ok else "FAILED",
+                        None if restore.ok and recovered.ok else restore.code,
                     )
                     restored = restore.ok
                     destination = (
@@ -412,9 +460,16 @@ class RunOrchestrator:
                         self.blocks.block(readiness.target_id, subject_ref, run)
                 elif run.state is RunState.RUNNING or run.state is RunState.PENDING:
                     run = transition(run, RunState.ABORTED)
+            except BaseException as restore_exc:  # noqa: BLE001 - seal restore diagnostics
+                finish_step("FAILED", _checkpoint_error_code(restore_exc))
+                execution_error = execution_error or restore_exc
+                restored = False
+                if run.state is RunState.RESTORING:
+                    run = transition(run, RunState.RESTORE_FAILED)
+                    self.blocks.block(readiness.target_id, subject_ref, run)
+            finally:
                 writer.run = run
                 writer.write_json("run.json", run.model_dump(mode="json"))
-            finally:
                 if subject and restored:
                     teardown = self.adapters.seed.teardown(run_id=str(run.run_id), subject=subject)
                     if not teardown.ok:
@@ -425,16 +480,27 @@ class RunOrchestrator:
 
         if not (writer.directory / "subjects.json").exists():
             writer.write_json("subjects.json", [])
-        for name in ("faults.jsonl", "observations.jsonl"):
+        for name in ("faults.jsonl", "observations.jsonl", "checkpoints.jsonl"):
             if not (writer.directory / name).exists():
                 writer.write_bytes(name, b"", "application/x-ndjson")
-        judgement = judge_h03(run, observations, artifacts)
+        judgement = judge_h03(
+            run,
+            observations,
+            artifacts,
+            stability_consecutive=self.scenario.timing_policy.stability_consecutive,
+            stability_seconds=self.scenario.timing_policy.stability_seconds,
+        )
         writer.write_json(
             "assertions.json",
             [result.model_dump(mode="json") for result in judgement.assertion_results],
         )
         writer.write_json("judgement.json", judgement.model_dump(mode="json"))
         if retest_records is not None:
+            if test_subject is None:
+                raise RuntimeError("retest child subject snapshot was not created")
+            from engine.retest import finalize_retest_records
+
+            finalize_retest_records(retest_records, test_subject)
             writer.write_json("retest-link.json", retest_records["link"], redact_first=False)
             writer.write_json("retest-diff.json", retest_records["diff"], redact_first=False)
         writer.seal()
@@ -491,6 +557,128 @@ class RunOrchestrator:
                 self.clock.sleep(self.scenario.timing_policy.poll_seconds)
         return last
 
+    def _poll_fault_effect(
+        self,
+        writer,
+        observations,
+        artifacts,
+        run,
+        subject_ref,
+        subject,
+        trigger,
+    ):
+        attempts = max(
+            1,
+            int(
+                self.scenario.timing_policy.injected_deadline_seconds
+                / self.scenario.timing_policy.poll_seconds
+            ),
+        )
+        last = None
+        for attempt in range(1, attempts + 1):
+            last = self.adapters.fault.probe_effect(
+                run_id=str(run.run_id),
+                subject=subject,
+                trigger=trigger,
+            )
+            artifacts.append(
+                self._json_artifact(
+                    writer,
+                    subject_ref,
+                    Phase.INJECTED,
+                    "confirm-fault-effect",
+                    "EV-03",
+                    "FAULT_RECEIPT",
+                    last,
+                    attempt=attempt,
+                )
+            )
+            self._observe(
+                observations,
+                writer,
+                run,
+                subject_ref,
+                Phase.INJECTED,
+                "confirm-fault-effect",
+                "fault.effect.receipt_match",
+                last.ok,
+                Source.FAULT,
+                attempt,
+            )
+            if last.ok:
+                break
+            if attempt < attempts:
+                self.clock.sleep(self.scenario.timing_policy.poll_seconds)
+        return last
+
+    def _restore_until_deadline(
+        self,
+        writer,
+        observations,
+        artifacts,
+        run,
+        subject_ref,
+        subject,
+    ):
+        attempts = max(
+            1,
+            int(
+                self.scenario.timing_policy.environment_restore_deadline_seconds
+                / self.scenario.timing_policy.poll_seconds
+            ),
+        )
+        last = None
+        terminal_processing = {"READY", "PARTIAL", "FAILED"}
+        for attempt in range(1, attempts + 1):
+            last = self.adapters.fault.restore(run_id=str(run.run_id), subject=subject)
+            writer.append_jsonl(
+                "faults.jsonl",
+                {"attempt": attempt, "code": last.code, **dict(last.data)},
+            )
+            artifacts.append(
+                self._json_artifact(
+                    writer,
+                    subject_ref,
+                    Phase.RECOVERED,
+                    "restore-environment",
+                    "EV-08",
+                    "FAULT_RECEIPT",
+                    last,
+                    attempt=attempt,
+                )
+            )
+            environment = last.data.get("environment_restore", "FAILED")
+            processing = last.data.get("report_processing_recovery", "UNAVAILABLE")
+            self._observe(
+                observations,
+                writer,
+                run,
+                subject_ref,
+                Phase.RECOVERED,
+                "restore-environment",
+                "fault.environment_restore",
+                environment,
+                Source.FAULT,
+                attempt,
+            )
+            self._observe(
+                observations,
+                writer,
+                run,
+                subject_ref,
+                Phase.RECOVERED,
+                "restore-environment",
+                "report.processing_recovery",
+                processing,
+                Source.HTTP,
+                attempt,
+            )
+            if last.ok and processing in terminal_processing:
+                break
+            if attempt < attempts:
+                self.clock.sleep(self.scenario.timing_policy.poll_seconds)
+        return last
+
     def _observe_automatic_window(self, writer, observations, run, subject_ref, subject):
         attempts = int(
             self.scenario.timing_policy.automatic_decision_window_seconds
@@ -519,12 +707,64 @@ class RunOrchestrator:
             writer, subject_ref, phase, step, evidence_id, "STATE_SNAPSHOT", result
         )
 
-    def _json_artifact(self, writer, subject_ref, phase, step, evidence_id, artifact_type, result):
+    def _test_subject(self, subject_ref, subject, baseline):
+        state = dict(baseline.data["state"])
+        locators = {
+            key: str(subject[key])
+            for key in ("invitation_id", "interview_session_id", "target_stage_id")
+            if subject.get(key) is not None
+        }
+        return TestSubject(
+            subject_ref=subject_ref,
+            subject_type=str(subject.get("subject_type", "synthetic_applicant")),
+            synthetic=bool(subject.get("synthetic", False)),
+            locators=locators,
+            initial_state_digest=sha256_bytes(canonical_json_bytes(state)),
+            seed_correlation_id=str(subject["seed_correlation_id"]),
+        )
+
+    def _checkpoint(
+        self,
+        writer,
+        run,
+        subject_ref,
+        phase,
+        step_id,
+        attempt,
+        outcome,
+        error_code=None,
+    ):
+        record = {
+            "schema_version": "controlproof.step-checkpoint.v1",
+            "run_id": str(run.run_id),
+            "subject_ref": subject_ref,
+            "phase": phase.value,
+            "step_id": step_id,
+            "attempt": attempt,
+            "outcome": outcome,
+            "recorded_at": self.clock.now().isoformat(),
+        }
+        if error_code:
+            record["error_code"] = error_code
+        writer.append_jsonl("checkpoints.jsonl", record)
+
+    def _json_artifact(
+        self,
+        writer,
+        subject_ref,
+        phase,
+        step,
+        evidence_id,
+        artifact_type,
+        result,
+        *,
+        attempt=1,
+    ):
         return writer.collect_json_artifact(
             subject_ref=subject_ref,
             phase=phase,
             step_id=step,
-            attempt=1,
+            attempt=attempt,
             evidence_requirement_ids=(evidence_id,),
             artifact_type=artifact_type,
             source_locator={"adapter_code": result.code},
@@ -613,3 +853,11 @@ def _require(result: AdapterResult | None, step: str) -> AdapterResult:
         code = "NO_RESULT" if result is None else result.code
         raise RuntimeError(f"{step} failed: {code}")
     return result
+
+
+def _checkpoint_error_code(exc: BaseException) -> str:
+    message = str(exc)
+    candidate = message.rsplit(": ", 1)[-1] if ": " in message else ""
+    if candidate and all(character.isalnum() or character == "_" for character in candidate):
+        return candidate
+    return type(exc).__name__.upper()

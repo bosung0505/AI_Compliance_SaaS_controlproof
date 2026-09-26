@@ -10,6 +10,7 @@
 ├── subjects.json
 ├── faults.jsonl
 ├── observations.jsonl
+├── checkpoints.jsonl
 ├── assertions.json
 ├── judgement.json
 ├── retest-diff.json          # 재시험일 때만
@@ -46,7 +47,13 @@
       "size_bytes": 842,
       "sha256": "64-lowercase-hex",
       "artifact_id": "0199...",
-      "redaction_profile": "controlproof-redaction-v1"
+      "redaction_profile": "controlproof-redaction-v1",
+      "subject_ref": "candidate-01",
+      "phase": "INJECTED",
+      "step_id": "attempt-final-decision",
+      "attempt": 1,
+      "evidence_requirement_ids": ["EV-05"],
+      "artifact_type": "HTTP_EXCHANGE"
     }
   ],
   "required_evidence": {
@@ -126,6 +133,14 @@ Authorization, cookies, tokens, DB credentials와 실제 PII는 envelope에 존�
 
 `ABSENT`는 조회 성공·기록 없음이며, `UNAVAILABLE`은 `error_code`를 요구한다.
 
+## `checkpoints.jsonl`
+
+각 scenario step은 시작 직전 `STARTED`, 정상 종료 시 `SUCCEEDED`, 실행 오류나 확인 실패 시
+`FAILED` checkpoint를 append하고 flush·fsync한다. 한 record는 `run_id`, `subject_ref`, `phase`,
+`step_id`, `attempt`, `outcome`, `recorded_at`을 가지며 `FAILED`는 민감정보가 제거된 안정적인
+`error_code`를 추가한다. checkpoint는 증적의 의미를 대신하지 않으며, 중단된 Run에서 마지막으로
+완료된 단계와 restore 진입 여부를 추론 없이 확인하기 위한 실행 기록이다.
+
 ## 필수 evidence mapping
 
 | ID | 최소 artifact type |
@@ -161,7 +176,8 @@ EV-03은 marker 적용 명령 receipt만으로 충족되지 않으며, 현재 Ru
 - manifest의 모든 path가 root 내부
 - size와 SHA-256 일치
 - artifact envelope의 dimension과 manifest metadata 일치
-- EV-01~EV-09 mapping 존재
+- EV-01~EV-09 mapping과 artifact envelope의 evidence ID가 상호 일치
+- 각 EV가 scenario에 선언된 최소 artifact type 조합을 충족
 - PASS Run이면 모든 mapped artifact가 VERIFIED
 - scenario/target snapshot digest가 run.json과 일치
 - sealed parent가 retest 뒤에도 동일 digest인지
