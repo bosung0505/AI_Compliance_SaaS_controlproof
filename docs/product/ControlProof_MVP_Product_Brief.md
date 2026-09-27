@@ -8,8 +8,10 @@
 - 작성 기준일: 2026-09-23
 - 결정 상태: 팀 동기화 전 제품 책임자의 위임에 따라 MVP 구현 기준을 임시 확정했다. 변경은 [MVP 결정 기록](./ControlProof_MVP_Decision_Log.md)에 이유와 영향을 남긴다.
 - 문서 성격: PRD-lite. 제품 관점의 결정 문서이며 상세 API, DB 스키마, 배포 구조와 구현 프레임워크는 후속 Spec과 Plan에서 정한다.
-- 현재 산출물: [Spec Kit Constitution](../../.specify/memory/constitution.md), [기능 Spec 001](../../specs/001-execution-evidence-h03/spec.md)
-- 다음 산출물: 기능 Spec 001의 기술 Plan과 Tasks, 후속 목업 UI
+- 현재 산출물: [Spec Kit Constitution](../../.specify/memory/constitution.md),
+  [완료된 기능 Spec 001](../../specs/001-execution-evidence-h03/spec.md),
+  [기능 Spec 002 초안](../../specs/002-h03-e03-fault-expansion/spec.md)
+- 다음 산출물: 기능 Spec 002 명확화와 기술 Plan, 후속 기능 Spec과 웹 워크벤치
 
 ### 0.1 기준 문서의 우선순위
 
@@ -669,7 +671,8 @@ H-03과 E-03은 같은 장애 실행에서 서로 다른 통제 관점으로 판
 
 ## 14. 후속 Spec Kit 작업 단위
 
-이 Brief를 기준으로 다음 순서로 진행한다. 14.1과 14.2는 완료되었고 다음 작업은 기능 Spec 001의 기술 Plan이다.
+이 Brief를 기준으로 다음 순서로 진행한다. 14.1과 14.2는 명세·구현·실제 검증까지 완료되었고,
+현재 작업은 14.3 기능 Spec 002의 명세와 명확화다.
 
 ### 14.1 Constitution
 
@@ -705,6 +708,9 @@ H-03과 E-03은 같은 장애 실행에서 서로 다른 통제 관점으로 판
 기본 모델을 별도의 수평 기반으로만 만들지 않고, H-03 한 건을 실제로 끝까지 통과시키면서 계약을 검증한다.
 
 ### 14.3 기능 Spec 002 — H-03·E-03 장애 확장
+
+상태: 초안 — [Feature Specification](../../specs/002-h03-e03-fault-expansion/spec.md),
+[품질 체크리스트](../../specs/002-h03-e03-fault-expansion/checklists/requirements.md)
 
 - reporting 재시도 소진과 DLQ 전환
 - DLQ 적재와 운영자 노출

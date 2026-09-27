@@ -8,7 +8,8 @@ ControlProof는 합성 데이터를 이용해 AI 서비스의 절차적 보호�
 - 제품 정의: [MVP Product Brief](./docs/product/ControlProof_MVP_Product_Brief.md)
 - 제품 결정: [MVP Decision Log](./docs/product/ControlProof_MVP_Decision_Log.md)
 - 개발 원칙: [ControlProof Constitution](./.specify/memory/constitution.md)
-- 현재 기능: [Spec 001 — 실행·증적 기본 모델과 H-03 최소 수직 흐름](./specs/001-execution-evidence-h03/spec.md)
+- 완료 기능: [Spec 001 — 실행·증적 기본 모델과 H-03 최소 수직 흐름](./specs/001-execution-evidence-h03/spec.md)
+- 현재 명세: [Spec 002 — H-03·E-03 장애·재시도·DLQ 확장](./specs/002-h03-e03-fault-expansion/spec.md)
 - 팀 인수인계: [Spec 001 현황·재현·검토 가이드](./docs/TEAM_HANDOFF_SPEC_001.md)
 - 도입 결정: [ADR-0001 — Spec Kit과 팀 골격 채택](./docs/decisions/0001-adopt-spec-kit-and-skeleton.md)
 
