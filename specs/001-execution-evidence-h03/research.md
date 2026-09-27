@@ -198,11 +198,11 @@ Phase 0에서 구현을 막는 미결정 사항은 없다. 다음 항목은 제�
 
 **Rationale**: capability 구현보다 먼저 실제 통합시험을 배치하면 RunOrchestrator가 readiness 단계에서 멈추므로 작업 순서가 실행 불가능하다. fake 수직 흐름과 실제 환경 검증의 시점을 분리하면 US1은 독립적으로 개발하면서도 실제 시험의 안전 gate를 유지할 수 있다.
 
-### R-18. SC-008은 비작성자 1명·3개 bundle의 실측 gate
+### R-18. SC-008은 CLI projection 자동 계약으로 검증하고 사람 검토는 웹 UX로 이관
 
-**Decision**: 결과 bundle을 만들지 않은 검토자 1명이 canonical PASS·FAIL·INCONCLUSIVE 3건을 각각 `controlproof show`만으로 검토한다. Run ID 전달부터 답안 완료까지 건별 120초 이하이고 지정된 5개 답이 모두 맞아야 하며 원시 시각·소요 시간·답안을 `validation.md`에 남긴다.
+**Decision**: canonical PASS·FAIL·INCONCLUSIVE 3종의 `show --json` projection이 verdict, 핵심 이유, 실패·판정 불가 assertion, 증적 경로·SHA-256, 환경 복구와 미검증 범위를 빠짐없이 제공하는지 계약·통합 시험으로 검증한다. 비작성자 120초 실측은 Spec 001 완료 gate에서 제외하고 고객용 웹 결과 화면이 구현된 후 별도 UX 검토로 수행한다.
 
-**Rationale**: 출력 필드가 존재한다는 자동시험만으로는 사람이 2분 안에 찾는다는 성공 기준을 증명하지 못한다. 반대로 자유 형식 사용성 평가는 통과 기준이 주관적이므로 대상·도구·답안·타이머 경계를 고정했다.
+**Rationale**: 현재 CLI는 개발·검증 인터페이스이며 최종 고객 화면이 아니다. 정해진 필드의 존재와 연결은 자동 시험이 더 정확하게 검증할 수 있고, CLI 읽기 시간을 재도 최종 제품의 이해 가능성을 대표하지 않는다. 실제 사람 검토는 정보 구조와 시각적 우선순위가 확정되는 웹 결과 화면에서 수행하는 편이 제품 판단에 유효하다.
 
 ### R-19. Spec 001의 관찰값 비교는 기본·명시 모두 EXACT
 

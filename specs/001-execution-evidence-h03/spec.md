@@ -4,7 +4,7 @@
 
 **Created**: 2026-09-23
 
-**Status**: Implemented — external SC-008 non-author review pending
+**Status**: Complete
 
 **Input**: V4와 Product Brief를 기준으로, H-03 최소형을 통해 ControlProof의 실행·관찰·증적·판정·복구·재시험 기본 계약을 검증한다.
 
@@ -348,7 +348,7 @@ H03-A6의 `환경 복구`는 ControlProof가 주입한 장애가 제거되고 wo
 - **SC-005**: 장애가 적용된 Run의 100%에서 복구가 시도되고, 복구 실패 fixture의 100%가 `RESTORE_FAILED`와 후속 실행 차단으로 나타난다.
 - **SC-006**: 저장 후 변경한 증적 fixture의 100%에서 무결성 오류를 탐지하며 해당 자료로 PASS를 만들지 않는다.
 - **SC-007**: 재시험 후 최초 Run의 판정·관찰·증적 변경 건수가 0건이고, 새 Run의 부모 관계와 버전 차이를 모두 확인할 수 있다.
-- **SC-008**: 결과 bundle을 만들지 않은 검토자 1명이 canonical PASS·FAIL·INCONCLUSIVE bundle 3건을 대상으로 각 Run ID를 전달받은 시점부터 120초 안에 문서화된 `show` 명령만 사용해 최종 verdict, 핵심 이유, 실패 또는 판정 불가 assertion, 사용 증적 링크와 환경 복구 성공 여부를 모두 정확히 기록한다. 3건 모두 항목 누락·오답 없이 120초 이하여야 통과하며 검토자 ref, 시작·종료 시각, 소요 시간과 답안을 `validation.md`에 남겨야 한다.
+- **SC-008**: canonical PASS·FAIL·INCONCLUSIVE bundle의 `show --json` projection 100%가 최종 verdict, 핵심 이유, 실패·판정 불가 assertion, assertion별 증적 경로·SHA-256, 환경 복구 상태와 미검증 범위를 고정 필드로 제공하고 계약 시험을 통과한다. 비작성자 시간 측정은 CLI 단계의 완료 조건에서 제외하며, 실제 고객용 웹 결과 화면이 구현된 후 별도 UX 검토로 수행한다.
 - **SC-009**: 전체 시연과 자동 시험에서 실제 지원자 개인정보 사용 건수는 0건이다.
 - **SC-010**: reporting 기능 존재·장애 주입기 미준비 조합의 100%가 `RUNNER_NOT_READY`로 표시되고 `NO_TEST_TARGET`로 표시되는 경우는 0건이다.
 

@@ -1,56 +1,53 @@
-# SC-008 비작성자 검토 체크리스트
+# 결과 검토 정책과 웹 UX 검토 이관 기록
 
-## 목적과 자격
+## 현재 결정
 
-구현·bundle 생성·정답표 작성에 참여하지 않은 팀원 1명이 수행한다. 검토자는 코드, 원본 DB,
-`judgement.json` 직접 열람 없이 `controlproof show <RUN_ID>` 출력만 사용한다.
+Spec 001의 CLI는 개발·검증용 인터페이스이므로 비작성자 1명이 PASS·FAIL·INCONCLUSIVE
+세 건을 각각 120초 안에 읽는 시험을 완료 gate로 사용하지 않는다. 실제로 측정하지 않은 시간을
+통과한 것으로 가정하지도 않는다.
 
-## 운영자 준비
+대신 Spec 001에서는 canonical 세 verdict의 `controlproof show --json` projection이 다음 필드를
+빠짐없이 제공하는지 자동 계약·통합 시험으로 검증한다.
 
-검토에 참여하지 않는 운영자가 아래 명령으로 익명 PASS/FAIL/INCONCLUSIVE bundle 3개를 만든다.
+1. 최종 verdict와 핵심 이유
+2. 실패·판정 불가 assertion ID
+3. assertion별 증적 상대 경로와 SHA-256
+4. 환경 복구와 리포트 처리 복구 상태
+5. findings, 누락 증적과 미검증 범위
+6. 구현 상태와 WhyYou 판정의 분리
 
-```powershell
-python -m scripts.prepare_sc008_review --output .controlproof/sc008-review-handoff
-```
+관련 자동 검증은 `tests/contract/test_cli_review.py`,
+`tests/integration/test_h03_review_traceability.py`,
+`tests/integration/test_sc008_review_package.py`에서 수행한다.
 
-- 검토자에게는 생성된 `README.md`와 `reviewer-runs.json`만 전달한다.
-- `answer-key.json`은 세 case의 답변과 시간이 모두 기록될 때까지 공개하지 않는다.
-- 각 bundle은 `controlproof show <RUN_ID> --run-root <생성된 runs 경로>`로 연다.
-- 준비 도구는 기존의 비어 있지 않은 출력 디렉터리를 덮어쓰지 않는다.
-- 2026-09-27 준비본은 `.controlproof/sc008-review-handoff-20260927/`에 있으며, 세 bundle의
-  `show`와 `verify`가 모두 성공했다.
+## 이관 이유
 
-## 시험 자료와 정답표
+- CLI는 최종 고객이 사용할 결과 화면이 아니다.
+- 정해진 필드의 존재와 연결은 사람의 눈보다 자동 시험이 정확하다.
+- CLI 읽기 시간은 웹 화면의 정보 구조, 시각적 우선순위와 탐색성을 대표하지 않는다.
+- 사람 검토는 실제 고객용 웹 결과 화면이 생긴 뒤 수행해야 제품 의사결정에 유효하다.
 
-운영자는 합성 PASS, FAIL, INCONCLUSIVE bundle을 무작위 순서로 제공하고 아래 정답표는 검토가
-끝날 때까지 가린다.
+## 합성 검토 package의 지위
 
-| case | verdict | 핵심 이유 | 실패/판정 불가 assertion | 환경 복구 |
-|---|---|---|---|---|
-| PASS | PASS | 결정 안전성과 환경 복구 확인 | 없음 | SUCCEEDED |
-| FAIL | FAIL | 화면이 실패/지연을 명확히 표시하지 않음 | H03-A2 실패 | SUCCEEDED |
-| INCONCLUSIVE | INCONCLUSIVE | 장애 발동 또는 안전 복구 증적 부족 | H03-A1 또는 H03-A6 판정 불가 | fixture에 표시된 값 |
+`python -m scripts.prepare_sc008_review`은 PASS·FAIL·INCONCLUSIVE bundle과 `show` projection을
+개발자가 확인하기 위한 선택적 데모 도구로 유지한다. 이 package의 실행이나 사람 시간 측정은
+Spec 001 완료 조건이 아니다.
 
-## 각 case에서 답할 다섯 항목
+## 후속 웹 결과 화면에서 검토할 내용
 
-1. 최종 verdict는 무엇인가?
-2. 핵심 이유 한 문장은 무엇인가?
-3. 실패 또는 판정 불가 assertion ID는 무엇인가?
-4. 그 assertion의 대표 증적 상대 경로 하나와 SHA-256은 무엇인가?
-5. 환경 복구 상태와 아직 검증하지 않은 범위 하나는 무엇인가?
+웹 결과 화면을 다루는 후속 Spec은 최소한 다음 사용성 과업을 별도로 정의한다.
 
-## 시간과 합격 경계
+1. 대상 사용자 역할을 채용 담당자·검증 담당자·감사 검토자 중에서 명시한다.
+2. 실제 웹 화면에서 verdict, 핵심 이유, 실패 assertion, 대표 증적, 복구 상태와 미검증 범위를
+   찾게 한다.
+3. 완료 시간뿐 아니라 오답, 클릭 경로, 해석 오류와 추가 설명 필요 여부를 기록한다.
+4. 화면이 만들어진 뒤 난이도를 보고 합격 시간과 표본 수를 결정한다. 기존 120초를 근거 없이
+   그대로 승계하지 않는다.
+5. 검토 결과는 해당 웹 UX Spec의 validation 문서에 기록한다.
 
-- 운영자가 Run ID를 전달하는 순간 타이머를 시작한다.
-- 다섯 답을 모두 말한 순간 종료한다.
-- case당 `duration_seconds <= 120`이고 다섯 답이 모두 정답이어야 해당 case PASS다.
-- 세 case가 모두 PASS여야 SC-008 PASS다. `120.001초`는 FAIL이다.
-- 도중에 정답표·코드·원본 artifact를 열면 해당 case를 무효 처리하고 새 검토자로 다시 한다.
+## 결정 기록
 
-## 결과 기록표
-
-| reviewer_ref | case | started_at | ended_at | duration_seconds | verdict 답 | 이유 답 | assertion 답 | evidence 답 | restore/scope 답 | PASS/FAIL |
-|---|---|---|---|---:|---|---|---|---|---|---|
-| 미실행 | PASS |  |  |  |  |  |  |  |  |  |
-| 미실행 | FAIL |  |  |  |  |  |  |  |  |  |
-| 미실행 | INCONCLUSIVE |  |  |  |  |  |  |  |  |  |
+- 결정일: 2026-09-27
+- 변경 전: CLI 비작성자 1명, 세 verdict, 건별 120초 실측을 Spec 001 완료 gate로 사용
+- 변경 후: CLI projection은 자동 검증하고 사람 사용성 시험은 웹 결과 화면 구현 후 수행
+- 승인: 제품 책임자 요청

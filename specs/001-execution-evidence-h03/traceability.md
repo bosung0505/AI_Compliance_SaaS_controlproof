@@ -1,8 +1,8 @@
 # Spec 001 추적성
 
 요구사항, 실행 작업, 자동 검증, 구현 위치를 한 표에서 추적한다. 범위 표기는 해당 ID의
-연속 구간 전체를 뜻하며, 실제 WhyYou 격리 스택 실행과 비작성자 사용성 시험은
-`validation.md`에서 별도 상태로 관리한다.
+연속 구간 전체를 뜻하며, 실제 WhyYou 격리 스택 실행과 CLI projection 검증 결과는
+`validation.md`에서 별도 상태로 관리한다. 사람 사용성 검토는 후속 웹 결과 UX Spec으로 이관했다.
 
 | 요구/성과 | 작업 | 자동 검증 | 구현 |
 |---|---|---|---|
@@ -19,5 +19,5 @@
 | EV-01~EV-09 | T021, T027, T030, T032~043, T050, T054 | bundle link, manifest, traceability 테스트 | `evidence.py`, `runner.py`, adapters |
 | SC-001~005, SC-009~010 | T043~044, T064~072, T077 | fake harness와 안전/보안 테스트; 실제 스택 T077 대기 | runner, adapter, target guard |
 | SC-006~007 | T047, T056~063, T078, T085 | tamper, parent 불변 retest, 실제 FAIL→PASS 계보 | `verify_bundle`, `retest.py` |
-| SC-008 | T051, T054~055, T086 | 자동 projection·익명 review package 검증 완료; 비작성자 3건 시험 대기 | `presentation.py`, `prepare_sc008_review.py`, review checklist |
+| SC-008 | T051, T054~055, T086 | PASS·FAIL·INCONCLUSIVE projection과 증적 링크 자동 검증 완료; 사람 검토는 웹 UX로 이관 | `presentation.py`, `prepare_sc008_review.py`, review policy |
 | SC-009 | T043, T071, T077, T086 | bundle 링크, redaction corpus, UUID false-positive 회귀, 실제 스택 증적 | `evidence.py`, `runner.py`, review package |

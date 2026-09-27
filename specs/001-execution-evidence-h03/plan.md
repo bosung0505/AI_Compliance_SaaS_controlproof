@@ -101,9 +101,9 @@ H-03 seed는 리포트가 없는 completed session, final video, 최종 turn·tr
 
 ControlProof 구현 상태는 `NOT_IMPLEMENTED|PARTIAL|IMPLEMENTED` 세 값만 사용한다. scenario가 요구하는 capability handler 등록과 contract version 일치 여부만으로 계산하고 target verdict나 일시적 접근 실패로 바꾸지 않는다. 대상 기능이 존재하는 경우 `PARTIAL|NOT_IMPLEMENTED`는 readiness를 `RUNNER_NOT_READY`로 만들며 Run을 생성하지 않는다. 대상 기능 자체가 없으면 구현 상태와 별개로 `NO_TEST_TARGET`가 우선한다. 따라서 생성된 Run은 당시 `IMPLEMENTED` 상태를 snapshot으로 가진다.
 
-### 9. SC-008 시간 측정 검증
+### 9. SC-008 결과 projection 계약
 
-자동 traceability 시험과 별도로 결과 bundle을 만들지 않은 검토자 1명이 canonical PASS·FAIL·INCONCLUSIVE bundle 각 1건을 검토한다. 각 건은 Run ID 전달 시각부터 타이머를 시작하고 문서화된 `controlproof show`만 사용한다. verdict, 핵심 이유, 실패/판정 불가 assertion, 증적 링크, 환경 복구 상태의 정답과 소요 시간을 기록하며 3건 모두 120초 이하이고 오답·누락이 0개여야 SC-008 PASS다. 결과는 비식별 reviewer ref와 함께 `validation.md`에 남긴다.
+canonical PASS·FAIL·INCONCLUSIVE bundle에서 `controlproof show --json`을 실행해 verdict, 핵심 이유, 실패·판정 불가 assertion, assertion별 증적 경로·SHA-256, 환경 복구 상태와 미검증 범위가 고정 필드로 노출되는지 계약·통합 시험으로 검증한다. CLI는 내부 실행·검증 인터페이스이므로 비작성자 120초 시간 측정은 Spec 001의 완료 gate에서 제외한다. 실제 고객이 사용할 웹 결과 화면이 구현되면 화면의 정보 구조와 탐색성을 별도 UX 검토에서 실측한다.
 
 ## Observation and Timing Policy
 
@@ -139,8 +139,8 @@ specs/001-execution-evidence-h03/
 │   └── whyyou-adapter.md
 ├── checklists/
 │   └── requirements.md
-├── review-usability-checklist.md # SC-008 120초 검토 프로토콜과 정답 양식
-├── validation.md            # 자동·실제 스택·시간 측정 결과
+├── review-usability-checklist.md # CLI 실측 gate 이관 결정과 향후 웹 UX 검토 초안
+├── validation.md            # 자동·실제 스택·FAIL→PASS 검증 결과
 └── tasks.md                 # $speckit-tasks 단계에서 생성
 ```
 
@@ -256,7 +256,7 @@ WhyYou의 테스트 전용 변경은 WhyYou 저장소에서 별도 커밋으로 
 | WhyYou 업데이트로 endpoint/status가 바뀜 | adapter mapping에 target version을 연결하고 contract failure를 target FAIL로 오판하지 않음 |
 | 같은 target을 서로 다른 버전 문자열로 기록 | canonical TargetSnapshot JSON과 digest만 `target_version`으로 사용하고 component diff를 별도 표시 |
 | 구현 상태와 대상 FAIL이 혼동됨 | handler/contract 등록으로만 구현 상태를 계산하고 verdict·readiness와 별도 출력 |
-| 2분 검토 기준이 주관적으로 통과됨 | 비작성자 1명·canonical 3건·지정 5개 답안·건별 120초·validation 기록으로 gate 고정 |
+| CLI 검토 시간을 제품 UX 성과로 오인 | CLI는 projection 필드 계약을 자동 검증하고 사람 시간 측정은 고객용 웹 결과 화면 구현 뒤 별도 UX gate로 이관 |
 
 ## Complexity Tracking
 

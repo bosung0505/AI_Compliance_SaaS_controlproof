@@ -23,6 +23,23 @@ def test_sc008_package_blinds_three_verdicts_and_keeps_answer_key_separate(tmp_p
         "FAIL",
         "INCONCLUSIVE",
     }
+    for case in answer_key["cases"]:
+        summary = case["summary"]
+        assert summary["verdict"] == case["expected_verdict"]
+        assert summary["summary"]
+        assert "failed_assertions" in summary
+        assert "inconclusive_assertions" in summary
+        assert len(summary["assertions"]) == 6
+        assert all(assertion["evidence"] for assertion in summary["assertions"])
+        assert all(
+            evidence["path"] and evidence["sha256"]
+            for assertion in summary["assertions"]
+            for evidence in assertion["evidence"]
+        )
+        assert summary["environment_restore_status"] == "SUCCEEDED"
+        assert summary["report_processing_recovery"] == "READY"
+        assert summary["unverified_scope"]
+        assert summary["implementation_status"] == "IMPLEMENTED"
     assert {case["run_id"] for case in reviewer["cases"]} == {
         case["run_id"] for case in answer_key["cases"]
     }

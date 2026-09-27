@@ -134,29 +134,32 @@ ControlProof에서도 화면의 `data-report-state`를 우선 읽고, “리포�
 세 bundle은 실패·중단 이력을 감추지 않기 위해 그대로 보존했고, 최종 판정에는 정확한 대상 ID로
 다시 실행한 canonical child만 사용했다.
 
-## 아직 완료되지 않은 외부 검증
+## SC-008 변경 결정과 검증
 
-### SC-008 비작성자 2분 검토
+제품 책임자 결정으로 CLI 비작성자 120초 시간 측정을 Spec 001 완료 gate에서 제외했다. 실제로
+측정하지 않은 시간을 통과한 것으로 간주하지 않으며, 사람 대상 이해도 검토는 고객용 웹 결과
+화면 구현 후 별도 UX Spec에서 수행한다.
 
-코드 작성에 참여하지 않은 팀원 1명이 `review-usability-checklist.md`의
-PASS/FAIL/INCONCLUSIVE 세 case를 수행해야 한다. 현재 검토자, 실행 시각, 답변, 소요 시간이
-없으므로 **미검증**이다. 자동 projection 테스트나 이 문서 작성자의 검토로 대신하지 않는다.
+Spec 001의 SC-008은 다음 자동 검증으로 대체했다.
 
-실행 준비는 완료됐다.
+- canonical PASS·FAIL·INCONCLUSIVE projection 생성
+- verdict, 핵심 이유, 실패·판정 불가 assertion 확인
+- assertion별 증적 상대 경로·SHA-256 연결 확인
+- 환경 복구, 리포트 처리 복구와 미검증 범위 확인
+- 세 합성 bundle의 `show` exit 0과 `verify=VERIFIED`
+- 관련 자동 시험 35개와 전체 시험 134개 PASS
 
-- 준비 도구: `scripts/prepare_sc008_review.py`
-- 준비 package: `.controlproof/sc008-review-handoff-20260927/`
-- 익명 case: 3개, 별도 `reviewer-runs.json`과 `answer-key.json`
-- 사전 확인: 세 case 모두 `show` exit 0, bundle `VERIFIED`
-- 기록 위치: `review-usability-checklist.md` 결과표
+`scripts/prepare_sc008_review.py`와 합성 세 verdict package는 선택적 개발 데모로 유지하지만
+사람 시간 측정 release gate로 사용하지 않는다. 결정 근거는 Decision Log D-012와
+`review-usability-checklist.md`에 남겼다.
 
 ## 판정
 
 - ControlProof 구현·clean environment·실제 스택 실행 게이트: PASS
 - WhyYou H-03 제품 보호 결과: PASS — 원본 FAIL을 보존한 별도 child retest에서 A1~A6 확인
 - 기술 구현 완료 기준: **COMPLETE**
-- Spec 001 공식 종료 상태: **PENDING** — SC-008 비작성자 3-case 시험만 남음
+- Spec 001 공식 종료 상태: **COMPLETE**
 
 **Checkpoint**: 실제 FAIL을 수정 전 이력으로 보존하고, 제품 수정 커밋과 연결된 PASS child,
-원본 bundle 불변성, 독립 검토용 익명 package까지 준비했다. 비작성자 결과를 기록하기 전에는
-T055와 Spec 001을 완료 처리하지 않는다.
+원본 bundle 불변성과 CLI projection 계약까지 검증했다. 사람 사용성 평가는 현재 CLI가 아니라
+후속 웹 결과 화면을 대상으로 수행한다.

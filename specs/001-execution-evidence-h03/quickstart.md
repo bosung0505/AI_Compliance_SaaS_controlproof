@@ -1,6 +1,6 @@
 # Quickstart: H-03 최소 수직 흐름
 
-이 문서는 Spec 001 구현 완료 후 로컬 격리 환경에서 최초 Run을 재현하는 절차다. 현재 plan 단계에서는 명령 계약을 고정하며, 구현 전에는 일부 명령이 아직 존재하지 않는다.
+이 문서는 완료된 Spec 001 구현을 로컬 격리 환경에서 재현하는 절차다. 명령 계약과 H-03 최소 수직 흐름은 구현돼 있으며, 실제 Run에는 별도 WhyYou 시험 환경과 로컬 전용 자격 증명이 필요하다.
 
 ## 1. 전제조건
 
@@ -134,7 +134,7 @@ bundle 경로:
 - 환경 복구 성공 여부와 별도 `report_processing_recovery` 및 미검증 범위(DLQ 등)가 명시됨
 - bundle verify가 VERIFIED임
 
-SC-008은 눈으로 “빨리 찾을 수 있다”고 판단하지 않는다. bundle을 만들지 않은 검토자 1명이 `specs/001-execution-evidence-h03/review-usability-checklist.md`에 따라 canonical PASS·FAIL·INCONCLUSIVE 3건을 각각 검토한다. Run ID를 받은 시점부터 타이머를 시작하고 `controlproof show`만 사용해 verdict, 핵심 이유, 실패/판정 불가 assertion, 증적 링크, 환경 복구 상태를 답한다. 세 건 모두 정답이고 각각 120초 이하여야 하며 결과를 `validation.md`에 기록한다.
+SC-008은 canonical PASS·FAIL·INCONCLUSIVE bundle의 `show --json` projection에 verdict, 핵심 이유, 실패·판정 불가 assertion, 증적 경로·SHA-256, 환경 복구 상태와 미검증 범위가 모두 있는지 자동 계약 시험으로 확인한다. 비작성자 시간 측정은 CLI 완료 조건이 아니며, 고객용 웹 결과 화면이 구현된 뒤 별도 UX 검토로 수행한다.
 
 ## 8. Tamper smoke test
 
@@ -192,5 +192,5 @@ python -m engine.cli cleanup-confirm --target whyyou-local --subject candidate-0
 - EV-01~EV-09 연결과 SHA-256 검증 성공
 - canonical TargetSnapshot/run linkage와 implementation status 분리 확인
 - 환경 복구 성공 또는 RESTORE_FAILED 안전 차단 확인, report 처리 결과는 별도 필드로 보존
-- SC-008 비작성자 검토 3건 모두 정답·각 120초 이하
+- SC-008 PASS·FAIL·INCONCLUSIVE projection 필드·증적 연결 자동 시험 성공
 - 실제 개인정보 0건

@@ -100,7 +100,7 @@ description: "Spec 001 H-03 실행·증적 최소 수직 흐름의 구현 작업
 
 ## Phase 4: User Story 2 — 판정의 근거와 한계를 검토한다 (Priority: P2)
 
-**Goal**: 비개발자가 PASS·FAIL·INCONCLUSIVE의 기대값, 실제값, 증적, 누락·충돌, 복구 결과와 미검증 범위를 2분 안에 찾는다.
+**Goal**: PASS·FAIL·INCONCLUSIVE의 기대값, 실제값, 증적, 누락·충돌, 복구 결과와 미검증 범위를 일관된 projection으로 검토한다.
 
 **Independent Test**: PASS, 보호조치 FAIL, 증적 누락, 증적 충돌, 중단, 복구 실패, 변조 fixture를 열어 verdict·reason·finding·artifact 연결과 무결성 결과가 모두 기대값과 일치하는지 확인한다.
 
@@ -118,8 +118,8 @@ description: "Spec 001 H-03 실행·증적 최소 수직 흐름의 구현 작업
 - [X] T051 [P] [US2] Implement a Korean human summary projection with a fixed first-screen order of verdict → core reason → failed/inconclusive assertions → evidence links → environment restore, plus a separate `implementation_status`, `조회 결과 없음` vs `조회하지 못함`, report-processing recovery, findings, and unverified scope in `engine/presentation.py` [FR-023, FR-035, FR-049~050, SC-008]
 - [X] T052 [US2] Implement `controlproof show` and `controlproof verify` over sealed bundles with stable JSON plus concise terminal output in `engine/cli.py` [FR-035~050]
 - [X] T053 [P] [US2] Create non-PII canonical bundle fixtures for PASS, FAIL, missing, conflict, aborted, and restore-failed cases under `tests/fixtures/bundles/` [SC-002, SC-009]
-- [X] T054 [US2] Add artifact ID and source requirement links from H03-A1~A6 through the presentation projection in `tests/integration/test_h03_review_traceability.py`, and create the exact canonical PASS/FAIL/INCONCLUSIVE answer sheet, five required answers, timer boundaries, reviewer eligibility, and result table in `specs/001-execution-evidence-h03/review-usability-checklist.md` [FR-035, SC-003, SC-008]
-- [ ] T055 [US2] Run `pytest -q tests/unit/test_judgement_matrix.py tests/unit/test_evidence_conflicts.py tests/unit/test_bundle_verify.py tests/contract/test_cli_review.py tests/integration/test_h03_review_traceability.py`, fix only US2 implementation files until green, then have one non-author reviewer execute all three cases in `specs/001-execution-evidence-h03/review-usability-checklist.md` and record reviewer ref, start/end, duration, answers, and 3-of-3 pass/fail in `specs/001-execution-evidence-h03/validation.md` [SC-008]
+- [X] T054 [US2] Add artifact ID and source requirement links from H03-A1~A6 through the presentation projection in `tests/integration/test_h03_review_traceability.py`, and document the original timed-review proposal plus its later web-UX deferral in `specs/001-execution-evidence-h03/review-usability-checklist.md` [FR-035, SC-003, SC-008]
+- [X] T055 [US2] Run `pytest -q tests/unit/test_judgement_matrix.py tests/unit/test_evidence_conflicts.py tests/unit/test_bundle_verify.py tests/contract/test_cli_review.py tests/integration/test_h03_review_traceability.py`, confirm canonical PASS/FAIL/INCONCLUSIVE projections expose the SC-008 fields, and record the product-owner decision to defer non-author timing to the future web result UX in `specs/001-execution-evidence-h03/validation.md` [SC-008]
 
 **Checkpoint**: 판정의 이유와 한계, 원본 증적, 변조 여부가 독립적으로 검토 가능하다.
 
@@ -294,7 +294,7 @@ US4 tests T064 | T065 | T066; then readiness T067 and capability T068 can procee
 
 ## Phase 8: Convergence
 
-**Purpose**: 완료 표시된 구현과 승인된 Spec·Plan·계약 사이에 남은 실행 의미 차이를 제거한다. 이 Phase는 H-03의 제품 범위를 넓히지 않으며, T055·T075·T077·T078의 사람 검토·clean-environment·실제 스택 검증을 대체하지 않는다.
+**Purpose**: 완료 표시된 구현과 승인된 Spec·Plan·계약 사이에 남은 실행 의미 차이를 제거한다. 이 Phase는 H-03의 제품 범위를 넓히지 않으며, T055·T075·T077·T078의 projection 계약·clean-environment·실제 스택 검증을 대체하지 않는다.
 
 - [X] T079 [US1] Add integration tests for delayed worker receipts, transient report states, no-stable-state deadlines, and delayed restore health; then wire `engine/runner.py`, `engine/observations.py`, and `engine/adapters/whyyou/fault.py` so EV-03 receipt probing uses the injected deadline, assertion inputs use the scenario's 3-consecutive/4-second stable observation rather than the last sample, all raw samples stay append-only, and marker/worker recovery is re-probed through the 120-second restore deadline while `environment_restore` remains separate from `report_processing_recovery` [FR-017~019, FR-026, H03-A1~A2, H03-A6]
 - [X] T080 [P] [US2] Add adversarial bundle tests for omitted canonical files, manifest/run ID mismatch, artifact envelope dimension mismatch, EV-to-envelope cross-link mismatch, wrong artifact type/cardinality per EV-01~EV-09, dirty actual-Run target snapshots, and PASS bundles containing an unverified mapped artifact; then harden read-only verification in `engine/evidence.py` without repairing the source bundle [FR-008, FR-035~041, SC-003, SC-006]
@@ -306,8 +306,8 @@ US4 tests T064 | T065 | T066; then readiness T067 and capability T068 can procee
 
 ## Phase 9: Actual FAIL → Protection Fix → PASS Closure
 
-**Purpose**: 첫 실제 FAIL을 보존한 채 WhyYou 보호조치를 수정하고, 동일한 H-03 조건으로 실제 PASS를 증명하며, 남은 비작성자 검토를 즉시 실행 가능한 형태로 인계한다.
+**Purpose**: 첫 실제 FAIL을 보존한 채 WhyYou 보호조치를 수정하고, 동일한 H-03 조건으로 실제 PASS를 증명하며, 팀이 구현과 검증 근거를 재현할 수 있게 인계한다.
 
 - [X] T084 [US1] In the WhyYou branch `bosung/controlproof-h03-integration`, add target-side tests and implementation so a missing final report returns `409 REPORT_NOT_AVAILABLE` without writes and the company review screen exposes pending delay or report-load failure instead of ready content in `backend/src/interview_evidence/reporting/api/company_routes.py`, `backend/tests/integration/reporting/test_recruiting_stage_decision.py`, `apps/company-console/src/app/routeAdapters.tsx`, and `apps/company-console/src/app/__tests__/reviewRoute.test.tsx` [H03-A2~A4]
 - [X] T085 [US1] Add regression coverage for Korean report-unavailable text and canonical `data-report-state` capture, harden `engine/adapters/whyyou/browser.py`, then execute and verify a canonical actual-stack child retest that changes only the WhyYou git commit and records all H03-A1~A6 as PASS while preserving the original FAIL bundle digest in `tests/contract/test_whyyou_browser.py` and `specs/001-execution-evidence-h03/validation.md` [FR-028~029, FR-051~054, H03-A1~A6, SC-006~007]
-- [X] T086 [US2] Add a blinded SC-008 package generator with separate reviewer case list and answer key, protect UUIDs from phone-number redaction false positives, verify all three generated bundles through `show` and `verify`, and rerun the automated US2 and full-suite gates in `scripts/prepare_sc008_review.py`, `tests/integration/test_sc008_review_package.py`, `tests/unit/test_redaction_security.py`, and `specs/001-execution-evidence-h03/review-usability-checklist.md` [FR-038~040, SC-008~009]
+- [X] T086 [US2] Add a synthetic three-verdict review/demo package generator, protect UUIDs from phone-number redaction false positives, verify all generated bundles through `show` and `verify`, and rerun the automated US2 and full-suite gates in `scripts/prepare_sc008_review.py`, `tests/integration/test_sc008_review_package.py`, `tests/unit/test_redaction_security.py`, and `specs/001-execution-evidence-h03/review-usability-checklist.md`; the package is a developer aid, not a human-timing release gate [FR-038~040, SC-008~009]

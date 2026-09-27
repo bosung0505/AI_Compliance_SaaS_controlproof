@@ -9,6 +9,7 @@ ControlProof는 합성 데이터를 이용해 AI 서비스의 절차적 보호�
 - 제품 결정: [MVP Decision Log](./docs/product/ControlProof_MVP_Decision_Log.md)
 - 개발 원칙: [ControlProof Constitution](./.specify/memory/constitution.md)
 - 현재 기능: [Spec 001 — 실행·증적 기본 모델과 H-03 최소 수직 흐름](./specs/001-execution-evidence-h03/spec.md)
+- 팀 인수인계: [Spec 001 현황·재현·검토 가이드](./docs/TEAM_HANDOFF_SPEC_001.md)
 - 도입 결정: [ADR-0001 — Spec Kit과 팀 골격 채택](./docs/decisions/0001-adopt-spec-kit-and-skeleton.md)
 
 `docs/reference/skeleton/`은 팀원이 만든 초기 골격의 원문 보관본이다. 제품 의미가 충돌할 때는 위 문서와 Constitution을 우선한다.
@@ -33,8 +34,10 @@ $speckit-implement
 $speckit-converge
 ```
 
-현재 Spec 001은 clarify, plan, tasks, analyze를 거쳐 구현 단계에 들어갔다. fake adapter 기반
-H-03 수직 흐름, 봉인 증적, 검토, 무결성 확인, 재시험 계보, readiness CLI까지 구현되어 있다.
+Spec 001은 clarify, plan, tasks, analyze, implement, converge와 실제 WhyYou 검증을 마치고
+종료됐다. fake adapter 기반 H-03 수직 흐름, 봉인 증적, 검토 projection, 무결성 확인,
+재시험 계보와 readiness CLI가 구현돼 있다. 이는 전체 2주 MVP나 ControlProof 웹 UI가
+완성됐다는 뜻이 아니며, 현재 사용자 접점은 개발·검증용 CLI다.
 
 ## 개발 환경
 
@@ -75,16 +78,18 @@ controlproof retest <RUN_ID> --target whyyou-local --label after-fix --json
 - `retest`는 부모 bundle을 수정하지 않고 새 Run과 `retest-diff.json`을 만든다. 부모가 이미
   PASS라면 데모를 위해 결함 버전을 만들 필요가 없다.
 
-상세 재현 절차는 [quickstart](./specs/001-execution-evidence-h03/quickstart.md), 검토 기준은
-[review usability checklist](./specs/001-execution-evidence-h03/review-usability-checklist.md)를 따른다.
+처음 합류한 팀원은 먼저 [팀 인수인계 가이드](./docs/TEAM_HANDOFF_SPEC_001.md)를 읽는다.
+상세 실제 스택 재현 절차는 [quickstart](./specs/001-execution-evidence-h03/quickstart.md),
+CLI 결과 검토 정책과 웹 UX 이관 결정은
+[review policy](./specs/001-execution-evidence-h03/review-usability-checklist.md)를 따른다.
 
 ## 구현 구조
 
-- `engine/`: 실행·관찰·판정 모델의 초기 spike
-- `scenarios/`: H-03 초기 시나리오와 템플릿
-- `seeds/`: 합성 상태 seed 초기 구현
-- `tests/`: 초기 판정·seed 테스트
-- `specs/`: 기능별 제품 Spec, 향후 Plan과 Tasks
+- `engine/`: 실행·관찰·판정·증적·재시험 엔진
+- `scenarios/`: 버전 고정 H-03 시나리오와 템플릿
+- `seeds/`: 합성 상태 seed 구현
+- `tests/`: 단위·계약·통합·보안 회귀 테스트
+- `specs/`: 기능별 Spec·Plan·Tasks·검증 기록
 - `.specify/`: Spec Kit 설정·스크립트·템플릿·Constitution
 - `.agents/skills/`: Codex용 Spec Kit skills
 
