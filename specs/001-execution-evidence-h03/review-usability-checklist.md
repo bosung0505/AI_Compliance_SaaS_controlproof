@@ -5,6 +5,21 @@
 구현·bundle 생성·정답표 작성에 참여하지 않은 팀원 1명이 수행한다. 검토자는 코드, 원본 DB,
 `judgement.json` 직접 열람 없이 `controlproof show <RUN_ID>` 출력만 사용한다.
 
+## 운영자 준비
+
+검토에 참여하지 않는 운영자가 아래 명령으로 익명 PASS/FAIL/INCONCLUSIVE bundle 3개를 만든다.
+
+```powershell
+python -m scripts.prepare_sc008_review --output .controlproof/sc008-review-handoff
+```
+
+- 검토자에게는 생성된 `README.md`와 `reviewer-runs.json`만 전달한다.
+- `answer-key.json`은 세 case의 답변과 시간이 모두 기록될 때까지 공개하지 않는다.
+- 각 bundle은 `controlproof show <RUN_ID> --run-root <생성된 runs 경로>`로 연다.
+- 준비 도구는 기존의 비어 있지 않은 출력 디렉터리를 덮어쓰지 않는다.
+- 2026-09-27 준비본은 `.controlproof/sc008-review-handoff-20260927/`에 있으며, 세 bundle의
+  `show`와 `verify`가 모두 성공했다.
+
 ## 시험 자료와 정답표
 
 운영자는 합성 PASS, FAIL, INCONCLUSIVE bundle을 무작위 순서로 제공하고 아래 정답표는 검토가

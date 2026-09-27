@@ -1,10 +1,10 @@
 # Feature Specification: 실행·증적 기본 모델과 H-03 최소 수직 흐름
 
-**Feature Branch**: `001-execution-evidence-h03` (계획 이름, 아직 브랜치 미생성)
+**Feature Branch**: `001-execution-evidence-h03`
 
 **Created**: 2026-09-23
 
-**Status**: Ready for Planning
+**Status**: Implemented — external SC-008 non-author review pending
 
 **Input**: V4와 Product Brief를 기준으로, H-03 최소형을 통해 ControlProof의 실행·관찰·증적·판정·복구·재시험 기본 계약을 검증한다.
 

@@ -43,7 +43,10 @@ PII_KEYS = {
     "phone_number",
 }
 EMAIL_RE = re.compile(r"(?i)\b[A-Z0-9._%+-]+@[A-Z0-9.-]+\.[A-Z]{2,}\b")
-PHONE_RE = re.compile(r"(?<!\d)(?:01[016789]|\+82[- ]?1[016789])[- ]?\d{3,4}[- ]?\d{4}(?!\d)")
+PHONE_RE = re.compile(
+    r"(?<![0-9A-Za-z])(?:01[016789]|\+82[- ]?1[016789])[- ]?\d{3,4}[- ]?\d{4}"
+    r"(?![0-9A-Za-z])"
+)
 BEARER_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
 SIGNED_QUERY_RE = re.compile(r"(?i)(X-Amz-Signature|signature|sig|token)=([^&\s]+)")
 

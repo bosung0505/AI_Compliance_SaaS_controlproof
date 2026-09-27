@@ -53,6 +53,7 @@ class WhyYouBrowserAdapter:
         )
 
     def _capture_with_playwright(self, subject: Mapping[str, Any]) -> Mapping[str, Any]:
+        from playwright.sync_api import TimeoutError as PlaywrightTimeoutError
         from playwright.sync_api import sync_playwright
 
         if self._playwright is None:
@@ -71,6 +72,20 @@ class WhyYouBrowserAdapter:
             response = page.goto(route, wait_until="networkidle", timeout=15_000)
             if response and response.status in {401, 403}:
                 raise RuntimeError(f"browser authentication failed: {response.status}")
+            if page.locator('[data-report-state="pending"]').count() > 0:
+                try:
+                    page.locator('[data-report-state="delayed"]').wait_for(
+                        state="visible", timeout=10_000
+                    )
+                except PlaywrightTimeoutError:
+                    # Capture the still-pending state so H03-A2 can fail truthfully.
+                    pass
+            status_marker = None
+            report_state = page.locator("[data-report-state]")
+            if report_state.count() > 0:
+                status_marker = _normalize_report_state(
+                    report_state.first.get_attribute("data-report-state")
+                )
             text = page.locator("body").inner_text(timeout=5_000)
             screenshot = page.screenshot(full_page=True)
             lowered = text.casefold()
@@ -83,6 +98,7 @@ class WhyYouBrowserAdapter:
                 "decision_control_visible": page.get_by_role("button").count() > 0,
                 "screenshot_bytes": screenshot,
                 "viewport": {"width": 1440, "height": 900},
+                "status_class": status_marker,
             }
         finally:
             context.close()
@@ -98,7 +114,10 @@ class WhyYouBrowserAdapter:
 
 def _classify_status(text: str) -> str:
     lowered = text.casefold()
-    if any(word in lowered for word in ("실패", "오류", "failed", "error")):
+    if any(
+        word in lowered
+        for word in ("실패", "오류", "불러올 수 없", "failed", "error", "unavailable")
+    ):
         return "failed"
     if any(word in lowered for word in ("지연", "delayed")):
         return "delayed"
@@ -107,3 +126,12 @@ def _classify_status(text: str) -> str:
     if any(word in lowered for word in ("리포트", "report")):
         return "ready"
     return "unknown"
+
+
+def _normalize_report_state(value: str | None) -> str | None:
+    return {
+        "error": "failed",
+        "delayed": "delayed",
+        "pending": "queued_only",
+        "ready": "ready",
+    }.get(str(value).casefold())

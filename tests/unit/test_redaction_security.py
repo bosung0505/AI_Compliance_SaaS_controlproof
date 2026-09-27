@@ -25,6 +25,12 @@ def test_secret_and_pii_corpus_is_redacted(payload, forbidden):
     assert forbidden not in serialized
 
 
-def test_uuid_is_not_corrupted_by_phone_redaction():
-    value = "ddac1816-1234-4abc-965e-3573ec751f5d"
+@pytest.mark.parametrize(
+    "value",
+    [
+        "ddac1816-1234-4abc-965e-3573ec751f5d",
+        "fb7bd6ee-c010-1234-5678-c1c7e30f022b",
+    ],
+)
+def test_uuid_is_not_corrupted_by_phone_redaction(value):
     assert redact(value) == value

@@ -37,3 +37,17 @@ def test_browser_timeout_and_auth_failure_are_distinct():
     )
     assert timeout.capture_review(subject={}).code == "BROWSER_TIMEOUT"
     assert denied.capture_review(subject={}).code == "BROWSER_AUTH_FAILED"
+
+
+def test_browser_projection_classifies_korean_unavailable_message_as_failed():
+    adapter = WhyYouBrowserAdapter(
+        _settings(),
+        capture=lambda _subject: {
+            "visible_text": "리포트를 불러올 수 없습니다. 잠시 후 다시 시도해 주세요.",
+        },
+    )
+
+    result = adapter.capture_review(subject={})
+
+    assert result.ok
+    assert result.data["projection"]["status_class"] == "failed"

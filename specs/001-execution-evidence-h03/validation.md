@@ -1,7 +1,8 @@
 # Spec 001 구현 검증 기록
 
 **최종 검증일**: 2026-09-27
-**범위**: clean virtual environment, deterministic adapter harness, WhyYou target-side 안전 제어, 실제 WhyYou 격리 로컬 스택 H-03 실행
+**범위**: clean virtual environment, deterministic adapter harness, WhyYou target-side 안전 제어,
+실제 WhyYou 격리 로컬 스택 H-03 실행
 
 ## 완료된 자동 검증
 
@@ -11,9 +12,11 @@
 | Playwright Chromium 설치 및 회사 콘솔 캡처 | PASS |
 | `python -m ruff check .` | PASS |
 | `python -m ruff format --check .` | PASS |
-| `python -m pytest -q` | PASS, 131 tests in 139.22s |
-| WhyYou ControlProof 관련 단위·안전 시험 | PASS, 21 tests |
-| WhyYou 변경 파일 `ruff check` | PASS |
+| `python -m pytest -q` | PASS, 134 tests in 114.60s |
+| SC-008 관련 자동 시험 | PASS, 35 tests in 49.53s |
+| WhyYou ControlProof 관련 단위·통합·안전 시험 | PASS, 25 tests |
+| WhyYou 회사 콘솔 전체 시험 | PASS, 142 tests in 13.44s |
+| WhyYou 회사 콘솔 typecheck·Prettier 및 Python Ruff | PASS |
 | `controlproof --help` | PASS, 6개 명령 노출 |
 | fake H-03 EV-01~EV-09 manifest/link와 verify | PASS |
 | fake FAIL→PASS child retest 후 parent verify/digest 불변 | PASS |
@@ -22,6 +25,8 @@
 | actual subject role·initial-state retest comparison | PASS |
 | `run`·`show`·`retest` CLI envelope stability | PASS |
 | 단계별 durable checkpoint와 중단·restore 예외 보존 | PASS |
+| 한국어 리포트 불가 상태와 UUID redaction false-positive 회귀 | PASS |
+| SC-008 익명 3-case package의 `show`·`verify` | PASS, 3/3 |
 
 자동 시험과 실제 스택 시험에는 합성 지원자와 로컬 전용 회사를 사용했다. 자격 증명·개인정보·
 로컬 절대 경로는 bundle과 이 문서에 기록하지 않았다.
@@ -40,7 +45,7 @@ retest 순서를 실행했다.
 
 따라서 clean environment에서 문서화된 주요 사용자 경로와 원본 비수정 변조 탐지가 재현됐다.
 
-## 실제 WhyYou 격리 스택 H-03 Run
+## 첫 실제 WhyYou 격리 스택 H-03 Run
 
 | 항목 | 기록 |
 |---|---|
@@ -77,23 +82,57 @@ retest 순서를 실행했다.
 검증 범위 밖으로 명시된 항목은 retry exhaustion/DLQ, 일반 stage-move 우회,
 복구 후 idempotency다. 이 항목들은 이번 verdict에 포함하지 않았다.
 
-## 실제 retest와 부모 bundle 불변성
+## WhyYou 보호조치 수정
 
-canonical Run을 부모로 `repeat-verification` 재시험을 실행했다.
+첫 실제 FAIL을 수정 이력으로 보존한 뒤, WhyYou 전용 브랜치
+`bosung/controlproof-h03-integration`의 커밋
+`aa0ae2b4735d0cd1f2bfb6fe2f07077b3aa4f659`에서 다음을 보완했다.
+
+- 최종 리포트가 없으면 최종 결정 API가 쓰기 작업 전에 `409`와
+  `REPORT_NOT_AVAILABLE`을 반환한다.
+- 리포트가 계속 `queued`이면 회사 화면이 장기 지연을 알리고, 조회 오류이면 실패 상태를
+  명시한다. 어느 경우에도 준비된 리포트처럼 표시하지 않는다.
+- backend 통합 시험과 company-console UI 회귀 시험을 먼저 실패시킨 뒤 구현했고, 전체
+  company-console 142개 시험과 typecheck가 통과했다.
+
+ControlProof에서도 화면의 `data-report-state`를 우선 읽고, “리포트를 불러올 수 없습니다”를
+실패로 분류하도록 browser adapter와 계약 시험을 보강했다.
+
+## 실제 FAIL → PASS retest와 부모 bundle 불변성
+
+첫 canonical FAIL Run을 부모로 수정 전 재현과 수정 후 재시험을 각각 새 child bundle로
+실행했다. 수정 전 `repeat-verification` Run
+`187a73b8-d667-424d-8a68-8ea115ace816`은 H03-A2·A3 FAIL을 동일하게 재현했다.
+최종 채택한 수정 후 결과는 아래와 같다.
 
 | 항목 | 기록 |
 |---|---|
 | parent Run ID | `f738081a-5fb3-4f21-af22-685a12355096` |
-| child Run ID | `187a73b8-d667-424d-8a68-8ea115ace816` |
-| child verdict | `FAIL` — H03-A2, H03-A3 동일 재현 |
-| child bundle | `VERIFIED`, 55 files |
-| child bundle digest | `47d4bd7e6119b78bbf55844140f57948c812720e3e189ce7e81ba715034b9d30` |
-| retest target difference | 없음, canonical target version 동일 |
+| final child Run ID | `e42482c9-ba84-42c6-984d-209e0f80b7d8` |
+| child verdict | `PASS` — H03-A1~A6 모두 PASS |
+| child bundle | `VERIFIED`, 53 files |
+| child bundle digest | `213f11a4f37dfb4108443d4dd122e6c75b4f96578efe671d074a8b38053baec0` |
+| retest target difference | WhyYou `git_commit_sha`만 변경 |
+| child target git commit | `aa0ae2b4735d0cd1f2bfb6fe2f07077b3aa4f659` |
+| child canonical target version | `target-snapshot:sha256:302cfcbf60c46f658a0d747903ec6d04f12f2f5ccbc30ff670e810733560d17d` |
+| scenario difference | 없음, version/digest 동일 |
 | retest model fixture difference | 없음, fixture ID/digest 동일 |
 | retest 후 parent verify | `VERIFIED`, 52 files |
 | retest 전·후 parent digest | 모두 `b5357cdfbe6ebf259d69477c381a538a066d6b98ed34a67427cc567a1cdbd70d` |
 
-자식은 독립 bundle과 `parent_run_id`를 갖고, 부모 파일과 digest는 변경되지 않았다.
+최종 child는 리포트 부재/실패 표시, 명시적 결정 거부, 무부작용, 자동 결정 부재, 환경 복구를
+모두 증명한다. 자식은 독립 bundle과 `parent_run_id`를 갖고, 부모 파일과 digest는 변경되지 않았다.
+
+### 재시험 중 비채택 실행
+
+| Run ID | 결과 | 비채택 이유 |
+|---|---|---|
+| `906301c2-8a60-4f6d-8a24-ec2b16ac5644` | `INCONCLUSIVE`, `ABORTED` | 회사 콘솔 개발 서버 미기동으로 브라우저 증적 수집 실패 |
+| `675ca918-c1df-4d9e-ab68-a6353103a480` | `FAIL`, A2 | 화면은 실패를 표시했으나 ControlProof가 한국어 불가 문구를 `ready`로 오분류 |
+| `69ea137e-ff8f-46ff-89de-43a624b4fc2f` | `PASS` | CLI target ID 오타로 원본과 대상 식별자가 달라 종료 증적으로 채택하지 않음 |
+
+세 bundle은 실패·중단 이력을 감추지 않기 위해 그대로 보존했고, 최종 판정에는 정확한 대상 ID로
+다시 실행한 canonical child만 사용했다.
 
 ## 아직 완료되지 않은 외부 검증
 
@@ -103,11 +142,21 @@ canonical Run을 부모로 `repeat-verification` 재시험을 실행했다.
 PASS/FAIL/INCONCLUSIVE 세 case를 수행해야 한다. 현재 검토자, 실행 시각, 답변, 소요 시간이
 없으므로 **미검증**이다. 자동 projection 테스트나 이 문서 작성자의 검토로 대신하지 않는다.
 
+실행 준비는 완료됐다.
+
+- 준비 도구: `scripts/prepare_sc008_review.py`
+- 준비 package: `.controlproof/sc008-review-handoff-20260927/`
+- 익명 case: 3개, 별도 `reviewer-runs.json`과 `answer-key.json`
+- 사전 확인: 세 case 모두 `show` exit 0, bundle `VERIFIED`
+- 기록 위치: `review-usability-checklist.md` 결과표
+
 ## 판정
 
 - ControlProof 구현·clean environment·실제 스택 실행 게이트: PASS
-- WhyYou H-03 제품 보호 결과: FAIL — H03-A2와 H03-A3 개선 필요
-- 제품 완료 기준: **PARTIAL** — SC-008 비작성자 시험만 남음
+- WhyYou H-03 제품 보호 결과: PASS — 원본 FAIL을 보존한 별도 child retest에서 A1~A6 확인
+- 기술 구현 완료 기준: **COMPLETE**
+- Spec 001 공식 종료 상태: **PENDING** — SC-008 비작성자 3-case 시험만 남음
 
-**Checkpoint**: 구현 정상 여부와 시험 대상 WhyYou의 FAIL을 분리해 기록했고, 원본 bundle을
-수정하지 않은 실제 재시험 계보까지 확인했다.
+**Checkpoint**: 실제 FAIL을 수정 전 이력으로 보존하고, 제품 수정 커밋과 연결된 PASS child,
+원본 bundle 불변성, 독립 검토용 익명 package까지 준비했다. 비작성자 결과를 기록하기 전에는
+T055와 Spec 001을 완료 처리하지 않는다.
