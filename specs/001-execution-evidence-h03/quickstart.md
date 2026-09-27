@@ -52,10 +52,12 @@ fault hook이 없는 WhyYou commit에서는 ControlProof가 `RUNNER_NOT_READY`�
 ```powershell
 $env:CONTROLPROOF_TARGET_ID = "whyyou-local"
 $env:CONTROLPROOF_RUN_ROOT = ".controlproof/runs"
-$env:WHYYOU_BASE_URL = "http://localhost:8000"
+$env:WHYYOU_BASE_URL = "http://localhost:8080"
 $env:WHYYOU_CONSOLE_URL = "http://localhost:5173"
 $env:WHYYOU_DATABASE_URL = "postgresql+psycopg://<local-test-credential>@localhost:5432/<local-test-db>"
 $env:WHYYOU_COMPANY_TOKEN = "<local-test-company-token>"
+$env:WHYYOU_COMPANY_ID = "<local-test-company-id>"
+$env:WHYYOU_COMPANY_USER_ID = "<local-test-company-user-id>"
 $env:WHYYOU_REPO_PATH = "C:\path\to\gbsa_aws"
 $env:CONTROLPROOF_FAULT_ROOT = "C:\path\to\shared\controlproof-faults"
 $env:CONTROLPROOF_MODEL_SUBSTITUTE_ENABLED = "true"

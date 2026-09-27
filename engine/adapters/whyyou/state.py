@@ -72,14 +72,17 @@ class WhyYouStateAdapter:
         query = text(
             "SELECT i.status AS invitation_status, i.recruiting_stage_id, "
             "i.pipeline_row_version, "
-            "(SELECT COUNT(*) FROM human_reviews h WHERE h.invitation_id=i.invitation_id "
-            "AND h.decision_kind='final_decision') AS final_decision_count, "
-            "(SELECT h.actor_type FROM human_reviews h WHERE h.invitation_id=i.invitation_id "
-            "AND h.decision_kind='final_decision' ORDER BY h.created_at DESC LIMIT 1) "
+            "(SELECT COUNT(*) FROM human_reviews h WHERE h.company_id=i.company_id "
+            "AND h.target_id=i.invitation_id AND h.review_type='final_decision') "
+            "AS final_decision_count, "
+            "(SELECT 'company_user' FROM human_reviews h WHERE h.company_id=i.company_id "
+            "AND h.target_id=i.invitation_id AND h.review_type='final_decision' "
+            "ORDER BY h.created_at DESC LIMIT 1) "
             "AS latest_final_decision_actor_type, "
             "CASE WHEN r.report_id IS NULL THEN 'ABSENT' ELSE 'PRESENT' END AS report_presence, "
             "r.status AS report_status FROM invitations i "
-            "LEFT JOIN reports r ON r.invitation_id=i.invitation_id "
+            "LEFT JOIN reports r ON r.company_id=i.company_id "
+            "AND r.invitation_id=i.invitation_id "
             "WHERE i.invitation_id=:invitation_id"
         )
         with engine.connect() as connection:

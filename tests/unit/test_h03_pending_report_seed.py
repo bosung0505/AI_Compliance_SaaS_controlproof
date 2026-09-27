@@ -5,6 +5,19 @@ from seeds.h03_pending_report import (
 )
 
 
+def test_external_tenant_is_reused_without_tenant_upsert():
+    from uuid import uuid4
+
+    seed = build_pending_report_fixture(
+        "run-external",
+        company_id=uuid4(),
+        reviewer_id=uuid4(),
+    )
+
+    assert seed.fixture.of("company") == []
+    assert seed.fixture.of("company_user") == []
+
+
 def test_pending_fixture_has_final_media_but_no_report_or_decision_event():
     seed = build_pending_report_fixture("run-1")
     assert check_pending_invariants(seed) == []

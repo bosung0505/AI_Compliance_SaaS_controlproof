@@ -18,6 +18,8 @@
 
 from __future__ import annotations
 
+import hashlib
+import json
 from dataclasses import dataclass, field
 from datetime import UTC, datetime, timedelta
 from typing import Any
@@ -50,7 +52,11 @@ PKEYS = {
     "company_user": ("company_id", "company_user_id"),
     "position": ("company_id", "position_id"),
     "competency_model_version": ("company_id", "competency_model_version_id"),
-    "evaluation_criterion": ("company_id", "criterion_id"),
+    "evaluation_criterion": (
+        "company_id",
+        "competency_model_version_id",
+        "criterion_id",
+    ),
     "recruiting_stage": ("company_id", "recruiting_stage_id"),
     "invitation": ("company_id", "invitation_id"),
     "applicant_profile": ("company_id", "applicant_id"),
@@ -111,6 +117,8 @@ def build_fixture(
     now: datetime = T0,
     company_name: str = "ControlProof 합성 회사",
     identity_subject: str | None = None,
+    company_id: UUID | None = None,
+    reviewer_id: UUID | None = None,
 ) -> Fixture:
     """행을 만든다. DB 를 건드리지 않는다.
 
@@ -120,45 +128,59 @@ def build_fixture(
     if not applicants:
         raise ValueError("합성 지원자가 최소 1명 필요하다")
 
-    company_id = sid(label, "company")
-    reviewer_id = sid(label, "user/reviewer")
+    external_tenant = company_id is not None or reviewer_id is not None
+    if (company_id is None) != (reviewer_id is None):
+        raise ValueError("company_id and reviewer_id must be provided together")
+    company_id = company_id or sid(label, "company")
+    reviewer_id = reviewer_id or sid(label, "user/reviewer")
     position_id = sid(label, "position")
     cmv_id = sid(label, "cmv")
     stage_id = sid(label, "stage/검토")
 
     rows: dict[str, list[dict]] = {k: [] for k in TABLES}
 
-    rows["company"].append({
-        "company_id": company_id,
-        "name": company_name,
-        "default_retention_days": 180,
-        "status": "active",
-        "created_at": now,
-        "updated_at": now,
-    })
+    if not external_tenant:
+        rows["company"].append({
+            "company_id": company_id,
+            "name": company_name,
+            "brand_config": {},
+            "default_retention_days": 180,
+            "status": "active",
+            "created_at": now,
+            "updated_at": now,
+        })
 
-    # identity_subject 가 로컬 principal provider 의 조회 키다.
-    # 값이 어긋나면 로그인은 되는데 모든 요청이 401 로 떨어진다.
-    rows["company_user"].append({
-        "company_id": company_id,
-        "company_user_id": reviewer_id,
-        "identity_subject": identity_subject or f"controlproof-{label}-reviewer",
-        "email_normalized": f"reviewer+{label}@controlproof.test",
-        "role_code": "owner",
-        "status": "active",
-        "created_at": now,
-    })
+        # identity_subject 가 로컬 principal provider 의 조회 키다.
+        # 값이 어긋나면 로그인은 되는데 모든 요청이 401 로 떨어진다.
+        rows["company_user"].append({
+            "company_id": company_id,
+            "company_user_id": reviewer_id,
+            "identity_subject": identity_subject or f"controlproof-{label}-reviewer",
+            "email_normalized": f"reviewer+{label}@controlproof.test",
+            "role_code": "owner",
+            "status": "active",
+            "created_at": now,
+        })
 
     rows["position"].append({
         "company_id": company_id,
         "position_id": position_id,
         "title": "합성 포지션",
+        "description": "[합성] ControlProof 검증용 포지션",
         "role_type": "backend",
         "headcount": 1,
         "created_by": reviewer_id,
-        "status": "open",
+        "status": "active",
         "row_version": 1,
         "created_at": now,
+        "submission_requirements": [
+            {
+                "material_type": "resume",
+                "required": True,
+                "enabled": True,
+                "instructions": "[합성] ControlProof 검증용 이력서",
+            }
+        ],
     })
 
     rows["competency_model_version"].append({
@@ -166,8 +188,14 @@ def build_fixture(
         "competency_model_version_id": cmv_id,
         "position_id": position_id,
         "version_number": 1,
+        "prohibited_topics": [],
         "interview_duration_minutes": 20,
-        "axis_weights": {a: 1.0 / len(AXES) for a in AXES},
+        "persona_definition": {
+            "mode": "system_managed",
+            "tone": "neutral",
+            "voice_id": "Seoyeon",
+        },
+        "axis_weights": {a: 100.0 / len(AXES) for a in AXES},
         "status": "published",
         "row_version": 1,
         "published_at": now,
@@ -180,8 +208,19 @@ def build_fixture(
         "criterion_id": criterion_id,
         "code": "C1",
         "name": "문제 해결",
-        "weight": 1.0,
+        "description": "[합성] 문제 해결 근거를 확인합니다.",
+        "weight": 100.0,
+        "abstain_guidance": "근거가 부족하면 판단을 보류합니다.",
+        "common_questions": [],
         "required": True,
+        "verification_guide": {
+            "observable_dimensions": ["구체적인 상황", "본인 행동", "결과"],
+            "strong_answer_signals": ["본인 행동과 판단 근거가 구체적이다."],
+            "weak_answer_signals": ["팀 활동 또는 결과만 언급한다."],
+            "follow_up_directions": ["본인이 직접 수행한 행동"],
+            "max_follow_ups": 1,
+            "time_budget_seconds": 300,
+        },
     })
 
     rows["recruiting_stage"].append({
@@ -241,7 +280,9 @@ def _build_applicant(
         # 실행 라벨을 이메일에 넣어 상관관계 연결의 앵커로 쓴다 (기능범위 6.2)
         "applicant_email_normalized": f"{ref}+{label}@controlproof.test",
         "applicant_display_name": f"합성지원자-{ref}",
-        "token_hash": f"seeded-{sid(label, f'token/{ref}').hex}",
+        "token_hash": hashlib.sha256(
+            f"controlproof:{label}:{ref}:invitation-token".encode()
+        ).hexdigest(),
         "expires_at": now + timedelta(days=7),
         "status": "completed",
         "identity_verified_at": now,
@@ -249,6 +290,14 @@ def _build_applicant(
         "row_version": 1,
         "recruiting_stage_id": stage_id,
         "pipeline_row_version": 1,
+        "submission_requirements": [
+            {
+                "material_type": "resume",
+                "required": True,
+                "enabled": True,
+                "instructions": "[합성] ControlProof 검증용 이력서",
+            }
+        ],
     })
 
     rows["applicant_profile"].append({
@@ -256,19 +305,23 @@ def _build_applicant(
         "applicant_id": applicant_id,
         "invitation_id": invitation_id,
         "display_name": f"합성지원자-{ref}",
-        "verification_method": "seeded",
+        "verification_method": "invitation_value",
+        "technology_tags": [],
     })
 
     # state=reviewable 이어야 콘솔이 검토 경로를 만든다
+    strategy_id = sid(label, f"strategy/{ref}")
     rows["interview_session"].append({
         "company_id": company_id,
         "interview_session_id": session_id,
         "invitation_id": invitation_id,
         "applicant_id": applicant_id,
+        "interview_strategy_id": strategy_id,
         "competency_model_version_id": cmv_id,
         "state": "reviewable",
         "session_sequence": 1,
         "row_version": 1,
+        "degraded_modes": [],
         "created_at": now,
         "started_at": now,
         "completed_at": now + timedelta(minutes=18),
@@ -285,7 +338,7 @@ def _build_applicant(
             "company_id": company_id,
             "turn_id": turn_id,
             "interview_session_id": session_id,
-            "sequence": i,
+            "sequence": i + 1,
             "speaker": speaker,
             "status": "final",
             "text": f"[합성] {speaker} 발화 {i}",
@@ -305,6 +358,7 @@ def _build_applicant(
             "confidence": 0.97,
             "session_start_ms": start_ms,
             "session_end_ms": start_ms + 50_000,
+            "source_audio_key": f"seed/{label}/{ref}/segment-{i}.wav",
             "version": 1,
             "created_at": now,
         })
@@ -320,9 +374,12 @@ def _build_applicant(
         "interview_session_id": session_id,
         "asset_type": "assembled",
         "object_key": f"seed/{label}/{ref}/assembled.mp4",
-        "content_hash": sid(label, f"hash/{ref}").hex,
+        "content_hash": hashlib.sha256(
+            f"controlproof:{label}:{ref}:assembled".encode()
+        ).hexdigest(),
         "duration_ms": duration_ms,
         "status": "ready",
+        "missing_ranges": [],
         "created_at": now,
     })
 
@@ -344,6 +401,7 @@ def _build_applicant(
             "video_start_ms": seg["session_start_ms"],
             "video_end_ms": min(seg["session_end_ms"], duration_ms),
             "observation": f"[합성] 근거 {k}",
+            "rationale": "[합성] 지원자 발화와 직접 연결된 근거입니다.",
             "sufficiency": "direct",
             "generation_version": "seed-v1",
             "created_at": now,
@@ -382,6 +440,7 @@ def _build_applicant(
             "axis_weights": {a: 1.0 / len(AXES) for a in AXES},
             "criterion_weights": {"C1": 1.0},
         },
+        "requirement_assessments": [],
         "created_at": now,
     })
 
@@ -394,7 +453,9 @@ def _build_applicant(
         "competency_model_version_id": cmv_id,
         "assessment_state": spec.assessment_state,
         "observation": f"[합성] {ref} 관찰",
+        "rationale": "[합성] 인용된 발화에 근거한 평가입니다.",
         "sufficiency": "direct",
+        "uncertainty": "[합성] 추가 확인이 필요한 항목은 없습니다.",
         "axis_assessments": axis_assessments,
         "criterion_weight": 1.0,
         "axis_weights": {a: 1.0 / len(AXES) for a in AXES},
@@ -457,12 +518,21 @@ def upsert_sql(logical: str, row: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     conflict = ", ".join(PKEYS[logical])
     updates = [c for c in cols if c not in PKEYS[logical]]
     setter = ", ".join(f"{c} = EXCLUDED.{c}" for c in updates) or f"{cols[0]} = EXCLUDED.{cols[0]}"
+    params = dict(row)
+    placeholders: list[str] = []
+    for column in cols:
+        value = params[column]
+        if isinstance(value, (dict, list)):
+            params[column] = json.dumps(value, ensure_ascii=False)
+            placeholders.append(f"CAST(:{column} AS json)")
+        else:
+            placeholders.append(f":{column}")
     sql = (
         f"INSERT INTO {table} ({', '.join(cols)}) "
-        f"VALUES ({', '.join(':' + c for c in cols)}) "
+        f"VALUES ({', '.join(placeholders)}) "
         f"ON CONFLICT ({conflict}) DO UPDATE SET {setter}"
     )
-    return sql, row
+    return sql, params
 
 
 def apply(connection, fx: Fixture) -> None:
@@ -484,12 +554,72 @@ def apply(connection, fx: Fixture) -> None:
 
 
 def teardown(connection, fx: Fixture) -> None:
-    """시드가 만든 회사를 통째로 지운다. 실행 간 격리용."""
+    """이 fixture가 만든 행과 같은 지원자에서 생성된 리포트만 지운다."""
     from sqlalchemy import text
 
     company_id = fx.correlation["company_id"]
-    for logical in reversed(ORDER):
+    session_ids = [row["interview_session_id"] for row in fx.of("interview_session")]
+    invitation_ids = [row["invitation_id"] for row in fx.of("invitation")]
+
+    # 워커가 pending seed를 처리한 뒤 만든 결과는 fixture 행에 없으므로
+    # 세션 식별자로 범위를 고정해 먼저 제거한다. 기존 로컬 tenant 전체를
+    # company_id 하나로 지우면 무관한 데모 데이터까지 손실될 수 있다.
+    for session_id in session_ids:
+        params = {"cid": company_id, "sid": session_id}
         connection.execute(
-            text(f"DELETE FROM {TABLES[logical]} WHERE company_id = :cid"),
-            {"cid": company_id},
+            text(
+                "DELETE FROM human_reviews WHERE company_id = :cid AND report_id IN "
+                "(SELECT report_id FROM reports WHERE company_id = :cid "
+                "AND interview_session_id = :sid)"
+            ),
+            params,
         )
+        connection.execute(
+            text(
+                "DELETE FROM evidence WHERE company_id = :cid AND report_item_id IN "
+                "(SELECT report_item_id FROM report_items WHERE company_id = :cid "
+                "AND report_id IN (SELECT report_id FROM reports WHERE company_id = :cid "
+                "AND interview_session_id = :sid))"
+            ),
+            params,
+        )
+        connection.execute(
+            text(
+                "DELETE FROM report_items WHERE company_id = :cid AND report_id IN "
+                "(SELECT report_id FROM reports WHERE company_id = :cid "
+                "AND interview_session_id = :sid)"
+            ),
+            params,
+        )
+        connection.execute(
+            text(
+                "DELETE FROM reports WHERE company_id = :cid "
+                "AND interview_session_id = :sid"
+            ),
+            params,
+        )
+        connection.execute(
+            text(
+                "DELETE FROM outbox_events WHERE company_id = :cid "
+                "AND aggregate_id = :sid"
+            ),
+            params,
+        )
+
+    for invitation_id in invitation_ids:
+        connection.execute(
+            text(
+                "DELETE FROM invitation_state_history WHERE company_id = :cid "
+                "AND invitation_id = :iid"
+            ),
+            {"cid": company_id, "iid": invitation_id},
+        )
+
+    for logical in reversed(ORDER):
+        for row in fx.of(logical):
+            keys = PKEYS[logical]
+            predicate = " AND ".join(f"{key} = :{key}" for key in keys)
+            connection.execute(
+                text(f"DELETE FROM {TABLES[logical]} WHERE {predicate}"),
+                {key: row[key] for key in keys},
+            )

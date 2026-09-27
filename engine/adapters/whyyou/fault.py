@@ -111,7 +111,7 @@ class WhyYouFaultAdapter:
         marker.unlink(missing_ok=True)
         marker_inactive = not marker.exists()
         try:
-            response = self.client.http.get("/health")
+            response = self.client.http.get("/health/live")
             worker_healthy = response.status_code == 200
         except Exception:  # noqa: BLE001 - health uncertainty must fail closed
             worker_healthy = False
@@ -141,7 +141,7 @@ class WhyYouFaultAdapter:
         reporting = self.settings.fault_root / "reporting"
         active = list(reporting.glob("*.json")) if reporting.exists() else []
         try:
-            healthy = self.client.http.get("/health").status_code == 200
+            healthy = self.client.http.get("/health/live").status_code == 200
         except Exception:  # noqa: BLE001 - health uncertainty must fail closed
             healthy = False
         return not active and healthy

@@ -1,0 +1,17 @@
+.git/
+.dockerignore
+Dockerfile*
+.env
+.env.*
+!.env.example
+.venv/
+__pycache__/
+*.pyc
+.pytest_cache/
+.ruff_cache/
+*.egg-info/
+.controlproof/
+playwright-report/
+test-results/
+coverage/
+*.log*

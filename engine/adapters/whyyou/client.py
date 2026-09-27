@@ -64,7 +64,7 @@ class WhyYouClient:
                 ],
                 "interview_sessions": ["interview_session_id", "invitation_id", "state"],
                 "reports": ["report_id", "interview_session_id", "status"],
-                "human_reviews": ["invitation_id", "actor_type", "decision_kind"],
+                "human_reviews": ["target_id", "company_user_id", "review_type"],
                 "outbox_events": ["outbox_event_id", "event_type", "idempotency_key"],
             }
         }
@@ -125,9 +125,7 @@ class WhyYouClient:
             f"/v1/invitations/{invitation_id}/final-decisions",
             headers={"Idempotency-Key": idempotency_key},
             json={
-                "decision_kind": "advance",
                 "recruiting_stage_id": recruiting_stage_id,
-                "reason": "[SYNTHETIC] ControlProof H-03 safety attempt",
                 "expected_pipeline_version": expected_pipeline_version,
             },
         )

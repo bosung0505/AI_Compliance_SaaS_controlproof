@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Callable
 from contextlib import AbstractContextManager
 from typing import Any
+from uuid import UUID
 
 from sqlalchemy import create_engine, text
 
@@ -36,7 +37,12 @@ class WhyYouSeedAdapter:
         self._seeds: dict[str, PendingReportSeed] = {}
 
     def seed(self, *, run_id: str, subject_ref: str) -> AdapterResult:
-        seed = build_pending_report_fixture(run_id, subject_ref=subject_ref)
+        seed = build_pending_report_fixture(
+            run_id,
+            subject_ref=subject_ref,
+            company_id=UUID(self.settings.whyyou_company_id),
+            reviewer_id=UUID(self.settings.whyyou_company_user_id),
+        )
         problems = check_pending_invariants(seed)
         if problems:
             return AdapterResult(False, "SEED_INVARIANT_FAILED", {"problems": problems})

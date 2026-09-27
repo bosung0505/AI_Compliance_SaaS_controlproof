@@ -2,9 +2,11 @@
 
 from __future__ import annotations
 
+import json
 from copy import deepcopy
 from dataclasses import dataclass
 from typing import Any
+from uuid import UUID
 
 from seeds.state_seed import ApplicantSpec, Fixture, apply, build_fixture, sid, teardown
 
@@ -20,12 +22,18 @@ class PendingReportSeed:
 
 
 def build_pending_report_fixture(
-    label: str, *, subject_ref: str = "candidate-01"
+    label: str,
+    *,
+    subject_ref: str = "candidate-01",
+    company_id: UUID | None = None,
+    reviewer_id: UUID | None = None,
 ) -> PendingReportSeed:
     fixture = deepcopy(
         build_fixture(
             label,
             [ApplicantSpec(ref=subject_ref, scored_axes=(), evidence_count=0)],
+            company_id=company_id,
+            reviewer_id=reviewer_id,
         )
     )
     fixture.rows["report"] = []
@@ -79,8 +87,10 @@ def trigger_event(seed: PendingReportSeed, *, run_id: str) -> dict[str, Any]:
     event_id = str(sid(run_id, f"report-generation-event/{session_id}"))
     return {
         "outbox_event_id": event_id,
+        "company_id": seed.correlation["company_id"],
         "aggregate_type": "interview_session",
         "aggregate_id": session_id,
+        "aggregate_version": 1,
         "event_type": "report.generation_requested",
         "event_version": 1,
         "payload": {"interview_session_id": session_id, "report_version": "report-v1"},
@@ -92,12 +102,17 @@ def trigger_event(seed: PendingReportSeed, *, run_id: str) -> dict[str, Any]:
 def trigger_sql(event: dict[str, Any]) -> tuple[str, dict[str, Any]]:
     sql = (
         "INSERT INTO outbox_events "
-        "(outbox_event_id, aggregate_type, aggregate_id, event_type, event_version, payload, "
-        "idempotency_key, trace_id) VALUES (:outbox_event_id, :aggregate_type, :aggregate_id, "
-        ":event_type, :event_version, :payload, :idempotency_key, :correlation_id) "
+        "(outbox_event_id, company_id, aggregate_type, aggregate_id, aggregate_version, "
+        "event_type, event_version, payload, idempotency_key, trace_id, occurred_at, "
+        "publish_status, publish_attempts) VALUES (:outbox_event_id, :company_id, "
+        ":aggregate_type, :aggregate_id, :aggregate_version, :event_type, :event_version, "
+        "CAST(:payload AS json), :idempotency_key, :correlation_id, CURRENT_TIMESTAMP, "
+        "'pending', 0) "
         "ON CONFLICT (idempotency_key) DO NOTHING"
     )
-    return sql, event
+    params = dict(event)
+    params["payload"] = json.dumps(event["payload"], ensure_ascii=False)
+    return sql, params
 
 
 def teardown_pending(connection, seed: PendingReportSeed) -> None:

@@ -13,7 +13,7 @@ from engine.config import Settings
 
 def _adapter(tmp_path, *, report_status=202, health_status=200):
     def handler(request):
-        if request.url.path == "/health":
+        if request.url.path == "/health/live":
             return httpx.Response(health_status)
         return httpx.Response(report_status, json={"status": "queued"})
 

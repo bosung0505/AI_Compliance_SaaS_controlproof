@@ -33,6 +33,8 @@ class Settings:
     whyyou_console_url: str
     whyyou_database_url: str
     whyyou_company_token: str
+    whyyou_company_id: str
+    whyyou_company_user_id: str
     whyyou_repo_path: Path
     model_substitute_enabled: bool
     model_fixture_id: str
@@ -78,6 +80,12 @@ class Settings:
             whyyou_console_url=console_url,
             whyyou_database_url=database_url,
             whyyou_company_token=env["WHYYOU_COMPANY_TOKEN"].strip(),
+            whyyou_company_id=env.get(
+                "WHYYOU_COMPANY_ID", "00000000-0000-7000-8000-000000000001"
+            ).strip(),
+            whyyou_company_user_id=env.get(
+                "WHYYOU_COMPANY_USER_ID", "00000000-0000-7000-8000-000000000002"
+            ).strip(),
             whyyou_repo_path=Path(env["WHYYOU_REPO_PATH"]).resolve(),
             model_substitute_enabled=enabled,
             model_fixture_id=env["CONTROLPROOF_MODEL_FIXTURE_ID"].strip(),
