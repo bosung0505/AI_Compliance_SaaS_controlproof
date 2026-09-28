@@ -35,6 +35,41 @@ class WhyYouFaultAdapter:
         subject: dict[str, Any],
         expires_at: datetime,
     ) -> AdapterResult:
+        return self._apply_marker(
+            run_id=run_id,
+            subject=subject,
+            expires_at=expires_at,
+            fault_type="reporting_handler_timeout_v1",
+            fault_variant=FaultVariant.BEFORE_RESULT_DURABLE,
+            one_shot=False,
+        )
+
+    def apply_after(
+        self,
+        *,
+        run_id: str,
+        subject: dict[str, Any],
+        expires_at: datetime,
+    ) -> AdapterResult:
+        return self._apply_marker(
+            run_id=run_id,
+            subject=subject,
+            expires_at=expires_at,
+            fault_type="reporting_after_commit_drop_ack_v1",
+            fault_variant=FaultVariant.AFTER_RESULT_DURABLE_BEFORE_COMPLETION,
+            one_shot=True,
+        )
+
+    def _apply_marker(
+        self,
+        *,
+        run_id: str,
+        subject: dict[str, Any],
+        expires_at: datetime,
+        fault_type: str,
+        fault_variant: FaultVariant,
+        one_shot: bool,
+    ) -> AdapterResult:
         UUID(run_id)
         session_id = str(subject["interview_session_id"])
         if expires_at.tzinfo is None:
@@ -51,8 +86,9 @@ class WhyYouFaultAdapter:
             "schema_version": "controlproof.whyyou-fault.v1",
             "run_id": run_id,
             "interview_session_id": session_id,
-            "fault_type": "reporting_handler_timeout_v1",
-            "fault_variant": FaultVariant.BEFORE_RESULT_DURABLE.value,
+            "fault_type": fault_type,
+            "fault_variant": fault_variant.value,
+            "one_shot": one_shot,
             "issued_at": now.isoformat(),
             "expires_at": expires_at.isoformat(),
         }
@@ -133,6 +169,7 @@ class WhyYouFaultAdapter:
         path = self.receipt_path(str(expected_run))
         if not path.exists():
             return AdapterResult(False, "BOUNDARY_RECEIPT_MISSING")
+        after_matches: list[FaultBoundaryReceipt] = []
         for line in path.read_text(encoding="utf-8").splitlines():
             try:
                 payload = json.loads(line)
@@ -149,7 +186,7 @@ class WhyYouFaultAdapter:
                         or int(payload["delivery_attempt"]) == expected_attempt
                     )
                 ):
-                    return FaultBoundaryReceipt.model_validate(
+                    receipt = FaultBoundaryReceipt.model_validate(
                         {
                             key: payload[key]
                             for key in (
@@ -165,9 +202,70 @@ class WhyYouFaultAdapter:
                             )
                         }
                     )
+                    if (
+                        expected_variant
+                        is FaultVariant.AFTER_RESULT_DURABLE_BEFORE_COMPLETION
+                    ):
+                        after_matches.append(receipt)
+                        continue
+                    return receipt
             except (KeyError, TypeError, ValueError, json.JSONDecodeError):
                 continue
+        if len(after_matches) == 1:
+            return after_matches[0]
+        if len(after_matches) > 1:
+            return AdapterResult(
+                False,
+                "AFTER_BOUNDARY_REPEATED",
+                {"matching_receipts": len(after_matches)},
+            )
         return AdapterResult(False, "BOUNDARY_RECEIPT_NOT_MATCHED")
+
+    def read_duplicate_ack(
+        self,
+        *,
+        run_id: str,
+        source_event_id: str,
+    ) -> AdapterResult:
+        try:
+            expected_run = UUID(run_id)
+            expected_event = UUID(source_event_id)
+        except ValueError:
+            return AdapterResult(False, "INVALID_DUPLICATE_ACK_IDENTITY")
+        path = self.receipt_path(str(expected_run))
+        if not path.exists():
+            return AdapterResult(False, "DUPLICATE_ACK_MISSING")
+        malformed = 0
+        for line_number, line in enumerate(path.read_text(encoding="utf-8").splitlines(), start=1):
+            try:
+                payload = json.loads(line)
+                if (
+                    payload.get("schema_version") == "controlproof.whyyou-duplicate-ack.v1"
+                    and UUID(str(payload["run_id"])) == expected_run
+                    and UUID(str(payload["outbox_event_id"])) == expected_event
+                    and payload.get("consumer_name") == "reporting-worker"
+                    and payload.get("handler_skipped") is True
+                    and payload.get("acknowledged") is True
+                    and int(payload["delivery_attempt"]) >= 2
+                ):
+                    return AdapterResult(
+                        True,
+                        "DUPLICATE_ACK_READ",
+                        {
+                            "receipt": payload,
+                            "line_number": line_number,
+                            "relative_path": path.relative_to(
+                                self.settings.fault_root
+                            ).as_posix(),
+                        },
+                    )
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                malformed += 1
+        return AdapterResult(
+            False,
+            "DUPLICATE_ACK_NOT_MATCHED",
+            {"malformed_records": malformed},
+        )
 
     def probe_marker_removed(self, *, subject: dict[str, Any]) -> AdapterResult:
         marker = self.marker_path(str(subject["interview_session_id"]))
@@ -181,6 +279,12 @@ class WhyYouFaultAdapter:
     def restore(self, *, run_id: str, subject: dict[str, Any]) -> AdapterResult:
         marker = self.marker_path(str(subject["interview_session_id"]))
         marker.unlink(missing_ok=True)
+        consumed = (
+            self.settings.fault_root
+            / "consumed"
+            / f"{run_id}-{subject['interview_session_id']}.after"
+        )
+        consumed.unlink(missing_ok=True)
         marker_inactive = not marker.exists()
         try:
             response = self.client.http.get("/health/live")

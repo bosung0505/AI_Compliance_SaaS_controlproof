@@ -39,7 +39,9 @@ CAPABILITY_VERSIONS = {
     "messaging.reporting.dlq.read": "v1",
     "messaging.reporting.dlq.redrive": "v1",
     "reporting.fault.before.inject": "v1",
+    "reporting.fault.after.inject": "v1",
     "reporting.fault.boundary.read": "v1",
+    "reporting.duplicate_ack.read": "v1",
     "hiring.decision_paths.read": "v1",
     "hiring.decision_path.attempt": "v1",
     "reporting.effects.read": "v1",
@@ -166,7 +168,9 @@ class WhyYouCapabilityProbe:
                 "reporting.fault.probe",
                 "reporting.fault.restore",
                 "reporting.fault.before.inject",
+                "reporting.fault.after.inject",
                 "reporting.fault.boundary.read",
+                "reporting.duplicate_ack.read",
             }:
                 return self._fault(capability)
             if capability == "reporting.model.deterministic":

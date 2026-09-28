@@ -147,20 +147,20 @@ description: "Spec 002 H-03·E-03 장애·재시도·DLQ 확장의 구현 작업
 
 ### Tests for User Story 4 — write first
 
-- [ ] T053 [P] [US4] In the WhyYou personal branch, add failing tests for exact `handler → processed record → transaction commit → after-commit hook → SQS acknowledge` order, one-shot ack drop, fsynced boundary receipt and production rejection in `../gbsa_aws/backend/tests/integration/test_worker_delivery.py` and `../gbsa_aws/backend/tests/unit/runtime/test_controlproof_reporting_fault.py` [FR-045, FR-089]
-- [ ] T054 [US4] After T053, add duplicate-redelivery tests proving the processed-message branch skips the handler, acknowledges the message and emits a sanitized duplicate-ack receipt in `../gbsa_aws/backend/tests/integration/test_worker_delivery.py` [FR-046~047, FR-090]
-- [ ] T055 [P] [US4] Add AFTER marker/boundary/duplicate-ack adapter contract tests including wrong event, wrong boundary, repeated one-shot trigger and missing independent effects in `tests/contract/test_whyyou_after_commit_fault.py` [FR-045~048]
-- [ ] T056 [P] [US4] Add E03-A1/A5/A6/A8 judge and full profile integration cases for correct duplicate-ack, handler rerun, duplicate report/projection/marker, boundary not reached and unexpected DLQ in `tests/unit/test_judge_e03_after.py` and `tests/integration/test_e03_after.py` [E03-A1, E03-A5, E03-A6, E03-A8]
+- [X] T053 [P] [US4] In the WhyYou personal branch, add failing tests for exact `handler → processed record → transaction commit → after-commit hook → SQS acknowledge` order, one-shot ack drop, fsynced boundary receipt and production rejection in `../gbsa_aws/backend/tests/integration/test_worker_delivery.py` and `../gbsa_aws/backend/tests/unit/runtime/test_controlproof_reporting_fault.py` [FR-045, FR-089]
+- [X] T054 [US4] After T053, add duplicate-redelivery tests proving the processed-message branch skips the handler, acknowledges the message and emits a sanitized duplicate-ack receipt in `../gbsa_aws/backend/tests/integration/test_worker_delivery.py` [FR-046~047, FR-090]
+- [X] T055 [P] [US4] Add AFTER marker/boundary/duplicate-ack adapter contract tests including wrong event, wrong boundary, repeated one-shot trigger and missing independent effects in `tests/contract/test_whyyou_after_commit_fault.py` [FR-045~048]
+- [X] T056 [P] [US4] Add E03-A1/A5/A6/A8 judge and full profile integration cases for correct duplicate-ack, handler rerun, duplicate report/projection/marker, boundary not reached and unexpected DLQ in `tests/unit/test_judge_e03_after.py` and `tests/integration/test_e03_after.py` [E03-A1, E03-A5, E03-A6, E03-A8]
 
 ### Implementation for User Story 4
 
-- [ ] T057 [US4] In the WhyYou personal branch, add the local/test-only one-shot AFTER marker and boundary receipt behavior in `../gbsa_aws/backend/src/interview_evidence/runtime/controlproof_faults.py` [FR-045, FR-089]
-- [ ] T058 [US4] In the WhyYou personal branch, invoke the optional AFTER hook only after transaction commit and before SQS acknowledge, and emit duplicate-ack observation from the existing processed-message short circuit in `../gbsa_aws/backend/src/interview_evidence/shared/messaging/worker.py` and `../gbsa_aws/backend/src/interview_evidence/runtime/worker.py` [FR-045~047, FR-089~090]
-- [ ] T059 [US4] Extend `engine/adapters/whyyou/fault.py` with AFTER marker creation, one-shot boundary receipt validation and duplicate-ack reading without treating a marker-write receipt as boundary proof [FR-045~048]
-- [ ] T060 [P] [US4] Create `E03_AFTER_V2` with only E03-A1/A5/A6/A8, no terminal-DLQ expectation, EV2-01~04/09/10/12 and 60-second boundary/duplicate deadline in `scenarios/E-03-AFTER.yaml` [FR-019, FR-045~050]
-- [ ] T061 [US4] Implement AFTER flow and effect snapshots in `engine/executors/e03_after.py` and register it without sharing mutable state with the BEFORE executor [FR-045~050]
-- [ ] T062 [US4] Implement E03-A5/A6 evaluators, unexpected-DLQ handling and exact reporting effect comparison in `engine/judges/e03.py` [E03-A5, E03-A6]
-- [ ] T063 [US4] Run the T053~T056 WhyYou and ControlProof tests, then record the independently passing US4 gate in `specs/002-h03-e03-fault-expansion/validation.md`
+- [X] T057 [US4] In the WhyYou personal branch, add the local/test-only one-shot AFTER marker and boundary receipt behavior in `../gbsa_aws/backend/src/interview_evidence/runtime/controlproof_faults.py` [FR-045, FR-089]
+- [X] T058 [US4] In the WhyYou personal branch, invoke the optional AFTER hook only after transaction commit and before SQS acknowledge, and emit duplicate-ack observation from the existing processed-message short circuit in `../gbsa_aws/backend/src/interview_evidence/shared/messaging/worker.py` and `../gbsa_aws/backend/src/interview_evidence/runtime/worker.py` [FR-045~047, FR-089~090]
+- [X] T059 [US4] Extend `engine/adapters/whyyou/fault.py` with AFTER marker creation, one-shot boundary receipt validation and duplicate-ack reading without treating a marker-write receipt as boundary proof [FR-045~048]
+- [X] T060 [P] [US4] Create `E03_AFTER_V2` with only E03-A1/A5/A6/A8, no terminal-DLQ expectation, EV2-01~04/09/10/12 and 60-second boundary/duplicate deadline in `scenarios/E-03-AFTER.yaml` [FR-019, FR-045~050]
+- [X] T061 [US4] Implement AFTER flow and effect snapshots in `engine/executors/e03_after.py` and register it without sharing mutable state with the BEFORE executor [FR-045~050]
+- [X] T062 [US4] Implement E03-A5/A6 evaluators, unexpected-DLQ handling and exact reporting effect comparison in `engine/judges/e03.py` [E03-A5, E03-A6]
+- [X] T063 [US4] Run the T053~T056 WhyYou and ControlProof tests, then record the independently passing US4 gate in `specs/002-h03-e03-fault-expansion/validation.md`
 
 **Checkpoint**: 저장 후 재전달의 중복 억제가 저장 전 장애와 섞이지 않은 별도 Run으로 검증된다.
 

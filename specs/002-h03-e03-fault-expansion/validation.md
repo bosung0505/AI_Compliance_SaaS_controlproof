@@ -325,3 +325,93 @@ All checks passed!
 - E03-A7 같은-key 사람 결정 replay와 완전한 adapter composition은 US5에서 구현한다.
 - 실제 AWS와 외부 AI는 계속 `NOT_RUN`이며 로컬 queue·DB 계약 결과를 AWS 검증으로 확대하지 않는다.
 - WhyYou 제품 코드는 이 단계에서 변경하지 않았다.
+
+## 2026-09-28 — User Story 4: 저장 후 ack 전 장애와 중복 억제 (T053~T063)
+
+### 이번 단계에서 고정한 의미
+
+- `AFTER_RESULT_DURABLE_BEFORE_COMPLETION`은 handler와 `processed_messages` 기록이 같은 DB
+  transaction으로 commit된 뒤, SQS acknowledge 직전에만 발동한다.
+- 로컬·test 전용 marker는 첫 전달의 ack만 한 번 생략한다. worker는 이미 commit된 transaction을
+  rollback하거나 명시적으로 retry하지 않는다. 실제 queue visibility 만료로 재전달된 메시지는 기존
+  processed-message 분기에서 handler를 건너뛰고 ack한다.
+- AFTER 경계 영수증 하나만으로 PASS하지 않는다. 경계 직후 reporting 효과, 재전달의 sanitized
+  duplicate-ack 영수증, 재전달 종료 뒤 효과와 DLQ 부재를 서로 독립적으로 읽는다.
+- commit 직후와 최종 snapshot 모두 논리 report 1건, 중복 없는 projection 집합, 원 event/version의
+  processed key 1건이어야 하고 두 snapshot의 canonical digest가 같아야 한다.
+- 경계가 관찰되지 않으면 E03-A1/A5/A6/A8은 제품 PASS나 FAIL로 추정하지 않고 INCONCLUSIVE다.
+  경계가 관찰된 뒤 handler 생략 증적이 없거나 업무 효과가 달라지면 FAIL이다. AFTER 흐름에서 DLQ는
+  기대 결과가 아니므로 일치 DLQ 건이 나타나면 E03-A1과 A8의 직접 FAIL이다.
+
+### 구현 결과
+
+- WhyYou 개인 브랜치에 기본값이 무동작인 `DeliveryLifecycleObserver`를 추가했다. 실제 순서는
+  `handler → processed record → DB commit → AFTER hook → SQS acknowledge`로 고정됐고, hook은
+  local/test에서 유효한 AFTER marker를 원자적으로 한 번 소비한 경우에만 ack를 생략한다.
+- 재전달이 processed-message short circuit에 들어오면 handler를 다시 호출하지 않고 ack한 뒤,
+  run·session·event·attempt·consumer와 `handler_skipped`/`acknowledged`만 담은 영수증을 append+fsync한다.
+  지원자 payload나 이름·이메일은 영수증에 기록하지 않는다.
+- `WhyYouFaultAdapter`는 BEFORE와 AFTER marker를 별도로 생성하고, marker 작성 결과를 경계 증적으로
+  오인하지 않는다. boundary reader는 run·session·event·variant·boundary·one-shot을 검증하며,
+  duplicate reader는 같은 event의 processed-branch 영수증만 수용한다.
+- `E03_AFTER_V2`는 E03-A1/A5/A6/A8만 소유하고 EV2-01~04·09·10·12, 60초 boundary/duplicate
+  기한과 `terminal DLQ = ABSENT`를 선언한다. BEFORE profile의 DLQ/redrive 기대를 공유하지 않는다.
+- `E03AfterExecutor.collect_us4`는 환경·topology → 합성 대상 → AFTER marker → 원 event → boundary →
+  commit 직후 효과 → duplicate ack → 최종 효과 → DLQ 부재 → restore 순으로 독립 실행한다.
+- profile registry에는 `E03_AFTER_V2`를 전용 executor로 등록했다. 다만 Phase 8의 공통 봉인 bundle
+  orchestration 전까지 CLI preflight와 `execute`는 명시적으로 `RUNNER_NOT_READY`다. US4 slice 통과를
+  정식 봉인 Run 완료로 표시하지 않는다.
+
+### US4 gate(GREEN)
+
+WhyYou 개인 브랜치의 worker 순서·one-shot ack 생략·재전달 short circuit·fsync 영수증 gate:
+
+```powershell
+..\.venv\Scripts\python.exe -m pytest tests/integration/test_worker_delivery.py tests/unit/runtime/test_controlproof_reporting_fault.py -q
+..\.venv\Scripts\python.exe -m ruff check .
+```
+
+결과:
+
+```text
+32 passed, 1 warning in 7.49s
+All checks passed!
+```
+
+ControlProof AFTER adapter·judge·profile integration gate:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/contract/test_whyyou_after_commit_fault.py tests/unit/test_judge_e03_after.py tests/integration/test_e03_after.py -q
+```
+
+결과:
+
+```text
+13 passed in 0.86s
+```
+
+ControlProof 전체 회귀와 정적 검사:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m ruff check .
+```
+
+결과:
+
+```text
+218 passed in 145.84s (0:02:25)
+All checks passed!
+```
+
+### 검증 제한과 아직 실행하지 않은 것
+
+- WhyYou 저장소의 전체 legacy test collection은 이번 변경 파일에 도달하기 전에, 현재 브랜치에서
+  이미 제거된 여러 `InMemory*` test helper와 `runtime.local_*` 모듈을 참조하는 44개 import 오류로
+  중단된다. 이번 변경 범위의 32개 테스트와 저장소 전체 Ruff는 통과했지만, 이 기존 test-suite
+  정합성 문제는 별도 정리가 필요하다.
+- Docker/LocalStack·PostgreSQL 실제 대상에서 visibility timeout을 기다리는 최초 AFTER Run이나 봉인된
+  제품 verdict는 아직 만들지 않았다. 이는 Phase 8 actual-stack gate의 책임이다.
+- 실제 AWS와 외부 AI는 계속 `NOT_RUN`이며, 로컬 one-shot hook은 production/staging에서 활성화가
+  거부된다.
+- WhyYou 변경은 `bosung/controlproof-h03-integration` 개인 브랜치에만 있으며 main에는 반영하지 않았다.

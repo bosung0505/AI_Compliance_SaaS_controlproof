@@ -175,6 +175,10 @@ class FakeFault:
         self.events.append("fault.apply")
         return AdapterResult(True, "FAULT_MARKER_APPLIED", {"run_id": run_id})
 
+    def apply_after(self, *, run_id, subject, expires_at):
+        self.events.append("fault.apply_after")
+        return AdapterResult(True, "AFTER_FAULT_MARKER_APPLIED", {"run_id": run_id})
+
     def probe_effect(self, *, run_id, subject, trigger):
         return AdapterResult(
             self.effect,
@@ -218,9 +222,17 @@ class FakeFault:
         return AdapterResult(True, "BOUNDARY_RECEIPT_READ", {"receipt": receipt})
 
     def read_duplicate_ack(self, **_kwargs):
+        receipt = {
+            "outbox_event_id": str(EVENT_ID),
+            "delivery_attempt": 2,
+            "consumer_name": "reporting-worker",
+            "handler_skipped": True,
+            "acknowledged": True,
+        }
         return AdapterResult(
             self.duplicate_ack,
             "DUPLICATE_ACK_READ" if self.duplicate_ack else "DUPLICATE_ACK_MISSING",
+            {"receipt": receipt} if self.duplicate_ack else {},
         )
 
 
@@ -237,12 +249,14 @@ class FakeQueue:
         dlq_ok=True,
         redrive_send=True,
         redrive_delete=True,
+        dlq_presence=None,
         events=None,
     ):
         self.attempts_ok = attempts_ok
         self.dlq_ok = dlq_ok
         self.redrive_send = redrive_send
         self.redrive_delete = redrive_delete
+        self.dlq_presence = dlq_presence
         self.events = events if events is not None else []
 
     def capture_topology(self):
@@ -260,13 +274,16 @@ class FakeQueue:
         )
 
     def read_dlq(self, *, source_event_id, subject_ref=None, session_id=None):
+        presence = self.dlq_presence
+        if presence is None:
+            presence = Presence.PRESENT if self.dlq_ok else Presence.UNAVAILABLE
         return AdapterResult(
-            self.dlq_ok,
-            "DLQ_MATCH_READ" if self.dlq_ok else "DLQ_UNAVAILABLE",
+            presence is not Presence.UNAVAILABLE,
+            "DLQ_MATCH_READ" if presence is not Presence.UNAVAILABLE else "DLQ_UNAVAILABLE",
             {
                 "source_event_id": source_event_id,
-                "presence": Presence.PRESENT if self.dlq_ok else Presence.UNAVAILABLE,
-                "terminal_failure": terminal_failure() if self.dlq_ok else None,
+                "presence": presence,
+                "terminal_failure": terminal_failure() if presence is Presence.PRESENT else None,
             },
         )
 
@@ -352,9 +369,16 @@ class FakeDecision:
 
 
 class FakeEffects:
-    def __init__(self, *, reporting_available=True, decision_available=True):
+    def __init__(
+        self,
+        *,
+        reporting_available=True,
+        decision_available=True,
+        injected_reporting_present=False,
+    ):
         self.reporting_available = reporting_available
         self.decision_available = decision_available
+        self.injected_reporting_present = injected_reporting_present
 
     def read_reporting_effects(
         self,
@@ -382,7 +406,7 @@ class FakeEffects:
                     source_error_code="REPORTING_EFFECTS_UNAVAILABLE",
                 ),
             )
-        if Phase(phase) is Phase.INJECTED:
+        if Phase(phase) is Phase.INJECTED and not self.injected_reporting_present:
             return (
                 reporting_effect(
                     run_id=run_id,
@@ -495,12 +519,14 @@ def make_adapters(
     processing="READY",
     attempts_ok=True,
     dlq_ok=True,
+    dlq_presence=None,
     redrive_send=True,
     redrive_delete=True,
     decision_path_accepted=False,
     accepted_decision_paths=None,
     decision_partial_write=False,
     reporting_effects_available=True,
+    injected_reporting_present=False,
     decision_effects_available=True,
     target_exists=True,
     readiness_overrides=None,
@@ -520,6 +546,7 @@ def make_adapters(
     queue = FakeQueue(
         attempts_ok=attempts_ok,
         dlq_ok=dlq_ok,
+        dlq_presence=dlq_presence,
         redrive_send=redrive_send,
         redrive_delete=redrive_delete,
         events=lifecycle_events,
@@ -546,6 +573,7 @@ def make_adapters(
             effects=FakeEffects(
                 reporting_available=reporting_effects_available,
                 decision_available=decision_effects_available,
+                injected_reporting_present=injected_reporting_present,
             ),
             boundary_receipts=fault,
             duplicate_acks=fault,

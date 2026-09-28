@@ -66,6 +66,230 @@ def judge_e03_before(
     )
 
 
+def judge_e03_after(
+    *,
+    source_event_id: UUID,
+    boundary: FaultBoundaryReceipt | None,
+    duplicate_ack: AdapterResult | None,
+    committed_effects: Sequence[BusinessEffectSnapshot],
+    final_effects: Sequence[BusinessEffectSnapshot],
+    dlq_presence: Presence,
+    restore: AdapterResult,
+) -> tuple[AssertionResult, AssertionResult, AssertionResult, AssertionResult]:
+    """Judge the isolated commit-before-ack fault without borrowing BEFORE evidence."""
+
+    committed = first_effect(committed_effects)
+    final = first_effect(final_effects)
+    return (
+        _after_lineage(
+            source_event_id,
+            boundary,
+            duplicate_ack,
+            final,
+            dlq_presence,
+        ),
+        _after_effects_exact(source_event_id, boundary, committed, final),
+        _duplicate_short_circuit(source_event_id, boundary, duplicate_ack),
+        _after_safe_restore(boundary, restore, dlq_presence),
+    )
+
+
+def _after_lineage(
+    source_event_id: UUID,
+    boundary: FaultBoundaryReceipt | None,
+    duplicate_ack: AdapterResult | None,
+    final: BusinessEffectSnapshot | None,
+    dlq_presence: Presence,
+) -> AssertionResult:
+    if dlq_presence is Presence.UNAVAILABLE or source_unavailable(final):
+        return _result(
+            "E03-A1",
+            AssertionStatus.INCONCLUSIVE,
+            "AFTER 처리 계보 출처 중 하나에 접근할 수 없습니다.",
+            InconclusiveReason.ACCESS_LIMITED,
+        )
+    if boundary is None:
+        return _result(
+            "E03-A1",
+            AssertionStatus.INCONCLUSIVE,
+            "commit 뒤 ack 전 장애 경계가 관찰되지 않았습니다.",
+            InconclusiveReason.INSUFFICIENT_EVIDENCE,
+        )
+    receipt = dict(duplicate_ack.data.get("receipt", {})) if duplicate_ack else {}
+    linked = (
+        dlq_presence is Presence.ABSENT
+        and duplicate_ack is not None
+        and duplicate_ack.ok
+        and boundary.outbox_event_id == source_event_id
+        and receipt.get("outbox_event_id") == str(source_event_id)
+        and final is not None
+        and final.source_event_id == source_event_id
+        and durable_reporting_effects(final).get("source_outbox_event_ids")
+        == [str(source_event_id)]
+    )
+    return _result(
+        "E03-A1",
+        AssertionStatus.PASS if linked else AssertionStatus.FAIL,
+        (
+            "원 사건에서 AFTER 경계·중복 ack·최종 효과까지 계보가 연결됩니다."
+            if linked
+            else "조회는 완료됐지만 AFTER 처리 계보가 끊겼거나 예상 밖 DLQ가 관찰됐습니다."
+        ),
+    )
+
+
+def _after_effects_exact(
+    source_event_id: UUID,
+    boundary: FaultBoundaryReceipt | None,
+    committed: BusinessEffectSnapshot | None,
+    final: BusinessEffectSnapshot | None,
+) -> AssertionResult:
+    if boundary is None:
+        return _result(
+            "E03-A5",
+            AssertionStatus.INCONCLUSIVE,
+            "AFTER 경계를 관찰하지 못해 commit 시점 효과를 판정할 수 없습니다.",
+            InconclusiveReason.INSUFFICIENT_EVIDENCE,
+        )
+    if committed is None or final is None:
+        return _result(
+            "E03-A5",
+            AssertionStatus.INCONCLUSIVE,
+            "commit 직후 또는 중복 ack 뒤 효과 snapshot이 없습니다.",
+            InconclusiveReason.INSUFFICIENT_EVIDENCE,
+        )
+    if source_unavailable(committed) or source_unavailable(final):
+        return _result(
+            "E03-A5",
+            AssertionStatus.INCONCLUSIVE,
+            "reporting 효과 출처에 접근할 수 없습니다.",
+            InconclusiveReason.ACCESS_LIMITED,
+        )
+    committed_values = durable_reporting_effects(committed)
+    final_values = durable_reporting_effects(final)
+    passed = (
+        _is_exact_reporting_set(committed_values, source_event_id)
+        and _is_exact_reporting_set(final_values, source_event_id)
+        and committed.state_digest == final.state_digest
+        and committed_values == final_values
+    )
+    return _result(
+        "E03-A5",
+        AssertionStatus.PASS if passed else AssertionStatus.FAIL,
+        (
+            "commit 직후와 중복 ack 뒤 reporting 효과가 같은 한 논리 세트입니다."
+            if passed
+            else "report·projection·processed 효과가 누락·중복됐거나 재전달 뒤 달라졌습니다."
+        ),
+        actual={"committed": committed_values, "final": final_values},
+    )
+
+
+def _duplicate_short_circuit(
+    source_event_id: UUID,
+    boundary: FaultBoundaryReceipt | None,
+    duplicate_ack: AdapterResult | None,
+) -> AssertionResult:
+    if boundary is None:
+        return _result(
+            "E03-A6",
+            AssertionStatus.INCONCLUSIVE,
+            "AFTER 경계를 관찰하지 못해 중복 재전달 분기를 판정할 수 없습니다.",
+            InconclusiveReason.INSUFFICIENT_EVIDENCE,
+        )
+    if duplicate_ack is None:
+        return _result(
+            "E03-A6",
+            AssertionStatus.INCONCLUSIVE,
+            "중복 ack 관찰 결과가 없습니다.",
+            InconclusiveReason.INSUFFICIENT_EVIDENCE,
+        )
+    if not duplicate_ack.ok and duplicate_ack.code.endswith("ACCESS_BLOCKED"):
+        return _result(
+            "E03-A6",
+            AssertionStatus.INCONCLUSIVE,
+            "중복 ack 증적 출처에 접근할 수 없습니다.",
+            InconclusiveReason.ACCESS_LIMITED,
+        )
+    receipt = dict(duplicate_ack.data.get("receipt", {}))
+    passed = bool(
+        duplicate_ack.ok
+        and receipt.get("outbox_event_id") == str(source_event_id)
+        and receipt.get("consumer_name") == "reporting-worker"
+        and receipt.get("handler_skipped") is True
+        and receipt.get("acknowledged") is True
+        and int(receipt.get("delivery_attempt", 0)) >= 2
+    )
+    return _result(
+        "E03-A6",
+        AssertionStatus.PASS if passed else AssertionStatus.FAIL,
+        (
+            "재전달이 handler를 건너뛰고 processed-message 분기에서 ack됐습니다."
+            if passed
+            else "재전달의 handler 생략과 ack를 함께 입증하지 못했습니다."
+        ),
+        actual=receipt,
+    )
+
+
+def _after_safe_restore(
+    boundary: FaultBoundaryReceipt | None,
+    restore: AdapterResult,
+    dlq_presence: Presence,
+) -> AssertionResult:
+    if boundary is None or dlq_presence is Presence.UNAVAILABLE:
+        return _result(
+            "E03-A8",
+            AssertionStatus.INCONCLUSIVE,
+            "장애 경계 또는 DLQ 상태가 불확실해 환경 안전성을 확정할 수 없습니다.",
+            InconclusiveReason.INSUFFICIENT_EVIDENCE,
+        )
+    if dlq_presence is Presence.PRESENT:
+        return _result(
+            "E03-A8",
+            AssertionStatus.FAIL,
+            "AFTER 일회성 재전달에서 기대하지 않은 DLQ 메시지가 관찰됐습니다.",
+        )
+    passed = bool(
+        restore.ok
+        and restore.data.get("marker_inactive") is True
+        and restore.data.get("worker_healthy") is True
+    )
+    return _result(
+        "E03-A8",
+        AssertionStatus.PASS if passed else AssertionStatus.INCONCLUSIVE,
+        (
+            "일회성 marker가 해제되고 worker가 정상이며 DLQ는 비어 있습니다."
+            if passed
+            else "환경 복구를 확정할 수 없어 후속 장애 실행을 허용할 수 없습니다."
+        ),
+        None if passed else InconclusiveReason.INSUFFICIENT_EVIDENCE,
+    )
+
+
+def _is_exact_reporting_set(values: dict[str, object], source_event_id: UUID) -> bool:
+    reports = list(values.get("logical_report_ids", []))
+    documents = list(values.get("projection_document_ids", []))
+    projection_reports = list(values.get("projection_report_ids", []))
+    processed = list(values.get("processed_keys", []))
+    outbox = list(values.get("source_outbox_event_ids", []))
+    expected_key = {
+        "consumer_name": "reporting-worker",
+        "event_id": str(source_event_id),
+        "event_version": 1,
+    }
+    return bool(
+        len(reports) == 1
+        and len(set(reports)) == 1
+        and documents
+        and len(documents) == len(set(documents))
+        and len(projection_reports) == len(documents)
+        and set(projection_reports) == {reports[0]}
+        and processed == [expected_key]
+        and outbox == [str(source_event_id)]
+    )
+
+
 def _lineage(
     source_event_id: UUID,
     boundary: FaultBoundaryReceipt | None,

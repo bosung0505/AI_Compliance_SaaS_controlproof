@@ -1,0 +1,79 @@
+schema_version: controlproof.scenario.v2
+scenario_id: E-03
+version: 2.0.0
+execution_profile: E03_AFTER_V2
+fault_variant: AFTER_RESULT_DURABLE_BEFORE_COMPLETION
+applicable_assertion_ids: [E03-A1, E03-A5, E03-A6, E03-A8]
+title: 저장 후 ack 전 장애의 정확히 한 번 업무 효과
+control_intent: >-
+  리포트·assistant retrieval projection·processed marker가 같은 transaction으로 저장된 뒤
+  SQS acknowledge 전에 한 번 장애를 만들고, 동일 사건의 재전달이 handler를 재실행하지 않은 채
+  processed-message 분기에서 ack되며 업무 효과가 한 논리 세트로 유지되는지 검증한다.
+
+required_capabilities:
+  target.version.read: v1
+  target.environment.read: v1
+  messaging.reporting.topology.read: v1
+  messaging.reporting.dlq.read: v1
+  reporting.fault.after.inject: v1
+  reporting.fault.boundary.read: v1
+  reporting.duplicate_ack.read: v1
+  reporting.fault.restore: v1
+  reporting.effects.read: v1
+  reporting.model.deterministic: v1
+  h03.subject.seed: v1
+  reporting.trigger: v1
+
+preconditions:
+  - {precondition_id: local-environment, kind: RUNNER, description: 로컬 고정 fixture 환경이다.}
+  - {precondition_id: reporting-topology, kind: TARGET, description: reporting queue와 DLQ가 canonical 설정이다.}
+  - {precondition_id: after-boundary, kind: TARGET, description: commit 뒤 ack 전 경계를 독립 영수증으로 관찰할 수 있다.}
+
+steps:
+  - {step_id: capture-environment, phase: BASELINE, action: target.environment.read, outputs: [environment.snapshot], evidence_requirements: [EV2-01]}
+  - {step_id: capture-topology, phase: BASELINE, action: messaging.reporting.topology.read, outputs: [queue.topology], evidence_requirements: [EV2-01]}
+  - {step_id: seed-pending-report, phase: BASELINE, action: h03.subject.seed, outputs: [], evidence_requirements: []}
+  - {step_id: apply-after-fault, phase: INJECTED, action: reporting.fault.after.inject, outputs: [fault.marker.applied], evidence_requirements: [EV2-03]}
+  - {step_id: trigger-reporting, phase: INJECTED, action: reporting.trigger, outputs: [source.event.id], evidence_requirements: [EV2-02]}
+  - {step_id: read-after-boundary, phase: INJECTED, action: reporting.fault.boundary.read, outputs: [fault.boundary], evidence_requirements: [EV2-03]}
+  - {step_id: read-committed-effects, phase: INJECTED, action: reporting.effects.read, outputs: [reporting.effects.committed], evidence_requirements: [EV2-10]}
+  - {step_id: read-duplicate-ack, phase: RECOVERED, action: reporting.duplicate_ack.read, outputs: [reporting.duplicate_ack], evidence_requirements: [EV2-04]}
+  - {step_id: read-final-effects, phase: RECOVERED, action: reporting.effects.read, outputs: [reporting.effects.final], evidence_requirements: [EV2-10]}
+  - {step_id: confirm-no-dlq, phase: RECOVERED, action: messaging.reporting.dlq.read, outputs: [terminal.failure.absence], evidence_requirements: [EV2-09]}
+  - {step_id: restore-marker, phase: RECOVERED, action: reporting.fault.restore, outputs: [fault.environment.restore], evidence_requirements: [EV2-09], always_run: true}
+
+assertions:
+  - {assertion_id: E03-A1, description: 원 사건부터 AFTER 경계·중복 ack·최종 효과까지 계보가 완전하다., expectation: {lineage_complete: true, terminal_dlq: ABSENT}, required_observation_keys: [source.event.id, fault.boundary, reporting.duplicate_ack, reporting.effects.final], required_evidence_ids: [EV2-02, EV2-03, EV2-04, EV2-10], source_requirements: [FR-041, FR-045]}
+  - {assertion_id: E03-A5, description: commit 직후와 재전달 종료 뒤 reporting 효과가 같은 한 논리 세트다., expectation: {logical_report_count: 1, processed_count: 1, state_unchanged: true}, required_observation_keys: [reporting.effects.committed, reporting.effects.final], required_evidence_ids: [EV2-10], source_requirements: [FR-045, FR-046, FR-047, FR-049, FR-050]}
+  - {assertion_id: E03-A6, description: 재전달은 handler를 건너뛰고 processed-message 분기에서 ack된다., expectation: {handler_skipped: true, acknowledged: true}, required_observation_keys: [reporting.duplicate_ack], required_evidence_ids: [EV2-04], source_requirements: [FR-046, FR-047]}
+  - {assertion_id: E03-A8, description: marker가 해제되고 worker가 정상이며 예상 밖 DLQ가 없다., expectation: {restore_safe: true, terminal_dlq: ABSENT}, required_observation_keys: [fault.environment.restore, terminal.failure.absence], required_evidence_ids: [EV2-09], source_requirements: [FR-048]}
+
+required_evidence:
+  - {evidence_id: EV2-01, description: 환경과 queue topology, artifact_types: [VERSION_SNAPSHOT]}
+  - {evidence_id: EV2-02, description: 원 Outbox event와 baseline, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV2-03, description: AFTER boundary receipt, artifact_types: [FAULT_RECEIPT]}
+  - {evidence_id: EV2-04, description: processed-message duplicate ack 영수증, artifact_types: [FAULT_RECEIPT]}
+  - {evidence_id: EV2-09, description: marker 복구와 예상 밖 DLQ 부재, artifact_types: [FAULT_RECEIPT, STATE_SNAPSHOT]}
+  - {evidence_id: EV2-10, description: commit 직후와 최종 reporting 효과, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV2-12, description: 봉인된 profile snapshot, artifact_types: [VERSION_SNAPSHOT]}
+
+timing_policy:
+  poll_seconds: 2
+  dlq_deadline_seconds: 60
+  duplicate_ack_deadline_seconds: 60
+  environment_restore_deadline_seconds: 180
+  run_deadline_seconds: 600
+  stability_consecutive: 3
+  stability_seconds: 4
+  expected_queue: {max_receive_count: 3, visibility_timeout_seconds: 5}
+
+restore_policy:
+  mandatory: true
+  action: reporting.fault.restore
+  report_processing_result_field: report.processing_recovery
+
+observation_comparators: {}
+source_requirements: [FR-041, FR-045, FR-046, FR-047, FR-048, FR-049, FR-050]
+allowed_model_fixtures:
+  h03-report-v1: ce09b95403b34e1390502c90f5c5edc518ddf65d38c8ce881617a37cac6d16b1
+excluded_scope: [AWS]

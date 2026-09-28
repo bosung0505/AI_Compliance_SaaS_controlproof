@@ -66,6 +66,7 @@ def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]
         decision=decision,
         effects=effects,
         boundary_receipts=fault,
+        duplicate_acks=fault,
         safe_redrive=queue,
     )
     return adapters, client

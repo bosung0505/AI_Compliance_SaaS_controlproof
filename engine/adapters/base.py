@@ -72,6 +72,10 @@ class FaultAdapter(Protocol):
         self, *, run_id: str, subject: Mapping[str, Any], expires_at: datetime
     ) -> AdapterResult: ...
 
+    def apply_after(
+        self, *, run_id: str, subject: Mapping[str, Any], expires_at: datetime
+    ) -> AdapterResult: ...
+
     def probe_effect(
         self,
         *,
