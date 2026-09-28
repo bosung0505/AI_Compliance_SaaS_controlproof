@@ -1,0 +1,106 @@
+schema_version: controlproof.scenario.v2
+scenario_id: H-03
+version: 2.0.0
+execution_profile: H03_DLQ_V2
+fault_variant: BEFORE_RESULT_DURABLE
+applicable_assertion_ids: [H03-A1, H03-A2, H03-A3, H03-A4, H03-A5, H03-A6, H03-A7, H03-A8, H03-A9]
+title: reporting 재시도 소진과 결정 안전성
+control_intent: >-
+  리포트 생성 장애가 실제 재시도 한도까지 전달된 뒤 원 사건과 연결된 최종 실패 건으로
+  보존되고 담당자와 운영자에게 드러나며, 리포트 없이 최종 채용 효과를 만드는 모든 확인된
+  경로가 거부되는지 검증한다.
+
+required_capabilities:
+  target.version.read: v1
+  target.environment.read: v1
+  messaging.reporting.topology.read: v1
+  messaging.reporting.attempts.read: v1
+  messaging.reporting.dlq.read: v1
+  messaging.reporting.dlq.redrive: v1
+  reporting.status.read: v1
+  reporting.ui.observe: v1
+  reporting.fault.before.inject: v1
+  reporting.fault.boundary.read: v1
+  reporting.fault.restore: v1
+  reporting.model.deterministic: v1
+  h03.subject.seed: v1
+  reporting.trigger: v1
+  hiring.decision_paths.read: v1
+  hiring.decision_path.attempt: v1
+  hiring.state.read: v1
+  hiring.decision_history.read: v1
+
+preconditions:
+  - {precondition_id: local-environment, kind: RUNNER, description: 로컬 고정 fixture 환경이다.}
+  - {precondition_id: reporting-topology, kind: TARGET, description: reporting queue와 DLQ가 canonical 설정이다.}
+  - {precondition_id: decision-paths, kind: TARGET, description: 확인된 최종 채용 효과 경로를 모두 열거할 수 있다.}
+
+steps:
+  - {step_id: capture-environment, phase: BASELINE, action: target.environment.read, outputs: [environment.snapshot], evidence_requirements: [EV2-01]}
+  - {step_id: capture-topology, phase: BASELINE, action: messaging.reporting.topology.read, outputs: [queue.topology], evidence_requirements: [EV2-01]}
+  - {step_id: seed-pending-report, phase: BASELINE, action: h03.subject.seed, outputs: [], evidence_requirements: []}
+  - {step_id: capture-baseline, phase: BASELINE, action: hiring.state.read, outputs: [state.baseline], evidence_requirements: [EV-01, EV-09, EV2-02]}
+  - {step_id: apply-before-fault, phase: INJECTED, action: reporting.fault.before.inject, outputs: [fault.marker.applied], evidence_requirements: [EV-02, EV2-03]}
+  - {step_id: trigger-reporting, phase: INJECTED, action: reporting.trigger, outputs: [source.event_id], evidence_requirements: [EV-03, EV2-02]}
+  - {step_id: read-boundary, phase: INJECTED, action: reporting.fault.boundary.read, outputs: [fault.boundary], evidence_requirements: [EV-03, EV2-03]}
+  - {step_id: read-attempts, phase: INJECTED, action: messaging.reporting.attempts.read, outputs: [delivery.attempts], evidence_requirements: [EV2-04]}
+  - {step_id: read-terminal-failure, phase: INJECTED, action: messaging.reporting.dlq.read, outputs: [terminal.failure], evidence_requirements: [EV2-05]}
+  - {step_id: observe-report, phase: INJECTED, action: reporting.status.read, outputs: [report.api.status], evidence_requirements: [EV-03, EV2-06]}
+  - {step_id: observe-company-console, phase: INJECTED, action: reporting.ui.observe, outputs: [report.ui.terminal_status], evidence_requirements: [EV-04, EV2-06]}
+  - {step_id: attempt-decision-paths, phase: INJECTED, action: hiring.decision_path.attempt, outputs: [decision.path.results], evidence_requirements: [EV-05, EV2-07]}
+  - {step_id: capture-post-decision-effects, phase: INJECTED, action: state.effects.read, outputs: [decision.effects], evidence_requirements: [EV-06, EV-07, EV2-08]}
+  - {step_id: restore-marker, phase: RECOVERED, action: reporting.fault.restore, outputs: [fault.environment_restore], evidence_requirements: [EV-08, EV2-09], always_run: true}
+  - {step_id: redrive-terminal-failure, phase: RECOVERED, action: messaging.reporting.dlq.redrive, outputs: [redrive.receipt], evidence_requirements: [EV2-09], always_run: true}
+
+assertions:
+  - {assertion_id: H03-A1, description: 현재 Run의 BEFORE 장애가 실제 발동했다., expectation: {fault_triggered: true}, required_observation_keys: [fault.marker.applied, fault.boundary], required_evidence_ids: [EV-02, EV-03, EV2-03], source_requirements: [FR-021, FR-023]}
+  - {assertion_id: H03-A2, description: 리포트 미준비 상태가 담당자에게 드러난다., expectation: {ready: false}, required_observation_keys: [report.api.status, report.ui.terminal_status], required_evidence_ids: [EV-03, EV-04, EV2-06], source_requirements: [FR-031]}
+  - {assertion_id: H03-A3, description: 정상 최종결정 경로가 리포트 부재 이유로 거부된다., expectation: {accepted: false}, required_observation_keys: [decision.path.results], required_evidence_ids: [EV-05, EV2-07], source_requirements: [FR-033]}
+  - {assertion_id: H03-A4, description: 거부된 결정 뒤 부분 변경이 없다., expectation: {changed: false}, required_observation_keys: [decision.effects], required_evidence_ids: [EV-01, EV-06, EV2-08], source_requirements: [FR-037]}
+  - {assertion_id: H03-A5, description: 사람 요청 없는 자동 최종결정이 없다., expectation: {automatic_decision: false}, required_observation_keys: [decision.effects], required_evidence_ids: [EV-07, EV2-08], source_requirements: [FR-038]}
+  - {assertion_id: H03-A6, description: marker와 worker가 안전한 상태로 복구된다., expectation: {restore: SUCCEEDED}, required_observation_keys: [fault.environment_restore], required_evidence_ids: [EV-08, EV2-09], source_requirements: [FR-040]}
+  - {assertion_id: H03-A7, description: canonical 결정 path 3개가 모두 거부되고 부분 변경이 없다., expectation: {all_paths_refused: true}, required_observation_keys: [decision.path.results, decision.effects], required_evidence_ids: [EV2-07, EV2-08], source_requirements: [FR-033, FR-039]}
+  - {assertion_id: H03-A8, description: 재시도 소진 뒤 원 사건과 연결된 DLQ 실패 건이 보존된다., expectation: {attempts: 3, terminal_failure: PRESENT}, required_observation_keys: [delivery.attempts, terminal.failure], required_evidence_ids: [EV2-01, EV2-04, EV2-05], source_requirements: [FR-024, FR-030]}
+  - {assertion_id: H03-A9, description: 최종 실패가 담당자와 운영자에게 숨겨지지 않는다., expectation: {ui: final_failed, operator_locator: PRESENT}, required_observation_keys: [report.api.status, report.ui.terminal_status, terminal.failure], required_evidence_ids: [EV2-05, EV2-06], source_requirements: [FR-031, FR-032]}
+
+required_evidence:
+  - {evidence_id: EV-01, description: 장애 전 상태 기준선, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV-02, description: 장애 적용 요청, artifact_types: [FAULT_RECEIPT]}
+  - {evidence_id: EV-03, description: 장애 발동과 report 상태, artifact_types: [FAULT_RECEIPT, HTTP_EXCHANGE]}
+  - {evidence_id: EV-04, description: 담당자 화면, artifact_types: [SCREENSHOT, BROWSER_PROJECTION]}
+  - {evidence_id: EV-05, description: 정상 결정 요청 응답, artifact_types: [HTTP_EXCHANGE]}
+  - {evidence_id: EV-06, description: 결정 뒤 상태, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV-07, description: 자동결정 부재, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV-08, description: 환경 복구, artifact_types: [FAULT_RECEIPT, STATE_SNAPSHOT]}
+  - {evidence_id: EV-09, description: scenario와 target snapshot, artifact_types: [VERSION_SNAPSHOT]}
+  - {evidence_id: EV2-01, description: 환경과 queue topology, artifact_types: [VERSION_SNAPSHOT]}
+  - {evidence_id: EV2-02, description: 원 Outbox event와 baseline, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV2-03, description: BEFORE boundary receipt, artifact_types: [FAULT_RECEIPT]}
+  - {evidence_id: EV2-04, description: delivery attempt 시계열, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV2-05, description: terminal DLQ failure, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV2-06, description: 담당자 최종 실패 표시, artifact_types: [SCREENSHOT, HTTP_EXCHANGE]}
+  - {evidence_id: EV2-07, description: 결정 path 요청 응답, artifact_types: [HTTP_EXCHANGE]}
+  - {evidence_id: EV2-08, description: 결정 전후 effect, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV2-09, description: 복구와 redrive, artifact_types: [FAULT_RECEIPT]}
+  - {evidence_id: EV2-12, description: 봉인된 profile snapshot, artifact_types: [VERSION_SNAPSHOT]}
+
+timing_policy:
+  poll_seconds: 2
+  dlq_deadline_seconds: 360
+  duplicate_ack_deadline_seconds: 60
+  environment_restore_deadline_seconds: 180
+  run_deadline_seconds: 600
+  stability_consecutive: 3
+  stability_seconds: 4
+  expected_queue: {max_receive_count: 3, visibility_timeout_seconds: 5}
+
+restore_policy:
+  mandatory: true
+  action: reporting.fault.restore
+  report_processing_result_field: report.processing_recovery
+
+observation_comparators: {}
+source_requirements: [FR-001, FR-021, FR-040]
+allowed_model_fixtures:
+  h03-report-v1: ce09b95403b34e1390502c90f5c5edc518ddf65d38c8ce881617a37cac6d16b1
+excluded_scope: []

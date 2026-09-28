@@ -8,7 +8,9 @@ from engine.adapters.base import AdapterSet, CapabilityProbeResult
 from engine.adapters.whyyou.browser import WhyYouBrowserAdapter
 from engine.adapters.whyyou.capability import WhyYouCapabilityProbe
 from engine.adapters.whyyou.client import WhyYouClient
+from engine.adapters.whyyou.environment import WhyYouEnvironmentAdapter
 from engine.adapters.whyyou.fault import WhyYouFaultAdapter
+from engine.adapters.whyyou.queue import WhyYouQueueAdapter
 from engine.adapters.whyyou.seed import WhyYouSeedAdapter
 from engine.adapters.whyyou.state import WhyYouStateAdapter
 from engine.config import Settings
@@ -36,14 +38,26 @@ class WhyYouTargetAdapter:
 
 def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]:
     client = WhyYouClient(settings)
-    capability = WhyYouCapabilityProbe(settings, client)
+    queue = WhyYouQueueAdapter(settings)
+    environment = WhyYouEnvironmentAdapter(settings, client)
+    fault = WhyYouFaultAdapter(settings, client)
+    capability = WhyYouCapabilityProbe(
+        settings,
+        client,
+        queue=queue,
+        environment=environment,
+    )
     target = WhyYouTargetAdapter(client, capability)
     adapters = AdapterSet(
         target=target,
         capability=target,
         seed=WhyYouSeedAdapter(settings),
         state=WhyYouStateAdapter(settings, client),
-        fault=WhyYouFaultAdapter(settings, client),
+        fault=fault,
         browser=WhyYouBrowserAdapter(settings),
+        environment=environment,
+        queue=queue,
+        boundary_receipts=fault,
+        safe_redrive=queue,
     )
     return adapters, client

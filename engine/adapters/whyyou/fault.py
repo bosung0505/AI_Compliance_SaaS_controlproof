@@ -12,7 +12,7 @@ from engine.adapters.base import AdapterResult
 from engine.adapters.whyyou.client import WhyYouClient
 from engine.config import Settings
 from engine.lifecycle import atomic_write
-from engine.models import canonical_json_bytes
+from engine.models import FaultBoundaryReceipt, FaultVariant, canonical_json_bytes
 
 
 class WhyYouFaultAdapter:
@@ -52,6 +52,7 @@ class WhyYouFaultAdapter:
             "run_id": run_id,
             "interview_session_id": session_id,
             "fault_type": "reporting_handler_timeout_v1",
+            "fault_variant": FaultVariant.BEFORE_RESULT_DURABLE.value,
             "issued_at": now.isoformat(),
             "expires_at": expires_at.isoformat(),
         }
@@ -90,6 +91,11 @@ class WhyYouFaultAdapter:
                 and receipt.get("session_id") == session_id
                 and receipt.get("outbox_event_id") == event_id
                 and receipt.get("fault_type") == "reporting_handler_timeout_v1"
+                and receipt.get("schema_version")
+                == "controlproof.whyyou-fault-receipt.v2"
+                and receipt.get("fault_variant")
+                == FaultVariant.BEFORE_RESULT_DURABLE.value
+                and receipt.get("boundary") == "BEFORE_REPORT_SIDE_EFFECT"
             ):
                 return AdapterResult(
                     True,
@@ -105,6 +111,50 @@ class WhyYouFaultAdapter:
             "TRIGGER_RECEIPT_NOT_MATCHED",
             {"malformed_records": malformed},
         )
+
+    def read_boundary_receipt(
+        self,
+        *,
+        run_id: str,
+        source_event_id: str,
+        fault_variant: str,
+    ) -> FaultBoundaryReceipt | AdapterResult:
+        try:
+            expected_run = UUID(run_id)
+            expected_event = UUID(source_event_id)
+            expected_variant = FaultVariant(fault_variant)
+        except ValueError:
+            return AdapterResult(False, "INVALID_BOUNDARY_IDENTITY")
+        path = self.receipt_path(str(expected_run))
+        if not path.exists():
+            return AdapterResult(False, "BOUNDARY_RECEIPT_MISSING")
+        for line in path.read_text(encoding="utf-8").splitlines():
+            try:
+                payload = json.loads(line)
+                if (
+                    UUID(str(payload["run_id"])) == expected_run
+                    and UUID(str(payload["outbox_event_id"])) == expected_event
+                    and payload.get("fault_variant") == expected_variant.value
+                ):
+                    return FaultBoundaryReceipt.model_validate(
+                        {
+                            key: payload[key]
+                            for key in (
+                                "schema_version",
+                                "run_id",
+                                "session_id",
+                                "outbox_event_id",
+                                "delivery_attempt",
+                                "fault_variant",
+                                "boundary",
+                                "triggered_at",
+                                "one_shot_consumed",
+                            )
+                        }
+                    )
+            except (KeyError, TypeError, ValueError, json.JSONDecodeError):
+                continue
+        return AdapterResult(False, "BOUNDARY_RECEIPT_NOT_MATCHED")
 
     def restore(self, *, run_id: str, subject: dict[str, Any]) -> AdapterResult:
         marker = self.marker_path(str(subject["interview_session_id"]))

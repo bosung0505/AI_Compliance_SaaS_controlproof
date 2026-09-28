@@ -52,6 +52,9 @@ def test_apply_probe_and_idempotent_restore(tmp_path):
         "session_id": session_id,
         "outbox_event_id": "event-1",
         "fault_type": "reporting_handler_timeout_v1",
+        "schema_version": "controlproof.whyyou-fault-receipt.v2",
+        "fault_variant": "BEFORE_RESULT_DURABLE",
+        "boundary": "BEFORE_REPORT_SIDE_EFFECT",
     }
     path = adapter.receipt_path(run_id)
     path.parent.mkdir(parents=True)

@@ -67,3 +67,94 @@ All checks passed!
 - 이 단계에서는 Docker/LocalStack 실제 장애 Run을 수행하지 않았다. 실제 큐 전달·DLQ·결정 효과
   검증은 T020 이후 사용자 스토리 slice에서 수행한다.
 - 실제 AWS 및 외부 AI는 실행하지 않았고 계속 `NOT_RUN` 범위다.
+
+## 2026-09-28 — User Story 1: 재시도 소진·DLQ·최종 실패 표시 (T020~T032)
+
+### 이번 단계에서 고정한 의미
+
+- reporting queue는 로컬 `iep-reporting`, 최종 실패 경로는 LocalStack의
+  `iep-reporting-dlq`이며 max receive count는 3, visibility timeout은 5초다.
+- worker의 각 저장 전 장애 영수증은 같은 Run·session·Outbox event와 event version,
+  실제 delivery attempt, `BEFORE_RESULT_DURABLE` 경계를 함께 남긴다.
+- 세 번의 전달 기록만 있거나 DLQ 메시지만 있는 것으로는 H03-A8을 PASS하지 않는다. 두 자료가
+  같은 원 Outbox event로 연결되어야 한다.
+- DLQ 조회 성공 후 일치 건이 없는 `ABSENT`와 LocalStack 접근 자체가 실패한 `UNAVAILABLE`을
+  구분한다. 전자는 FAIL 후보이고 후자는 `INCONCLUSIVE: ACCESS_LIMITED`다.
+- 화면의 실패 문구만으로 H03-A9을 PASS하지 않는다. API의 최종 실패 상태와 운영자용 DLQ
+  locator까지 함께 있어야 한다. API가 계속 `queued`이면 화면이 실패처럼 보여도 FAIL이다.
+- 복구는 fault marker 제거와 worker health 확인을 먼저 수행한 뒤, 현재 Run에서 선택한 단일 DLQ
+  메시지만 source queue로 재전송한다. 전송 실패 시 원 DLQ 메시지는 삭제하지 않는다.
+
+### 테스트 우선 확인(RED)
+
+구현 전에 ControlProof의 queue adapter·H03-A8/A9 judge·DLQ lineage 테스트와 WhyYou의
+영수증 계약 테스트를 추가했다. 최초 실행은 `engine.adapters.whyyou.queue`,
+`engine.judges.h03_dlq`가 없고 WhyYou 영수증에 `event_version`과 경계 필드가 없어서 의도대로
+실패했다. 이 실패를 US1 구현 출발점으로 사용했다.
+
+### 구현 결과
+
+- `WhyYouQueueAdapter`가 queue/DLQ topology, 전달 시도 영수증, 일치 DLQ 메시지와 안전한
+  send-before-delete redrive를 소유한다. queue URL은 digest로만 남고 receipt handle과 원문 body는
+  판정 결과에 노출하지 않는다.
+- WhyYou 개인 브랜치의 BEFORE hook은 부작용 전에 v2 영수증을 append+fsync한 후 기존 retry
+  경로로 TimeoutError를 전달한다. local/test 이외 환경에서는 hook을 계속 거부한다.
+- `H03DlqExecutor`는 환경·topology·합성 대상·baseline·fault·trigger·boundary·attempt·DLQ·API/UI를
+  순서대로 관찰하며, 중간 증적 오류가 나도 marker restore를 수행한다. restore와 worker health가
+  모두 성공한 경우에만 queue adapter의 redrive primitive를 호출한다.
+- `H03_DLQ_V2` profile은 registry에 등록했지만, 전체 `execute`는 US2의 세 결정 경로 adapter가
+  합성되기 전까지 fail-closed다. 따라서 이번 단계는 독립 US1 실행 슬라이스의 완료이며 정식 H-03
+  전체 verdict나 sealed 실제 Run을 만들었다는 뜻이 아니다.
+
+### US1 gate(GREEN)
+
+ControlProof의 US1 및 profile/회귀 gate:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q tests/contract/test_whyyou_queue_adapter.py tests/integration/test_h03_dlq_lineage.py tests/unit/test_judge_h03_dlq.py tests/contract/test_whyyou_browser.py tests/contract/test_whyyou_capability.py tests/contract/test_scenario_profile_v2.py tests/integration/test_spec001_v1_regression.py
+```
+
+결과:
+
+```text
+32 passed in 3.71s
+```
+
+WhyYou 개인 브랜치의 topology 및 BEFORE 영수증 gate:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q backend/tests/unit/shared/test_local_queue_topology.py backend/tests/unit/runtime/test_controlproof_reporting_fault.py
+```
+
+결과:
+
+```text
+24 passed, 1 warning in 0.93s
+```
+
+정적 검사:
+
+```powershell
+.\.venv\Scripts\ruff.exe check engine tests
+```
+
+결과: `All checks passed!`
+
+ControlProof 전체 회귀:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+결과:
+
+```text
+172 passed in 123.56s (0:02:03)
+```
+
+### 아직 실행하지 않은 것
+
+- Docker/LocalStack 실제 queue를 이용한 최초 H03 Run은 실행하지 않았다.
+- `H03-A1~A6`와 새 `H03-A7`의 전체 결정 경로 시험은 US2에서 완성한다.
+- AWS 배포 리소스와 외부 AI는 계속 `NOT_RUN`이며, 이 로컬 결과를 AWS 검증 결과로 확대 해석하지
+  않는다.

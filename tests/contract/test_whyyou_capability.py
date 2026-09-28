@@ -6,6 +6,7 @@ import playwright.sync_api
 
 import engine.adapters.whyyou.capability as capability_module
 from engine.adapters.whyyou.capability import WhyYouCapabilityProbe
+from engine.adapters.whyyou.queue import QueueAccessError, QueueContractError
 from engine.config import Settings
 from engine.lifecycle import RestoreBlockStore
 from engine.models import ReadinessStatus
@@ -156,3 +157,32 @@ def test_schema_snapshot_database_mapping_and_chromium_are_probed(
 
     monkeypatch.setattr(playwright.sync_api, "sync_playwright", PlaywrightContext)
     assert probe.probe("reporting.ui.observe").status is ReadinessStatus.READY
+
+
+def test_queue_capability_distinguishes_contract_mismatch_and_access_loss(tmp_path):
+    class Queue:
+        def __init__(self, error=None):
+            self.error = error
+
+        def capture_topology(self):
+            if self.error:
+                raise self.error
+            return object()
+
+    ready = WhyYouCapabilityProbe(
+        _settings(tmp_path), _client(Http(set())), queue=Queue()
+    ).probe("messaging.reporting.topology.read")
+    mismatch = WhyYouCapabilityProbe(
+        _settings(tmp_path),
+        _client(Http(set())),
+        queue=Queue(QueueContractError("visibility mismatch")),
+    ).probe("messaging.reporting.topology.read")
+    denied = WhyYouCapabilityProbe(
+        _settings(tmp_path),
+        _client(Http(set())),
+        queue=Queue(QueueAccessError("sanitized")),
+    ).probe("messaging.reporting.topology.read")
+
+    assert ready.status is ReadinessStatus.READY
+    assert mismatch.status is ReadinessStatus.RUNNER_NOT_READY
+    assert denied.status is ReadinessStatus.ACCESS_BLOCKED

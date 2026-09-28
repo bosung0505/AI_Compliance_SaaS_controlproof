@@ -104,9 +104,17 @@ class EnvironmentAdapter(Protocol):
 class QueueAdapter(Protocol):
     def capture_topology(self) -> QueueTopologySnapshot: ...
 
-    def read_attempts(self, *, source_event_id: str) -> AdapterResult: ...
+    def read_attempts(
+        self, *, source_event_id: str, run_id: str | None = None
+    ) -> AdapterResult: ...
 
-    def read_dlq(self, *, source_event_id: str) -> AdapterResult: ...
+    def read_dlq(
+        self,
+        *,
+        source_event_id: str,
+        subject_ref: str | None = None,
+        session_id: str | None = None,
+    ) -> AdapterResult: ...
 
     def redrive(self, *, source_event_id: str) -> RedriveReceipt: ...
 

@@ -9,6 +9,12 @@ from sqlalchemy import create_engine, text
 
 from engine.adapters.base import CapabilityProbeResult
 from engine.adapters.whyyou.client import TargetSnapshotCaptureError, WhyYouClient
+from engine.adapters.whyyou.environment import WhyYouEnvironmentAdapter
+from engine.adapters.whyyou.queue import (
+    QueueAccessError,
+    QueueContractError,
+    WhyYouQueueAdapter,
+)
 from engine.config import Settings
 from engine.models import ReadinessStatus
 
@@ -25,13 +31,31 @@ CAPABILITY_VERSIONS = {
     "reporting.fault.probe": "v1",
     "reporting.fault.restore": "v1",
     "reporting.model.deterministic": "v1",
+    "target.environment.read": "v1",
+    "messaging.reporting.topology.read": "v1",
+    "messaging.reporting.attempts.read": "v1",
+    "messaging.reporting.dlq.read": "v1",
+    "messaging.reporting.dlq.redrive": "v1",
+    "reporting.fault.before.inject": "v1",
+    "reporting.fault.boundary.read": "v1",
+    "hiring.decision_paths.read": "v1",
+    "hiring.decision_path.attempt": "v1",
 }
 
 
 class WhyYouCapabilityProbe:
-    def __init__(self, settings: Settings, client: WhyYouClient) -> None:
+    def __init__(
+        self,
+        settings: Settings,
+        client: WhyYouClient,
+        *,
+        queue: WhyYouQueueAdapter | None = None,
+        environment: WhyYouEnvironmentAdapter | None = None,
+    ) -> None:
         self.settings = settings
         self.client = client
+        self.queue = queue
+        self.environment = environment
         self._openapi_paths: set[str] | None = None
 
     @property
@@ -55,6 +79,38 @@ class WhyYouCapabilityProbe:
             if capability == "target.version.read":
                 self.client.capture_target_snapshot()
                 return _ready(capability, "canonical target snapshot is available")
+            if capability == "target.environment.read":
+                if self.environment is None:
+                    return _not_ready(
+                        capability,
+                        "environment adapter is not composed",
+                        "compose the Spec 002 environment adapter",
+                    )
+                self.environment.capture_environment()
+                return _ready(capability, "canonical local environment snapshot is available")
+            if capability in {
+                "messaging.reporting.topology.read",
+                "messaging.reporting.attempts.read",
+                "messaging.reporting.dlq.read",
+                "messaging.reporting.dlq.redrive",
+            }:
+                if self.queue is None:
+                    return _not_ready(
+                        capability,
+                        "queue adapter is not composed",
+                        "compose the Spec 002 LocalStack queue adapter",
+                    )
+                self.queue.capture_topology()
+                return _ready(capability, "LocalStack reporting queue contract matches")
+            if capability in {
+                "hiring.decision_paths.read",
+                "hiring.decision_path.attempt",
+            }:
+                return _not_ready(
+                    capability,
+                    "decision path adapter is not composed yet",
+                    "complete Spec 002 US2 decision-path composition",
+                )
             if capability == "reporting.status.read":
                 return self._route(capability, "/v1/interview-sessions/{session_id}/report")
             if capability == "hiring.final_decision.attempt":
@@ -72,6 +128,8 @@ class WhyYouCapabilityProbe:
                 "reporting.fault.inject",
                 "reporting.fault.probe",
                 "reporting.fault.restore",
+                "reporting.fault.before.inject",
+                "reporting.fault.boundary.read",
             }:
                 return self._fault(capability)
             if capability == "reporting.model.deterministic":
@@ -79,6 +137,15 @@ class WhyYouCapabilityProbe:
             return _not_ready(capability, "unknown capability", "install the registered probe")
         except TargetSnapshotCaptureError as exc:
             return _not_ready(capability, str(exc), "use a clean target and repair snapshot inputs")
+        except QueueContractError as exc:
+            return _not_ready(capability, str(exc), "repair the LocalStack reporting topology")
+        except QueueAccessError:
+            return CapabilityProbeResult(
+                capability,
+                ReadinessStatus.ACCESS_BLOCKED,
+                "LocalStack reporting queue access is unavailable",
+                "start LocalStack and provide local/test queue access",
+            )
         except PermissionError:
             return CapabilityProbeResult(
                 capability,

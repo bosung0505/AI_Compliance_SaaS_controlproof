@@ -37,6 +37,10 @@ class WhyYouBrowserAdapter:
             return AdapterResult(False, code, detail=type(exc).__name__)
         visible_text = str(redact(str(raw.get("visible_text", ""))))
         status_class = str(raw.get("status_class") or _classify_status(visible_text))
+        terminal_status_class = str(
+            raw.get("terminal_status_class")
+            or _classify_terminal_status(visible_text, status_class)
+        )
         projection = {
             "route": "/review/{session_id}",
             "role": str(raw.get("role", "main")),
@@ -45,6 +49,7 @@ class WhyYouBrowserAdapter:
             "decision_control_visible": bool(raw.get("decision_control_visible", False)),
             "viewport": dict(raw.get("viewport", {"width": 1440, "height": 900})),
             "status_class": status_class,
+            "terminal_status_class": terminal_status_class,
         }
         return AdapterResult(
             True,
@@ -135,3 +140,14 @@ def _normalize_report_state(value: str | None) -> str | None:
         "pending": "queued_only",
         "ready": "ready",
     }.get(str(value).casefold())
+
+
+def _classify_terminal_status(text: str, status_class: str) -> str:
+    lowered = text.casefold()
+    if status_class == "failed":
+        return "final_failed"
+    if any(word in lowered for word in ("재시도", "retrying", "다시 시도 중")):
+        return "retrying"
+    if status_class in {"queued_only", "delayed", "ready"}:
+        return status_class
+    return "unknown"

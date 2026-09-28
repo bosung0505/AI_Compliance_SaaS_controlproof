@@ -10,11 +10,13 @@ from engine.models import (
     DecisionPathId,
     FaultVariant,
     Phase,
+    Presence,
     ReadinessStatus,
     TargetSnapshot,
     TargetSourceKind,
 )
 from tests.fixtures.spec002 import (
+    EVENT_ID,
     boundary_receipt,
     decision_effect,
     delivery_attempt,
@@ -93,7 +95,7 @@ class FakeSeed:
         return AdapterResult(
             True,
             "REPORTING_TRIGGERED",
-            {"outbox_event_id": "00000000-0000-0000-0000-000000000004"},
+            {"outbox_event_id": str(EVENT_ID)},
         )
 
     def teardown(self, *, run_id, subject):
@@ -154,14 +156,17 @@ class FakeFault:
         duplicate_ack=True,
         restore=True,
         processing="READY",
+        events=None,
     ):
         self.effect = effect if before_effect is None else before_effect
         self.after_effect = after_effect
         self.duplicate_ack = duplicate_ack
         self.restore_ok = restore
         self.processing = processing
+        self.events = events if events is not None else []
 
     def apply(self, *, run_id, subject, expires_at):
+        self.events.append("fault.apply")
         return AdapterResult(True, "FAULT_MARKER_APPLIED", {"run_id": run_id})
 
     def probe_effect(self, *, run_id, subject, trigger):
@@ -172,6 +177,7 @@ class FakeFault:
         )
 
     def restore(self, *, run_id, subject):
+        self.events.append("fault.restore")
         return AdapterResult(
             self.restore_ok,
             "ENVIRONMENT_RESTORED" if self.restore_ok else "ENVIRONMENT_RESTORE_FAILED",
@@ -225,16 +231,18 @@ class FakeQueue:
         dlq_ok=True,
         redrive_send=True,
         redrive_delete=True,
+        events=None,
     ):
         self.attempts_ok = attempts_ok
         self.dlq_ok = dlq_ok
         self.redrive_send = redrive_send
         self.redrive_delete = redrive_delete
+        self.events = events if events is not None else []
 
     def capture_topology(self):
         return queue_topology()
 
-    def read_attempts(self, *, source_event_id):
+    def read_attempts(self, *, source_event_id, run_id=None):
         records = [delivery_attempt(delivery_attempt=index) for index in range(1, 4)]
         return AdapterResult(
             self.attempts_ok,
@@ -245,17 +253,19 @@ class FakeQueue:
             },
         )
 
-    def read_dlq(self, *, source_event_id):
+    def read_dlq(self, *, source_event_id, subject_ref=None, session_id=None):
         return AdapterResult(
             self.dlq_ok,
             "DLQ_MATCH_READ" if self.dlq_ok else "DLQ_UNAVAILABLE",
             {
                 "source_event_id": source_event_id,
+                "presence": Presence.PRESENT if self.dlq_ok else Presence.UNAVAILABLE,
                 "terminal_failure": terminal_failure() if self.dlq_ok else None,
             },
         )
 
     def redrive(self, *, source_event_id):
+        self.events.append("queue.redrive")
         return redrive_receipt(
             source_event_id=source_event_id,
             send_succeeded=self.redrive_send,
@@ -368,6 +378,9 @@ class FakeBrowser:
                     "ready_content_visible": False,
                     "decision_control_visible": True,
                     "status_class": self.status_class,
+                    "terminal_status_class": (
+                        "final_failed" if self.status_class == "failed" else self.status_class
+                    ),
                     "viewport": {"width": 1440, "height": 900},
                 },
                 "screenshot_bytes": b"synthetic-png",
@@ -401,6 +414,7 @@ def make_adapters(
     target_exists=True,
     readiness_overrides=None,
 ):
+    lifecycle_events = []
     target = FakeTarget(target_exists=target_exists, overrides=readiness_overrides)
     browser = FakeBrowser(status_class=status_class)
     fault = FakeFault(
@@ -410,12 +424,14 @@ def make_adapters(
         duplicate_ack=duplicate_ack,
         restore=restore,
         processing=processing,
+        events=lifecycle_events,
     )
     queue = FakeQueue(
         attempts_ok=attempts_ok,
         dlq_ok=dlq_ok,
         redrive_send=redrive_send,
         redrive_delete=redrive_delete,
+        events=lifecycle_events,
     )
     return (
         AdapterSet(

@@ -22,6 +22,7 @@ def test_browser_projection_is_sanitized_and_classified():
     assert result.ok
     assert "real.person@example.com" not in result.data["projection"]["visible_text"]
     assert result.data["projection"]["status_class"] == "failed"
+    assert result.data["projection"]["terminal_status_class"] == "final_failed"
     assert result.data["projection"]["decision_control_visible"] is True
     assert result.data["screenshot_bytes"] == b"png"
 
@@ -51,3 +52,17 @@ def test_browser_projection_classifies_korean_unavailable_message_as_failed():
 
     assert result.ok
     assert result.data["projection"]["status_class"] == "failed"
+
+
+def test_browser_projection_distinguishes_retrying_queued_and_ready_from_final_failure():
+    expected = {
+        "리포트 재시도 중": "retrying",
+        "리포트 처리 중": "queued_only",
+        "리포트 준비 완료": "ready",
+        "리포트 생성 실패": "final_failed",
+    }
+    for text, terminal_status in expected.items():
+        result = WhyYouBrowserAdapter(
+            _settings(), capture=lambda _subject, value=text: {"visible_text": value}
+        ).capture_review(subject={})
+        assert result.data["projection"]["terminal_status_class"] == terminal_status

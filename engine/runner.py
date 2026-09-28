@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 
 from engine.adapters.base import AdapterResult, AdapterSet, Clock
 from engine.evidence import EvidenceBundleWriter
+from engine.executors.h03_dlq import H03DlqExecutor
 from engine.judge import judge_h03
 from engine.lifecycle import RestoreBlockStore, TargetSubjectLock, transition
 from engine.models import (
@@ -905,6 +906,10 @@ class ExecutionProfileRegistry:
 
 
 PROFILE_REGISTRY = ExecutionProfileRegistry()
+
+# Registration is additive. The executor itself keeps full-profile execution fail-closed until
+# the later decision-path story composes every required H03_DLQ_V2 capability.
+PROFILE_REGISTRY.register(ExecutionProfile.H03_DLQ_V2, H03DlqExecutor)
 
 
 def build_profile_runner(
