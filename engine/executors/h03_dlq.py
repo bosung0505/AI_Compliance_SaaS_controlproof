@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import time
 from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
@@ -26,6 +27,14 @@ from engine.models import (
 )
 from engine.readiness import evaluate_readiness
 from engine.scenario import ScenarioDefinition
+
+
+class _SystemClock:
+    def now(self):
+        return utcnow()
+
+    def sleep(self, seconds: float) -> None:
+        time.sleep(seconds)
 
 
 @dataclass(frozen=True, slots=True)
@@ -70,7 +79,7 @@ class H03DlqExecutor:
         self.scenario = scenario
         self.adapters = adapters
         self.run_root = run_root.resolve()
-        self.clock = clock
+        self.clock = clock or _SystemClock()
 
     def preflight(self, target_id: str) -> ScenarioReadiness:
         target_snapshot = None
@@ -121,7 +130,7 @@ class H03DlqExecutor:
         applied: AdapterResult | None = None
         restore: AdapterResult | None = None
         try:
-            now = self.clock.now() if self.clock is not None else utcnow()
+            now = self.clock.now()
             applied = self.adapters.fault.apply(
                 run_id=str(run_id),
                 subject=subject,
@@ -230,7 +239,7 @@ class H03DlqExecutor:
             terminal = dlq_result.data.get("terminal_failure")
             if presence in {Presence.PRESENT, Presence.UNAVAILABLE}:
                 break
-            if index + 1 < iterations and self.clock is not None:
+            if index + 1 < iterations:
                 self.clock.sleep(policy.poll_seconds)
         return attempts, attempts_presence, presence, terminal
 

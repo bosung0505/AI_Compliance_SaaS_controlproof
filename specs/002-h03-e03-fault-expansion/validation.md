@@ -117,7 +117,7 @@ ControlProof의 US1 및 profile/회귀 gate:
 결과:
 
 ```text
-32 passed in 3.71s
+33 passed in 3.81s
 ```
 
 WhyYou 개인 브랜치의 topology 및 BEFORE 영수증 gate:
@@ -149,7 +149,7 @@ ControlProof 전체 회귀:
 결과:
 
 ```text
-172 passed in 123.56s (0:02:03)
+173 passed in 118.41s (0:01:58)
 ```
 
 ### 아직 실행하지 않은 것

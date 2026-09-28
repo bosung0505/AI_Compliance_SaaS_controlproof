@@ -5,6 +5,7 @@ from dataclasses import replace
 
 import pytest
 
+import engine.executors.h03_dlq as h03_dlq_module
 from engine.adapters.base import AdapterResult
 from engine.adapters.whyyou.queue import QueueContractError, WhyYouQueueAdapter
 from engine.executors.h03_dlq import H03DlqExecutor
@@ -136,3 +137,30 @@ def test_us1_slice_restores_the_fault_even_when_boundary_evidence_is_missing(tmp
 
     assert adapters.fault.events == ["fault.apply", "fault.restore"]
     assert "queue.redrive" not in adapters.queue.events
+
+
+def test_us1_default_clock_honors_the_scenario_poll_interval(monkeypatch, tmp_path):
+    scenario = load("scenarios/H-03-DLQ.yaml")
+    adapters, _browser = make_adapters()
+    original_read = adapters.queue.read_dlq
+    reads = 0
+
+    def delayed_read(**kwargs):
+        nonlocal reads
+        reads += 1
+        if reads == 1:
+            return AdapterResult(
+                True,
+                "DLQ_MATCH_READ",
+                {"presence": Presence.ABSENT, "terminal_failure": None},
+            )
+        return original_read(**kwargs)
+
+    sleeps = []
+    adapters.queue.read_dlq = delayed_read
+    monkeypatch.setattr(h03_dlq_module.time, "sleep", sleeps.append)
+
+    result = H03DlqExecutor(scenario, adapters, tmp_path).collect_us1(run_id=RUN_ID)
+
+    assert result.dlq_presence is Presence.PRESENT
+    assert sleeps == [scenario.timing_policy.poll_seconds]
