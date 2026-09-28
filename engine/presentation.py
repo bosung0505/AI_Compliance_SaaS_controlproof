@@ -6,7 +6,19 @@ import json
 from pathlib import Path
 from typing import Any
 
-from engine.models import AssertionStatus, Judgement, Run
+from engine.models import (
+    AssertionStatus,
+    ExecutionProfile,
+    Judgement,
+    Run,
+    ScenarioProfile,
+)
+
+CLAIM_SCOPE = "EXECUTED_SCENARIO_AND_EVIDENCE_ONLY"
+NO_CERTIFICATION_NOTICE = (
+    "이 결과는 실행된 시나리오와 확보한 증적에 한정되며 "
+    "법적 준수 전체를 인증하거나 보증하지 않습니다."
+)
 
 
 def load_bundle_summary(bundle: Path) -> dict[str, Any]:
@@ -16,6 +28,13 @@ def load_bundle_summary(bundle: Path) -> dict[str, Any]:
     judgement = Judgement.model_validate(_read_json(directory / "judgement.json"))
     manifest = _read_json(directory / "manifest.json")
     observations = _read_jsonl(directory / "observations.jsonl")
+    effects = _read_jsonl(directory / "effects.jsonl")
+    attempts = _read_jsonl(directory / "delivery-attempts.jsonl")
+    terminal_failure = (
+        _read_json(directory / "terminal-failure.json")
+        if (directory / "terminal-failure.json").exists()
+        else None
+    )
     by_artifact = {
         record.get("artifact_id"): {
             "artifact_id": record.get("artifact_id"),
@@ -54,6 +73,21 @@ def load_bundle_summary(bundle: Path) -> dict[str, Any]:
         for item in assertions
         if item["status"] == AssertionStatus.INCONCLUSIVE.value
     ]
+    profile = run.execution_profile or ExecutionProfile.H03_MINIMAL_V1
+    evaluated = (
+        list(ScenarioProfile.canonical(profile).applicable_assertion_ids)
+        if profile is not ExecutionProfile.H03_MINIMAL_V1
+        else [item.assertion_id for item in judgement.assertion_results]
+    )
+    remaining = _remaining_variant_coverage(profile)
+    decision_a7 = next(
+        (item for item in assertions if item["assertion_id"] == "H03-A7"), None
+    )
+    decision_cases = (
+        decision_a7.get("actual", {}).get("cases", {})
+        if isinstance(decision_a7, dict) and isinstance(decision_a7.get("actual"), dict)
+        else {}
+    )
     return {
         "schema_version": "controlproof.review.v1",
         "run_id": str(run.run_id),
@@ -63,17 +97,38 @@ def load_bundle_summary(bundle: Path) -> dict[str, Any]:
         "failed_assertions": failed,
         "inconclusive_assertions": inconclusive,
         "assertions": assertions,
-        "evidence_links": {
-            evidence_id: [
-                by_artifact[artifact_id]
-                for artifact_id in artifact_ids
-                if artifact_id in by_artifact
-            ]
-            for evidence_id, artifact_ids in manifest.get("required_evidence", {}).items()
-        },
+        "evidence_links": _evidence_links(manifest, by_artifact),
         "environment_restore_status": environment_restore,
         "report_processing_recovery": report_recovery,
         "implementation_status": run.implementation_status.value,
+        "execution_profile": profile.value,
+        "fault_variant": run.fault_variant.value if run.fault_variant else None,
+        "claim_scope": CLAIM_SCOPE,
+        "legal_scope_notice": NO_CERTIFICATION_NOTICE,
+        "scenario_result": {
+            "scenario_id": run.scenario_id,
+            "execution_profile": profile.value,
+            "verdict": judgement.verdict.value,
+        },
+        "evaluated_assertions": evaluated,
+        "remaining_variant_coverage": remaining,
+        "failure_route": terminal_failure,
+        "decision_path_coverage": sorted(decision_cases),
+        "delivery_lineage": {
+            "source_event_id": str(run.source_event_id) if run.source_event_id else None,
+            "attempts": [item.get("delivery_attempt") for item in attempts],
+        },
+        "effect_differences": _effect_differences(effects),
+        "environment_kind": run.environment_kind.value if run.environment_kind else None,
+        "aws_deployment_status": (
+            run.aws_deployment_status.value if run.aws_deployment_status else None
+        ),
+        "cloud_verification": {
+            "aws_deployment_status": (
+                run.aws_deployment_status.value if run.aws_deployment_status else None
+            ),
+            "unverified_scope": list(run.unverified_scope),
+        },
         "run_state": run.state.value,
         "scenario_id": run.scenario_id,
         "scenario_version": run.scenario_version,
@@ -103,8 +158,58 @@ def render_human(summary: dict[str, Any]) -> str:
             f"환경 복구: {summary['environment_restore_status'] or '조회하지 못함'}",
             f"리포트 처리 복구: {summary['report_processing_recovery'] or '조회하지 못함'}",
             f"증적 경로: {sum(len(value) for value in summary['evidence_links'].values())}개",
+            f"주장 범위: {summary.get('claim_scope', CLAIM_SCOPE)}",
+            summary.get("legal_scope_notice", NO_CERTIFICATION_NOTICE),
         )
     )
+
+
+def _remaining_variant_coverage(profile: ExecutionProfile) -> list[str]:
+    if profile is ExecutionProfile.E03_BEFORE_V2:
+        return ["E03-A5", "E03-A6"]
+    if profile is ExecutionProfile.E03_AFTER_V2:
+        return ["E03-A2", "E03-A3", "E03-A4", "E03-A7"]
+    return []
+
+
+def _evidence_links(
+    manifest: dict[str, Any], by_artifact: dict[str, dict[str, Any]]
+) -> dict[str, list[dict[str, Any]]]:
+    result: dict[str, list[dict[str, Any]]] = {}
+    for evidence_id, references in manifest.get("required_evidence", {}).items():
+        linked: list[dict[str, Any]] = []
+        for reference in references if isinstance(references, list) else ():
+            if not isinstance(reference, str):
+                continue
+            artifact_id = reference.removeprefix("artifact:")
+            if artifact_id in by_artifact:
+                linked.append(by_artifact[artifact_id])
+        result[evidence_id] = linked
+    return result
+
+
+def _effect_differences(effects: list[dict[str, Any]]) -> dict[str, Any]:
+    if not effects:
+        return {"changed": None, "comparisons": []}
+    by_operation: dict[tuple[str, str], list[dict[str, Any]]] = {}
+    for item in effects:
+        key = (str(item.get("effect_group")), str(item.get("logical_operation_id")))
+        by_operation.setdefault(key, []).append(item)
+    comparisons = []
+    for (group, operation), rows in sorted(by_operation.items()):
+        comparisons.append(
+            {
+                "effect_group": group,
+                "logical_operation_id": operation,
+                "before_digest": rows[0].get("state_digest"),
+                "after_digest": rows[-1].get("state_digest"),
+                "changed": rows[0].get("state_digest") != rows[-1].get("state_digest"),
+            }
+        )
+    return {
+        "changed": any(item["changed"] for item in comparisons),
+        "comparisons": comparisons,
+    }
 
 
 def _latest_value(observations: list[dict[str, Any]], key: str) -> Any:

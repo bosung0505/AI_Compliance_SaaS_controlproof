@@ -16,10 +16,18 @@ from engine.adapters.whyyou.adapter import create_whyyou_adapter
 from engine.config import ConfigError, Settings
 from engine.evidence import redact, verify_bundle
 from engine.lifecycle import RestoreBlockStore
-from engine.models import ReadinessStatus, RunState, Verdict
+from engine.models import (
+    SPEC002_UNVERIFIED_SCOPE,
+    AwsDeploymentStatus,
+    EnvironmentKind,
+    ExecutionProfile,
+    ReadinessStatus,
+    RunState,
+    Verdict,
+)
 from engine.presentation import load_bundle_summary, render_human
 from engine.retest import RetestError, assert_parent_unchanged, prepare_retest
-from engine.runner import RunOrchestrator
+from engine.runner import RunOrchestrator, build_profile_runner
 from engine.scenario import load
 
 SCHEMA_VERSION = "controlproof.cli.v1"
@@ -31,9 +39,15 @@ EXIT_INTEGRITY = 5
 EXIT_RESTORE = 6
 
 
+class CliContractError(ValueError):
+    def __init__(self, code: str, detail: str) -> None:
+        super().__init__(detail)
+        self.code = code
+
+
 def create_runtime(settings: Settings, scenario_path: Path) -> RunOrchestrator:
     adapters, _client = create_whyyou_adapter(settings)
-    return RunOrchestrator(load(scenario_path), adapters, settings.run_root)
+    return build_profile_runner(load(scenario_path), adapters, settings.run_root)
 
 
 def main(argv: list[str] | None = None) -> int:
@@ -41,12 +55,18 @@ def main(argv: list[str] | None = None) -> int:
     args = parser.parse_args(argv)
     try:
         return args.handler(args)
-    except (ConfigError, ValueError, ValidationError, FileNotFoundError, RetestError) as exc:
+    except (
+        ConfigError,
+        ValueError,
+        ValidationError,
+        FileNotFoundError,
+        RetestError,
+    ) as exc:
         _emit(
             {
                 "schema_version": SCHEMA_VERSION,
                 "command": getattr(args, "command", None),
-                "error": type(exc).__name__,
+                "error": exc.code if isinstance(exc, CliContractError) else type(exc).__name__,
                 "detail": str(exc),
             },
             as_json=getattr(args, "json", False),
@@ -95,7 +115,7 @@ def _parser() -> argparse.ArgumentParser:
     retest.add_argument("--label")
     retest.add_argument("--operator", default="local-operator")
     retest.add_argument("--run-root", type=Path)
-    retest.add_argument("--scenario-file", type=Path, default=_default_scenario())
+    retest.add_argument("--scenario-file", type=Path)
     retest.add_argument("--json", action="store_true")
     retest.set_defaults(handler=_retest)
 
@@ -114,7 +134,8 @@ def _scenario_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("scenario_id")
     parser.add_argument("--target", required=True)
     parser.add_argument("--run-root", type=Path)
-    parser.add_argument("--scenario-file", type=Path, default=_default_scenario())
+    parser.add_argument("--profile", choices=[item.value for item in ExecutionProfile])
+    parser.add_argument("--scenario-file", type=Path)
     parser.add_argument("--json", action="store_true")
 
 
@@ -143,24 +164,24 @@ def _settings(args: argparse.Namespace) -> Settings:
 
 
 def _preflight(args: argparse.Namespace) -> int:
+    scenario_path, selected_profile = _scenario_selection(args)
     settings = _settings(args)
-    runtime = create_runtime(settings, args.scenario_file)
-    if runtime.scenario.scenario_id != args.scenario_id:
-        raise ValueError("scenario ID and scenario file do not match")
+    runtime = create_runtime(settings, scenario_path)
+    _validate_runtime_selection(runtime, args.scenario_id, selected_profile)
     readiness = runtime.preflight(args.target)
-    payload = _readiness_payload(readiness)
+    payload = _readiness_payload(readiness, runtime.scenario)
     _emit(payload, as_json=args.json)
     return 0 if readiness.status is ReadinessStatus.READY else EXIT_NOT_READY
 
 
 def _run(args: argparse.Namespace) -> int:
+    scenario_path, selected_profile = _scenario_selection(args)
     settings = _settings(args)
-    runtime = create_runtime(settings, args.scenario_file)
-    if runtime.scenario.scenario_id != args.scenario_id:
-        raise ValueError("scenario ID and scenario file do not match")
+    runtime = create_runtime(settings, scenario_path)
+    _validate_runtime_selection(runtime, args.scenario_id, selected_profile)
     readiness = runtime.preflight(args.target)
     if readiness.status is not ReadinessStatus.READY:
-        _emit(_readiness_payload(readiness), as_json=args.json)
+        _emit(_readiness_payload(readiness, runtime.scenario), as_json=args.json)
         return EXIT_NOT_READY
     run, judgement, bundle = runtime.execute(
         readiness,
@@ -184,10 +205,17 @@ def _verify(args: argparse.Namespace) -> int:
     bundle = _resolve_bundle(args.run, args.run_root)
     result = verify_bundle(bundle)
     run_id = _run_id_from_bundle(bundle)
+    run_payload = json.loads((bundle / "run.json").read_text(encoding="utf-8"))
+    manifest = json.loads((bundle / "manifest.json").read_text(encoding="utf-8"))
     payload = {
         "schema_version": SCHEMA_VERSION,
         "command": "verify",
         "run_id": run_id,
+        "execution_profile": run_payload.get("execution_profile") or "H03_MINIMAL_V1",
+        "profile_contract": manifest.get("profile_contract"),
+        "checked_evidence_requirements": sorted(
+            manifest.get("required_evidence", {}).keys()
+        ),
         **result,
     }
     _emit(payload, as_json=args.json)
@@ -196,19 +224,39 @@ def _verify(args: argparse.Namespace) -> int:
 
 def _retest(args: argparse.Namespace) -> int:
     settings = _settings(args)
-    runtime = create_runtime(settings, args.scenario_file)
+    parent_bundle = _resolve_bundle(args.parent, settings.run_root)
+    parent_payload = json.loads((parent_bundle / "run.json").read_text(encoding="utf-8"))
+    parent_profile = ExecutionProfile(
+        parent_payload.get("execution_profile") or ExecutionProfile.H03_MINIMAL_V1.value
+    )
+    scenario_path = args.scenario_file or _profile_scenario_path(parent_profile)
+    runtime = create_runtime(settings, scenario_path)
+    _validate_runtime_selection(runtime, parent_payload["scenario_id"], parent_profile)
     readiness = runtime.preflight(args.target)
     if readiness.status is not ReadinessStatus.READY:
-        _emit(_readiness_payload(readiness), as_json=args.json)
+        _emit(_readiness_payload(readiness, runtime.scenario), as_json=args.json)
         return EXIT_NOT_READY
-    parent_bundle = _resolve_bundle(args.parent, settings.run_root)
     child_id = uuid4()
+    child_environment = (
+        runtime.adapters.environment.capture_environment()
+        if parent_profile is not ExecutionProfile.H03_MINIMAL_V1
+        else None
+    )
+    child_queue = (
+        runtime.adapters.queue.capture_topology()
+        if parent_profile is not ExecutionProfile.H03_MINIMAL_V1
+        else None
+    )
     parent_run, parent_digest, records = prepare_retest(
         parent_bundle,
         child_run_id=child_id,
         child_target=readiness.target_snapshot,
         child_scenario_version=runtime.scenario.version,
         child_scenario_digest=runtime.scenario.snapshot().digest,
+        child_profile=runtime.scenario.execution_profile,
+        child_fault_variant=runtime.scenario.fault_variant,
+        child_environment=child_environment,
+        child_queue=child_queue,
     )
     run, judgement, bundle = runtime.execute(
         readiness,
@@ -246,13 +294,23 @@ def _cleanup_confirm(args: argparse.Namespace) -> int:
     return 0
 
 
-def _readiness_payload(readiness) -> dict[str, Any]:
+def _readiness_payload(readiness, scenario=None) -> dict[str, Any]:
+    profile = getattr(scenario, "execution_profile", None)
+    is_v2 = profile is not None and profile is not ExecutionProfile.H03_MINIMAL_V1
     return {
         "schema_version": SCHEMA_VERSION,
         "command": "preflight",
         "scenario_id": readiness.scenario_id,
         "scenario_version": readiness.scenario_version,
+        "execution_profile": profile.value if profile else ExecutionProfile.H03_MINIMAL_V1.value,
+        "fault_variant": (
+            scenario.fault_variant.value if getattr(scenario, "fault_variant", None) else None
+        ),
+        "claim_scope": "EXECUTED_SCENARIO_AND_EVIDENCE_ONLY",
         "target_id": readiness.target_id,
+        "environment_kind": EnvironmentKind.LOCAL_EMULATED.value if is_v2 else None,
+        "aws_deployment_status": AwsDeploymentStatus.NOT_RUN.value if is_v2 else None,
+        "unverified_scope": sorted(SPEC002_UNVERIFIED_SCOPE) if is_v2 else [],
         "target_version": readiness.target_version,
         "target_snapshot": (
             readiness.target_snapshot.model_dump(mode="json") if readiness.target_snapshot else None
@@ -270,6 +328,52 @@ def _readiness_payload(readiness) -> dict[str, Any]:
 def _run_payload(run, judgement, bundle: Path) -> dict[str, Any]:
     summary = load_bundle_summary(bundle)
     return {**_projection_payload("run", summary), "bundle_path": str(bundle)}
+
+
+def _scenario_selection(
+    args: argparse.Namespace,
+) -> tuple[Path, ExecutionProfile]:
+    raw_profile = getattr(args, "profile", None)
+    if args.scenario_id == "E-03" and raw_profile is None:
+        raise CliContractError(
+            "PROFILE_REQUIRED",
+            "E-03 requires --profile E03_BEFORE_V2 or E03_AFTER_V2",
+        )
+    profile = (
+        ExecutionProfile(raw_profile)
+        if raw_profile is not None
+        else ExecutionProfile.H03_MINIMAL_V1
+    )
+    allowed = {
+        "H-03": {ExecutionProfile.H03_MINIMAL_V1, ExecutionProfile.H03_DLQ_V2},
+        "E-03": {ExecutionProfile.E03_BEFORE_V2, ExecutionProfile.E03_AFTER_V2},
+    }
+    if profile not in allowed.get(args.scenario_id, set()):
+        raise CliContractError(
+            "PROFILE_MISMATCH",
+            f"{profile.value} does not belong to {args.scenario_id}",
+        )
+    return args.scenario_file or _profile_scenario_path(profile), profile
+
+
+def _profile_scenario_path(profile: ExecutionProfile) -> Path:
+    root = Path(__file__).resolve().parents[1] / "scenarios"
+    return {
+        ExecutionProfile.H03_MINIMAL_V1: root / "H-03.yaml",
+        ExecutionProfile.H03_DLQ_V2: root / "H-03-DLQ.yaml",
+        ExecutionProfile.E03_BEFORE_V2: root / "E-03-BEFORE.yaml",
+        ExecutionProfile.E03_AFTER_V2: root / "E-03-AFTER.yaml",
+    }[profile]
+
+
+def _validate_runtime_selection(
+    runtime: Any, scenario_id: str, profile: ExecutionProfile
+) -> None:
+    active = runtime.scenario.execution_profile or ExecutionProfile.H03_MINIMAL_V1
+    if runtime.scenario.scenario_id != scenario_id or active is not profile:
+        raise CliContractError(
+            "PROFILE_MISMATCH", "scenario ID, profile, and scenario file do not match"
+        )
 
 
 def _projection_payload(command: str, summary: dict[str, Any]) -> dict[str, Any]:

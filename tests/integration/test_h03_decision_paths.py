@@ -43,13 +43,12 @@ def test_one_accepted_batch_path_fails_h03_a7_without_contaminating_the_next_cas
     assert result.decision_assertion.status is AssertionStatus.FAIL
 
 
-def test_preflight_stays_not_ready_until_canonical_sealed_execution_is_composed(tmp_path):
+def test_preflight_is_ready_after_canonical_sealed_execution_is_composed(tmp_path):
     scenario = load("scenarios/H-03-DLQ.yaml")
     adapters, _browser = make_adapters()
     readiness = H03DlqExecutor(scenario, adapters, tmp_path, clock=FakeClock()).preflight(
         "whyyou-local"
     )
 
-    assert readiness.status is ReadinessStatus.RUNNER_NOT_READY
-    assert readiness.checks[-1].capability == "profile.h03_dlq_v2.sealed_execution"
-    assert "recovery/evidence orchestration" in readiness.operator_action
+    assert readiness.status is ReadinessStatus.READY
+    assert readiness.operator_action is None

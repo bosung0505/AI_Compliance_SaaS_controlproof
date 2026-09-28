@@ -24,8 +24,6 @@ from engine.models import (
     Phase,
     Presence,
     QueueTopologySnapshot,
-    ReadinessCheck,
-    ReadinessStatus,
     RedriveReceipt,
     ScenarioReadiness,
     TargetEnvironmentSnapshot,
@@ -127,35 +125,16 @@ class H03DlqExecutor:
             target_feature_exists=self.adapters.target.target_feature_exists(),
             target_snapshot=target_snapshot,
         )
-        if readiness.status is not ReadinessStatus.READY:
-            return readiness
+        return readiness
 
-        # The independently testable US1/US2 slices are intentionally not a sealed Run.
-        # Keep CLI preflight honest until the shared recovery/evidence composition is complete.
-        action = (
-            "complete shared recovery/evidence orchestration before running the canonical "
-            "H03_DLQ_V2 profile"
-        )
-        return readiness.model_copy(
-            update={
-                "status": ReadinessStatus.RUNNER_NOT_READY,
-                "checks": readiness.checks
-                + (
-                    ReadinessCheck(
-                        capability="profile.h03_dlq_v2.sealed_execution",
-                        status=ReadinessStatus.RUNNER_NOT_READY,
-                        detail="US1 and US2 slices pass, but canonical bundle orchestration is incomplete",
-                        operator_action=action,
-                    ),
-                ),
-                "operator_action": action,
-            }
-        )
+    def execute(self, readiness: ScenarioReadiness, **kwargs: Any):
+        from engine.executors.sealed import execute_profile
 
-    def execute(self, *_args: Any, **_kwargs: Any) -> None:
-        raise RuntimeError(
-            "H03_DLQ_V2 sealed execution remains blocked until shared recovery/evidence "
-            "orchestration is composed"
+        return execute_profile(
+            self,
+            readiness,
+            collector=self.collect_us2,
+            **kwargs,
         )
 
     def collect_us1(

@@ -324,6 +324,72 @@ All checks passed!
   않았다.
 - E03-A7 같은-key 사람 결정 replay와 완전한 adapter composition은 US5에서 구현한다.
 - 실제 AWS와 외부 AI는 계속 `NOT_RUN`이며 로컬 queue·DB 계약 결과를 AWS 검증으로 확대하지 않는다.
+
+## 2026-09-28 — User Story 6 결정론적 봉인 실행 기반 (T072~T079)
+
+### 이번 단계에서 고정한 의미
+
+- E-03은 `--profile` 없이 BEFORE/AFTER를 추정하지 않는다. H-03의 profile 생략은 기존
+  `H03_MINIMAL_V1` 동작으로 남겨 Spec 001 호환성을 유지한다.
+- 세 v2 profile은 같은 bundle 봉인기를 사용하지만 assertion과 verdict를 합치지 않는다. 각 Run은
+  선택한 profile의 assertion만 평가하고 다른 E-03 variant는 `remaining_variant_coverage`로만 표시한다.
+- `LOCAL_EMULATED` 결과의 AWS 상태는 항상 `NOT_RUN`이고, 결과의 구조화된 주장 범위는
+  `EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`다. 사람용 출력에는 법적 준수 전체를 인증하거나 보증하지
+  않는다는 문구를 항상 포함한다.
+- 재시험은 부모의 scenario/profile/fault를 상속하고 새 Run ID를 사용한다. target·environment·queue
+  digest 차이를 기록하며, 부모 manifest와 원 artifact digest를 자식 bundle에서 검증한다. 부모가
+  `RESTORE_FAILED`이거나 수동 정리가 필요하면 재시험을 시작하지 않는다.
+
+### 구현 결과
+
+- 공통 Spec 002 봉인 실행기가 H03 DLQ, E03 BEFORE, E03 AFTER slice를 canonical Run·Judgement·Evidence
+  Bundle로 변환한다. 환경·queue·전달·효과·최종 실패·redrive 기록과 profile별 필수 EV/EV2 연결을
+  생성한 뒤 manifest를 봉인한다.
+- CLI에 `--profile` dispatch를 추가하되 outer envelope는 `controlproof.cli.v1`을 유지했다. `preflight`,
+  `run`, `show`, `verify`, `retest`가 profile·fault·적용/잔여 assertion·AWS 미검증 범위를 additive하게
+  출력하고 기존 exit code 0~6의 의미를 보존한다.
+- 결과 projection은 실제 DLQ route, 결정 path coverage, 전달 계보, effect digest 차이, 복구 상태와
+  독립 scenario/profile verdict를 노출한다. message body·receipt handle·원 DB row는 표시하지 않는다.
+- 재시험 diff에 execution profile, fault, environment, queue topology를 추가하고, 부모 artifact와 bundle
+  digest를 cross-Run reference로 연결했다. 부모 변조 시 자식 verify도 실패한다.
+
+### RED와 GREEN 근거
+
+최초 RED gate는 12건 실패했다. 기존 CLI가 `--profile`을 인식하지 않았고 세 v2 executor가
+`RUNNER_NOT_READY`로 봉인 실행을 차단했으며, 결과 projection과 재시험에 v2 필드가 없었기 때문이다.
+
+최종 T072~T075 gate:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/contract/test_cli_profiles_v2.py tests/contract/test_presentation_spec002.py tests/integration/test_spec002_retest_lineage.py tests/integration/test_spec002_verdict_matrix.py tests/integration/test_h03_decision_paths.py -q
+```
+
+결과:
+
+```text
+16 passed in 10.50s
+```
+
+ControlProof 전체 회귀와 정적 검사:
+
+```powershell
+.\.venv\Scripts\python.exe -m ruff check .
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+결과:
+
+```text
+All checks passed!
+245 passed in 165.45s (0:02:45)
+```
+
+### 아직 실행하지 않은 actual-stack gate
+
+- 이 기록은 fake adapter를 사용한 결정론적 세 profile 봉인·판정·재시험 계약 결과다.
+- Docker/LocalStack·PostgreSQL·WhyYou API/worker/company console을 대상으로 하는 T080 preflight와
+  T081 최초 세 Run은 깨끗한 양쪽 개인 브랜치에서 별도로 실행한다.
+- 실제 최초 Run의 FAIL을 보기 전에는 T082~T084의 WhyYou 보호조치 코드를 수정하지 않는다.
 - WhyYou 제품 코드는 이 단계에서 변경하지 않았다.
 
 ## 2026-09-28 — User Story 4: 저장 후 ack 전 장애와 중복 억제 (T053~T063)

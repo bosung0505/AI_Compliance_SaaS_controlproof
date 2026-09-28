@@ -198,17 +198,17 @@ description: "Spec 002 H-03·E-03 장애·재시도·DLQ 확장의 구현 작업
 
 ### Tests for User Story 6 — write first
 
-- [ ] T072 [P] [US6] Add CLI contracts for mandatory profile selection on E-03, H03 v1 default compatibility, additive output fields, exit codes, applied/remaining assertions, AWS `NOT_RUN` and no semantic override flags in `tests/contract/test_cli_profiles_v2.py` [FR-066~080, FR-081~087]
-- [ ] T073 [P] [US6] Add presentation tests for separate H-03/E-03 verdicts, failure route, path coverage, missing/duplicate effects, remaining variant coverage, implementation status, cloud-unverified scope, `claim_scope=EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`, and the explicit statement that results do not certify or guarantee overall legal compliance in `tests/contract/test_presentation_spec002.py` [FR-077~079, SC-012, SC-014]
-- [ ] T074 [P] [US6] Add retest tests proving profile/fault inheritance, new Run ID, environment/queue/target diff, parent read-only digest and cross-Run evidence origin verification in `tests/integration/test_spec002_retest_lineage.py` [FR-075~080]
-- [ ] T075 [P] [US6] Add the four-way independent verdict matrix and required-evidence integrity cases in `tests/integration/test_spec002_verdict_matrix.py` [SC-002~010]
+- [X] T072 [P] [US6] Add CLI contracts for mandatory profile selection on E-03, H03 v1 default compatibility, additive output fields, exit codes, applied/remaining assertions, AWS `NOT_RUN` and no semantic override flags in `tests/contract/test_cli_profiles_v2.py` [FR-066~080, FR-081~087]
+- [X] T073 [P] [US6] Add presentation tests for separate H-03/E-03 verdicts, failure route, path coverage, missing/duplicate effects, remaining variant coverage, implementation status, cloud-unverified scope, `claim_scope=EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`, and the explicit statement that results do not certify or guarantee overall legal compliance in `tests/contract/test_presentation_spec002.py` [FR-077~079, SC-012, SC-014]
+- [X] T074 [P] [US6] Add retest tests proving profile/fault inheritance, new Run ID, environment/queue/target diff, parent read-only digest and cross-Run evidence origin verification in `tests/integration/test_spec002_retest_lineage.py` [FR-075~080]
+- [X] T075 [P] [US6] Add the four-way independent verdict matrix and required-evidence integrity cases in `tests/integration/test_spec002_verdict_matrix.py` [SC-002~010]
 
 ### Implementation for User Story 6
 
-- [ ] T076 [US6] Implement `--profile` dispatch, preflight/run/show/verify/retest v2 projections and stable exit semantics in `engine/cli.py`, keeping the outer schema `controlproof.cli.v1` [FR-066~080]
-- [ ] T077 [P] [US6] Extend `engine/presentation.py` with independent scenario/profile verdicts, remaining variant coverage, actual failure route, effect differences, restore status, AWS `NOT_RUN`, unverified scope, structured `claim_scope=EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`, and a human-readable no-certification/no-guarantee statement for overall legal compliance [FR-077~079, FR-086, SC-012, SC-014]
-- [ ] T078 [US6] Extend `engine/retest.py` to inherit scenario/profile/fault, compare target/environment/queue digests, reject unsafe cleanup state and preserve parent/cross-Run origin digests [FR-075~080, FR-087]
-- [ ] T079 [US6] Run the T072~T075 contracts plus the full deterministic three-profile suite and record results in `specs/002-h03-e03-fault-expansion/validation.md`
+- [X] T076 [US6] Implement `--profile` dispatch, preflight/run/show/verify/retest v2 projections and stable exit semantics in `engine/cli.py`, keeping the outer schema `controlproof.cli.v1` [FR-066~080]
+- [X] T077 [P] [US6] Extend `engine/presentation.py` with independent scenario/profile verdicts, remaining variant coverage, actual failure route, effect differences, restore status, AWS `NOT_RUN`, unverified scope, structured `claim_scope=EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`, and a human-readable no-certification/no-guarantee statement for overall legal compliance [FR-077~079, FR-086, SC-012, SC-014]
+- [X] T078 [US6] Extend `engine/retest.py` to inherit scenario/profile/fault, compare target/environment/queue digests, reject unsafe cleanup state and preserve parent/cross-Run origin digests [FR-075~080, FR-087]
+- [X] T079 [US6] Run the T072~T075 contracts plus the full deterministic three-profile suite and record results in `specs/002-h03-e03-fault-expansion/validation.md`
 
 ### Actual-stack FAIL → remediation → retest gate
 

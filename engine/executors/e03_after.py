@@ -19,8 +19,6 @@ from engine.models import (
     FaultVariant,
     Presence,
     QueueTopologySnapshot,
-    ReadinessCheck,
-    ReadinessStatus,
     ScenarioReadiness,
     TargetEnvironmentSnapshot,
     utcnow,
@@ -93,28 +91,16 @@ class E03AfterExecutor:
             target_feature_exists=self.adapters.target.target_feature_exists(),
             target_snapshot=target_snapshot,
         )
-        if readiness.status is not ReadinessStatus.READY:
-            return readiness
-        action = "complete shared Spec 002 bundle orchestration before canonical execution"
-        return readiness.model_copy(
-            update={
-                "status": ReadinessStatus.RUNNER_NOT_READY,
-                "checks": readiness.checks
-                + (
-                    ReadinessCheck(
-                        capability="profile.e03_after_v2.sealed_execution",
-                        status=ReadinessStatus.RUNNER_NOT_READY,
-                        detail="US4 action slice passes; sealed bundle composition is Phase 8 work",
-                        operator_action=action,
-                    ),
-                ),
-                "operator_action": action,
-            }
-        )
+        return readiness
 
-    def execute(self, *_args: Any, **_kwargs: Any) -> None:
-        raise RuntimeError(
-            "E03_AFTER_V2 sealed execution remains blocked until shared bundle orchestration"
+    def execute(self, readiness: ScenarioReadiness, **kwargs: Any):
+        from engine.executors.sealed import execute_profile
+
+        return execute_profile(
+            self,
+            readiness,
+            collector=self.collect_us4,
+            **kwargs,
         )
 
     def collect_us4(

@@ -10,8 +10,13 @@ from uuid import UUID
 from engine.evidence import verify_bundle
 from engine.models import (
     TERMINAL_RUN_STATES,
+    ExecutionProfile,
+    FaultVariant,
+    QueueTopologySnapshot,
     RetestLink,
     Run,
+    RunState,
+    TargetEnvironmentSnapshot,
     TargetSnapshot,
     TestSubject,
     utcnow,
@@ -29,6 +34,10 @@ def prepare_retest(
     child_target: TargetSnapshot,
     child_scenario_version: str,
     child_scenario_digest: str,
+    child_profile: ExecutionProfile | None = None,
+    child_fault_variant: FaultVariant | None = None,
+    child_environment: TargetEnvironmentSnapshot | None = None,
+    child_queue: QueueTopologySnapshot | None = None,
 ) -> tuple[Run, str, dict[str, Any]]:
     directory = parent_bundle.resolve()
     verification = verify_bundle(directory)
@@ -37,6 +46,8 @@ def prepare_retest(
     parent_run = Run.model_validate(_read(directory / "run.json"))
     if parent_run.state not in TERMINAL_RUN_STATES:
         raise RetestError("retest parent must be terminal")
+    if parent_run.state is RunState.RESTORE_FAILED or parent_run.manual_cleanup_required:
+        raise RetestError("retest parent does not prove safe cleanup")
     if parent_run.run_id == child_run_id:
         raise RetestError("retest child must use a new Run ID")
     parent_target = TargetSnapshot.model_validate(_read(directory / "target.snapshot.json"))
@@ -48,7 +59,55 @@ def prepare_retest(
     except (TypeError, ValueError) as exc:
         raise RetestError("retest parent subject contract is invalid") from exc
     parent_digest = _read(directory / "manifest.json")["bundle_digest"]
+    parent_manifest = _read(directory / "manifest.json")
+    parent_profile = parent_run.execution_profile or ExecutionProfile.H03_MINIMAL_V1
+    active_child_profile = child_profile or ExecutionProfile.H03_MINIMAL_V1
+    if active_child_profile is not parent_profile:
+        raise RetestError("retest child must inherit the parent execution profile")
+    if child_fault_variant is not parent_run.fault_variant:
+        raise RetestError("retest child must inherit the parent fault variant")
     changed_target = _diff(parent_target.identity(), child_target.identity())
+    environment_diff: dict[str, Any] | None = None
+    queue_diff: dict[str, Any] | None = None
+    if parent_profile is not ExecutionProfile.H03_MINIMAL_V1:
+        if child_environment is None or child_queue is None:
+            raise RetestError("Spec 002 retest requires environment and queue snapshots")
+        try:
+            parent_environment = TargetEnvironmentSnapshot.model_validate(
+                _read(directory / "environment.snapshot.json")
+            )
+            parent_queue = QueueTopologySnapshot.model_validate(
+                _read(directory / "queue-topology.snapshot.json")
+            )
+        except (OSError, TypeError, ValueError) as exc:
+            raise RetestError("Spec 002 parent snapshots are invalid") from exc
+        environment_diff = {
+            "before_digest": parent_environment.snapshot_digest,
+            "after_digest": child_environment.snapshot_digest,
+            "changed": parent_environment.snapshot_digest
+            != child_environment.snapshot_digest,
+            "changed_fields": _diff(
+                parent_environment.model_dump(
+                    mode="json", exclude={"captured_at", "snapshot_digest"}
+                ),
+                child_environment.model_dump(
+                    mode="json", exclude={"captured_at", "snapshot_digest"}
+                ),
+            ),
+        }
+        queue_diff = {
+            "before_digest": parent_queue.snapshot_digest,
+            "after_digest": child_queue.snapshot_digest,
+            "changed": parent_queue.snapshot_digest != child_queue.snapshot_digest,
+            "changed_fields": _diff(
+                parent_queue.model_dump(
+                    mode="json", exclude={"captured_at", "snapshot_digest"}
+                ),
+                child_queue.model_dump(
+                    mode="json", exclude={"captured_at", "snapshot_digest"}
+                ),
+            ),
+        }
     diff = {
         "schema_version": "controlproof.retest-diff.v1",
         "parent_run_id": str(parent_run.run_id),
@@ -72,6 +131,13 @@ def prepare_retest(
             "after_digest": child_target.target_version,
             "changed_fields": changed_target,
         },
+        "execution_profile": {
+            "before": parent_profile.value,
+            "after": active_child_profile.value,
+            "changed": parent_profile is not active_child_profile,
+        },
+        "environment": environment_diff,
+        "queue_topology": queue_diff,
         "subject": {
             "subject_ref": parent_subject.subject_ref,
             "role": {
@@ -97,7 +163,17 @@ def prepare_retest(
         },
         "fault_condition": {
             "before": parent_run.fault_kind,
-            "after": "reporting_handler_timeout_v1",
+            "after": (
+                child_fault_variant.value
+                if child_fault_variant is not None
+                else parent_run.fault_kind
+            ),
+            "changed": parent_run.fault_kind
+            != (
+                child_fault_variant.value
+                if child_fault_variant is not None
+                else parent_run.fault_kind
+            ),
         },
         "created_at": utcnow().isoformat(),
     }
@@ -107,17 +183,39 @@ def prepare_retest(
         changed_dimensions={
             "scenario": diff["scenario"]["changed"],
             "target_paths": [item["path"] for item in changed_target],
+            "environment": environment_diff["changed"] if environment_diff else None,
+            "queue_topology": queue_diff["changed"] if queue_diff else None,
         },
         reason="WhyYou 수정 후 독립 Run 재시험",
     )
+    records = {
+        "link": link.model_dump(mode="json"),
+        "diff": diff,
+        "_parent_subject": parent_subject.model_dump(mode="json"),
+    }
+    if parent_profile is not ExecutionProfile.H03_MINIMAL_V1:
+        origin = next(
+            (
+                record
+                for record in parent_manifest.get("files", [])
+                if isinstance(record, dict)
+                and record.get("artifact_id")
+                and record.get("sha256")
+            ),
+            None,
+        )
+        if origin is None:
+            raise RetestError("Spec 002 parent has no reusable origin artifact")
+        records["_origin_reference"] = {
+            "origin_run_id": str(parent_run.run_id),
+            "artifact_id": origin["artifact_id"],
+            "artifact_digest": origin["sha256"],
+            "bundle_digest": parent_digest,
+        }
     return (
         parent_run,
         parent_digest,
-        {
-            "link": link.model_dump(mode="json"),
-            "diff": diff,
-            "_parent_subject": parent_subject.model_dump(mode="json"),
-        },
+        records,
     )
 
 

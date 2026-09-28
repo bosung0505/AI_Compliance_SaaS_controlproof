@@ -110,10 +110,18 @@ class FakeSeed:
 
 
 class FakeState:
-    def __init__(self, *, reason_present=True, decision_accepted=False, mutate=False):
+    def __init__(
+        self,
+        *,
+        reason_present=True,
+        decision_accepted=False,
+        mutate=False,
+        report_api_status="queued",
+    ):
         self.reason_present = reason_present
         self.decision_accepted = decision_accepted
         self.mutate = mutate
+        self.report_api_status = report_api_status
         self.calls = 0
 
     def _state(self):
@@ -137,7 +145,11 @@ class FakeState:
         return AdapterResult(
             True,
             "REPORT_STATUS",
-            {"presence": "ABSENT", "status": "queued", "exchange": {"status": 202}},
+            {
+                "presence": "ABSENT",
+                "status": self.report_api_status,
+                "exchange": {"status": 202},
+            },
         )
 
     def attempt_final_decision(self, *, subject):
@@ -278,6 +290,8 @@ class FakeQueue:
         presence = self.dlq_presence
         if presence is None:
             presence = Presence.PRESENT if self.dlq_ok else Presence.UNAVAILABLE
+        else:
+            presence = Presence(presence)
         return AdapterResult(
             presence is not Presence.UNAVAILABLE,
             "DLQ_MATCH_READ" if presence is not Presence.UNAVAILABLE else "DLQ_UNAVAILABLE",
@@ -527,6 +541,7 @@ def make_adapters(
     reason_present=True,
     decision_accepted=False,
     mutate=False,
+    report_api_status="queued",
     effect=True,
     before_effect=None,
     after_effect=True,
@@ -576,6 +591,7 @@ def make_adapters(
                 reason_present=reason_present,
                 decision_accepted=decision_accepted,
                 mutate=mutate,
+                report_api_status=report_api_status,
             ),
             fault=fault,
             browser=browser,
