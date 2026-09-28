@@ -5,6 +5,7 @@ from types import SimpleNamespace
 import playwright.sync_api
 
 import engine.adapters.whyyou.capability as capability_module
+from engine.adapters.base import AdapterResult
 from engine.adapters.whyyou.capability import WhyYouCapabilityProbe
 from engine.adapters.whyyou.queue import QueueAccessError, QueueContractError
 from engine.config import Settings
@@ -186,3 +187,33 @@ def test_queue_capability_distinguishes_contract_mismatch_and_access_loss(tmp_pa
     assert ready.status is ReadinessStatus.READY
     assert mismatch.status is ReadinessStatus.RUNNER_NOT_READY
     assert denied.status is ReadinessStatus.ACCESS_BLOCKED
+
+
+def test_decision_path_capability_requires_both_pinned_operations(tmp_path):
+    class Decision:
+        def __init__(self, result):
+            self.result = result
+
+        def probe_operations(self):
+            return self.result
+
+    ready_probe = WhyYouCapabilityProbe(
+        _settings(tmp_path),
+        _client(Http(set())),
+        decision=Decision(AdapterResult(True, "DECISION_OPERATIONS_READY")),
+    )
+    incomplete_probe = WhyYouCapabilityProbe(
+        _settings(tmp_path),
+        _client(Http(set())),
+        decision=Decision(AdapterResult(False, "DECISION_OPERATIONS_INCOMPLETE")),
+    )
+    blocked_probe = WhyYouCapabilityProbe(
+        _settings(tmp_path),
+        _client(Http(set())),
+        decision=Decision(AdapterResult(False, "DECISION_OPERATIONS_ACCESS_BLOCKED")),
+    )
+
+    for capability in ("hiring.decision_paths.read", "hiring.decision_path.attempt"):
+        assert ready_probe.probe(capability).status is ReadinessStatus.READY
+        assert incomplete_probe.probe(capability).status is ReadinessStatus.RUNNER_NOT_READY
+        assert blocked_probe.probe(capability).status is ReadinessStatus.ACCESS_BLOCKED

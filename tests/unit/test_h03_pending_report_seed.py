@@ -26,6 +26,14 @@ def test_pending_fixture_has_final_media_but_no_report_or_decision_event():
     assert seed.fixture.of("evidence") == []
     assert all(asset["asset_type"] == "final_video" for asset in seed.fixture.of("recording_asset"))
     assert "report_generation_event_id" not in seed.correlation
+    stages = {row["name"]: row for row in seed.fixture.of("recruiting_stage")}
+    assert {"검토", "최종합격", "불합격"}.issubset(stages)
+    assert seed.correlation["final_accept_stage_id"] == str(
+        stages["최종합격"]["recruiting_stage_id"]
+    )
+    assert seed.correlation["final_reject_stage_id"] == str(
+        stages["불합격"]["recruiting_stage_id"]
+    )
 
 
 def test_trigger_is_explicit_and_idempotent():

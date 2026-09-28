@@ -17,6 +17,7 @@ from engine.models import (
 )
 from tests.fixtures.spec002 import (
     EVENT_ID,
+    RUN_ID,
     boundary_receipt,
     decision_effect,
     delivery_attempt,
@@ -84,9 +85,14 @@ class FakeSeed:
                 "subject_ref": subject_ref,
                 "synthetic": True,
                 "seed_correlation_id": f"cp-{run_id}",
+                "company_id": "00000000-0000-7000-8000-000000000010",
+                "company_user_id": "00000000-0000-7000-8000-000000000011",
+                "position_id": "00000000-0000-7000-8000-000000000012",
                 "invitation_id": "00000000-0000-0000-0000-000000000001",
                 "interview_session_id": "00000000-0000-0000-0000-000000000002",
-                "target_stage_id": "00000000-0000-0000-0000-000000000003",
+                "target_stage_id": "00000000-0000-7000-8000-000000000201",
+                "final_accept_stage_id": "00000000-0000-7000-8000-000000000201",
+                "final_reject_stage_id": "00000000-0000-7000-8000-000000000202",
                 "pipeline_row_version": 1,
             },
         )
@@ -275,49 +281,74 @@ class FakeQueue:
 
 
 class FakeDecision:
-    def __init__(self, *, accepted=False, partial_write=False):
+    def __init__(self, *, accepted=False, accepted_paths=None, partial_write=False):
         self.accepted = accepted
+        self.accepted_paths = set(accepted_paths or ())
         self.partial_write = partial_write
+        self.reset_calls = []
 
-    def capabilities(self):
-        stage = UUID("00000000-0000-7000-8000-000000000201")
+    def capabilities(self, *, subject=None):
+        del subject
+        accept = UUID("00000000-0000-7000-8000-000000000201")
+        reject = UUID("00000000-0000-7000-8000-000000000202")
         commit = "b" * 40
         return (
             DecisionPathCapability(
                 path_id=DecisionPathId.FINAL_DECISION,
-                operation_id="createFinalDecision",
-                target_stage_id=stage,
+                operation_id="recordHumanFinalDecision",
+                target_stage_id=accept,
                 target_stage_name="최종합격",
                 source_commit=commit,
             ),
             DecisionPathCapability(
                 path_id=DecisionPathId.BATCH_MOVE_FINAL_ACCEPT,
-                operation_id="batchMoveInvitations",
-                target_stage_id=stage,
+                operation_id="moveApplicantsToRecruitingStage",
+                target_stage_id=accept,
                 target_stage_name="최종합격",
                 source_commit=commit,
             ),
             DecisionPathCapability(
                 path_id=DecisionPathId.BATCH_MOVE_FINAL_REJECT,
-                operation_id="batchMoveInvitations",
-                target_stage_id=stage,
+                operation_id="moveApplicantsToRecruitingStage",
+                target_stage_id=reject,
                 target_stage_name="불합격",
                 source_commit=commit,
             ),
         )
 
     def attempt(self, *, path_id, subject, idempotency_key=None):
+        active_path = DecisionPathId(path_id)
+        accepted = self.accepted or active_path in self.accepted_paths
         return AdapterResult(
             True,
             "DECISION_ATTEMPTED",
             {
-                "path_id": path_id,
+                "path_id": active_path,
                 "subject_ref": subject.get("subject_ref", "candidate-01"),
-                "accepted": self.accepted,
+                "accepted": accepted,
+                "reason_present": not accepted,
+                "reason_code": None if accepted else "REPORT_NOT_AVAILABLE",
                 "partial_write": self.partial_write,
                 "idempotency_key_digest": "f" * 64 if idempotency_key else None,
             },
         )
+
+    def capture_reset_token(self, *, subject):
+        return AdapterResult(
+            True,
+            "DECISION_RESET_SNAPSHOT_CAPTURED",
+            {
+                "invitation_status": "completed",
+                "recruiting_stage_id": subject["target_stage_id"],
+                "pipeline_row_version": subject["pipeline_row_version"],
+                "human_review_ids": (),
+                "audit_event_ids": (),
+            },
+        )
+
+    def reset(self, *, subject, token):
+        self.reset_calls.append((subject["subject_ref"], token["pipeline_row_version"]))
+        return AdapterResult(True, "DECISION_STATE_RESET")
 
 
 class FakeEffects:
@@ -343,12 +374,27 @@ class FakeEffects:
             ),
         )
 
-    def read_decision_effects(self, *, subject, phase):
+    def read_decision_effects(
+        self,
+        *,
+        subject,
+        phase,
+        run_id=RUN_ID,
+        logical_operation_id=None,
+        source_event_id=EVENT_ID,
+        step_id="state.effects.read",
+        attempt=1,
+    ):
         if not self.decision_available:
             return (
                 decision_effect(
+                    run_id=run_id,
                     phase=Phase(phase),
                     subject_ref=subject.get("subject_ref", "candidate-01"),
+                    logical_operation_id=logical_operation_id or UUID(int=1),
+                    source_event_id=source_event_id,
+                    step_id=step_id,
+                    attempt=attempt,
                     effects={},
                     source_status="UNAVAILABLE",
                     source_error_code="DECISION_EFFECTS_UNAVAILABLE",
@@ -356,8 +402,13 @@ class FakeEffects:
             )
         return (
             decision_effect(
+                run_id=run_id,
                 phase=Phase(phase),
                 subject_ref=subject.get("subject_ref", "candidate-01"),
+                logical_operation_id=logical_operation_id or UUID(int=1),
+                source_event_id=source_event_id,
+                step_id=step_id,
+                attempt=attempt,
             ),
         )
 
@@ -408,6 +459,7 @@ def make_adapters(
     redrive_send=True,
     redrive_delete=True,
     decision_path_accepted=False,
+    accepted_decision_paths=None,
     decision_partial_write=False,
     reporting_effects_available=True,
     decision_effects_available=True,
@@ -449,6 +501,7 @@ def make_adapters(
             queue=queue,
             decision=FakeDecision(
                 accepted=decision_path_accepted,
+                accepted_paths=accepted_decision_paths,
                 partial_write=decision_partial_write,
             ),
             effects=FakeEffects(

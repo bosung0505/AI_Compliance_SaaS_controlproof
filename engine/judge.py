@@ -9,7 +9,7 @@ from typing import Any
 from uuid import UUID
 
 # Additive Spec 002 evaluator; imported here so callers can retain the public judge facade.
-from engine.judges.h03_dlq import judge_h03_dlq
+from engine.judges.h03_dlq import judge_h03_decisions, judge_h03_dlq
 from engine.models import (
     AssertionResult,
     AssertionStatus,
@@ -27,7 +27,13 @@ from engine.models import (
 )
 from engine.observations import conflicting_dimensions, last_stable_observation
 
-__all__ = ["judge", "judge_h03", "judge_h03_dlq", "parse_duration"]
+__all__ = [
+    "judge",
+    "judge_h03",
+    "judge_h03_decisions",
+    "judge_h03_dlq",
+    "parse_duration",
+]
 
 _UNIT = {"s": 1, "m": 60, "h": 3600, "d": 86400}
 

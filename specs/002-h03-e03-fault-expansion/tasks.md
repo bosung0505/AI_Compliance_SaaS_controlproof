@@ -95,18 +95,18 @@ description: "Spec 002 H-03·E-03 장애·재시도·DLQ 확장의 구현 작업
 
 ### Tests for User Story 2 — write first
 
-- [ ] T033 [P] [US2] Add decision adapter contract tests for all three canonical path IDs, company actor, final-stage snapshot, explicit refusal, accepted bypass, partial writes and sanitized `Idempotency-Key` digest in `tests/contract/test_whyyou_decision_adapter.py` [FR-017, FR-033~039, FR-091, EV2-07, EV2-08]
-- [ ] T034 [P] [US2] Add H03-A7 judge tests for all-path refusal, missing path registration, accepted batch bypass, changed stage/invitation/HumanReview/audit and automatic system decision in `tests/unit/test_judge_h03_decisions.py` [H03-A7]
-- [ ] T035 [P] [US2] Add an integration fixture proving two operation capabilities produce three isolated decision cases and each pre/post effect snapshot is tied to its path and logical operation in `tests/integration/test_h03_decision_paths.py` [FR-033~039]
+- [X] T033 [P] [US2] Add decision adapter contract tests for all three canonical path IDs, company actor, final-stage snapshot, explicit refusal, accepted bypass, partial writes and sanitized `Idempotency-Key` digest in `tests/contract/test_whyyou_decision_adapter.py` [FR-017, FR-033~039, FR-091, EV2-07, EV2-08]
+- [X] T034 [P] [US2] Add H03-A7 judge tests for all-path refusal, missing path registration, accepted batch bypass, changed stage/invitation/HumanReview/audit and automatic system decision in `tests/unit/test_judge_h03_decisions.py` [H03-A7]
+- [X] T035 [P] [US2] Add an integration fixture proving two operation capabilities produce three isolated decision cases and each pre/post effect snapshot is tied to its path and logical operation in `tests/integration/test_h03_decision_paths.py` [FR-033~039]
 
 ### Implementation for User Story 2
 
-- [ ] T036 [US2] Implement final-decision and final-stage batch calls, stable target error mapping, path isolation and same-state reset in `engine/adapters/whyyou/decisions.py` [FR-033~039, FR-091]
-- [ ] T037 [P] [US2] Implement minimal decision-effect projection for stage assignment/version, invitation status, HumanReview and `final_decision.create` audit in `engine/adapters/whyyou/effects.py`, returning `ABSENT` only after a successful scoped query and `UNAVAILABLE` on access failure [FR-037~038, FR-094]
-- [ ] T038 [US2] Extend `engine/adapters/whyyou/capability.py` to enumerate both operations and three canonical cases from the pinned WhyYou OpenAPI/stage snapshot; block PASS when any final-effect path is unregistered [FR-017, FR-035, FR-091]
-- [ ] T039 [US2] Add the three decision attempts and pre/post decision-effect observations to `engine/executors/h03_dlq.py` without allowing one case to contaminate the next [FR-033~040]
-- [ ] T040 [US2] Implement H03-A7 aggregation and missing-path readiness enforcement in `engine/judges/h03_dlq.py` [FR-035~039, H03-A7]
-- [ ] T041 [US2] Run `pytest -q tests/contract/test_whyyou_decision_adapter.py tests/unit/test_judge_h03_decisions.py tests/integration/test_h03_decision_paths.py` and record the independently passing US2 gate in `specs/002-h03-e03-fault-expansion/validation.md`
+- [X] T036 [US2] Implement final-decision and final-stage batch calls, stable target error mapping, path isolation and same-state reset in `engine/adapters/whyyou/decisions.py` [FR-033~039, FR-091]
+- [X] T037 [P] [US2] Implement minimal decision-effect projection for stage assignment/version, invitation status, HumanReview and `final_decision.create` audit in `engine/adapters/whyyou/effects.py`, returning `ABSENT` only after a successful scoped query and `UNAVAILABLE` on access failure [FR-037~038, FR-094]
+- [X] T038 [US2] Extend `engine/adapters/whyyou/capability.py` to enumerate both operations and three canonical cases from the pinned WhyYou OpenAPI/stage snapshot; block PASS when any final-effect path is unregistered [FR-017, FR-035, FR-091]
+- [X] T039 [US2] Add the three decision attempts and pre/post decision-effect observations to `engine/executors/h03_dlq.py` without allowing one case to contaminate the next [FR-033~040]
+- [X] T040 [US2] Implement H03-A7 aggregation and missing-path readiness enforcement in `engine/judges/h03_dlq.py` [FR-035~039, H03-A7]
+- [X] T041 [US2] Run `pytest -q tests/contract/test_whyyou_decision_adapter.py tests/unit/test_judge_h03_decisions.py tests/integration/test_h03_decision_paths.py` and record the independently passing US2 gate in `specs/002-h03-e03-fault-expansion/validation.md`
 
 **Checkpoint**: 화면 버튼이 아니라 WhyYou의 모든 확인된 최종 채용 효과 경로를 검증한다.
 

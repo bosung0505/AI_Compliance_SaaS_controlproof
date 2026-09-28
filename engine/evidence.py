@@ -33,6 +33,8 @@ FORBIDDEN_KEYS = {
     "token_hash",
     "signed_url",
     "database_url",
+    "idempotency_key",
+    "idempotency-key",
 }
 PII_KEYS = {
     "name",

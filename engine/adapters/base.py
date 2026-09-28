@@ -140,7 +140,9 @@ class SafeRedriveAdapter(Protocol):
 
 
 class DecisionAdapter(Protocol):
-    def capabilities(self) -> tuple[DecisionPathCapability, ...]: ...
+    def capabilities(
+        self, *, subject: Mapping[str, Any] | None = None
+    ) -> tuple[DecisionPathCapability, ...]: ...
 
     def attempt(
         self,
@@ -150,6 +152,12 @@ class DecisionAdapter(Protocol):
         idempotency_key: str | None = None,
     ) -> AdapterResult: ...
 
+    def capture_reset_token(self, *, subject: Mapping[str, Any]) -> AdapterResult: ...
+
+    def reset(
+        self, *, subject: Mapping[str, Any], token: Mapping[str, Any]
+    ) -> AdapterResult: ...
+
 
 class EffectAdapter(Protocol):
     def read_reporting_effects(
@@ -157,7 +165,15 @@ class EffectAdapter(Protocol):
     ) -> tuple[BusinessEffectSnapshot, ...]: ...
 
     def read_decision_effects(
-        self, *, subject: Mapping[str, Any], phase: str
+        self,
+        *,
+        subject: Mapping[str, Any],
+        phase: str,
+        run_id: Any,
+        logical_operation_id: Any,
+        source_event_id: Any,
+        step_id: str,
+        attempt: int = 1,
     ) -> tuple[BusinessEffectSnapshot, ...]: ...
 
 

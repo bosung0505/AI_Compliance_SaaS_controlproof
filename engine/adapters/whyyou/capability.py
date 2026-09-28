@@ -9,6 +9,7 @@ from sqlalchemy import create_engine, text
 
 from engine.adapters.base import CapabilityProbeResult
 from engine.adapters.whyyou.client import TargetSnapshotCaptureError, WhyYouClient
+from engine.adapters.whyyou.decisions import WhyYouDecisionAdapter
 from engine.adapters.whyyou.environment import WhyYouEnvironmentAdapter
 from engine.adapters.whyyou.queue import (
     QueueAccessError,
@@ -51,11 +52,13 @@ class WhyYouCapabilityProbe:
         *,
         queue: WhyYouQueueAdapter | None = None,
         environment: WhyYouEnvironmentAdapter | None = None,
+        decision: WhyYouDecisionAdapter | None = None,
     ) -> None:
         self.settings = settings
         self.client = client
         self.queue = queue
         self.environment = environment
+        self.decision = decision
         self._openapi_paths: set[str] | None = None
 
     @property
@@ -106,10 +109,28 @@ class WhyYouCapabilityProbe:
                 "hiring.decision_paths.read",
                 "hiring.decision_path.attempt",
             }:
-                return _not_ready(
+                if self.decision is None:
+                    return _not_ready(
+                        capability,
+                        "decision path adapter is not composed",
+                        "compose the Spec 002 decision-path adapter",
+                    )
+                operations = self.decision.probe_operations()
+                if not operations.ok:
+                    status = (
+                        ReadinessStatus.ACCESS_BLOCKED
+                        if operations.code == "DECISION_OPERATIONS_ACCESS_BLOCKED"
+                        else ReadinessStatus.RUNNER_NOT_READY
+                    )
+                    return CapabilityProbeResult(
+                        capability,
+                        status,
+                        "canonical decision operations are unavailable",
+                        "repair the pinned WhyYou OpenAPI decision operations",
+                    )
+                return _ready(
                     capability,
-                    "decision path adapter is not composed yet",
-                    "complete Spec 002 US2 decision-path composition",
+                    "two pinned operations are ready for three isolated decision cases",
                 )
             if capability == "reporting.status.read":
                 return self._route(capability, "/v1/interview-sessions/{session_id}/report")

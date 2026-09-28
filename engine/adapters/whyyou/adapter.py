@@ -8,6 +8,8 @@ from engine.adapters.base import AdapterSet, CapabilityProbeResult
 from engine.adapters.whyyou.browser import WhyYouBrowserAdapter
 from engine.adapters.whyyou.capability import WhyYouCapabilityProbe
 from engine.adapters.whyyou.client import WhyYouClient
+from engine.adapters.whyyou.decisions import WhyYouDecisionAdapter
+from engine.adapters.whyyou.effects import WhyYouEffectAdapter
 from engine.adapters.whyyou.environment import WhyYouEnvironmentAdapter
 from engine.adapters.whyyou.fault import WhyYouFaultAdapter
 from engine.adapters.whyyou.queue import WhyYouQueueAdapter
@@ -41,11 +43,14 @@ def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]
     queue = WhyYouQueueAdapter(settings)
     environment = WhyYouEnvironmentAdapter(settings, client)
     fault = WhyYouFaultAdapter(settings, client)
+    decision = WhyYouDecisionAdapter(settings, client)
+    effects = WhyYouEffectAdapter(settings)
     capability = WhyYouCapabilityProbe(
         settings,
         client,
         queue=queue,
         environment=environment,
+        decision=decision,
     )
     target = WhyYouTargetAdapter(client, capability)
     adapters = AdapterSet(
@@ -57,6 +62,8 @@ def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]
         browser=WhyYouBrowserAdapter(settings),
         environment=environment,
         queue=queue,
+        decision=decision,
+        effects=effects,
         boundary_receipts=fault,
         safe_redrive=queue,
     )

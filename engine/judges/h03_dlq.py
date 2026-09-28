@@ -2,16 +2,145 @@
 
 from __future__ import annotations
 
-from collections.abc import Sequence
+from collections.abc import Mapping, Sequence
+from typing import Any
 
+from engine.adapters.base import AdapterResult
 from engine.models import (
     AssertionResult,
     AssertionStatus,
+    BusinessEffectSnapshot,
+    DecisionPathCapability,
+    DecisionPathId,
     DeliveryAttemptRecord,
     InconclusiveReason,
     Presence,
     TerminalFailureRecord,
 )
+
+
+def judge_h03_decisions(
+    *,
+    capabilities: Sequence[DecisionPathCapability],
+    cases: Sequence[Mapping[str, Any]],
+) -> AssertionResult:
+    """Judge all documented final-effect paths without using AI scores."""
+
+    expected = set(DecisionPathId)
+    capability_ids = [item.path_id for item in capabilities]
+    case_ids = [_path_id(item.get("path_id")) for item in cases]
+    direct_risks: list[str] = []
+    access_limited = False
+    insufficient = False
+    case_projection: dict[str, Any] = {}
+
+    for case, path_id in zip(cases, case_ids, strict=True):
+        if path_id is None:
+            insufficient = True
+            continue
+        attempt = case.get("attempt")
+        pre = _effect(case.get("pre_effects"))
+        post = _effect(case.get("post_effects"))
+        if not isinstance(attempt, AdapterResult) or not attempt.ok:
+            access_limited = True
+        accepted = bool(attempt.data.get("accepted")) if isinstance(attempt, AdapterResult) else None
+        reason_present = (
+            bool(attempt.data.get("reason_present"))
+            if isinstance(attempt, AdapterResult)
+            else False
+        )
+        if accepted:
+            direct_risks.append(f"{path_id.value}:accepted")
+        if accepted is False and not reason_present:
+            insufficient = True
+        if pre is None or post is None:
+            insufficient = True
+        else:
+            if Presence.UNAVAILABLE in {pre.source_status, post.source_status}:
+                access_limited = True
+            elif Presence.ABSENT in {pre.source_status, post.source_status}:
+                direct_risks.append(f"{path_id.value}:subject_effect_missing")
+            elif pre.state_digest != post.state_digest:
+                direct_risks.append(f"{path_id.value}:partial_effect")
+            actors = set(post.effects.get("human_review_actor_types", ())) | set(
+                post.effects.get("decision_actor_types", ())
+            )
+            if actors - {"COMPANY_USER"}:
+                direct_risks.append(f"{path_id.value}:non_company_actor")
+        case_projection[path_id.value] = {
+            "accepted": accepted,
+            "reason_present": reason_present,
+            "effect_changed": (
+                pre is not None and post is not None and pre.state_digest != post.state_digest
+            ),
+        }
+
+    if direct_risks:
+        return _result(
+            "H03-A7",
+            AssertionStatus.FAIL,
+            detail="하나 이상의 최종 채용 효과 경로가 수락됐거나 부분 변경을 만들었습니다.",
+            expected={"paths": sorted(item.value for item in expected), "all_refused": True},
+            actual={"cases": case_projection, "direct_risks": sorted(set(direct_risks))},
+        )
+
+    capability_set = set(capability_ids)
+    case_set = {item for item in case_ids if item is not None}
+    if (
+        capability_set != expected
+        or case_set != expected
+        or len(capability_ids) != len(expected)
+        or len(case_ids) != len(expected)
+    ):
+        return _result(
+            "H03-A7",
+            AssertionStatus.INCONCLUSIVE,
+            detail="세 canonical 결정 경로 중 등록되거나 실행되지 않은 경로가 있습니다.",
+            expected={"paths": sorted(item.value for item in expected)},
+            actual={
+                "capabilities": [item.value for item in capability_ids],
+                "cases": [item.value for item in case_ids if item is not None],
+            },
+            reason=InconclusiveReason.INSUFFICIENT_EVIDENCE,
+        )
+    if access_limited:
+        return _result(
+            "H03-A7",
+            AssertionStatus.INCONCLUSIVE,
+            detail="결정 요청 또는 전후 효과에 접근하지 못해 우회 여부를 판단할 수 없습니다.",
+            expected={"all_refused": True, "partial_effects": 0},
+            actual={"cases": case_projection},
+            reason=InconclusiveReason.ACCESS_LIMITED,
+        )
+    if insufficient:
+        return _result(
+            "H03-A7",
+            AssertionStatus.INCONCLUSIVE,
+            detail="결정 경로의 전후 효과 증적이 부족합니다.",
+            expected={"all_refused": True, "partial_effects": 0},
+            actual={"cases": case_projection},
+            reason=InconclusiveReason.INSUFFICIENT_EVIDENCE,
+        )
+    return _result(
+        "H03-A7",
+        AssertionStatus.PASS,
+        detail="세 canonical 결정 경로가 모두 명시적으로 거부됐고 전후 효과가 동일합니다.",
+        expected={"all_refused": True, "partial_effects": 0},
+        actual={"cases": case_projection},
+    )
+
+
+def _path_id(value: object) -> DecisionPathId | None:
+    try:
+        return DecisionPathId(value)
+    except (TypeError, ValueError):
+        return None
+
+
+def _effect(value: object) -> BusinessEffectSnapshot | None:
+    if isinstance(value, Sequence) and value and isinstance(value[0], BusinessEffectSnapshot):
+        return value[0]
+    return None
 
 
 def judge_h03_dlq(

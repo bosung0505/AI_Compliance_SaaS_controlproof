@@ -66,8 +66,10 @@ class WhyYouSeedAdapter:
                 "invitation_id": correlation[f"invitation_id:{subject_ref}"],
                 "interview_session_id": correlation[f"interview_session_id:{subject_ref}"],
                 "target_stage_id": str(
-                    seed.fixture.of("recruiting_stage")[0]["recruiting_stage_id"]
+                    correlation["final_accept_stage_id"]
                 ),
+                "final_accept_stage_id": correlation["final_accept_stage_id"],
+                "final_reject_stage_id": correlation["final_reject_stage_id"],
                 "pipeline_row_version": 1,
             },
         )

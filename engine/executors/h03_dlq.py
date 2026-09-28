@@ -7,18 +7,24 @@ from dataclasses import dataclass
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from engine.adapters.base import AdapterResult, AdapterSet, Clock
-from engine.judges.h03_dlq import judge_h03_dlq
+from engine.judges.h03_dlq import judge_h03_decisions, judge_h03_dlq
 from engine.models import (
     AssertionResult,
+    BusinessEffectSnapshot,
+    DecisionPathCapability,
+    DecisionPathId,
     DeliveryAttemptRecord,
     ExecutionProfile,
     FaultBoundaryReceipt,
     FaultVariant,
+    Phase,
     Presence,
     QueueTopologySnapshot,
+    ReadinessCheck,
+    ReadinessStatus,
     RedriveReceipt,
     ScenarioReadiness,
     TargetEnvironmentSnapshot,
@@ -56,14 +62,35 @@ class H03DlqSliceResult:
     restore: AdapterResult
     redrive: RedriveReceipt | None
     assertions: tuple[AssertionResult, AssertionResult]
+    decision_capabilities: tuple[DecisionPathCapability, ...] = ()
+    decision_cases: tuple[DecisionPathCaseResult, ...] = ()
+    decision_assertion: AssertionResult | None = None
+
+
+@dataclass(frozen=True, slots=True)
+class DecisionPathCaseResult:
+    path_id: DecisionPathId
+    logical_operation_id: UUID
+    attempt: AdapterResult
+    pre_effects: tuple[BusinessEffectSnapshot, ...]
+    post_effects: tuple[BusinessEffectSnapshot, ...]
+    reset: AdapterResult
+
+    def judge_input(self) -> dict[str, Any]:
+        return {
+            "path_id": self.path_id,
+            "attempt": self.attempt,
+            "pre_effects": self.pre_effects,
+            "post_effects": self.post_effects,
+            "reset": self.reset,
+        }
 
 
 class H03DlqExecutor:
-    """Owns the US1 pipeline while US2 later adds full decision-path execution.
+    """Owns the independently verifiable US1 and US2 H-03 action slices.
 
-    The profile is registered now, but preflight stays fail-closed until every capability in
-    H-03-DLQ.yaml—including the US2 decision paths—is composed. No partial profile verdict or
-    partially sealed Run is created by this class.
+    The canonical sealed profile remains fail-closed until later shared recovery/evidence
+    orchestration is composed. These slice methods never manufacture a partial profile verdict.
     """
 
     profile = ExecutionProfile.H03_DLQ_V2
@@ -91,7 +118,7 @@ class H03DlqExecutor:
             self.adapters.capability.probe(capability)
             for capability in self.scenario.required_capabilities
         ]
-        return evaluate_readiness(
+        readiness = evaluate_readiness(
             self.scenario,
             target_id=target_id,
             registrations=self.adapters.capability.registrations,
@@ -99,10 +126,35 @@ class H03DlqExecutor:
             target_feature_exists=self.adapters.target.target_feature_exists(),
             target_snapshot=target_snapshot,
         )
+        if readiness.status is not ReadinessStatus.READY:
+            return readiness
+
+        # The independently testable US1/US2 slices are intentionally not a sealed Run.
+        # Keep CLI preflight honest until the shared recovery/evidence composition is complete.
+        action = (
+            "complete shared recovery/evidence orchestration before running the canonical "
+            "H03_DLQ_V2 profile"
+        )
+        return readiness.model_copy(
+            update={
+                "status": ReadinessStatus.RUNNER_NOT_READY,
+                "checks": readiness.checks
+                + (
+                    ReadinessCheck(
+                        capability="profile.h03_dlq_v2.sealed_execution",
+                        status=ReadinessStatus.RUNNER_NOT_READY,
+                        detail="US1 and US2 slices pass, but canonical bundle orchestration is incomplete",
+                        operator_action=action,
+                    ),
+                ),
+                "operator_action": action,
+            }
+        )
 
     def execute(self, *_args: Any, **_kwargs: Any) -> None:
         raise RuntimeError(
-            "H03_DLQ_V2 full profile execution remains blocked until US2 decision paths are composed"
+            "H03_DLQ_V2 sealed execution remains blocked until shared recovery/evidence "
+            "orchestration is composed"
         )
 
     def collect_us1(
@@ -118,7 +170,28 @@ class H03DlqExecutor:
         can be verified independently without creating a misleading partial evidence bundle.
         """
 
-        environment = _required_adapter(self.adapters.environment, "environment").capture_environment()
+        return self._collect(run_id=run_id, subject_ref=subject_ref, include_decisions=False)
+
+    def collect_us2(
+        self,
+        *,
+        run_id: UUID,
+        subject_ref: str = "candidate-01",
+    ) -> H03DlqSliceResult:
+        """Exercise US1 plus the three isolated company decision paths from US2."""
+
+        return self._collect(run_id=run_id, subject_ref=subject_ref, include_decisions=True)
+
+    def _collect(
+        self,
+        *,
+        run_id: UUID,
+        subject_ref: str,
+        include_decisions: bool,
+    ) -> H03DlqSliceResult:
+        environment = _required_adapter(
+            self.adapters.environment, "environment"
+        ).capture_environment()
         queue = _required_adapter(self.adapters.queue, "queue")
         topology = queue.capture_topology()
         seeded = self.adapters.seed.seed(run_id=str(run_id), subject_ref=subject_ref)
@@ -129,6 +202,9 @@ class H03DlqExecutor:
 
         applied: AdapterResult | None = None
         restore: AdapterResult | None = None
+        decision_capabilities: tuple[DecisionPathCapability, ...] = ()
+        decision_cases: tuple[DecisionPathCaseResult, ...] = ()
+        decision_assertion = None
         try:
             now = self.clock.now()
             applied = self.adapters.fault.apply(
@@ -155,6 +231,19 @@ class H03DlqExecutor:
             report_status = _report_status_class(report)
             browser = self.adapters.browser.capture_review(subject=subject)
             projection = dict(browser.data.get("projection", {})) if browser.ok else {}
+            if include_decisions:
+                decision = _required_adapter(self.adapters.decision, "decision")
+                decision_capabilities = decision.capabilities(subject=subject)
+                decision_cases = self._execute_decision_cases(
+                    run_id=run_id,
+                    source_event_id=source_event_id,
+                    subject=subject,
+                    capabilities=decision_capabilities,
+                )
+                decision_assertion = judge_h03_decisions(
+                    capabilities=decision_capabilities,
+                    cases=tuple(case.judge_input() for case in decision_cases),
+                )
         finally:
             if applied is not None and applied.ok:
                 restore = self.adapters.fault.restore(run_id=str(run_id), subject=subject)
@@ -200,7 +289,72 @@ class H03DlqExecutor:
             restore=restore,
             redrive=redrive,
             assertions=assertions,
+            decision_capabilities=decision_capabilities,
+            decision_cases=decision_cases,
+            decision_assertion=decision_assertion,
         )
+
+    def _execute_decision_cases(
+        self,
+        *,
+        run_id: UUID,
+        source_event_id: UUID,
+        subject: dict[str, Any],
+        capabilities: tuple[DecisionPathCapability, ...],
+    ) -> tuple[DecisionPathCaseResult, ...]:
+        decision = _required_adapter(self.adapters.decision, "decision")
+        effects = _required_adapter(self.adapters.effects, "decision effects")
+        cases: list[DecisionPathCaseResult] = []
+        for capability in capabilities:
+            logical_operation_id = uuid5(
+                NAMESPACE_URL,
+                f"controlproof:{run_id}:h03:{capability.path_id.value}",
+            )
+            token = decision.capture_reset_token(subject=subject)
+            _require_ok(token, f"{capability.path_id.value} reset snapshot")
+            pre = effects.read_decision_effects(
+                subject=subject,
+                phase=Phase.INJECTED,
+                run_id=run_id,
+                logical_operation_id=logical_operation_id,
+                source_event_id=source_event_id,
+                step_id=f"{capability.path_id.value}.pre",
+            )
+            attempt: AdapterResult | None = None
+            post: tuple[BusinessEffectSnapshot, ...] = ()
+            reset: AdapterResult | None = None
+            try:
+                attempt = decision.attempt(
+                    path_id=capability.path_id,
+                    subject=subject,
+                    idempotency_key=(
+                        f"controlproof:{run_id}:{capability.path_id.value}"
+                    ),
+                )
+                post = effects.read_decision_effects(
+                    subject=subject,
+                    phase=Phase.INJECTED,
+                    run_id=run_id,
+                    logical_operation_id=logical_operation_id,
+                    source_event_id=source_event_id,
+                    step_id=f"{capability.path_id.value}.post",
+                )
+            finally:
+                reset = decision.reset(subject=subject, token=token.data)
+            _require_ok(reset, f"{capability.path_id.value} state reset")
+            if attempt is None:
+                raise RuntimeError(f"{capability.path_id.value} decision attempt did not run")
+            cases.append(
+                DecisionPathCaseResult(
+                    path_id=capability.path_id,
+                    logical_operation_id=logical_operation_id,
+                    attempt=attempt,
+                    pre_effects=pre,
+                    post_effects=post,
+                    reset=reset,
+                )
+            )
+        return tuple(cases)
 
     def _poll_terminal_lineage(
         self,

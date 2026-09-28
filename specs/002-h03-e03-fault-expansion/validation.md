@@ -158,3 +158,85 @@ ControlProof 전체 회귀:
 - `H03-A1~A6`와 새 `H03-A7`의 전체 결정 경로 시험은 US2에서 완성한다.
 - AWS 배포 리소스와 외부 AI는 계속 `NOT_RUN`이며, 이 로컬 결과를 AWS 검증 결과로 확대 해석하지
   않는다.
+
+## 2026-09-28 — User Story 2: 리포트 없는 채용 확정의 모든 경로 차단 (T033~T041)
+
+### 이번 단계에서 고정한 의미
+
+- WhyYou의 채용 확정 기능은 operation 두 개지만 시험 case는 세 개다. 단일 지원자 최종 결정
+  `recordHumanFinalDecision` 한 건과, 일괄 단계 이동 `moveApplicantsToRecruitingStage`의
+  `최종합격`·`불합격` 두 건을 서로 독립적으로 실행한다.
+- AI 점수는 어느 판정 입력에도 사용하지 않는다. H03-A7은 리포트가 없는 합성 지원자에 대해
+  `COMPANY_USER`가 시도한 세 경로가 모두 명시적으로 거부되고, 단계·invitation·HumanReview·감사
+  효과가 전후 동일한지만 판정한다.
+- 한 경로라도 요청을 수락하거나 일부 효과를 기록하면 직접 `FAIL`이다. 반대로 대상 접근 실패,
+  경로 미등록, 명시적 거부인지 확인할 수 없는 오류는 제품 안전성을 입증하지 못하므로
+  `INCONCLUSIVE`다.
+- case마다 같은 시작 상태를 snapshot하고 시험 후 해당 합성 지원자 범위만 reset한다. 따라서 앞선
+  `최종합격` 시험이 뒤의 `불합격` 시험 결과를 오염시키지 않는다.
+- adapter는 고정된 WhyYou source commit, OpenAPI operation ID와 해당 position의 최종 단계 snapshot을
+  capability 증적에 묶는다. 원문 `Idempotency-Key`는 메모리의 HTTP 요청에만 쓰고 산출물에는
+  SHA-256 digest만 남긴다.
+
+### 테스트 우선 확인(RED)
+
+구현 전에 결정 adapter, H03-A7 judge, 세 경로 통합 테스트를 먼저 추가했다. 최초 실행은 아래처럼
+필수 구현이 존재하지 않아 collection 단계에서 실패했다.
+
+```text
+ModuleNotFoundError: No module named 'engine.adapters.whyyou.decisions'
+ImportError: cannot import name 'judge_h03_decisions'
+```
+
+이 실패를 T036~T040 구현의 출발점으로 사용했다.
+
+### 구현 결과
+
+- `WhyYouDecisionAdapter`가 두 OpenAPI operation을 세 canonical path로 확장하고, 회사 사용자 actor,
+  final-stage snapshot, 안정된 오류 분류, 명시적 report-required 거부와 수락/부분 기록을 구분한다.
+- `WhyYouEffectAdapter`가 합성 invitation/position으로 범위를 제한해 단계와 row version, invitation
+  상태, HumanReview actor, `final_decision.create` 및 batch-move 감사 identity를 최소 투영한다. 조회
+  성공 후 자료가 없을 때만 `ABSENT`, 접근 실패 시 `UNAVAILABLE`을 반환한다.
+- `H03DlqExecutor.collect_us2`가 각 경로에 별도 logical operation ID를 부여해 pre-effect → 결정 시도
+  → post-effect → reset 순서로 실행하고, `judge_h03_decisions`가 세 경로를 하나의 H03-A7 결과로
+  집계한다.
+- WhyYou 제품 코드는 이 단계에서 수정하지 않았다. 특히 일괄 최종 단계 이동이 실제로 우회되는지는
+  봉인된 최초 실제 Run(T081)에서 판정한 뒤, 직접 FAIL 증적이 있을 때만 T082에서 수정한다.
+- US1/US2 슬라이스는 독립 검증 가능하지만 canonical H03 bundle orchestration은 아직 완성 전이다.
+  그러므로 전체 `execute`뿐 아니라 CLI preflight도 `profile.h03_dlq_v2.sealed_execution`을 이유로
+  `RUNNER_NOT_READY`를 반환한다. 부분 구현을 실제 H-03 완료나 PASS로 표시하지 않는다.
+
+### US2 gate(GREEN)
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q tests/contract/test_whyyou_decision_adapter.py tests/unit/test_judge_h03_decisions.py tests/integration/test_h03_decision_paths.py
+.\.venv\Scripts\ruff.exe check engine tests
+```
+
+결과:
+
+```text
+16 passed in 0.92s
+All checks passed!
+```
+
+전체 ControlProof 회귀 테스트도 실행했다.
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+결과:
+
+```text
+190 passed in 161.01s (0:02:41)
+```
+
+### 아직 실행하지 않은 것
+
+- Docker/LocalStack 실제 대상에 세 결정 경로를 호출해 제품 verdict를 생성하지 않았다.
+- 현재 코드 구조상 batch 경로의 우회 가능성이 보여도 이를 결과로 선판정하지 않는다. T081의 봉인된
+  실제 증적 전에는 WhyYou 보호 로직을 고치지 않는다.
+- 전체 H03 sealed Run과 H03-A1~A9의 canonical 증적 bundle은 US3 이후 공통 복구·증적 orchestration을
+  합성하고 actual-stack gate에 도달해야 생성할 수 있다.
+- AWS 및 외부 AI는 계속 `NOT_RUN`이다.

@@ -40,6 +40,33 @@ def build_pending_report_fixture(
     fixture.rows["report_item"] = []
     fixture.rows["evidence"] = []
     fixture.correlation.pop(f"report_id:{subject_ref}", None)
+    stages = fixture.rows["recruiting_stage"]
+    position_id = fixture.rows["position"][0]["position_id"]
+    company = fixture.rows["position"][0]["company_id"]
+    final_accept_stage_id = sid(label, "stage/final-accept")
+    final_reject_stage_id = sid(label, "stage/final-reject")
+    stages.extend(
+        (
+            {
+                "company_id": company,
+                "recruiting_stage_id": final_accept_stage_id,
+                "position_id": position_id,
+                "name": "최종합격",
+                "sort_order": 3,
+                "row_version": 1,
+            },
+            {
+                "company_id": company,
+                "recruiting_stage_id": final_reject_stage_id,
+                "position_id": position_id,
+                "name": "불합격",
+                "sort_order": 4,
+                "row_version": 1,
+            },
+        )
+    )
+    fixture.correlation["final_accept_stage_id"] = str(final_accept_stage_id)
+    fixture.correlation["final_reject_stage_id"] = str(final_reject_stage_id)
     session = fixture.rows["interview_session"][0]
     invitation = fixture.rows["invitation"][0]
     fixture.correlation[f"interview_session_id:{subject_ref}"] = str(
@@ -72,6 +99,9 @@ def check_pending_invariants(seed: PendingReportSeed) -> list[str]:
         problems.append("all interview turns must be final")
     if "report_generation_event_id" in fixture.correlation:
         problems.append("report event must not exist before trigger")
+    stage_names = {str(row["name"]) for row in fixture.of("recruiting_stage")}
+    if not {"최종합격", "불합격"}.issubset(stage_names):
+        problems.append("pending-report seed requires both canonical final stages")
     return problems
 
 
