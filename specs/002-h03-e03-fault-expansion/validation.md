@@ -378,6 +378,13 @@ All checks passed!
   정확한 event/consumer/version 키로 제거했다. 관련 queue, outbox, report, session 잔여는 0건이다.
 - 보완 회귀 결과: WhyYou scoped tests `58 passed`, ControlProof capability tests `9 passed`, 양쪽 Ruff 통과.
 
+경로 지문을 맞춘 뒤의 첫 실행에서는 두 번째 runner 결함도 확인됐다. Outbox trigger 직후 비동기 worker가
+receipt를 쓰기 전에 runner가 파일을 한 번만 읽어 `BOUNDARY_RECEIPT_MISSING`으로 종료했다. 이 시도도
+verdict와 봉인 bundle을 만들기 전 중단됐으며, 합성 seed와 정확한 processed marker를 다시 제거했다.
+H-03 DLQ와 E-03 BEFORE는 이제 scenario snapshot의 60초 deadline과 2초 poll 간격만 사용해 boundary
+receipt를 기다린다. 지연 receipt RED 테스트를 추가한 뒤 관련 H-03/E-03 BEFORE/AFTER 통합 테스트
+`16 passed`와 Ruff 통과를 확인했다.
+
 이 결함을 보완하고 API를 최신 코드로 재기동한 뒤 위 세 preflight가 모두 `READY`가 된 결과만 T080
 승인 근거로 사용한다. 실제 최초 봉인 Run은 T081에서 별도로 생성한다.
 

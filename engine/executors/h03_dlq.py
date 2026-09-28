@@ -11,6 +11,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 
 from engine.adapters.base import AdapterResult, AdapterSet, Clock
 from engine.execution import coordinate_reporting_recovery
+from engine.executors.polling import poll_required_boundary
 from engine.judges.h03_dlq import judge_h03_decisions, judge_h03_dlq
 from engine.models import (
     AssertionResult,
@@ -197,11 +198,19 @@ class H03DlqExecutor:
             triggered = self.adapters.seed.trigger(run_id=str(run_id), subject=subject)
             _require_ok(triggered, "reporting trigger")
             source_event_id = UUID(str(triggered.data["outbox_event_id"]))
-            boundary = _read_required_boundary(
+            boundary = poll_required_boundary(
                 self.adapters.boundary_receipts,
+                label="H03 DLQ",
                 run_id=run_id,
                 source_event_id=source_event_id,
+                fault_variant=FaultVariant.BEFORE_RESULT_DURABLE.value,
                 session_id=str(subject["interview_session_id"]),
+                clock=self.clock,
+                poll_seconds=self.scenario.timing_policy.poll_seconds,
+                deadline_seconds=(
+                    self.scenario.timing_policy.duplicate_ack_deadline_seconds
+                    or self.scenario.timing_policy.poll_seconds
+                ),
             )
             attempts, attempts_presence, presence, terminal = self._poll_terminal_lineage(
                 queue=queue,
@@ -411,27 +420,3 @@ def _report_status_class(result: AdapterResult) -> str | None:
     if isinstance(value, Presence):
         return value.value.casefold()
     return str(value).casefold() if value is not None else "absent"
-
-
-def _read_required_boundary(
-    adapter: Any,
-    *,
-    run_id: UUID,
-    source_event_id: UUID,
-    session_id: str,
-) -> FaultBoundaryReceipt:
-    reader = _required_adapter(adapter, "boundary receipt")
-    result = reader.read_boundary_receipt(
-        run_id=str(run_id),
-        source_event_id=str(source_event_id),
-        fault_variant=FaultVariant.BEFORE_RESULT_DURABLE.value,
-        session_id=session_id,
-    )
-    if isinstance(result, FaultBoundaryReceipt):
-        return result
-    if isinstance(result, AdapterResult) and result.ok:
-        receipt = result.data.get("receipt")
-        if isinstance(receipt, FaultBoundaryReceipt):
-            return receipt
-    code = result.code if isinstance(result, AdapterResult) else "INVALID_BOUNDARY_RECEIPT"
-    raise RuntimeError(f"H03 DLQ boundary receipt failed: {code}")

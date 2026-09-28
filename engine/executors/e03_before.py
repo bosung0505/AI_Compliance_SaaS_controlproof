@@ -12,6 +12,7 @@ from uuid import NAMESPACE_URL, UUID, uuid5
 from engine.adapters.base import AdapterResult, AdapterSet, Clock
 from engine.adapters.whyyou.decisions import compare_decision_replay
 from engine.execution import coordinate_reporting_recovery
+from engine.executors.polling import poll_required_boundary
 from engine.judges.e03 import judge_e03_before, judge_e03_decision_replay
 from engine.models import (
     AssertionResult,
@@ -170,11 +171,19 @@ class E03BeforeExecutor:
             trigger = self.adapters.seed.trigger(run_id=str(run_id), subject=subject)
             _require_ok(trigger, "reporting trigger")
             source_event_id = UUID(str(trigger.data["outbox_event_id"]))
-            boundary = _read_boundary(
+            boundary = poll_required_boundary(
                 self.adapters.boundary_receipts,
+                label="E03 BEFORE",
                 run_id=run_id,
                 source_event_id=source_event_id,
+                fault_variant=FaultVariant.BEFORE_RESULT_DURABLE.value,
                 session_id=str(subject["interview_session_id"]),
+                clock=self.clock,
+                poll_seconds=self.scenario.timing_policy.poll_seconds,
+                deadline_seconds=(
+                    self.scenario.timing_policy.duplicate_ack_deadline_seconds
+                    or self.scenario.timing_policy.poll_seconds
+                ),
             )
             attempts, attempts_presence, dlq_presence, terminal = self._poll_terminal(
                 queue=queue,
@@ -401,30 +410,6 @@ class E03BeforeExecutor:
             if index + 1 < iterations:
                 self.clock.sleep(policy.poll_seconds)
         return attempts, attempts_presence, dlq_presence, terminal
-
-
-def _read_boundary(
-    adapter: Any,
-    *,
-    run_id: UUID,
-    source_event_id: UUID,
-    session_id: str,
-) -> FaultBoundaryReceipt:
-    reader = _required(adapter, "boundary receipt")
-    result = reader.read_boundary_receipt(
-        run_id=str(run_id),
-        source_event_id=str(source_event_id),
-        fault_variant=FaultVariant.BEFORE_RESULT_DURABLE.value,
-        session_id=session_id,
-    )
-    if isinstance(result, FaultBoundaryReceipt):
-        return result
-    if isinstance(result, AdapterResult) and result.ok:
-        receipt = result.data.get("receipt")
-        if isinstance(receipt, FaultBoundaryReceipt):
-            return receipt
-    code = result.code if isinstance(result, AdapterResult) else "INVALID_BOUNDARY_RECEIPT"
-    raise RuntimeError(f"E03 BEFORE boundary receipt failed: {code}")
 
 
 def _required(adapter: Any, name: str) -> Any:

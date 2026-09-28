@@ -122,6 +122,34 @@ def test_us1_slice_collects_dlq_visibility_then_restores_before_redrive(tmp_path
     )
 
 
+def test_us1_slice_polls_for_the_async_boundary_receipt(tmp_path):
+    class DelayedBoundary:
+        def __init__(self, delegate):
+            self.delegate = delegate
+            self.calls = 0
+
+        def read_boundary_receipt(self, **kwargs):
+            self.calls += 1
+            if self.calls < 3:
+                return AdapterResult(False, "BOUNDARY_RECEIPT_MISSING")
+            return self.delegate.read_boundary_receipt(**kwargs)
+
+    scenario = load("scenarios/H-03-DLQ.yaml")
+    adapters, _browser = make_adapters(status_class="failed")
+    boundary = DelayedBoundary(adapters.boundary_receipts)
+    adapters = replace(adapters, boundary_receipts=boundary)
+    clock = FakeClock()
+    started = clock.now()
+
+    result = H03DlqExecutor(scenario, adapters, tmp_path, clock=clock).collect_us1(
+        run_id=RUN_ID
+    )
+
+    assert result.boundary.outbox_event_id == FIXTURE_EVENT_ID
+    assert boundary.calls == 3
+    assert (clock.now() - started).total_seconds() == 4
+
+
 def test_us1_slice_restores_the_fault_even_when_boundary_evidence_is_missing(tmp_path):
     class MissingBoundary:
         def read_boundary_receipt(self, **_kwargs):

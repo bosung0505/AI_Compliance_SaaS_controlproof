@@ -1,5 +1,8 @@
 from __future__ import annotations
 
+from dataclasses import replace
+
+from engine.adapters.base import AdapterResult
 from engine.executors.e03_before import E03BeforeExecutor
 from engine.models import AssertionStatus, ExecutionProfile, Phase
 from engine.scenario import load
@@ -46,3 +49,31 @@ def test_before_journey_proves_zero_injected_effects_then_exact_recovery(tmp_pat
     assert adapters.fault.events.index("fault.restore") < adapters.queue.events.index(
         "queue.redrive"
     )
+
+
+def test_before_journey_polls_for_the_async_boundary_receipt(tmp_path):
+    class DelayedBoundary:
+        def __init__(self, delegate):
+            self.delegate = delegate
+            self.calls = 0
+
+        def read_boundary_receipt(self, **kwargs):
+            self.calls += 1
+            if self.calls < 3:
+                return AdapterResult(False, "BOUNDARY_RECEIPT_MISSING")
+            return self.delegate.read_boundary_receipt(**kwargs)
+
+    scenario = load("scenarios/E-03-BEFORE.yaml")
+    adapters, _browser = make_adapters()
+    boundary = DelayedBoundary(adapters.boundary_receipts)
+    adapters = replace(adapters, boundary_receipts=boundary)
+    clock = FakeClock()
+    started = clock.now()
+
+    result = E03BeforeExecutor(
+        scenario, adapters, tmp_path, clock=clock
+    ).collect_us3(run_id=RUN_ID)
+
+    assert result.boundary.outbox_event_id == EVENT_ID
+    assert boundary.calls == 3
+    assert (clock.now() - started).total_seconds() == 4
