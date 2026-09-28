@@ -325,6 +325,62 @@ All checks passed!
 - E03-A7 같은-key 사람 결정 replay와 완전한 adapter composition은 US5에서 구현한다.
 - 실제 AWS와 외부 AI는 계속 `NOT_RUN`이며 로컬 queue·DB 계약 결과를 AWS 검증으로 확대하지 않는다.
 
+## 2026-09-29 — 실제 스택 3-profile preflight gate (T080)
+
+### 검증 대상과 고정된 식별자
+
+- ControlProof branch/commit: `002-h03-e03-fault-expansion` / `3c4ce1e`
+- WhyYou branch/commit: `bosung/controlproof-h03-integration` / `fd3e6f62888dfcc5b07a5ad0d0df094102ae6171`
+- 두 checkout 모두 clean이며 WhyYou `main`은 사용하거나 변경하지 않았다.
+- target: `whyyou-local`
+- environment: `LOCAL_EMULATED`
+- AWS deployment: `NOT_RUN`
+- target snapshot digest: `target-snapshot:sha256:fbf21a4be3961305071c2039f2042f89dbdac23abb849c2521fd75548ec83e3d`
+- OpenAPI digest: `1d23e1ae973672726ed3232fd83edd25ad06cd253990548c1dada1de609b952a`
+- schema migration head: `m_003_criterion_grounded_rag`
+- model fixture: `h03-report-v1` / `ce09b95403b34e1390502c90f5c5edc518ddf65d38c8ce881617a37cac6d16b1`
+- reporting queue contract: `iep-reporting → iep-reporting-dlq`, visibility timeout 5초,
+  max receive count 3
+
+### 사전 점검 결과
+
+아래 세 명령을 실제 PostgreSQL·LocalStack·WhyYou API·worker·company console이 실행 중인 상태에서
+각각 수행했다.
+
+```powershell
+.\.venv\Scripts\python.exe -m engine.cli preflight H-03 --profile H03_DLQ_V2 --target whyyou-local --json
+.\.venv\Scripts\python.exe -m engine.cli preflight E-03 --profile E03_BEFORE_V2 --target whyyou-local --json
+.\.venv\Scripts\python.exe -m engine.cli preflight E-03 --profile E03_AFTER_V2 --target whyyou-local --json
+```
+
+결과:
+
+| profile | fault variant | readiness | AWS | cloud unverified |
+|---|---|---|---|---|
+| `H03_DLQ_V2` | `BEFORE_RESULT_DURABLE` | `READY` | `NOT_RUN` | SQS/ECS/IAM/CloudWatch/network |
+| `E03_BEFORE_V2` | `BEFORE_RESULT_DURABLE` | `READY` | `NOT_RUN` | SQS/ECS/IAM/CloudWatch/network |
+| `E03_AFTER_V2` | `AFTER_RESULT_DURABLE_BEFORE_COMPLETION` | `READY` | `NOT_RUN` | SQS/ECS/IAM/CloudWatch/network |
+
+모든 필수 capability가 `READY`였으며, 특히 runner와 WhyYou worker가 같은 fault/receipt 디렉터리를
+사용한다는 것을 절대 경로 대신 SHA-256 지문으로 비교했다. 경로와 credential은 출력·기록하지 않았다.
+
+### preflight 중 발견하고 수정한 runner 결함
+
+최초 점검 구현은 `fault_hooks_enabled=true`와 runner 쪽 디렉터리 쓰기만 확인해, runner와 worker가 서로
+다른 fault root를 보더라도 `READY`로 판정했다. 그 결과 H-03 실행 시 marker가 worker에 보이지 않아
+`BOUNDARY_RECEIPT_MISSING`으로 수집기가 중단됐다. 이 시도는 verdict나 봉인 bundle을 만들지 않았으며,
+제품 FAIL로 기록하지 않았다.
+
+- WhyYou health는 실제 경로를 공개하지 않고 정규화된 fault root의 SHA-256 지문만 반환하도록 보완했다.
+- ControlProof preflight는 자신의 지문과 대상 지문이 동일한지 확인하고, 다르면 모든 fault capability를
+  `RUNNER_NOT_READY`로 차단하도록 보완했다.
+- 잘못 처리된 합성 시도는 공식 seed teardown으로 제거했고, 해당 합성 event의 processed marker 1개도
+  정확한 event/consumer/version 키로 제거했다. 관련 queue, outbox, report, session 잔여는 0건이다.
+- 보완 회귀 결과: WhyYou scoped tests `58 passed`, ControlProof capability tests `9 passed`, 양쪽 Ruff 통과.
+
+이 결함을 보완하고 API를 최신 코드로 재기동한 뒤 위 세 preflight가 모두 `READY`가 된 결과만 T080
+승인 근거로 사용한다. 실제 최초 봉인 Run은 T081에서 별도로 생성한다.
+
 ## 2026-09-28 — User Story 6 결정론적 봉인 실행 기반 (T072~T079)
 
 ### 이번 단계에서 고정한 의미
