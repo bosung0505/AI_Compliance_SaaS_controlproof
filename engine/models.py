@@ -9,6 +9,7 @@ from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import PurePosixPath
 from typing import Any
+from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
 from pydantic import BaseModel, ConfigDict, Field, field_validator, model_validator
@@ -81,6 +82,55 @@ class Presence(StrEnum):
     UNAVAILABLE = "UNAVAILABLE"
 
 
+class ExecutionProfile(StrEnum):
+    H03_MINIMAL_V1 = "H03_MINIMAL_V1"
+    H03_DLQ_V2 = "H03_DLQ_V2"
+    E03_BEFORE_V2 = "E03_BEFORE_V2"
+    E03_AFTER_V2 = "E03_AFTER_V2"
+
+
+class FaultVariant(StrEnum):
+    BEFORE_RESULT_DURABLE = "BEFORE_RESULT_DURABLE"
+    AFTER_RESULT_DURABLE_BEFORE_COMPLETION = "AFTER_RESULT_DURABLE_BEFORE_COMPLETION"
+
+
+class EnvironmentKind(StrEnum):
+    LOCAL_EMULATED = "LOCAL_EMULATED"
+
+
+class AwsDeploymentStatus(StrEnum):
+    NOT_RUN = "NOT_RUN"
+
+
+class DeliveryAttemptOutcome(StrEnum):
+    FAULT_TRIGGERED = "FAULT_TRIGGERED"
+    COMMITTED_ACK_DROPPED = "COMMITTED_ACK_DROPPED"
+    DUPLICATE_ACK = "DUPLICATE_ACK"
+    COMPLETED = "COMPLETED"
+
+
+class TerminalFailureRoute(StrEnum):
+    APPLICATION_DLQ = "APPLICATION_DLQ"
+    INFRASTRUCTURE_DLQ = "INFRASTRUCTURE_DLQ"
+    TRACEABLE_FAILED_STATE = "TRACEABLE_FAILED_STATE"
+
+
+class FaultBoundary(StrEnum):
+    BEFORE_REPORT_SIDE_EFFECT = "BEFORE_REPORT_SIDE_EFFECT"
+    AFTER_DB_COMMIT_BEFORE_SQS_ACK = "AFTER_DB_COMMIT_BEFORE_SQS_ACK"
+
+
+class DecisionPathId(StrEnum):
+    FINAL_DECISION = "FINAL_DECISION"
+    BATCH_MOVE_FINAL_ACCEPT = "BATCH_MOVE_FINAL_ACCEPT"
+    BATCH_MOVE_FINAL_REJECT = "BATCH_MOVE_FINAL_REJECT"
+
+
+class EffectGroup(StrEnum):
+    REPORTING = "REPORTING"
+    DECISION = "DECISION"
+
+
 class AssertionStatus(StrEnum):
     PASS = "PASS"
     FAIL = "FAIL"
@@ -132,6 +182,394 @@ class Source(StrEnum):
 
 class FrozenModel(BaseModel):
     model_config = ConfigDict(frozen=True, extra="forbid", use_enum_values=False)
+
+
+SPEC002_UNVERIFIED_SCOPE = frozenset(
+    {"AWS_SQS", "AWS_ECS", "AWS_IAM", "AWS_CLOUDWATCH", "AWS_NETWORK"}
+)
+
+
+class ScenarioProfile(FrozenModel):
+    execution_profile: ExecutionProfile
+    scenario_id: str
+    scenario_version: str
+    fault_variant: FaultVariant | None
+    applicable_assertion_ids: tuple[str, ...]
+    required_capabilities: dict[str, str] = Field(default_factory=dict)
+    required_evidence: tuple[str, ...]
+    timing_policy: dict[str, Any] = Field(default_factory=dict)
+    snapshot_digest: str | None = None
+
+    @classmethod
+    def canonical(cls, profile: ExecutionProfile) -> ScenarioProfile:
+        timing = {
+            "poll_seconds": 2,
+            "dlq_deadline_seconds": 360,
+            "duplicate_ack_deadline_seconds": 60,
+            "environment_restore_deadline_seconds": 180,
+            "run_deadline_seconds": 600,
+            "stability_consecutive": 3,
+            "stability_seconds": 4,
+            "expected_queue": {"max_receive_count": 3, "visibility_timeout_seconds": 5},
+        }
+        if profile is ExecutionProfile.H03_MINIMAL_V1:
+            return cls(
+                execution_profile=profile,
+                scenario_id="H-03",
+                scenario_version="1.0.0",
+                fault_variant=None,
+                applicable_assertion_ids=tuple(f"H03-A{i}" for i in range(1, 7)),
+                required_evidence=tuple(f"EV-{i:02d}" for i in range(1, 10)),
+                timing_policy={},
+            )
+        if profile is ExecutionProfile.H03_DLQ_V2:
+            evidence = tuple(f"EV-{i:02d}" for i in range(1, 10)) + (
+                *(f"EV2-{i:02d}" for i in range(1, 10)),
+                "EV2-12",
+            )
+            return cls(
+                execution_profile=profile,
+                scenario_id="H-03",
+                scenario_version="2.0.0",
+                fault_variant=FaultVariant.BEFORE_RESULT_DURABLE,
+                applicable_assertion_ids=tuple(f"H03-A{i}" for i in range(1, 10)),
+                required_evidence=evidence,
+                timing_policy=timing,
+            )
+        if profile is ExecutionProfile.E03_BEFORE_V2:
+            return cls(
+                execution_profile=profile,
+                scenario_id="E-03",
+                scenario_version="2.0.0",
+                fault_variant=FaultVariant.BEFORE_RESULT_DURABLE,
+                applicable_assertion_ids=(
+                    "E03-A1",
+                    "E03-A2",
+                    "E03-A3",
+                    "E03-A4",
+                    "E03-A7",
+                    "E03-A8",
+                ),
+                required_evidence=(
+                    *(f"EV2-{i:02d}" for i in range(1, 6)),
+                    *(f"EV2-{i:02d}" for i in range(9, 13)),
+                ),
+                timing_policy=timing,
+            )
+        return cls(
+            execution_profile=profile,
+            scenario_id="E-03",
+            scenario_version="2.0.0",
+            fault_variant=FaultVariant.AFTER_RESULT_DURABLE_BEFORE_COMPLETION,
+            applicable_assertion_ids=("E03-A1", "E03-A5", "E03-A6", "E03-A8"),
+            required_evidence=(
+                "EV2-01",
+                "EV2-02",
+                "EV2-03",
+                "EV2-04",
+                "EV2-09",
+                "EV2-10",
+                "EV2-12",
+            ),
+            timing_policy=timing,
+        )
+
+    @model_validator(mode="after")
+    def validate_canonical_profile(self) -> ScenarioProfile:
+        if not re.fullmatch(r"\d+\.\d+\.\d+", self.scenario_version):
+            raise ValueError("scenario_version must be semantic versioning")
+        canonical = {
+            ExecutionProfile.H03_MINIMAL_V1: ("H-03", None, tuple(f"H03-A{i}" for i in range(1, 7))),
+            ExecutionProfile.H03_DLQ_V2: (
+                "H-03",
+                FaultVariant.BEFORE_RESULT_DURABLE,
+                tuple(f"H03-A{i}" for i in range(1, 10)),
+            ),
+            ExecutionProfile.E03_BEFORE_V2: (
+                "E-03",
+                FaultVariant.BEFORE_RESULT_DURABLE,
+                ("E03-A1", "E03-A2", "E03-A3", "E03-A4", "E03-A7", "E03-A8"),
+            ),
+            ExecutionProfile.E03_AFTER_V2: (
+                "E-03",
+                FaultVariant.AFTER_RESULT_DURABLE_BEFORE_COMPLETION,
+                ("E03-A1", "E03-A5", "E03-A6", "E03-A8"),
+            ),
+        }[self.execution_profile]
+        if (self.scenario_id, self.fault_variant, self.applicable_assertion_ids) != canonical:
+            raise ValueError("profile scenario, fault variant, or assertion ownership is not canonical")
+        if len(set(self.applicable_assertion_ids)) != len(self.applicable_assertion_ids):
+            raise ValueError("applicable assertion IDs must be unique")
+        if len(set(self.required_evidence)) != len(self.required_evidence):
+            raise ValueError("required evidence IDs must be unique")
+        identity = self.model_dump(mode="json", exclude={"snapshot_digest"})
+        digest = sha256_bytes(canonical_json_bytes(identity))
+        if self.snapshot_digest is not None and self.snapshot_digest != digest:
+            raise ValueError("profile snapshot_digest does not match canonical identity")
+        object.__setattr__(self, "snapshot_digest", digest)
+        return self
+
+
+class GitIdentity(FrozenModel):
+    commit_sha: str
+    dirty: bool
+    diff_digest: str | None = None
+
+    @model_validator(mode="after")
+    def validate_git_identity(self) -> GitIdentity:
+        if not GIT_SHA_RE.fullmatch(self.commit_sha):
+            raise ValueError("commit_sha must be a 40-character lowercase git SHA")
+        if self.dirty and not _is_sha(self.diff_digest):
+            raise ValueError("dirty checkout requires diff_digest")
+        if not self.dirty and self.diff_digest is not None:
+            raise ValueError("clean checkout cannot have diff_digest")
+        return self
+
+
+class TargetEnvironmentSnapshot(FrozenModel):
+    schema_version: str = "controlproof.environment-snapshot.v1"
+    target_id: str
+    environment_kind: EnvironmentKind
+    host_os: str
+    controlproof_commit: GitIdentity
+    whyyou_commit: GitIdentity
+    components: dict[str, str]
+    endpoints: dict[str, str]
+    model_fixture_id: str
+    model_fixture_digest: str
+    external_ai_allowed: bool
+    aws_deployment_status: AwsDeploymentStatus
+    unverified_scope: tuple[str, ...]
+    captured_at: datetime = Field(default_factory=utcnow)
+    snapshot_digest: str | None = None
+
+    @model_validator(mode="after")
+    def validate_environment(self) -> TargetEnvironmentSnapshot:
+        if self.target_id != "whyyou-local" or self.environment_kind is not EnvironmentKind.LOCAL_EMULATED:
+            raise ValueError("Spec 002 official environment must be whyyou-local/LOCAL_EMULATED")
+        if self.external_ai_allowed:
+            raise ValueError("external AI must be disabled")
+        if self.aws_deployment_status is not AwsDeploymentStatus.NOT_RUN:
+            raise ValueError("local environment requires AWS deployment status NOT_RUN")
+        if set(self.unverified_scope) != SPEC002_UNVERIFIED_SCOPE:
+            raise ValueError("local environment must declare the exact unverified AWS scope")
+        if not _is_sha(self.model_fixture_digest):
+            raise ValueError("model fixture digest must be lowercase SHA-256")
+        if self.captured_at.tzinfo is None:
+            raise ValueError("captured_at must be timezone-aware")
+        allowlisted = {"localhost", "127.0.0.1", "host.docker.internal", "postgres", "localstack", "mailpit"}
+        for name, endpoint in self.endpoints.items():
+            parsed = urlparse(endpoint.replace("postgresql+psycopg", "postgresql", 1))
+            if parsed.hostname not in allowlisted or parsed.username or parsed.password or parsed.query:
+                raise ValueError(f"endpoint {name} must be secret-free and local")
+        identity = self.model_dump(mode="json", exclude={"captured_at", "snapshot_digest"})
+        digest = sha256_bytes(canonical_json_bytes(identity))
+        if self.snapshot_digest is not None and self.snapshot_digest != digest:
+            raise ValueError("environment snapshot digest mismatch")
+        object.__setattr__(self, "snapshot_digest", digest)
+        return self
+
+
+class QueueTopologySnapshot(FrozenModel):
+    schema_version: str = "controlproof.queue-topology.v1"
+    source_queue_name: str
+    source_queue_url_digest: str
+    dead_letter_queue_name: str
+    dead_letter_queue_arn: str
+    max_receive_count: int
+    visibility_timeout_seconds: int
+    source_retention_seconds: int
+    dlq_retention_seconds: int
+    redrive_policy_digest: str
+    captured_at: datetime = Field(default_factory=utcnow)
+    snapshot_digest: str | None = None
+
+    @model_validator(mode="after")
+    def validate_topology(self) -> QueueTopologySnapshot:
+        if self.source_queue_name != "iep-reporting" or self.dead_letter_queue_name != "iep-reporting-dlq":
+            raise ValueError("official reporting queue topology is required")
+        if self.max_receive_count != 3:
+            raise ValueError("max receive count must be 3")
+        if self.visibility_timeout_seconds != 5:
+            raise ValueError("visibility timeout must be 5 seconds")
+        if self.dlq_retention_seconds <= self.source_retention_seconds:
+            raise ValueError("DLQ retention must exceed source retention")
+        if not _is_sha(self.source_queue_url_digest) or not _is_sha(self.redrive_policy_digest):
+            raise ValueError("queue and redrive digests must be lowercase SHA-256")
+        if self.captured_at.tzinfo is None:
+            raise ValueError("captured_at must be timezone-aware")
+        identity = self.model_dump(mode="json", exclude={"captured_at", "snapshot_digest"})
+        digest = sha256_bytes(canonical_json_bytes(identity))
+        if self.snapshot_digest is not None and self.snapshot_digest != digest:
+            raise ValueError("queue topology snapshot digest mismatch")
+        object.__setattr__(self, "snapshot_digest", digest)
+        return self
+
+
+class DeliveryAttemptRecord(FrozenModel):
+    schema_version: str = "controlproof.delivery-attempt.v1"
+    run_id: UUID
+    subject_ref: str
+    source_event_id: UUID
+    consumer_name: str
+    delivery_attempt: int = Field(ge=1)
+    fault_variant: FaultVariant
+    outcome: DeliveryAttemptOutcome
+    observed_at: datetime
+    receipt_artifact_id: UUID
+
+    @model_validator(mode="after")
+    def validate_attempt(self) -> DeliveryAttemptRecord:
+        if self.consumer_name != "reporting-worker":
+            raise ValueError("Spec 002 delivery attempts belong to reporting-worker")
+        if not self.subject_ref.strip():
+            raise ValueError("delivery attempt requires subject_ref")
+        if self.observed_at.tzinfo is None:
+            raise ValueError("observed_at must be timezone-aware")
+        expected = {
+            FaultVariant.BEFORE_RESULT_DURABLE: {DeliveryAttemptOutcome.FAULT_TRIGGERED},
+            FaultVariant.AFTER_RESULT_DURABLE_BEFORE_COMPLETION: {
+                DeliveryAttemptOutcome.COMMITTED_ACK_DROPPED,
+                DeliveryAttemptOutcome.DUPLICATE_ACK,
+                DeliveryAttemptOutcome.COMPLETED,
+            },
+        }[self.fault_variant]
+        if self.outcome not in expected:
+            raise ValueError("delivery outcome does not match the selected fault variant")
+        return self
+
+
+class TerminalFailureRecord(FrozenModel):
+    schema_version: str = "controlproof.terminal-failure.v1"
+    route_type: TerminalFailureRoute
+    route_locator: str
+    source_event_id: UUID
+    subject_ref: str
+    last_delivery_attempt: int = Field(ge=1)
+    last_failure_code: str
+    message_body_digest: str
+    observed_at: datetime
+
+    @field_validator("message_body_digest")
+    @classmethod
+    def validate_message_digest(cls, value: str) -> str:
+        if not _is_sha(value):
+            raise ValueError("message body digest must be lowercase SHA-256")
+        return value
+
+    @model_validator(mode="after")
+    def validate_terminal_failure(self) -> TerminalFailureRecord:
+        if self.route_type is not TerminalFailureRoute.INFRASTRUCTURE_DLQ:
+            raise ValueError("official Spec 002 target uses the infrastructure DLQ")
+        if self.route_locator != "localstack:sqs:iep-reporting-dlq":
+            raise ValueError("terminal failure must identify the official LocalStack DLQ")
+        if self.observed_at.tzinfo is None:
+            raise ValueError("observed_at must be timezone-aware")
+        return self
+
+
+class FaultBoundaryReceipt(FrozenModel):
+    schema_version: str = "controlproof.whyyou-fault-receipt.v2"
+    run_id: UUID
+    session_id: UUID
+    outbox_event_id: UUID
+    delivery_attempt: int = Field(ge=1)
+    fault_variant: FaultVariant
+    boundary: FaultBoundary
+    triggered_at: datetime
+    one_shot_consumed: bool
+
+    @model_validator(mode="after")
+    def validate_boundary(self) -> FaultBoundaryReceipt:
+        expected = (
+            FaultBoundary.BEFORE_REPORT_SIDE_EFFECT
+            if self.fault_variant is FaultVariant.BEFORE_RESULT_DURABLE
+            else FaultBoundary.AFTER_DB_COMMIT_BEFORE_SQS_ACK
+        )
+        if self.boundary is not expected:
+            raise ValueError("fault variant and boundary do not match")
+        if self.fault_variant is FaultVariant.AFTER_RESULT_DURABLE_BEFORE_COMPLETION and not self.one_shot_consumed:
+            raise ValueError("AFTER boundary must consume its one-shot marker")
+        if self.triggered_at.tzinfo is None:
+            raise ValueError("triggered_at must be timezone-aware")
+        return self
+
+
+class DecisionPathCapability(FrozenModel):
+    path_id: DecisionPathId
+    operation_id: str
+    target_stage_id: UUID
+    target_stage_name: str
+    expected_effects: frozenset[str] = frozenset()
+    source_commit: str
+
+    @model_validator(mode="after")
+    def validate_decision_path(self) -> DecisionPathCapability:
+        if self.target_stage_name not in {"최종합격", "불합격"}:
+            raise ValueError("decision path target must be a final stage")
+        if not GIT_SHA_RE.fullmatch(self.source_commit):
+            raise ValueError("source_commit must be a git SHA")
+        return self
+
+
+class BusinessEffectSnapshot(FrozenModel):
+    schema_version: str = "controlproof.effect-snapshot.v1"
+    run_id: UUID
+    subject_ref: str
+    phase: Phase
+    step_id: str
+    attempt: int = Field(ge=1)
+    logical_operation_id: UUID
+    source_event_id: UUID
+    effect_group: EffectGroup
+    effects: dict[str, Any]
+    state_digest: str
+    captured_at: datetime
+    source_status: Presence
+    source_error_code: str | None = None
+
+    @model_validator(mode="after")
+    def validate_effect(self) -> BusinessEffectSnapshot:
+        if not _is_sha(self.state_digest):
+            raise ValueError("effect state_digest must be lowercase SHA-256")
+        if self.source_status is Presence.UNAVAILABLE and not self.source_error_code:
+            raise ValueError("UNAVAILABLE effect source requires error code")
+        if self.source_status is not Presence.UNAVAILABLE and self.source_error_code is not None:
+            raise ValueError("only UNAVAILABLE effect source may have error code")
+        if self.source_status is Presence.UNAVAILABLE and self.effects:
+            raise ValueError("UNAVAILABLE effect snapshots cannot claim effects")
+        if self.source_status is Presence.ABSENT and any(
+            bool(value) for value in self.effects.values()
+        ):
+            raise ValueError("ABSENT effect snapshots cannot contain present identities")
+        if self.source_status is Presence.PRESENT and not self.effects:
+            raise ValueError("PRESENT effect snapshot requires a projected effect set")
+        if self.captured_at.tzinfo is None:
+            raise ValueError("captured_at must be timezone-aware")
+        return self
+
+
+class RedriveReceipt(FrozenModel):
+    schema_version: str = "controlproof.dlq-redrive-receipt.v1"
+    source_event_id: UUID
+    dlq_message_id: str
+    republished_message_id: str | None = None
+    body_digest: str
+    send_succeeded: bool
+    delete_succeeded: bool
+    redriven_at: datetime
+
+    @model_validator(mode="after")
+    def validate_redrive(self) -> RedriveReceipt:
+        if not _is_sha(self.body_digest):
+            raise ValueError("redrive body_digest must be lowercase SHA-256")
+        if self.send_succeeded and not self.republished_message_id:
+            raise ValueError("successful redrive send requires republished message ID")
+        if not self.send_succeeded and self.delete_succeeded:
+            raise ValueError("DLQ message cannot be deleted after failed send")
+        if self.redriven_at.tzinfo is None:
+            raise ValueError("redriven_at must be timezone-aware")
+        return self
 
 
 class ComparatorPolicy(FrozenModel):
@@ -258,6 +696,14 @@ class Run(FrozenModel):
     fault_ever_applied: bool = False
     manual_cleanup_required: bool = False
     implementation_status: ImplementationStatus = ImplementationStatus.IMPLEMENTED
+    execution_profile: ExecutionProfile | None = None
+    fault_variant: FaultVariant | None = None
+    environment_kind: EnvironmentKind | None = None
+    aws_deployment_status: AwsDeploymentStatus | None = None
+    environment_snapshot_digest: str | None = None
+    queue_topology_digest: str | None = None
+    source_event_id: UUID | None = None
+    unverified_scope: tuple[str, ...] = ()
 
     @model_validator(mode="after")
     def validate_run(self) -> Run:
@@ -283,6 +729,19 @@ class Run(FrozenModel):
             raise ValueError("non-terminal Run cannot have ended_at")
         if self.state is RunState.RESTORE_FAILED and not self.manual_cleanup_required:
             raise ValueError("RESTORE_FAILED requires manual_cleanup_required=true")
+        if self.execution_profile is not None and self.execution_profile is not ExecutionProfile.H03_MINIMAL_V1:
+            if self.fault_variant is None:
+                raise ValueError("Spec 002 Run requires fault_variant")
+            if self.environment_kind is not EnvironmentKind.LOCAL_EMULATED:
+                raise ValueError("Spec 002 Run requires LOCAL_EMULATED environment")
+            if self.aws_deployment_status is not AwsDeploymentStatus.NOT_RUN:
+                raise ValueError("Spec 002 local Run requires AWS NOT_RUN")
+            if not _is_sha(self.environment_snapshot_digest) or not _is_sha(
+                self.queue_topology_digest
+            ):
+                raise ValueError("Spec 002 Run requires environment and queue snapshot digests")
+            if set(self.unverified_scope) != SPEC002_UNVERIFIED_SCOPE:
+                raise ValueError("Spec 002 Run requires the exact unverified AWS scope")
         return self
 
 
@@ -318,6 +777,9 @@ class FaultCondition(FrozenModel):
     environment_restore_success: bool | None = None
     report_processing_recovery: ReportProcessingRecovery | None = None
     actor_ref: str = "controlproof-runner"
+    fault_variant: FaultVariant | None = None
+    boundary_receipt_id: UUID | None = None
+    one_shot: bool = False
 
 
 class Observation(FrozenModel):

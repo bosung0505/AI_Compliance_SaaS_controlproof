@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import time
+from collections.abc import Callable, Mapping
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
@@ -14,6 +15,7 @@ from engine.judge import judge_h03
 from engine.lifecycle import RestoreBlockStore, TargetSubjectLock, transition
 from engine.models import (
     EvidenceArtifact,
+    ExecutionProfile,
     Observation,
     Phase,
     Presence,
@@ -861,3 +863,57 @@ def _checkpoint_error_code(exc: BaseException) -> str:
     if candidate and all(character.isalnum() or character == "_" for character in candidate):
         return candidate
     return type(exc).__name__.upper()
+
+
+class UnregisteredExecutionProfile(RuntimeError):
+    """Raised before Run creation when no executor owns the selected profile."""
+
+
+RunnerFactory = Callable[..., RunOrchestrator]
+
+
+class ExecutionProfileRegistry:
+    """Maps immutable execution profiles to their owning runner implementation."""
+
+    def __init__(self) -> None:
+        self._factories: dict[ExecutionProfile, RunnerFactory] = {
+            ExecutionProfile.H03_MINIMAL_V1: RunOrchestrator,
+        }
+
+    @property
+    def registrations(self) -> Mapping[ExecutionProfile, RunnerFactory]:
+        return dict(self._factories)
+
+    def register(self, profile: ExecutionProfile, factory: RunnerFactory) -> None:
+        self._factories[profile] = factory
+
+    def build(
+        self,
+        scenario: ScenarioDefinition,
+        adapters: AdapterSet,
+        run_root: Path,
+        *,
+        clock: Clock | None = None,
+    ) -> RunOrchestrator:
+        profile = scenario.execution_profile or ExecutionProfile.H03_MINIMAL_V1
+        factory = self._factories.get(profile)
+        if factory is None:
+            raise UnregisteredExecutionProfile(
+                f"execution profile is not registered: {profile.value}"
+            )
+        return factory(scenario, adapters, run_root, clock=clock)
+
+
+PROFILE_REGISTRY = ExecutionProfileRegistry()
+
+
+def build_profile_runner(
+    scenario: ScenarioDefinition,
+    adapters: AdapterSet,
+    run_root: Path,
+    *,
+    clock: Clock | None = None,
+) -> RunOrchestrator:
+    """Build the registered runner without changing Spec 001 call semantics."""
+
+    return PROFILE_REGISTRY.build(scenario, adapters, run_root, clock=clock)

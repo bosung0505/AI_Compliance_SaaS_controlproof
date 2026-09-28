@@ -12,9 +12,11 @@ from uuid import UUID, uuid4
 from engine.lifecycle import atomic_write
 from engine.models import (
     EvidenceArtifact,
+    ExecutionProfile,
     IntegrityStatus,
     Phase,
     Run,
+    ScenarioProfile,
     canonical_json_bytes,
     sha256_bytes,
     utcnow,
@@ -61,6 +63,18 @@ CANONICAL_FILES = {
     "judgement.json",
 }
 
+SPEC002_PROFILE_CONTRACT = "controlproof.bundle-profile.spec002.v1"
+SPEC002_COMMON_CANONICAL_FILES = CANONICAL_FILES | {
+    "environment.snapshot.json",
+    "queue-topology.snapshot.json",
+    "delivery-attempts.jsonl",
+    "effects.jsonl",
+}
+SPEC002_DLQ_CANONICAL_FILES = SPEC002_COMMON_CANONICAL_FILES | {
+    "terminal-failure.json",
+    "redrive-receipts.jsonl",
+}
+
 REQUIRED_EVIDENCE_ARTIFACT_TYPES: dict[str, frozenset[str]] = {
     "EV-01": frozenset({"STATE_SNAPSHOT"}),
     "EV-02": frozenset({"FAULT_RECEIPT"}),
@@ -72,6 +86,18 @@ REQUIRED_EVIDENCE_ARTIFACT_TYPES: dict[str, frozenset[str]] = {
     "EV-08": frozenset({"FAULT_RECEIPT", "STATE_SNAPSHOT"}),
     "EV-09": frozenset({"VERSION_SNAPSHOT"}),
 }
+
+
+def _is_spec002_profile(profile: ExecutionProfile | None) -> bool:
+    return profile is not None and profile is not ExecutionProfile.H03_MINIMAL_V1
+
+
+def _canonical_files(profile: ExecutionProfile | None) -> set[str]:
+    if profile in {ExecutionProfile.H03_DLQ_V2, ExecutionProfile.E03_BEFORE_V2}:
+        return set(SPEC002_DLQ_CANONICAL_FILES)
+    if profile is ExecutionProfile.E03_AFTER_V2:
+        return set(SPEC002_COMMON_CANONICAL_FILES)
+    return set(CANONICAL_FILES)
 
 
 def redact(value: Any) -> Any:
@@ -122,10 +148,15 @@ def _relative(root: Path, relative_path: str) -> Path:
 class EvidenceBundleWriter:
     def __init__(self, run_root: Path, run: Run) -> None:
         self.run = run
+        self.profile = run.execution_profile
         self.directory = (run_root.resolve() / str(run.run_id)).resolve()
         self.directory.mkdir(parents=True, exist_ok=True)
         self._files: dict[str, dict[str, Any]] = {}
-        self._required: dict[str, list[str]] = {f"EV-{index:02d}": [] for index in range(1, 10)}
+        if _is_spec002_profile(self.profile):
+            required = ScenarioProfile.canonical(self.profile).required_evidence
+        else:
+            required = tuple(f"EV-{index:02d}" for index in range(1, 10))
+        self._required: dict[str, list[Any]] = {evidence_id: [] for evidence_id in required}
 
     @property
     def sealed(self) -> bool:
@@ -167,6 +198,58 @@ class EvidenceBundleWriter:
             os.fsync(stream.fileno())
         complete = path.read_bytes()
         self._register(relative_path, complete, "application/x-ndjson")
+
+    def link_file_evidence(self, evidence_id: str, relative_path: str) -> None:
+        """Link a registered bundle file to a profile-scoped evidence requirement."""
+
+        self._ensure_mutable()
+        if evidence_id not in self._required:
+            raise ValueError(f"unknown evidence requirement: {evidence_id}")
+        normalized = relative_path.replace("\\", "/")
+        if normalized not in self._files:
+            raise ValueError(f"evidence file is not registered: {normalized}")
+        reference = f"file:{normalized}"
+        if reference not in self._required[evidence_id]:
+            self._required[evidence_id].append(reference)
+
+    def link_intrinsic_evidence(self, evidence_id: str, name: str) -> None:
+        """Link an intrinsic verifier fact such as the final sealed manifest."""
+
+        self._ensure_mutable()
+        if evidence_id not in self._required:
+            raise ValueError(f"unknown evidence requirement: {evidence_id}")
+        if name != "sealed-manifest":
+            raise ValueError(f"unknown intrinsic evidence: {name}")
+        reference = f"intrinsic:{name}"
+        if reference not in self._required[evidence_id]:
+            self._required[evidence_id].append(reference)
+
+    def link_origin_artifact(
+        self,
+        evidence_id: str,
+        *,
+        origin_run_id: UUID,
+        artifact_id: UUID,
+        artifact_digest: str,
+        bundle_digest: str,
+    ) -> None:
+        """Link an artifact from another already sealed Run by immutable digests."""
+
+        self._ensure_mutable()
+        if evidence_id not in self._required:
+            raise ValueError(f"unknown evidence requirement: {evidence_id}")
+        if not re.fullmatch(r"[0-9a-f]{64}", artifact_digest) or not re.fullmatch(
+            r"[0-9a-f]{64}", bundle_digest
+        ):
+            raise ValueError("cross-Run evidence requires canonical SHA-256 digests")
+        self._required[evidence_id].append(
+            {
+                "origin_run_id": str(origin_run_id),
+                "artifact_id": str(artifact_id),
+                "artifact_digest": artifact_digest,
+                "bundle_digest": bundle_digest,
+            }
+        )
 
     def collect_json_artifact(
         self,
@@ -221,7 +304,10 @@ class EvidenceBundleWriter:
         for evidence_id in evidence_requirement_ids:
             if evidence_id not in self._required:
                 raise ValueError(f"unknown evidence requirement: {evidence_id}")
-            self._required[evidence_id].append(str(active_id))
+            reference = (
+                f"artifact:{active_id}" if _is_spec002_profile(self.profile) else str(active_id)
+            )
+            self._required[evidence_id].append(reference)
         return EvidenceArtifact(
             artifact_id=active_id,
             run_id=self.run.run_id,
@@ -276,7 +362,10 @@ class EvidenceBundleWriter:
         for evidence_id in evidence_requirement_ids:
             if evidence_id not in self._required:
                 raise ValueError(f"unknown evidence requirement: {evidence_id}")
-            self._required[evidence_id].append(str(active_id))
+            reference = (
+                f"artifact:{active_id}" if _is_spec002_profile(self.profile) else str(active_id)
+            )
+            self._required[evidence_id].append(reference)
         return EvidenceArtifact(
             artifact_id=active_id,
             run_id=self.run.run_id,
@@ -335,7 +424,7 @@ class EvidenceBundleWriter:
 
     def seal(self) -> dict[str, Any]:
         self._ensure_mutable()
-        missing_canonical = sorted(CANONICAL_FILES - set(self._files))
+        missing_canonical = sorted(_canonical_files(self.profile) - set(self._files))
         if missing_canonical:
             raise ValueError(f"cannot seal bundle; canonical files missing: {missing_canonical}")
         manifest = {
@@ -348,6 +437,15 @@ class EvidenceBundleWriter:
             "files": [self._files[key] for key in sorted(self._files)],
             "required_evidence": self._required,
         }
+        if _is_spec002_profile(self.profile):
+            manifest.update(
+                {
+                    "profile_contract": SPEC002_PROFILE_CONTRACT,
+                    "execution_profile": self.profile.value,
+                    "environment_snapshot_digest": self.run.environment_snapshot_digest,
+                    "queue_topology_digest": self.run.queue_topology_digest,
+                }
+            )
         manifest["bundle_digest"] = sha256_bytes(canonical_json_bytes(manifest))
         atomic_write(self.directory / "manifest.json", canonical_json_bytes(manifest))
         return manifest
@@ -376,6 +474,7 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
         return result
     if manifest.get("schema_version") != "controlproof.bundle.v1":
         result["mismatched_files"].append("manifest.json:schema_version")
+    profile = _resolve_bundle_profile(directory, manifest, result)
     digest_payload = {key: value for key, value in manifest.items() if key != "bundle_digest"}
     if manifest.get("bundle_digest") != sha256_bytes(canonical_json_bytes(digest_payload)):
         result["mismatched_files"].append("manifest.json:bundle_digest")
@@ -416,7 +515,7 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
                 result["mismatched_files"].append(f"artifact:{artifact_id}:duplicate")
             artifact_records[artifact_id] = record
             _verify_artifact_envelope(directory, record, result)
-    for canonical in sorted(CANONICAL_FILES):
+    for canonical in sorted(_canonical_files(profile)):
         if canonical not in registered or not (directory / canonical).is_file():
             result["missing_files"].append(canonical)
     actual = {
@@ -434,43 +533,188 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
         if not isinstance(required_evidence, dict):
             result["mismatched_files"].append("manifest.json:required_evidence")
             required_evidence = {}
-        for evidence_id in (f"EV-{index:02d}" for index in range(1, 10)):
-            linked = required_evidence.get(evidence_id)
-            if not isinstance(linked, list) or not linked:
-                result["missing_files"].append(f"evidence:{evidence_id}")
-                continue
-            for artifact_id in linked:
-                if artifact_id not in artifact_records:
-                    result["mismatched_files"].append(
-                        f"evidence:{evidence_id}:unknown-artifact:{artifact_id}"
-                    )
-                    continue
-                record = artifact_records[artifact_id]
-                declared = record.get("evidence_requirement_ids")
-                if not isinstance(declared, list) or evidence_id not in declared:
-                    result["mismatched_files"].append(
-                        f"evidence:{evidence_id}:cross-link:{artifact_id}"
-                    )
-            linked_types = {
-                artifact_records[artifact_id].get("artifact_type")
-                for artifact_id in linked
-                if artifact_id in artifact_records
-                and isinstance(artifact_records[artifact_id].get("evidence_requirement_ids"), list)
-                and evidence_id in artifact_records[artifact_id]["evidence_requirement_ids"]
-            }
-            for artifact_type in sorted(
-                REQUIRED_EVIDENCE_ARTIFACT_TYPES[evidence_id] - linked_types
-            ):
-                result["mismatched_files"].append(
-                    f"evidence:{evidence_id}:artifact-type:{artifact_type}"
-                )
+        if _is_spec002_profile(profile):
+            _verify_spec002_evidence(
+                directory,
+                required_evidence,
+                ScenarioProfile.canonical(profile).required_evidence,
+                registered,
+                artifact_records,
+                result,
+            )
+        else:
+            _verify_v1_evidence(required_evidence, artifact_records, result)
     _verify_manifest_run_link(directory, manifest, result)
     _verify_snapshot_links(directory, result)
+    if _is_spec002_profile(profile):
+        _verify_spec002_snapshot_links(directory, manifest, result)
     if result["missing_files"] or result["mismatched_files"]:
         result["bundle_status"] = "INVALID"
     result["missing_files"].sort()
     result["mismatched_files"].sort()
     return result
+
+
+def _verify_v1_evidence(
+    required_evidence: dict[str, Any],
+    artifact_records: dict[str, dict[str, Any]],
+    result: dict[str, Any],
+) -> None:
+    for evidence_id in (f"EV-{index:02d}" for index in range(1, 10)):
+        linked = required_evidence.get(evidence_id)
+        if not isinstance(linked, list) or not linked:
+            result["missing_files"].append(f"evidence:{evidence_id}")
+            continue
+        for artifact_id in linked:
+            if artifact_id not in artifact_records:
+                result["mismatched_files"].append(
+                    f"evidence:{evidence_id}:unknown-artifact:{artifact_id}"
+                )
+                continue
+            record = artifact_records[artifact_id]
+            declared = record.get("evidence_requirement_ids")
+            if not isinstance(declared, list) or evidence_id not in declared:
+                result["mismatched_files"].append(
+                    f"evidence:{evidence_id}:cross-link:{artifact_id}"
+                )
+        linked_types = {
+            artifact_records[artifact_id].get("artifact_type")
+            for artifact_id in linked
+            if artifact_id in artifact_records
+            and isinstance(artifact_records[artifact_id].get("evidence_requirement_ids"), list)
+            and evidence_id in artifact_records[artifact_id]["evidence_requirement_ids"]
+        }
+        for artifact_type in sorted(REQUIRED_EVIDENCE_ARTIFACT_TYPES[evidence_id] - linked_types):
+            result["mismatched_files"].append(
+                f"evidence:{evidence_id}:artifact-type:{artifact_type}"
+            )
+
+
+def _resolve_bundle_profile(
+    directory: Path,
+    manifest: dict[str, Any],
+    result: dict[str, Any],
+) -> ExecutionProfile | None:
+    try:
+        run = json.loads((directory / "run.json").read_text(encoding="utf-8"))
+    except (OSError, json.JSONDecodeError):
+        return None
+    raw_profile = run.get("execution_profile") if isinstance(run, dict) else None
+    try:
+        profile = ExecutionProfile(raw_profile) if raw_profile else None
+    except ValueError:
+        result["mismatched_files"].append("run.json:execution_profile")
+        return None
+    contract = manifest.get("profile_contract")
+    if contract is None:
+        if _is_spec002_profile(profile):
+            result["mismatched_files"].append("manifest.json:profile_contract")
+        return profile
+    if contract != SPEC002_PROFILE_CONTRACT:
+        result["mismatched_files"].append("manifest.json:profile_contract")
+        return profile
+    if not _is_spec002_profile(profile):
+        result["mismatched_files"].append("manifest.json:execution_profile")
+        return profile
+    if manifest.get("execution_profile") != profile.value:
+        result["mismatched_files"].append("manifest.json:execution_profile")
+    return profile
+
+
+def _verify_spec002_evidence(
+    directory: Path,
+    required_evidence: dict[str, Any],
+    expected_ids: tuple[str, ...],
+    registered_files: set[str],
+    artifact_records: dict[str, dict[str, Any]],
+    result: dict[str, Any],
+) -> None:
+    if set(required_evidence) != set(expected_ids):
+        result["mismatched_files"].append("manifest.json:required_evidence_profile")
+    for evidence_id in expected_ids:
+        linked = required_evidence.get(evidence_id)
+        if not isinstance(linked, list) or not linked:
+            result["missing_files"].append(f"evidence:{evidence_id}")
+            continue
+        for reference in linked:
+            if isinstance(reference, dict):
+                _verify_cross_run_reference(
+                    evidence_id, reference, result, bundle_directory=directory
+                )
+                continue
+            if not isinstance(reference, str):
+                result["mismatched_files"].append(
+                    f"evidence:{evidence_id}:reference-type"
+                )
+                continue
+            if reference.startswith("file:"):
+                relative_path = reference.removeprefix("file:")
+                if relative_path not in registered_files:
+                    result["mismatched_files"].append(
+                        f"evidence:{evidence_id}:unknown-file:{relative_path}"
+                    )
+            elif reference.startswith("artifact:"):
+                artifact_id = reference.removeprefix("artifact:")
+                record = artifact_records.get(artifact_id)
+                if record is None:
+                    result["mismatched_files"].append(
+                        f"evidence:{evidence_id}:unknown-artifact:{artifact_id}"
+                    )
+                elif evidence_id not in record.get("evidence_requirement_ids", []):
+                    result["mismatched_files"].append(
+                        f"evidence:{evidence_id}:cross-link:{artifact_id}"
+                    )
+            elif reference != "intrinsic:sealed-manifest":
+                result["mismatched_files"].append(
+                    f"evidence:{evidence_id}:unknown-reference:{reference}"
+                )
+
+
+def _verify_cross_run_reference(
+    evidence_id: str,
+    reference: dict[str, Any],
+    result: dict[str, Any],
+    *,
+    bundle_directory: Path,
+) -> None:
+    required = {"origin_run_id", "artifact_id", "artifact_digest", "bundle_digest"}
+    if set(reference) != required:
+        result["mismatched_files"].append(f"evidence:{evidence_id}:cross-run-fields")
+        return
+    for field in ("artifact_digest", "bundle_digest"):
+        value = reference.get(field)
+        if not isinstance(value, str) or not re.fullmatch(r"[0-9a-f]{64}", value):
+            result["mismatched_files"].append(
+                f"evidence:{evidence_id}:cross-run-{field}"
+            )
+            return
+    try:
+        origin_run_id = str(UUID(str(reference["origin_run_id"])))
+        artifact_id = str(UUID(str(reference["artifact_id"])))
+    except (ValueError, TypeError):
+        result["mismatched_files"].append(f"evidence:{evidence_id}:cross-run-identity")
+        return
+    origin_directory = bundle_directory.parent / origin_run_id
+    origin_verification = verify_bundle(origin_directory, require_all_evidence=False)
+    if origin_verification["bundle_status"] != "VERIFIED":
+        result["mismatched_files"].append(f"evidence:{evidence_id}:origin-bundle-invalid")
+        return
+    try:
+        origin_manifest = json.loads(
+            (origin_directory / "manifest.json").read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError):
+        result["mismatched_files"].append(f"evidence:{evidence_id}:origin-manifest")
+        return
+    if origin_manifest.get("bundle_digest") != reference["bundle_digest"]:
+        result["mismatched_files"].append(f"evidence:{evidence_id}:origin-bundle-digest")
+    matching = [
+        record
+        for record in origin_manifest.get("files", [])
+        if isinstance(record, dict) and record.get("artifact_id") == artifact_id
+    ]
+    if len(matching) != 1 or matching[0].get("sha256") != reference["artifact_digest"]:
+        result["mismatched_files"].append(f"evidence:{evidence_id}:origin-artifact")
 
 
 def _verify_artifact_envelope(
@@ -569,3 +813,76 @@ def _verify_snapshot_links(directory: Path, result: dict[str, Any]) -> None:
         expected = sha256_bytes(canonical_json_bytes(definition)) if definition else None
         if run.get("scenario_digest") != expected or scenario.get("digest") != expected:
             result["mismatched_files"].append("scenario.snapshot.yaml:link")
+
+
+def _verify_spec002_snapshot_links(
+    directory: Path,
+    manifest: dict[str, Any],
+    result: dict[str, Any],
+) -> None:
+    try:
+        run = json.loads((directory / "run.json").read_text(encoding="utf-8"))
+        environment = json.loads(
+            (directory / "environment.snapshot.json").read_text(encoding="utf-8")
+        )
+        queue = json.loads(
+            (directory / "queue-topology.snapshot.json").read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError):
+        return
+    if not all(isinstance(item, dict) for item in (run, environment, queue)):
+        result["mismatched_files"].append("spec002:snapshot-object")
+        return
+    environment_identity = {
+        key: value
+        for key, value in environment.items()
+        if key not in {"captured_at", "snapshot_digest"}
+    }
+    queue_identity = {
+        key: value
+        for key, value in queue.items()
+        if key not in {"captured_at", "snapshot_digest"}
+    }
+    environment_digest = sha256_bytes(canonical_json_bytes(environment_identity))
+    queue_digest = sha256_bytes(canonical_json_bytes(queue_identity))
+    links = (
+        (
+            "environment.snapshot.json:link",
+            environment_digest,
+            environment.get("snapshot_digest"),
+            run.get("environment_snapshot_digest"),
+            manifest.get("environment_snapshot_digest"),
+        ),
+        (
+            "queue-topology.snapshot.json:link",
+            queue_digest,
+            queue.get("snapshot_digest"),
+            run.get("queue_topology_digest"),
+            manifest.get("queue_topology_digest"),
+        ),
+    )
+    for error, expected, embedded, run_digest, manifest_digest in links:
+        if not expected == embedded == run_digest == manifest_digest:
+            result["mismatched_files"].append(error)
+    expected_scope = {"AWS_SQS", "AWS_ECS", "AWS_IAM", "AWS_CLOUDWATCH", "AWS_NETWORK"}
+    if (
+        run.get("environment_kind") != "LOCAL_EMULATED"
+        or run.get("aws_deployment_status") != "NOT_RUN"
+        or set(run.get("unverified_scope", [])) != expected_scope
+    ):
+        result["mismatched_files"].append("run.json:local-environment-claim")
+    if (
+        environment.get("target_id") != "whyyou-local"
+        or environment.get("environment_kind") != "LOCAL_EMULATED"
+        or environment.get("aws_deployment_status") != "NOT_RUN"
+        or environment.get("external_ai_allowed") is not False
+        or set(environment.get("unverified_scope", [])) != expected_scope
+    ):
+        result["mismatched_files"].append("environment.snapshot.json:local-claim")
+    if (
+        queue.get("source_queue_name") != "iep-reporting"
+        or queue.get("dead_letter_queue_name") != "iep-reporting-dlq"
+        or queue.get("max_receive_count") != 3
+        or queue.get("visibility_timeout_seconds") != 5
+    ):
+        result["mismatched_files"].append("queue-topology.snapshot.json:contract")

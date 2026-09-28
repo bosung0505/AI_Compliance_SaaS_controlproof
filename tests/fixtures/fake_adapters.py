@@ -1,10 +1,29 @@
 from __future__ import annotations
 
 from datetime import UTC, datetime, timedelta
+from uuid import UUID
 
 from engine.adapters.base import AdapterResult, AdapterSet, CapabilityProbeResult
 from engine.adapters.whyyou.capability import CAPABILITY_VERSIONS
-from engine.models import ReadinessStatus, TargetSnapshot, TargetSourceKind
+from engine.models import (
+    DecisionPathCapability,
+    DecisionPathId,
+    FaultVariant,
+    Phase,
+    ReadinessStatus,
+    TargetSnapshot,
+    TargetSourceKind,
+)
+from tests.fixtures.spec002 import (
+    boundary_receipt,
+    decision_effect,
+    delivery_attempt,
+    environment_snapshot,
+    queue_topology,
+    redrive_receipt,
+    reporting_effect,
+    terminal_failure,
+)
 
 
 class FakeClock:
@@ -126,8 +145,19 @@ class FakeState:
 
 
 class FakeFault:
-    def __init__(self, *, effect=True, restore=True, processing="READY"):
-        self.effect = effect
+    def __init__(
+        self,
+        *,
+        effect=True,
+        before_effect=None,
+        after_effect=True,
+        duplicate_ack=True,
+        restore=True,
+        processing="READY",
+    ):
+        self.effect = effect if before_effect is None else before_effect
+        self.after_effect = after_effect
+        self.duplicate_ack = duplicate_ack
         self.restore_ok = restore
         self.processing = processing
 
@@ -155,6 +185,171 @@ class FakeFault:
 
     def target_safe(self, *, subject_ref):
         return self.restore_ok
+
+    def read_boundary_receipt(self, *, fault_variant, **_kwargs):
+        variant = FaultVariant(fault_variant)
+        observed = (
+            self.effect
+            if variant is FaultVariant.BEFORE_RESULT_DURABLE
+            else self.after_effect
+        )
+        if not observed:
+            return AdapterResult(False, "BOUNDARY_RECEIPT_MISSING")
+        if variant is FaultVariant.AFTER_RESULT_DURABLE_BEFORE_COMPLETION:
+            receipt = boundary_receipt(
+                fault_variant=variant,
+                boundary="AFTER_DB_COMMIT_BEFORE_SQS_ACK",
+                one_shot_consumed=True,
+            )
+        else:
+            receipt = boundary_receipt()
+        return AdapterResult(True, "BOUNDARY_RECEIPT_READ", {"receipt": receipt})
+
+    def read_duplicate_ack(self, **_kwargs):
+        return AdapterResult(
+            self.duplicate_ack,
+            "DUPLICATE_ACK_READ" if self.duplicate_ack else "DUPLICATE_ACK_MISSING",
+        )
+
+
+class FakeEnvironment:
+    def capture_environment(self):
+        return environment_snapshot()
+
+
+class FakeQueue:
+    def __init__(
+        self,
+        *,
+        attempts_ok=True,
+        dlq_ok=True,
+        redrive_send=True,
+        redrive_delete=True,
+    ):
+        self.attempts_ok = attempts_ok
+        self.dlq_ok = dlq_ok
+        self.redrive_send = redrive_send
+        self.redrive_delete = redrive_delete
+
+    def capture_topology(self):
+        return queue_topology()
+
+    def read_attempts(self, *, source_event_id):
+        records = [delivery_attempt(delivery_attempt=index) for index in range(1, 4)]
+        return AdapterResult(
+            self.attempts_ok,
+            "ATTEMPTS_READ" if self.attempts_ok else "ATTEMPTS_UNAVAILABLE",
+            {
+                "source_event_id": source_event_id,
+                "records": records if self.attempts_ok else [],
+            },
+        )
+
+    def read_dlq(self, *, source_event_id):
+        return AdapterResult(
+            self.dlq_ok,
+            "DLQ_MATCH_READ" if self.dlq_ok else "DLQ_UNAVAILABLE",
+            {
+                "source_event_id": source_event_id,
+                "terminal_failure": terminal_failure() if self.dlq_ok else None,
+            },
+        )
+
+    def redrive(self, *, source_event_id):
+        return redrive_receipt(
+            source_event_id=source_event_id,
+            send_succeeded=self.redrive_send,
+            delete_succeeded=self.redrive_delete if self.redrive_send else False,
+            republished_message_id="source-message-02" if self.redrive_send else None,
+        )
+
+
+class FakeDecision:
+    def __init__(self, *, accepted=False, partial_write=False):
+        self.accepted = accepted
+        self.partial_write = partial_write
+
+    def capabilities(self):
+        stage = UUID("00000000-0000-7000-8000-000000000201")
+        commit = "b" * 40
+        return (
+            DecisionPathCapability(
+                path_id=DecisionPathId.FINAL_DECISION,
+                operation_id="createFinalDecision",
+                target_stage_id=stage,
+                target_stage_name="최종합격",
+                source_commit=commit,
+            ),
+            DecisionPathCapability(
+                path_id=DecisionPathId.BATCH_MOVE_FINAL_ACCEPT,
+                operation_id="batchMoveInvitations",
+                target_stage_id=stage,
+                target_stage_name="최종합격",
+                source_commit=commit,
+            ),
+            DecisionPathCapability(
+                path_id=DecisionPathId.BATCH_MOVE_FINAL_REJECT,
+                operation_id="batchMoveInvitations",
+                target_stage_id=stage,
+                target_stage_name="불합격",
+                source_commit=commit,
+            ),
+        )
+
+    def attempt(self, *, path_id, subject, idempotency_key=None):
+        return AdapterResult(
+            True,
+            "DECISION_ATTEMPTED",
+            {
+                "path_id": path_id,
+                "subject_ref": subject.get("subject_ref", "candidate-01"),
+                "accepted": self.accepted,
+                "partial_write": self.partial_write,
+                "idempotency_key_digest": "f" * 64 if idempotency_key else None,
+            },
+        )
+
+
+class FakeEffects:
+    def __init__(self, *, reporting_available=True, decision_available=True):
+        self.reporting_available = reporting_available
+        self.decision_available = decision_available
+
+    def read_reporting_effects(self, *, subject, phase):
+        if not self.reporting_available:
+            return (
+                reporting_effect(
+                    phase=Phase(phase),
+                    subject_ref=subject.get("subject_ref", "candidate-01"),
+                    effects={},
+                    source_status="UNAVAILABLE",
+                    source_error_code="REPORTING_EFFECTS_UNAVAILABLE",
+                ),
+            )
+        return (
+            reporting_effect(
+                phase=Phase(phase),
+                subject_ref=subject.get("subject_ref", "candidate-01"),
+            ),
+        )
+
+    def read_decision_effects(self, *, subject, phase):
+        if not self.decision_available:
+            return (
+                decision_effect(
+                    phase=Phase(phase),
+                    subject_ref=subject.get("subject_ref", "candidate-01"),
+                    effects={},
+                    source_status="UNAVAILABLE",
+                    source_error_code="DECISION_EFFECTS_UNAVAILABLE",
+                ),
+            )
+        return (
+            decision_effect(
+                phase=Phase(phase),
+                subject_ref=subject.get("subject_ref", "candidate-01"),
+            ),
+        )
 
 
 class FakeBrowser:
@@ -190,13 +385,38 @@ def make_adapters(
     decision_accepted=False,
     mutate=False,
     effect=True,
+    before_effect=None,
+    after_effect=True,
+    duplicate_ack=True,
     restore=True,
     processing="READY",
+    attempts_ok=True,
+    dlq_ok=True,
+    redrive_send=True,
+    redrive_delete=True,
+    decision_path_accepted=False,
+    decision_partial_write=False,
+    reporting_effects_available=True,
+    decision_effects_available=True,
     target_exists=True,
     readiness_overrides=None,
 ):
     target = FakeTarget(target_exists=target_exists, overrides=readiness_overrides)
     browser = FakeBrowser(status_class=status_class)
+    fault = FakeFault(
+        effect=effect,
+        before_effect=before_effect,
+        after_effect=after_effect,
+        duplicate_ack=duplicate_ack,
+        restore=restore,
+        processing=processing,
+    )
+    queue = FakeQueue(
+        attempts_ok=attempts_ok,
+        dlq_ok=dlq_ok,
+        redrive_send=redrive_send,
+        redrive_delete=redrive_delete,
+    )
     return (
         AdapterSet(
             target=target,
@@ -207,8 +427,21 @@ def make_adapters(
                 decision_accepted=decision_accepted,
                 mutate=mutate,
             ),
-            fault=FakeFault(effect=effect, restore=restore, processing=processing),
+            fault=fault,
             browser=browser,
+            environment=FakeEnvironment(),
+            queue=queue,
+            decision=FakeDecision(
+                accepted=decision_path_accepted,
+                partial_write=decision_partial_write,
+            ),
+            effects=FakeEffects(
+                reporting_available=reporting_effects_available,
+                decision_available=decision_effects_available,
+            ),
+            boundary_receipts=fault,
+            duplicate_acks=fault,
+            safe_redrive=queue,
         ),
         browser,
     )

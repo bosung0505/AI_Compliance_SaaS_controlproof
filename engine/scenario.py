@@ -10,7 +10,10 @@ from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from engine.models import (
     ComparatorPolicy,
+    ExecutionProfile,
+    FaultVariant,
     Phase,
+    ScenarioProfile,
     ScenarioSnapshot,
     canonical_json_bytes,
     sha256_bytes,
@@ -64,11 +67,15 @@ class EvidenceRequirement(ScenarioModel):
 
 class TimingPolicy(ScenarioModel):
     poll_seconds: float = Field(gt=0)
-    injected_deadline_seconds: float = Field(gt=0)
-    automatic_decision_window_seconds: float = Field(gt=0)
+    injected_deadline_seconds: float | None = Field(default=None, gt=0)
+    automatic_decision_window_seconds: float | None = Field(default=None, gt=0)
+    dlq_deadline_seconds: float | None = Field(default=None, gt=0)
+    duplicate_ack_deadline_seconds: float | None = Field(default=None, gt=0)
     environment_restore_deadline_seconds: float = Field(gt=0)
+    run_deadline_seconds: float | None = Field(default=None, gt=0)
     stability_consecutive: int = Field(ge=1)
     stability_seconds: float = Field(ge=0)
+    expected_queue: dict[str, int] = Field(default_factory=dict)
 
 
 class RestorePolicy(ScenarioModel):
@@ -78,8 +85,12 @@ class RestorePolicy(ScenarioModel):
 
 
 class ScenarioDefinition(ScenarioModel):
+    schema_version: str | None = None
     scenario_id: str
     version: str
+    execution_profile: ExecutionProfile | None = None
+    fault_variant: FaultVariant | None = None
+    applicable_assertion_ids: tuple[str, ...] = ()
     title: str
     control_intent: str
     required_capabilities: dict[str, str]
@@ -99,10 +110,34 @@ class ScenarioDefinition(ScenarioModel):
         if len({step.step_id for step in self.steps}) != len(self.steps):
             raise ValueError("scenario step_id values must be unique")
         if any(version != "v1" for version in self.required_capabilities.values()):
-            raise ValueError("H-03 capability contract versions must all be v1")
+            raise ValueError("capability contract versions must all be v1")
         assertion_ids = tuple(item.assertion_id for item in self.assertions)
         evidence_ids = tuple(item.evidence_id for item in self.required_evidence)
-        if self.scenario_id == "H-03":
+        if self.execution_profile is None:
+            if self.schema_version not in {None, "controlproof.scenario.v1"}:
+                raise ValueError("v1 scenario has an unsupported schema_version")
+            if self.fault_variant is not None or self.applicable_assertion_ids:
+                raise ValueError("v1 scenario cannot declare partial v2 profile fields")
+        else:
+            if self.schema_version != "controlproof.scenario.v2":
+                raise ValueError("v2 profile requires controlproof.scenario.v2")
+            canonical = ScenarioProfile.canonical(self.execution_profile)
+            if self.scenario_id != canonical.scenario_id:
+                raise ValueError("scenario_id does not match execution profile")
+            if self.fault_variant is not canonical.fault_variant:
+                raise ValueError("fault_variant does not match execution profile")
+            if tuple(self.applicable_assertion_ids) != canonical.applicable_assertion_ids:
+                raise ValueError("applicable assertions do not match canonical profile")
+            if assertion_ids != canonical.applicable_assertion_ids:
+                raise ValueError("YAML assertions do not match canonical profile")
+            if set(evidence_ids) != set(canonical.required_evidence):
+                raise ValueError("required evidence does not match canonical profile")
+            if self.timing_policy.run_deadline_seconds is None:
+                raise ValueError("v2 profile requires a whole-Run deadline")
+            expected_queue = self.timing_policy.expected_queue
+            if expected_queue != {"max_receive_count": 3, "visibility_timeout_seconds": 5}:
+                raise ValueError("v2 profile requires the canonical queue timing snapshot")
+        if self.scenario_id == "H-03" and self.execution_profile is None:
             if set(assertion_ids) != set(H03_ASSERTIONS) or len(assertion_ids) != 6:
                 raise ValueError("H-03 requires exactly H03-A1 through H03-A6")
             if set(evidence_ids) != set(H03_EVIDENCE) or len(evidence_ids) != 9:
@@ -136,13 +171,25 @@ class ScenarioDefinition(ScenarioModel):
         if not self.restore_policy.mandatory:
             raise ValueError("fault scenario requires mandatory restore")
         if not self.allowed_model_fixtures:
-            raise ValueError("H-03 requires at least one deterministic model fixture")
+            raise ValueError("fault scenario requires at least one deterministic model fixture")
         if any(len(digest) != 64 for digest in self.allowed_model_fixtures.values()):
             raise ValueError("model fixture digest must be SHA-256 lowercase hex")
         return self
 
     def snapshot(self) -> ScenarioSnapshot:
-        definition = self.model_dump(mode="json")
+        exclude = set()
+        if self.execution_profile is None:
+            exclude = {"schema_version", "execution_profile", "fault_variant", "applicable_assertion_ids"}
+        definition = self.model_dump(mode="json", exclude=exclude)
+        if self.execution_profile is None:
+            timing = definition["timing_policy"]
+            for field in (
+                "dlq_deadline_seconds",
+                "duplicate_ack_deadline_seconds",
+                "run_deadline_seconds",
+                "expected_queue",
+            ):
+                timing.pop(field, None)
         digest = sha256_bytes(canonical_json_bytes(definition))
         return ScenarioSnapshot(
             scenario_id=self.scenario_id,
@@ -167,4 +214,15 @@ def load(path: str | Path) -> ScenarioDefinition:
 
 def load_all(directory: str | Path = "scenarios") -> list[ScenarioDefinition]:
     paths = sorted(path for path in Path(directory).glob("*.yaml") if not path.name.startswith("_"))
-    return [load(path) for path in paths]
+    definitions = [load(path) for path in paths]
+    identities = [
+        (
+            item.scenario_id,
+            item.version,
+            (item.execution_profile or ExecutionProfile.H03_MINIMAL_V1).value,
+        )
+        for item in definitions
+    ]
+    if len(identities) != len(set(identities)):
+        raise ScenarioError("scenario_id, version, execution_profile must be unique")
+    return definitions
