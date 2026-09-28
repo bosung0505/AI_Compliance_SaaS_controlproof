@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 from pathlib import Path
 
@@ -284,6 +285,15 @@ class WhyYouCapabilityProbe:
                 capability,
                 "test-only reporting fault hook is not enabled",
                 "enable the hook only in the isolated WhyYou test profile",
+            )
+        expected_root_digest = hashlib.sha256(
+            root.resolve().as_posix().casefold().encode("utf-8")
+        ).hexdigest()
+        if body.get("fault_root_digest") != expected_root_digest:
+            return _not_ready(
+                capability,
+                "configured target fault root does not match runner fault root",
+                "point WhyYou and ControlProof at the same isolated fault root",
             )
         return _ready(capability, "shared marker/receipt root and target hook are ready")
 

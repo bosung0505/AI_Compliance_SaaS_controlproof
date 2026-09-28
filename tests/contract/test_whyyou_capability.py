@@ -1,5 +1,6 @@
 from __future__ import annotations
 
+import hashlib
 from types import SimpleNamespace
 
 import playwright.sync_api
@@ -87,6 +88,9 @@ def test_fault_root_health_model_identity_and_restore_block(tmp_path):
     settings = _settings(tmp_path)
     health = {
         "fault_hooks_enabled": True,
+        "fault_root_digest": hashlib.sha256(
+            settings.fault_root.resolve().as_posix().casefold().encode("utf-8")
+        ).hexdigest(),
         "model_substitute_enabled": True,
         "fixture_id": settings.model_fixture_id,
         "fixture_digest": settings.model_fixture_digest,
@@ -104,6 +108,22 @@ def test_fault_root_health_model_identity_and_restore_block(tmp_path):
     blocked = probe.probe("reporting.fault.restore")
     assert blocked.status is ReadinessStatus.RUNNER_NOT_READY
     assert "cleanup-confirm" in blocked.operator_action
+
+
+def test_fault_root_digest_mismatch_is_runner_not_ready(tmp_path):
+    settings = _settings(tmp_path)
+    health = {
+        "fault_hooks_enabled": True,
+        "fault_root_digest": "f" * 64,
+    }
+
+    result = WhyYouCapabilityProbe(settings, _client(Http(set(), health))).probe(
+        "reporting.fault.inject"
+    )
+
+    assert result.status is ReadinessStatus.RUNNER_NOT_READY
+    assert "does not match" in result.detail
+    assert result.operator_action
 
 
 def test_model_digest_mismatch_is_runner_not_ready(tmp_path):
