@@ -151,3 +151,49 @@ def test_outbox_only_snapshot_proves_zero_durable_reporting_effects_during_fault
     assert snapshot.effects["projection_document_ids"] == []
     assert snapshot.effects["processed_keys"] == []
     assert snapshot.effects["source_outbox_event_ids"] == [str(EVENT_ID)]
+
+
+def test_decision_projection_contains_only_the_required_human_effect_set():
+    target_stage = "00000000-0000-7000-8000-000000000701"
+    source = {
+        "invitation_id": _subject()["invitation_id"],
+        "stage_id": target_stage,
+        "pipeline_row_version": 2,
+        "invitation_status": "reviewed",
+        "human_reviews": [
+            {"human_review_id": "review-01", "actor_type": "COMPANY_USER"}
+        ],
+        "audit_events": [
+            {
+                "audit_event_id": "audit-01",
+                "action": "final_decision.create",
+                "request_id": "request-01",
+                "actor_type": "COMPANY_USER",
+            }
+        ],
+        "ai_score": 99,
+        "candidate_email": "must-not-be-projected@example.com",
+    }
+    snapshot = WhyYouEffectAdapter(
+        _settings(),
+        loader=lambda _subject: source,
+    ).read_decision_effects(
+        subject=_subject(),
+        phase=Phase.RECOVERED,
+        run_id=RUN_ID,
+        logical_operation_id=OPERATION_ID,
+        source_event_id=EVENT_ID,
+        step_id="human-decision-first-effects",
+    )[0]
+
+    assert snapshot.effects["stage_id"] == target_stage
+    assert len(snapshot.effects["stage_assignment_ids"]) == 1
+    assert snapshot.effects["invitation_status"] == "reviewed"
+    assert snapshot.effects["human_review_ids"] == ["review-01"]
+    assert snapshot.effects["human_review_actor_types"] == ["COMPANY_USER"]
+    assert snapshot.effects["final_decision_audit_ids"] == ["audit-01"]
+    assert snapshot.effects["final_decision_actor_types"] == ["COMPANY_USER"]
+    assert snapshot.effects["final_decision_request_ids"] == ["request-01"]
+    assert "ai_score" not in snapshot.effects
+    assert "completion_outbox_event_ids" not in snapshot.effects
+    assert "must-not-be-projected" not in snapshot.model_dump_json()

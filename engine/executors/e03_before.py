@@ -10,21 +10,29 @@ from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from engine.adapters.base import AdapterResult, AdapterSet, Clock
+from engine.adapters.whyyou.decisions import compare_decision_replay
 from engine.execution import coordinate_reporting_recovery
-from engine.judges.e03 import judge_e03_before
+from engine.judges.e03 import judge_e03_before, judge_e03_decision_replay
 from engine.models import (
     AssertionResult,
+    AssertionStatus,
     BusinessEffectSnapshot,
+    DecisionPathId,
     DeliveryAttemptRecord,
+    ExecutionProfile,
     FaultBoundaryReceipt,
     FaultVariant,
     Presence,
     QueueTopologySnapshot,
+    ReadinessCheck,
+    ReadinessStatus,
     RedriveReceipt,
+    ScenarioReadiness,
     TargetEnvironmentSnapshot,
     TerminalFailureRecord,
     utcnow,
 )
+from engine.readiness import evaluate_readiness
 from engine.scenario import ScenarioDefinition
 
 
@@ -51,19 +59,21 @@ class E03BeforeSliceResult:
     recovered_effects: tuple[BusinessEffectSnapshot, ...]
     restore: AdapterResult
     redrive: RedriveReceipt | None
-    assertions: tuple[
-        AssertionResult,
-        AssertionResult,
-        AssertionResult,
-        AssertionResult,
-        AssertionResult,
-    ]
+    assertions: tuple[AssertionResult, ...]
     pending_assertion_ids: tuple[str, ...]
     redrive_receipts: tuple[dict[str, Any], ...]
+    decision_path: DecisionPathId | None
+    first_decision: AdapterResult | None
+    replay_decision: AdapterResult | None
+    replay_comparison: AdapterResult | None
+    first_decision_effects: tuple[BusinessEffectSnapshot, ...]
+    replay_decision_effects: tuple[BusinessEffectSnapshot, ...]
 
 
 class E03BeforeExecutor:
-    """Runs the US3 subset without creating a profile verdict or Evidence Bundle."""
+    """Runs BEFORE recovery and the post-recovery same-key human decision replay."""
+
+    profile = ExecutionProfile.E03_BEFORE_V2
 
     def __init__(
         self,
@@ -78,9 +88,46 @@ class E03BeforeExecutor:
         self.run_root = run_root.resolve()
         self.clock = clock or _SystemClock()
 
+    def preflight(self, target_id: str) -> ScenarioReadiness:
+        target_snapshot = None
+        try:
+            target_snapshot = self.adapters.target.capture_target_snapshot()
+        except Exception as exc:  # noqa: BLE001
+            target_snapshot = getattr(exc, "diagnostic", None)
+        probes = [
+            self.adapters.capability.probe(capability)
+            for capability in self.scenario.required_capabilities
+        ]
+        readiness = evaluate_readiness(
+            self.scenario,
+            target_id=target_id,
+            registrations=self.adapters.capability.registrations,
+            probe_results=probes,
+            target_feature_exists=self.adapters.target.target_feature_exists(),
+            target_snapshot=target_snapshot,
+        )
+        if readiness.status is not ReadinessStatus.READY:
+            return readiness
+        action = "complete shared Spec 002 bundle orchestration before canonical execution"
+        return readiness.model_copy(
+            update={
+                "status": ReadinessStatus.RUNNER_NOT_READY,
+                "checks": readiness.checks
+                + (
+                    ReadinessCheck(
+                        capability="profile.e03_before_v2.sealed_execution",
+                        status=ReadinessStatus.RUNNER_NOT_READY,
+                        detail="US3/US5 action slice passes; sealed bundle composition is Phase 8 work",
+                        operator_action=action,
+                    ),
+                ),
+                "operator_action": action,
+            }
+        )
+
     def execute(self, *_args: Any, **_kwargs: Any) -> None:
         raise RuntimeError(
-            "E03_BEFORE_V2 remains blocked until US5 composes E03-A7 decision replay"
+            "E03_BEFORE_V2 sealed execution remains blocked until shared bundle orchestration"
         )
 
     def collect_us3(
@@ -88,6 +135,31 @@ class E03BeforeExecutor:
         *,
         run_id: UUID,
         subject_ref: str = "candidate-01",
+    ) -> E03BeforeSliceResult:
+        return self._collect(
+            run_id=run_id,
+            subject_ref=subject_ref,
+            include_decision_replay=False,
+        )
+
+    def collect_us5(
+        self,
+        *,
+        run_id: UUID,
+        subject_ref: str = "candidate-01",
+    ) -> E03BeforeSliceResult:
+        return self._collect(
+            run_id=run_id,
+            subject_ref=subject_ref,
+            include_decision_replay=True,
+        )
+
+    def _collect(
+        self,
+        *,
+        run_id: UUID,
+        subject_ref: str,
+        include_decision_replay: bool,
     ) -> E03BeforeSliceResult:
         environment = _required(self.adapters.environment, "environment").capture_environment()
         queue = _required(self.adapters.queue, "queue")
@@ -163,6 +235,42 @@ class E03BeforeExecutor:
                 redrive=recovery.redrive,
                 expected_receive_count=topology.max_receive_count,
             )
+            decision_path = None
+            first_decision = None
+            replay_decision = None
+            replay_comparison = None
+            first_decision_effects: tuple[BusinessEffectSnapshot, ...] = ()
+            replay_decision_effects: tuple[BusinessEffectSnapshot, ...] = ()
+            pending_assertion_ids = ("E03-A7",)
+            if include_decision_replay:
+                if assertions[3].status is AssertionStatus.PASS:
+                    (
+                        decision_path,
+                        first_decision,
+                        replay_decision,
+                        replay_comparison,
+                        first_decision_effects,
+                        replay_decision_effects,
+                        decision_assertion,
+                    ) = self._execute_decision_replay(
+                        run_id=run_id,
+                        source_event_id=source_event_id,
+                        subject=subject,
+                    )
+                else:
+                    replay_comparison = AdapterResult(
+                        False,
+                        "DECISION_REPLAY_NOT_RUN",
+                        {"reason": "REPORTING_RECOVERY_NOT_CONFIRMED"},
+                    )
+                    decision_assertion = judge_e03_decision_replay(
+                        replay_comparison=replay_comparison,
+                        first_effects=(),
+                        replay_effects=(),
+                        target_stage_id=str(subject["final_accept_stage_id"]),
+                    )
+                assertions = (*assertions[:4], decision_assertion, assertions[4])
+                pending_assertion_ids = ()
             completed = True
         finally:
             if applied is not None and applied.ok and not completed:
@@ -185,8 +293,86 @@ class E03BeforeExecutor:
             restore=recovery.restore,
             redrive=recovery.redrive,
             assertions=assertions,
-            pending_assertion_ids=("E03-A7",),
+            pending_assertion_ids=pending_assertion_ids,
             redrive_receipts=tuple(receipts),
+            decision_path=decision_path,
+            first_decision=first_decision,
+            replay_decision=replay_decision,
+            replay_comparison=replay_comparison,
+            first_decision_effects=first_decision_effects,
+            replay_decision_effects=replay_decision_effects,
+        )
+
+    def _execute_decision_replay(
+        self,
+        *,
+        run_id: UUID,
+        source_event_id: UUID,
+        subject: dict[str, Any],
+    ) -> tuple[
+        DecisionPathId,
+        AdapterResult,
+        AdapterResult,
+        AdapterResult,
+        tuple[BusinessEffectSnapshot, ...],
+        tuple[BusinessEffectSnapshot, ...],
+        AssertionResult,
+    ]:
+        decision = _required(self.adapters.decision, "decision replay")
+        effects = _required(self.adapters.effects, "decision effects")
+        capability = next(
+            item
+            for item in decision.capabilities(subject=subject)
+            if item.path_id is DecisionPathId.FINAL_DECISION
+        )
+        logical_operation_id = uuid5(
+            NAMESPACE_URL,
+            f"controlproof:{run_id}:e03:human-decision-replay",
+        )
+        idempotency_key = f"controlproof:{run_id}:E03-A7"
+        first = decision.attempt(
+            path_id=DecisionPathId.FINAL_DECISION,
+            subject=subject,
+            idempotency_key=idempotency_key,
+        )
+        first_effects = effects.read_decision_effects(
+            subject=subject,
+            phase="RECOVERED",
+            run_id=run_id,
+            logical_operation_id=logical_operation_id,
+            source_event_id=source_event_id,
+            step_id="human-decision-first-effects",
+            attempt=1,
+        )
+        replay = decision.attempt(
+            path_id=DecisionPathId.FINAL_DECISION,
+            subject=subject,
+            idempotency_key=idempotency_key,
+        )
+        replay_effects = effects.read_decision_effects(
+            subject=subject,
+            phase="RECOVERED",
+            run_id=run_id,
+            logical_operation_id=logical_operation_id,
+            source_event_id=source_event_id,
+            step_id="human-decision-replay-effects",
+            attempt=2,
+        )
+        comparison = compare_decision_replay(first, replay)
+        assertion = judge_e03_decision_replay(
+            replay_comparison=comparison,
+            first_effects=first_effects,
+            replay_effects=replay_effects,
+            target_stage_id=str(capability.target_stage_id),
+        )
+        return (
+            DecisionPathId.FINAL_DECISION,
+            first,
+            replay,
+            comparison,
+            first_effects,
+            replay_effects,
+            assertion,
         )
 
     def _poll_terminal(

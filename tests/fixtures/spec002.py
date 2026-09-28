@@ -174,7 +174,12 @@ def decision_effect(**updates: Any) -> BusinessEffectSnapshot:
             "invitation_status": "reviewed",
             "human_review_ids": ["review-01"],
             "human_review_actor_types": ["COMPANY_USER"],
+            "decision_actor_types": ["COMPANY_USER"],
+            "final_decision_actor_types": ["COMPANY_USER"],
             "final_decision_audit_ids": ["audit-01"],
+            "final_decision_request_ids": ["request-01"],
+            "stage_id": "00000000-0000-7000-8000-000000000201",
+            "pipeline_row_version": 2,
         },
         updates,
     )

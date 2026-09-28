@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 from engine.adapters.base import AdapterResult, AdapterSet, Clock
 from engine.evidence import EvidenceBundleWriter
 from engine.executors.e03_after import E03AfterExecutor
+from engine.executors.e03_before import E03BeforeExecutor
 from engine.executors.h03_dlq import H03DlqExecutor
 from engine.judge import judge_h03
 from engine.lifecycle import RestoreBlockStore, TargetSubjectLock, transition
@@ -912,6 +913,7 @@ PROFILE_REGISTRY = ExecutionProfileRegistry()
 # the later decision-path story composes every required H03_DLQ_V2 capability.
 PROFILE_REGISTRY.register(ExecutionProfile.H03_DLQ_V2, H03DlqExecutor)
 PROFILE_REGISTRY.register(ExecutionProfile.E03_AFTER_V2, E03AfterExecutor)
+PROFILE_REGISTRY.register(ExecutionProfile.E03_BEFORE_V2, E03BeforeExecutor)
 
 
 def build_profile_runner(

@@ -415,3 +415,79 @@ All checks passed!
 - 실제 AWS와 외부 AI는 계속 `NOT_RUN`이며, 로컬 one-shot hook은 production/staging에서 활성화가
   거부된다.
 - WhyYou 변경은 `bosung/controlproof-h03-integration` 개인 브랜치에만 있으며 main에는 반영하지 않았다.
+
+## 2026-09-28 — User Story 5: 같은 결정 재전송과 최종 효과 검증 (T064~T071)
+
+### 이번 단계에서 고정한 의미
+
+- 같은 결정인지는 서버가 매번 새로 돌려주는 응답 ID가 아니라 `초대 건 + 목표 단계 +
+  Idempotency-Key digest + canonical request-body digest`로 식별한다. 원본 Idempotency-Key는 HTTP
+  요청 헤더에만 사용하며 ControlProof 결과·로그·bundle에는 저장하지 않는다.
+- 첫 요청의 처리는 완료됐지만 응답만 유실될 수 있다. 이 경우에도 동일 key·동일 body 재전송을 같은
+  논리 결정으로 연결하며, 첫 응답이 없다는 이유만으로 곧바로 FAIL 또는 PASS로 추정하지 않는다.
+- HTTP 응답이 동일하다는 사실만으로 WhyYou의 중복 억제를 인정하지 않는다. 첫 요청 뒤와 재전송 뒤의
+  허용 목록 DB 효과를 각각 읽어 비교하고, 정확히 한 번의 단계 배정·reviewed 상태·사람 검토·
+  final-decision audit가 유지돼야 E03-A7이 PASS다.
+- 최종 결정을 만든 주체는 `COMPANY_USER`여야 한다. AI 점수와 후보자 개인정보는 이 판단에 사용하지
+  않으며 effect projection에도 포함하지 않는다.
+- key 또는 canonical body가 바뀌면 다른 논리 요청이므로 replay 동등성을 주장하지 않는다. 대상이 key를
+  무시해 중복 row를 만들거나 상태가 달라지면 E03-A7은 FAIL이다.
+
+### 구현 결과
+
+- `WhyYouDecisionAdapter`가 요청 전에 canonical body와 digest, 안정적인 logical-decision ID를 만들도록
+  확장됐다. 첫 응답 유실도 sanitized identity와 함께 보존하며, 동일 요청 비교기는 대상 시스템의
+  idempotency 성공을 응답만 보고 주장하지 않는다.
+- `WhyYouEffectAdapter`는 final-decision에 한정된 actor와 request ID를 별도로 투영한다. 실제 DB에서
+  회사 사용자 연결이 없으면 `COMPANY_USER`로 가정하지 않고 `UNKNOWN`으로 남긴다.
+- E03-A7 judge는 요청 identity와 재전송 수락 여부뿐 아니라 첫 요청·재전송 뒤의 allowlisted effect
+  집합을 비교한다. 단계 배정, reviewed 상태, HumanReview, final-decision audit가 각각 정확히 한 번이고
+  모두 사람이 만든 결정일 때만 PASS한다. 효과를 읽을 수 없으면 FAIL을 추측하지 않고 INCONCLUSIVE다.
+- `E03_BEFORE_V2` 수집 흐름은 기존 A1/A2/A3/A4/A8에 A7을 연결했다. reporting 복구가 확인된 뒤에만
+  같은 사람 결정을 두 번 전송하고, 두 시점의 DB 효과를 독립적으로 읽는다. 최종 assertion 순서는
+  `A1 → A2 → A3 → A4 → A7 → A8`로 고정했다.
+- profile registry에 `E03_BEFORE_V2` 전용 executor를 등록했고 전체 v2 adapter composition에
+  `hiring.final_decision.replay:v1`을 추가했다. 단, Phase 8의 공통 봉인 bundle orchestration 전까지
+  CLI preflight와 `execute`는 계속 `RUNNER_NOT_READY`이며 slice 수집 결과를 정식 Run 완료로 오인하지
+  않는다.
+
+### RED와 GREEN 근거
+
+최초 RED gate에서는 아직 존재하지 않던 replay 비교기와 E03-A7 judge import에서 collection이 실패했다.
+이는 새 테스트가 기존 구현을 우연히 통과하지 않았다는 근거다.
+
+최종 User Story 5 gate:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest tests/contract/test_whyyou_decision_replay.py tests/contract/test_whyyou_adapter_v2_composition.py tests/contract/test_profile_registry_v2.py tests/unit/test_judge_e03_decision.py tests/integration/test_e03_decision_replay.py -q
+```
+
+결과:
+
+```text
+13 passed in 1.17s
+```
+
+ControlProof 전체 회귀와 정적 검사:
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+.\.venv\Scripts\python.exe -m ruff check .
+```
+
+결과:
+
+```text
+232 passed in 156.87s (0:02:36)
+All checks passed!
+```
+
+### 검증 제한과 다음 단계 경계
+
+- 이번 단계는 ControlProof의 재전송·효과 비교 능력을 구현한 것이며 WhyYou 제품 코드는 변경하지
+  않았다. 실제 WhyYou가 Idempotency-Key를 무시한다면 최초 봉인 Run은 그 사실을 FAIL로 보존해야 한다.
+- 제품 결함 수정은 실패 증적을 먼저 확보하는 Phase 8의 T084 이후에만 허용된다. 테스트를 통과시키기
+  위해 사전에 WhyYou 동작을 바꾸지 않는다.
+- Docker/LocalStack·PostgreSQL 대상의 정식 E03 BEFORE Run, bundle 검증, verdict 봉인은 아직 실행하지
+  않았다. 이는 T072~T085에서 공통 runner·bundle을 완성한 뒤 수행한다.
+- 실제 AWS와 외부 AI는 계속 `NOT_RUN`이며 로컬 queue·DB 계약 결과를 AWS 검증으로 확대하지 않는다.

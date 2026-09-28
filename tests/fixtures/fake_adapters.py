@@ -1,7 +1,8 @@
 from __future__ import annotations
 
+import hashlib
 from datetime import UTC, datetime, timedelta
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from engine.adapters.base import AdapterResult, AdapterSet, CapabilityProbeResult
 from engine.adapters.whyyou.capability import CAPABILITY_VERSIONS
@@ -336,6 +337,13 @@ class FakeDecision:
     def attempt(self, *, path_id, subject, idempotency_key=None):
         active_path = DecisionPathId(path_id)
         accepted = self.accepted or active_path in self.accepted_paths
+        capability = next(
+            item for item in self.capabilities(subject=subject) if item.path_id is active_path
+        )
+        key_digest = hashlib.sha256(str(idempotency_key).encode()).hexdigest()
+        body_digest = hashlib.sha256(
+            f"{subject['invitation_id']}:{capability.target_stage_id}:1".encode()
+        ).hexdigest()
         return AdapterResult(
             True,
             "DECISION_ATTEMPTED",
@@ -346,7 +354,15 @@ class FakeDecision:
                 "reason_present": not accepted,
                 "reason_code": None if accepted else "REPORT_NOT_AVAILABLE",
                 "partial_write": self.partial_write,
-                "idempotency_key_digest": "f" * 64 if idempotency_key else None,
+                "target_stage_id": capability.target_stage_id,
+                "logical_decision_id": uuid5(
+                    NAMESPACE_URL,
+                    f"{key_digest}:{body_digest}:{capability.target_stage_id}",
+                ),
+                "idempotency_key_digest": key_digest,
+                "request_body_digest": body_digest,
+                "response_digest": "e" * 64,
+                "target_idempotency_confirmed": False,
             },
         )
 

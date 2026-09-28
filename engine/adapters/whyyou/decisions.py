@@ -7,14 +7,19 @@ import subprocess
 from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager
 from typing import Any
-from uuid import UUID
+from uuid import NAMESPACE_URL, UUID, uuid5
 
 from sqlalchemy import create_engine, text
 
 from engine.adapters.base import AdapterResult
 from engine.config import Settings
 from engine.evidence import redact
-from engine.models import DecisionPathCapability, DecisionPathId
+from engine.models import (
+    DecisionPathCapability,
+    DecisionPathId,
+    canonical_json_bytes,
+    sha256_bytes,
+)
 
 FINAL_DECISION_ROUTE = "/v1/invitations/{invitation_id}/final-decisions"
 BATCH_MOVE_ROUTE = "/v1/positions/{position_id}/invitations/recruiting-stage"
@@ -119,54 +124,96 @@ class WhyYouDecisionAdapter:
                 if item.path_id is active_path
             )
             if active_path is DecisionPathId.FINAL_DECISION:
-                response = self.client.http.post(
-                    f"/v1/invitations/{subject['invitation_id']}/final-decisions",
-                    headers={"Idempotency-Key": key},
-                    json={
-                        "recruiting_stage_id": str(capability.target_stage_id),
-                        "expected_pipeline_version": int(subject["pipeline_row_version"]),
-                    },
-                )
+                request_body = {
+                    "recruiting_stage_id": str(capability.target_stage_id),
+                    "expected_pipeline_version": int(subject["pipeline_row_version"]),
+                }
                 method = "POST"
                 route = FINAL_DECISION_ROUTE
             else:
-                response = self.client.http.patch(
-                    f"/v1/positions/{subject['position_id']}/invitations/recruiting-stage",
-                    headers={"Idempotency-Key": key},
-                    json={
-                        "target_stage_id": str(capability.target_stage_id),
-                        "applicants": [
-                            {
-                                "invitation_id": str(subject["invitation_id"]),
-                                "expected_version": int(subject["pipeline_row_version"]),
-                            }
-                        ],
-                    },
-                )
+                request_body = {
+                    "target_stage_id": str(capability.target_stage_id),
+                    "applicants": [
+                        {
+                            "invitation_id": str(subject["invitation_id"]),
+                            "expected_version": int(subject["pipeline_row_version"]),
+                        }
+                    ],
+                }
                 method = "PATCH"
                 route = BATCH_MOVE_ROUTE
         except DecisionAdapterError as exc:
             return AdapterResult(False, "DECISION_PATH_NOT_READY", detail=type(exc).__name__)
-        except Exception as exc:  # noqa: BLE001 - normalize network/provider failures
-            return AdapterResult(False, "DECISION_ACCESS_FAILED", detail=type(exc).__name__)
+        request_body_digest = sha256_bytes(canonical_json_bytes(request_body))
+        logical_decision_id = uuid5(
+            NAMESPACE_URL,
+            ":".join(
+                (
+                    "controlproof",
+                    "human-decision",
+                    str(subject["invitation_id"]),
+                    str(capability.target_stage_id),
+                    key_digest,
+                    request_body_digest,
+                )
+            ),
+        )
+        identity = {
+            "path_id": active_path,
+            "operation_id": capability.operation_id,
+            "subject_ref": str(subject.get("subject_ref", "candidate-01")),
+            "target_stage_id": capability.target_stage_id,
+            "target_stage_name": capability.target_stage_name,
+            "logical_decision_id": logical_decision_id,
+            "idempotency_key_digest": key_digest,
+            "request_body_digest": request_body_digest,
+            "target_idempotency_confirmed": False,
+        }
+        try:
+            if active_path is DecisionPathId.FINAL_DECISION:
+                response = self.client.http.post(
+                    f"/v1/invitations/{subject['invitation_id']}/final-decisions",
+                    headers={"Idempotency-Key": key},
+                    json=request_body,
+                )
+            else:
+                response = self.client.http.patch(
+                    f"/v1/positions/{subject['position_id']}/invitations/recruiting-stage",
+                    headers={"Idempotency-Key": key},
+                    json=request_body,
+                )
+        except Exception as exc:  # noqa: BLE001 - a lost response may follow a committed write
+            return AdapterResult(
+                False,
+                "DECISION_RESPONSE_UNAVAILABLE",
+                identity,
+                detail=type(exc).__name__,
+            )
         body = _json_body(response)
         if response.status_code in {401, 403}:
-            return AdapterResult(False, "DECISION_ACCESS_DENIED")
+            return AdapterResult(False, "DECISION_ACCESS_DENIED", identity)
         accepted = 200 <= response.status_code < 300
         reason_present, reason_code = _explicit_report_refusal(body)
+        response_digest = sha256_bytes(
+            canonical_json_bytes(
+                {
+                    "http_status": response.status_code,
+                    "accepted": accepted,
+                    "reason_present": reason_present,
+                    "reason_code": reason_code,
+                }
+            )
+        )
         return AdapterResult(
             True,
             "DECISION_ATTEMPTED",
             {
-                "path_id": active_path,
-                "operation_id": capability.operation_id,
-                "target_stage_id": capability.target_stage_id,
-                "target_stage_name": capability.target_stage_name,
+                **identity,
                 "accepted": accepted,
                 "http_status": response.status_code,
                 "reason_present": reason_present,
                 "reason_code": reason_code,
-                "idempotency_key_digest": key_digest,
+                "response_digest": response_digest,
                 "exchange": redact(
                     {
                         "request": {"method": method, "route_template": route},
@@ -388,3 +435,44 @@ def _explicit_report_refusal(body: Mapping[str, Any]) -> tuple[bool, str | None]
         and any(word in detail for word in ("not available", "not ready", "required"))
     )
     return explicit, "REPORT_NOT_AVAILABLE" if explicit else None
+
+
+def compare_decision_replay(
+    first: AdapterResult,
+    replay: AdapterResult,
+) -> AdapterResult:
+    """Compare request identity without claiming target-side exactly-once effects."""
+
+    fields = (
+        "path_id",
+        "subject_ref",
+        "target_stage_id",
+        "logical_decision_id",
+        "idempotency_key_digest",
+        "request_body_digest",
+    )
+    equivalent = all(first.data.get(field) == replay.data.get(field) for field in fields)
+    first_response = first.data.get("response_digest")
+    replay_response = replay.data.get("response_digest")
+    response_equivalent = (
+        first_response == replay_response
+        if first_response is not None and replay_response is not None
+        else None
+    )
+    ok = equivalent and response_equivalent is not False
+    return AdapterResult(
+        ok,
+        "DECISION_REPLAY_MATCHED" if ok else "DECISION_REPLAY_NON_EQUIVALENT",
+        {
+            "request_equivalent": equivalent,
+            "response_equivalent": response_equivalent,
+            "logical_decision_id": replay.data.get("logical_decision_id"),
+            "idempotency_key_digest": replay.data.get("idempotency_key_digest"),
+            "request_body_digest": replay.data.get("request_body_digest"),
+            "target_stage_id": replay.data.get("target_stage_id"),
+            "first_accepted": first.data.get("accepted"),
+            "replay_accepted": replay.data.get("accepted"),
+            # Product-side deduplication is decided only from business-effect snapshots.
+            "target_idempotency_confirmed": False,
+        },
+    )

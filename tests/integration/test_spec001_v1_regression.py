@@ -2,7 +2,11 @@ import pytest
 
 from engine.evidence import verify_bundle
 from engine.models import ExecutionProfile, Verdict
-from engine.runner import UnregisteredExecutionProfile, build_profile_runner
+from engine.runner import (
+    ExecutionProfileRegistry,
+    UnregisteredExecutionProfile,
+    build_profile_runner,
+)
 from engine.scenario import load
 from tests.fixtures.fake_adapters import FakeClock, make_adapters
 
@@ -22,7 +26,8 @@ def test_unregistered_v2_profile_is_refused_before_run_creation(tmp_path):
         update={"execution_profile": ExecutionProfile.E03_BEFORE_V2}
     )
     adapters, _browser = make_adapters()
+    registry = ExecutionProfileRegistry()
     existing = set(tmp_path.iterdir())
     with pytest.raises(UnregisteredExecutionProfile, match="E03_BEFORE_V2"):
-        build_profile_runner(scenario, adapters, tmp_path, clock=FakeClock())
+        registry.build(scenario, adapters, tmp_path, clock=FakeClock())
     assert set(tmp_path.iterdir()) == existing

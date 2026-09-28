@@ -147,6 +147,12 @@ class WhyYouEffectAdapter:
                     for item in audits
                     if item.get("actor_type") is not None
                 ],
+                "final_decision_actor_types": [
+                    str(item["actor_type"])
+                    for item in audits
+                    if item.get("action") == "final_decision.create"
+                    and item.get("actor_type") is not None
+                ],
                 "final_decision_audit_ids": [
                     str(item["audit_event_id"])
                     for item in audits
@@ -240,7 +246,11 @@ class WhyYouEffectAdapter:
             "human_reviews": [
                 {
                     "human_review_id": row["human_review_id"],
-                    "actor_type": "COMPANY_USER",
+                    "actor_type": (
+                        "COMPANY_USER"
+                        if row.get("company_user_id") is not None
+                        else "UNKNOWN"
+                    ),
                 }
                 for row in reviews
             ],

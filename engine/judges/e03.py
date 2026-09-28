@@ -94,6 +94,97 @@ def judge_e03_after(
     )
 
 
+def judge_e03_decision_replay(
+    *,
+    replay_comparison: AdapterResult,
+    first_effects: Sequence[BusinessEffectSnapshot],
+    replay_effects: Sequence[BusinessEffectSnapshot],
+    target_stage_id: str,
+) -> AssertionResult:
+    """Judge same-key human decision replay from allowlisted business effects."""
+
+    first = first_effect(first_effects)
+    replay = first_effect(replay_effects)
+    if first is None or replay is None:
+        return _result(
+            "E03-A7",
+            AssertionStatus.INCONCLUSIVE,
+            "최초 결정 또는 재전송 뒤의 효과 snapshot이 없습니다.",
+            InconclusiveReason.INSUFFICIENT_EVIDENCE,
+        )
+    if source_unavailable(first) or source_unavailable(replay):
+        return _result(
+            "E03-A7",
+            AssertionStatus.INCONCLUSIVE,
+            "사람 결정 효과 출처에 접근할 수 없습니다.",
+            InconclusiveReason.ACCESS_LIMITED,
+        )
+    first_values = _decision_effects(first)
+    replay_values = _decision_effects(replay)
+    if not replay_comparison.ok:
+        return _result(
+            "E03-A7",
+            AssertionStatus.FAIL,
+            "최초 요청과 재전송의 논리 결정 identity가 다릅니다.",
+            actual={"replay": dict(replay_comparison.data)},
+        )
+    passed = (
+        replay_comparison.data.get("replay_accepted") is True
+        and replay_comparison.data.get("first_accepted") in {True, None}
+        and _is_exact_human_decision(first_values, target_stage_id)
+        and _is_exact_human_decision(replay_values, target_stage_id)
+        and first_values == replay_values
+    )
+    return _result(
+        "E03-A7",
+        AssertionStatus.PASS if passed else AssertionStatus.FAIL,
+        (
+            "같은 사람 결정 재전송 뒤 단계·invitation·HumanReview·감사가 한 세트입니다."
+            if passed
+            else "사람 결정 필수 효과가 누락·중복·모순되었거나 재전송 뒤 달라졌습니다."
+        ),
+        actual={"first": first_values, "replay": replay_values},
+    )
+
+
+def _decision_effects(snapshot: BusinessEffectSnapshot) -> dict[str, object]:
+    keys = (
+        "stage_assignment_ids",
+        "stage_id",
+        "pipeline_row_version",
+        "invitation_status",
+        "human_review_ids",
+        "human_review_actor_types",
+        "final_decision_actor_types",
+        "final_decision_audit_ids",
+        "final_decision_request_ids",
+    )
+    return {key: snapshot.effects.get(key) for key in keys}
+
+
+def _is_exact_human_decision(values: dict[str, object], target_stage_id: str) -> bool:
+    stage_assignments = list(values.get("stage_assignment_ids") or [])
+    review_ids = list(values.get("human_review_ids") or [])
+    review_actors = list(values.get("human_review_actor_types") or [])
+    decision_actors = list(values.get("final_decision_actor_types") or [])
+    audit_ids = list(values.get("final_decision_audit_ids") or [])
+    request_ids = list(values.get("final_decision_request_ids") or [])
+    return bool(
+        len(stage_assignments) == 1
+        and len(set(stage_assignments)) == 1
+        and str(values.get("stage_id")) == target_stage_id
+        and values.get("invitation_status") == "reviewed"
+        and len(review_ids) == 1
+        and len(set(review_ids)) == 1
+        and review_actors == ["COMPANY_USER"]
+        and decision_actors == ["COMPANY_USER"]
+        and len(audit_ids) == 1
+        and len(set(audit_ids)) == 1
+        and len(request_ids) == 1
+        and len(set(request_ids)) == 1
+    )
+
+
 def _after_lineage(
     source_event_id: UUID,
     boundary: FaultBoundaryReceipt | None,

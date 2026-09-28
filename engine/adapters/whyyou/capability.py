@@ -44,6 +44,7 @@ CAPABILITY_VERSIONS = {
     "reporting.duplicate_ack.read": "v1",
     "hiring.decision_paths.read": "v1",
     "hiring.decision_path.attempt": "v1",
+    "hiring.final_decision.replay": "v1",
     "reporting.effects.read": "v1",
     "hiring.decision_effects.read": "v1",
 }
@@ -115,6 +116,7 @@ class WhyYouCapabilityProbe:
             if capability in {
                 "hiring.decision_paths.read",
                 "hiring.decision_path.attempt",
+                "hiring.final_decision.replay",
             }:
                 if self.decision is None:
                     return _not_ready(
