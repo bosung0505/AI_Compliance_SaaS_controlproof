@@ -388,6 +388,63 @@ receipt를 기다린다. 지연 receipt RED 테스트를 추가한 뒤 관련 H-
 이 결함을 보완하고 API를 최신 코드로 재기동한 뒤 위 세 preflight가 모두 `READY`가 된 결과만 T080
 승인 근거로 사용한다. 실제 최초 봉인 Run은 T081에서 별도로 생성한다.
 
+## 2026-09-29 — 실제 스택 최초 3-profile 봉인 실행 (T081)
+
+### 실행 경계
+
+- ControlProof branch/commit: `002-h03-e03-fault-expansion` / `d25083f`
+- WhyYou branch/commit: `bosung/controlproof-h03-integration` /
+  `fd3e6f62888dfcc5b07a5ad0d0df094102ae6171`
+- WhyYou 보호 로직을 수정하기 전에 세 profile을 각각 새 Run으로 실행했다. WhyYou `main`은 사용하거나
+  변경하지 않았다.
+- 환경은 `LOCAL_EMULATED`, AWS는 `NOT_RUN`이고 외부 AI 호출은 금지한 상태다.
+- 각 Run은 verdict와 관계없이 필수 restore를 수행하고 원본 bundle을 봉인했다. 이후 수정·재시험은
+  반드시 새 child Run으로 남기며 아래 최초 결과를 덮어쓰지 않는다.
+
+### 최초 실행 결과
+
+| profile | Run ID | verdict | FAIL assertions | INCONCLUSIVE | restore | bundle verify | `manifest.json` SHA-256 |
+|---|---|---|---|---|---|---|---|
+| `H03_DLQ_V2` | `60b19e5a-6693-427b-bf87-039e45181cfc` | `FAIL` | `H03-A2`, `H03-A5`, `H03-A7`, `H03-A8`, `H03-A9` | 없음 | `SUCCEEDED` | `VERIFIED` (33 files) | `40602160bcc9b6c534dcd0c582ec6dc39f2c5fe8b23455ba15760494d9193fec` |
+| `E03_BEFORE_V2` | `e17e0af0-b46a-4022-93a4-a91a3247f16d` | `FAIL` | `E03-A2`, `E03-A7` | 없음 | `SUCCEEDED` | `VERIFIED` (23 files) | `d72dc8a9f63cb92a4c73a3db368b8463abf802536a947c7e2b475a6092300c5f` |
+| `E03_AFTER_V2` | `9251db5f-42a2-490d-93be-a155f25fef72` | `PASS` | 없음 | 없음 | `SUCCEEDED` | `VERIFIED` (19 files) | `69c289eebf47c824bf5b0d13a473df7403e88bd4301de9febc7301e14956fe28` |
+
+세 bundle 모두 verifier가 필수 파일의 누락·digest 불일치·미등록 파일을 찾지 않았다. 실행 종료 후
+source queue와 DLQ의 visible/not-visible message 수는 모두 0이었다.
+
+### 제품에서 직접 확인된 결함
+
+- H03-A7: 정상 단일 최종결정 API는 리포트 부재를 이유로 거부했지만, 일괄 단계 이동의 `최종합격`과
+  `불합격` 경로는 모두 요청을 수락하고 상태 효과를 변경했다. 따라서 T082의 batch 보호 보완이
+  필요하다.
+- H03-A9 및 H03-A2: DLQ와 운영자 locator는 확인됐지만 제품 API 상태는 계속 `queued`였다. 회사 화면
+  projection만 `final_failed`로 해석하는 것은 대상 시스템이 최종 실패를 영속·공개했다는 증명이
+  아니므로, 실패 상태의 저장/API/UI 전달을 하나의 additive 설계로 보완해야 한다.
+- E03-A7: 첫 사람 결정은 수락됐지만 동일한 `Idempotency-Key`와 동일 본문 재전송은 동등한 성공으로
+  재현되지 않았고 대상 idempotency도 확인되지 않았다. 같은 논리 명령을 안정적으로 소유·재생하는
+  application service가 필요하다.
+
+### 제품 결함과 분리한 ControlProof 판정기 결함
+
+- H03-A8과 E03-A2의 실제 fault receipt는 정확히 `[1, 2, 3]`이었고 같은 원 사건의 DLQ 건도
+  `PRESENT`였다. 그러나 DLQ에서 증적을 읽는 동작 자체가 SQS `ApproximateReceiveCount`를 4로 만든
+  값을 `last_delivery_attempt`로 사용해 두 assertion을 FAIL 처리했다.
+- `maxReceiveCount=3`이 의미하는 것은 source worker의 처리 시도 3회다. DLQ 증적 조회 횟수는 업무 처리
+  시도가 아니므로 이 값과 섞으면 안 된다. 최초 bundle의 FAIL은 불변으로 보존하고, adapter가 처리
+  receipt 시계열을 terminal 처리 시도와 연결하도록 RED 테스트 후 수정한 다음 child retest에서만 새
+  결과를 만든다.
+
+### 안전 복구 확인
+
+- 세 Run 모두 marker 비활성화와 worker health 확인을 포함한 `environment_restore=SUCCEEDED`였다.
+- H-03과 E-03 BEFORE의 선택된 DLQ 메시지는 send-before-delete 순서로 source queue에 redrive됐다.
+  H-03과 E-03 BEFORE의 recovery poll은 `TIMEOUT`이었지만, 후속 effect snapshot에는 reporting 효과가
+  한 논리 세트로 관찰됐고 최종 queue 잔여도 0이었다. 이는 제품 assertion과 별도로 runner의 복구 완료
+  관찰 조건을 후속 점검할 항목으로 남긴다.
+- E-03 AFTER는 commit 후 첫 ack 생략, delivery attempt 2의 processed-message short circuit,
+  `handler_skipped=true`, `acknowledged=true`, 전후 reporting effect 불변과 예상 밖 DLQ 부재를 모두
+  확인해 네 assertion이 전부 PASS했다.
+
 ## 2026-09-28 — User Story 6 결정론적 봉인 실행 기반 (T072~T079)
 
 ### 이번 단계에서 고정한 의미
