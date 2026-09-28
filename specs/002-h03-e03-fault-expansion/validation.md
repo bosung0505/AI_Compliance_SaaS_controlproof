@@ -459,13 +459,13 @@ All checks passed!
 최종 User Story 5 gate:
 
 ```powershell
-.\.venv\Scripts\python.exe -m pytest tests/contract/test_whyyou_decision_replay.py tests/contract/test_whyyou_adapter_v2_composition.py tests/contract/test_profile_registry_v2.py tests/unit/test_judge_e03_decision.py tests/integration/test_e03_decision_replay.py -q
+.\.venv\Scripts\python.exe -m pytest tests/contract/test_whyyou_decision_replay.py tests/contract/test_whyyou_adapter_v2_composition.py tests/contract/test_profile_registry_v2.py tests/unit/test_judge_e03_decision.py tests/integration/test_e03_decision_replay.py tests/integration/test_e03_before.py -q
 ```
 
 결과:
 
 ```text
-13 passed in 1.17s
+15 passed in 1.89s
 ```
 
 ControlProof 전체 회귀와 정적 검사:
