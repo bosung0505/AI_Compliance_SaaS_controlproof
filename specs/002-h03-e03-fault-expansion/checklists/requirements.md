@@ -8,7 +8,8 @@
 
 ## Content Quality
 
-- [x] 구현 언어·프레임워크·구체 API·DB 스키마를 기술하지 않았다.
+- [x] ControlProof 구현 언어·프레임워크·DB 스키마를 기술하지 않았다. WhyYou의 API operation과
+  관찰 대상 이름은 기존 시스템의 검증 계약을 모호하지 않게 고정하는 데 필요한 범위로만 적었다.
 - [x] 사용자 가치와 검증해야 할 보호조치에 초점을 맞췄다.
 - [x] 개발자가 아닌 제품·컴플라이언스 이해관계자도 의미를 이해할 수 있다.
 - [x] 필수 섹션을 모두 작성했다.
@@ -32,14 +33,21 @@
 - [x] 기술 Plan에서 결정해야 할 HOW를 Planning Gate로 분리했다.
 - [x] Spec 001의 계약과 Spec 002의 신규 범위가 구분돼 있다.
 - [x] H-03과 E-03의 assertion·verdict 책임이 분리돼 있다.
-- [x] reporting에 존재하지 않을 수 있는 애플리케이션 DLQ를 강제로 가정하지 않는다.
+- [x] reporting의 실제 최종 실패 경로를 LocalStack `iep-reporting-dlq`로 고정하고 존재하지 않는
+  애플리케이션 DLQ를 강제로 가정하지 않는다.
 - [x] AI 점수 기반 자동 합격·탈락을 전제하지 않는다.
+- [x] 공식 실행환경을 `whyyou-local`·`LOCAL_EMULATED`로 고정하고 실제 AWS는 `NOT_RUN`으로 구분한다.
+- [x] 저장 후 장애 경계가 DB transaction commit 후·SQS acknowledge 전으로 확정돼 있다.
+- [x] H-03이 시험할 정상·우회 결정 범위가 API operation 2개와 canonical path ID 3개로 확정돼 있다.
+- [x] E-03의 reporting·사람 결정 필수 효과가 열거돼 있고 존재하지 않는 completion event를 요구하지 않는다.
 
 ## Validation Notes
 
-- 검증 반복: 1회
+- 검증 반복: 2회
 - 결과: 모든 항목 PASS
-- 명세 결정 6건은 `Resolved Specification Decisions`에 이유와 영향까지 기록했다.
-- WhyYou 현재 코드에서 reporting 인프라 DLQ 구성은 확인됐지만 reporting 전용 애플리케이션
-  `JobStatus.DLQ` 존재는 가정하지 않았다. Plan의 첫 조사 항목으로 남겼다.
-- 현재 상태는 `Draft`다. 다음 단계는 `$speckit-clarify`이며, 그 전에는 Spec 002 구현을 시작하지 않는다.
+- clarification 5건과 명세 결정 11건을 `spec.md`에 이유·영향과 함께 기록했다.
+- WhyYou 현재 source contract를 확인해 LocalStack DLQ, DB commit·SQS acknowledge 경계,
+  operation 2개·canonical path ID 3개,
+  reporting·사람 결정의 정확한 필수 효과를 확정했다.
+- AWS가 내려간 상태를 숨기지 않고 로컬 결과와 실제 클라우드 미검증 범위를 분리했다.
+- `$speckit-clarify`는 완료됐다. 다음 단계는 `$speckit-plan`이며, 아직 Spec 002 구현을 시작하지 않는다.
