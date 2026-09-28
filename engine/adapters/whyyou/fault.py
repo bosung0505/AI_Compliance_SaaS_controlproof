@@ -118,11 +118,16 @@ class WhyYouFaultAdapter:
         run_id: str,
         source_event_id: str,
         fault_variant: str,
+        session_id: str | None = None,
+        expected_attempt: int | None = None,
     ) -> FaultBoundaryReceipt | AdapterResult:
         try:
             expected_run = UUID(run_id)
             expected_event = UUID(source_event_id)
             expected_variant = FaultVariant(fault_variant)
+            expected_session = UUID(session_id) if session_id is not None else None
+            if expected_attempt is not None and expected_attempt < 1:
+                raise ValueError
         except ValueError:
             return AdapterResult(False, "INVALID_BOUNDARY_IDENTITY")
         path = self.receipt_path(str(expected_run))
@@ -135,6 +140,14 @@ class WhyYouFaultAdapter:
                     UUID(str(payload["run_id"])) == expected_run
                     and UUID(str(payload["outbox_event_id"])) == expected_event
                     and payload.get("fault_variant") == expected_variant.value
+                    and (
+                        expected_session is None
+                        or UUID(str(payload["session_id"])) == expected_session
+                    )
+                    and (
+                        expected_attempt is None
+                        or int(payload["delivery_attempt"]) == expected_attempt
+                    )
                 ):
                     return FaultBoundaryReceipt.model_validate(
                         {
@@ -156,6 +169,15 @@ class WhyYouFaultAdapter:
                 continue
         return AdapterResult(False, "BOUNDARY_RECEIPT_NOT_MATCHED")
 
+    def probe_marker_removed(self, *, subject: dict[str, Any]) -> AdapterResult:
+        marker = self.marker_path(str(subject["interview_session_id"]))
+        inactive = not marker.exists()
+        return AdapterResult(
+            inactive,
+            "FAULT_MARKER_INACTIVE" if inactive else "FAULT_MARKER_STILL_ACTIVE",
+            {"marker_inactive": inactive},
+        )
+
     def restore(self, *, run_id: str, subject: dict[str, Any]) -> AdapterResult:
         marker = self.marker_path(str(subject["interview_session_id"]))
         marker.unlink(missing_ok=True)
@@ -165,7 +187,10 @@ class WhyYouFaultAdapter:
             worker_healthy = response.status_code == 200
         except Exception:  # noqa: BLE001 - health uncertainty must fail closed
             worker_healthy = False
-        report = self.client.report_status(str(subject["interview_session_id"]))
+        try:
+            report = self.client.report_status(str(subject["interview_session_id"]))
+        except Exception:  # noqa: BLE001 - reporting recovery is independent of marker removal
+            report = {"presence": "UNAVAILABLE"}
         if report.get("presence") == "PRESENT":
             recovery = str(report.get("status", "READY")).upper()
             if recovery not in {"READY", "PARTIAL", "FAILED"}:

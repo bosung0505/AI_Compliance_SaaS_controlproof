@@ -26,12 +26,68 @@ class WhyYouEffectAdapter:
         settings: Settings,
         *,
         loader: Callable[[Mapping[str, Any]], Mapping[str, Any] | None] | None = None,
+        reporting_loader: Callable[
+            [Mapping[str, Any]], Mapping[str, Any] | None
+        ]
+        | None = None,
     ) -> None:
         self.settings = settings
         self._loader = loader or self._load_decision_effects
+        self._reporting_loader = reporting_loader or self._load_reporting_effects
 
-    def read_reporting_effects(self, **_kwargs: Any) -> tuple[BusinessEffectSnapshot, ...]:
-        raise NotImplementedError("reporting effect projection is owned by Spec 002 US3")
+    def read_reporting_effects(
+        self,
+        *,
+        subject: Mapping[str, Any],
+        phase: str | Phase,
+        run_id: UUID,
+        logical_operation_id: UUID,
+        source_event_id: UUID,
+        step_id: str,
+        attempt: int = 1,
+    ) -> tuple[BusinessEffectSnapshot, ...]:
+        active_phase = Phase(phase)
+        scope = {**subject, "source_event_id": str(source_event_id)}
+        try:
+            source = self._reporting_loader(scope)
+        except Exception:  # noqa: BLE001 - DB diagnostics must not enter evidence
+            return (
+                _effect_snapshot(
+                    subject=subject,
+                    phase=active_phase,
+                    run_id=run_id,
+                    logical_operation_id=logical_operation_id,
+                    source_event_id=source_event_id,
+                    step_id=step_id,
+                    attempt=attempt,
+                    group=EffectGroup.REPORTING,
+                    effects={},
+                    presence=Presence.UNAVAILABLE,
+                    error_code="REPORTING_EFFECT_ACCESS_FAILED",
+                ),
+            )
+        if source is None:
+            effects: dict[str, Any] = {}
+            presence = Presence.ABSENT
+        else:
+            effects = _reporting_projection(source, source_event_id)
+            presence = Presence.PRESENT if any(effects.values()) else Presence.ABSENT
+            if presence is Presence.ABSENT:
+                effects = {}
+        return (
+            _effect_snapshot(
+                subject=subject,
+                phase=active_phase,
+                run_id=run_id,
+                logical_operation_id=logical_operation_id,
+                source_event_id=source_event_id,
+                step_id=step_id,
+                attempt=attempt,
+                group=EffectGroup.REPORTING,
+                effects=effects,
+                presence=presence,
+            ),
+        )
 
     def read_decision_effects(
         self,
@@ -190,3 +246,172 @@ class WhyYouEffectAdapter:
             ],
             "audit_events": audits,
         }
+
+    def _load_reporting_effects(
+        self, subject: Mapping[str, Any]
+    ) -> Mapping[str, Any] | None:
+        engine = create_engine(self.settings.whyyou_database_url)
+        scope = {
+            "company_id": UUID(str(subject["company_id"])),
+            "invitation_id": UUID(str(subject["invitation_id"])),
+            "session_id": UUID(str(subject["interview_session_id"])),
+            "event_id": UUID(str(subject["source_event_id"])),
+            "consumer_name": "reporting-worker",
+        }
+        with engine.connect() as connection:
+            reports = tuple(
+                dict(row)
+                for row in connection.execute(
+                    text(
+                        "SELECT report_id, interview_session_id, invitation_id, version, status "
+                        "FROM reports WHERE company_id=:company_id "
+                        "AND invitation_id=:invitation_id "
+                        "AND interview_session_id=:session_id ORDER BY report_id"
+                    ),
+                    scope,
+                ).mappings()
+            )
+            projections = tuple(
+                dict(row)
+                for row in connection.execute(
+                    text(
+                        "SELECT assistant_document_id, report_id, report_item_id, document_type, "
+                        "source_version, content_hash FROM assistant_retrieval_documents "
+                        "WHERE company_id=:company_id AND invitation_id=:invitation_id "
+                        "AND deleted_at IS NULL ORDER BY assistant_document_id"
+                    ),
+                    scope,
+                ).mappings()
+            )
+            processed = tuple(
+                dict(row)
+                for row in connection.execute(
+                    text(
+                        "SELECT consumer_name, event_id, event_version FROM processed_messages "
+                        "WHERE consumer_name=:consumer_name AND event_id=:event_id "
+                        "ORDER BY event_version"
+                    ),
+                    scope,
+                ).mappings()
+            )
+            outbox = tuple(
+                dict(row)
+                for row in connection.execute(
+                    text(
+                        "SELECT outbox_event_id, event_type, event_version, publish_status "
+                        "FROM outbox_events WHERE company_id=:company_id "
+                        "AND outbox_event_id=:event_id "
+                        "AND event_type='report.generation_requested'"
+                    ),
+                    scope,
+                ).mappings()
+            )
+        if not any((reports, projections, processed, outbox)):
+            return None
+        return {
+            "reports": reports,
+            "projections": projections,
+            "processed_messages": processed,
+            "outbox_events": outbox,
+        }
+
+
+def _reporting_projection(
+    source: Mapping[str, Any], source_event_id: UUID
+) -> dict[str, Any]:
+    reports = sorted(
+        (dict(item) for item in source.get("reports", ()) if isinstance(item, Mapping)),
+        key=lambda item: str(item.get("report_id", "")),
+    )
+    projections = sorted(
+        (dict(item) for item in source.get("projections", ()) if isinstance(item, Mapping)),
+        key=lambda item: str(item.get("assistant_document_id", "")),
+    )
+    processed = sorted(
+        (
+            dict(item)
+            for item in source.get("processed_messages", ())
+            if isinstance(item, Mapping)
+            and str(item.get("event_id")) == str(source_event_id)
+        ),
+        key=lambda item: (
+            str(item.get("consumer_name", "")),
+            int(item.get("event_version", 0)),
+        ),
+    )
+    outbox = sorted(
+        (
+            dict(item)
+            for item in source.get("outbox_events", ())
+            if isinstance(item, Mapping)
+            and str(item.get("outbox_event_id")) == str(source_event_id)
+            and item.get("event_type") == "report.generation_requested"
+        ),
+        key=lambda item: str(item.get("outbox_event_id", "")),
+    )
+    return {
+        "logical_report_ids": [str(item["report_id"]) for item in reports],
+        "report_versions": [int(item["version"]) for item in reports],
+        "report_statuses": [str(item["status"]) for item in reports],
+        "projection_document_ids": [
+            str(item["assistant_document_id"]) for item in projections
+        ],
+        "projection_report_ids": [str(item["report_id"]) for item in projections],
+        "projection_set": [
+            {
+                "assistant_document_id": str(item["assistant_document_id"]),
+                "report_id": str(item["report_id"]),
+                "report_item_id": (
+                    str(item["report_item_id"])
+                    if item.get("report_item_id") is not None
+                    else None
+                ),
+                "document_type": str(item["document_type"]),
+                "source_version": str(item["source_version"]),
+                "content_hash": str(item["content_hash"]),
+            }
+            for item in projections
+        ],
+        "processed_keys": [
+            {
+                "consumer_name": str(item["consumer_name"]),
+                "event_id": str(item["event_id"]),
+                "event_version": int(item["event_version"]),
+            }
+            for item in processed
+        ],
+        "source_outbox_event_ids": [str(item["outbox_event_id"]) for item in outbox],
+        "source_outbox_event_versions": [int(item["event_version"]) for item in outbox],
+        "source_outbox_statuses": [str(item["publish_status"]) for item in outbox],
+    }
+
+
+def _effect_snapshot(
+    *,
+    subject: Mapping[str, Any],
+    phase: Phase,
+    run_id: UUID,
+    logical_operation_id: UUID,
+    source_event_id: UUID,
+    step_id: str,
+    attempt: int,
+    group: EffectGroup,
+    effects: dict[str, Any],
+    presence: Presence,
+    error_code: str | None = None,
+) -> BusinessEffectSnapshot:
+    return BusinessEffectSnapshot(
+        run_id=run_id,
+        subject_ref=str(subject.get("subject_ref", "candidate-01")),
+        phase=phase,
+        step_id=step_id,
+        attempt=attempt,
+        logical_operation_id=logical_operation_id,
+        source_event_id=source_event_id,
+        effect_group=group,
+        effects=effects,
+        state_digest=sha256_bytes(canonical_json_bytes(effects)),
+        captured_at=utcnow(),
+        source_status=presence,
+        source_error_code=error_code,
+    )

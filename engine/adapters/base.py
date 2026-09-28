@@ -126,6 +126,8 @@ class BoundaryReceiptAdapter(Protocol):
         run_id: str,
         source_event_id: str,
         fault_variant: str,
+        session_id: str | None = None,
+        expected_attempt: int | None = None,
     ) -> FaultBoundaryReceipt | AdapterResult: ...
 
 
@@ -161,7 +163,15 @@ class DecisionAdapter(Protocol):
 
 class EffectAdapter(Protocol):
     def read_reporting_effects(
-        self, *, subject: Mapping[str, Any], phase: str
+        self,
+        *,
+        subject: Mapping[str, Any],
+        phase: str,
+        run_id: Any,
+        logical_operation_id: Any,
+        source_event_id: Any,
+        step_id: str,
+        attempt: int = 1,
     ) -> tuple[BusinessEffectSnapshot, ...]: ...
 
     def read_decision_effects(

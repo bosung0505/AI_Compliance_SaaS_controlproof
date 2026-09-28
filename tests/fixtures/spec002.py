@@ -152,6 +152,7 @@ def reporting_effect(**updates: Any) -> BusinessEffectSnapshot:
         {
             "logical_report_ids": ["report-01"],
             "projection_document_ids": ["projection-01"],
+            "projection_report_ids": ["report-01"],
             "processed_keys": [
                 {
                     "consumer_name": "reporting-worker",

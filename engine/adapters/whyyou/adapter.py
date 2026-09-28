@@ -51,6 +51,7 @@ def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]
         queue=queue,
         environment=environment,
         decision=decision,
+        effects=effects,
     )
     target = WhyYouTargetAdapter(client, capability)
     adapters = AdapterSet(

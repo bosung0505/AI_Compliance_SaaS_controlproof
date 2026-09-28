@@ -10,6 +10,7 @@ from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid5
 
 from engine.adapters.base import AdapterResult, AdapterSet, Clock
+from engine.execution import coordinate_reporting_recovery
 from engine.judges.h03_dlq import judge_h03_decisions, judge_h03_dlq
 from engine.models import (
     AssertionResult,
@@ -205,6 +206,7 @@ class H03DlqExecutor:
         decision_capabilities: tuple[DecisionPathCapability, ...] = ()
         decision_cases: tuple[DecisionPathCaseResult, ...] = ()
         decision_assertion = None
+        collection_completed = False
         try:
             now = self.clock.now()
             applied = self.adapters.fault.apply(
@@ -220,6 +222,7 @@ class H03DlqExecutor:
                 self.adapters.boundary_receipts,
                 run_id=run_id,
                 source_event_id=source_event_id,
+                session_id=str(subject["interview_session_id"]),
             )
             attempts, attempts_presence, presence, terminal = self._poll_terminal_lineage(
                 queue=queue,
@@ -244,20 +247,33 @@ class H03DlqExecutor:
                     capabilities=decision_capabilities,
                     cases=tuple(case.judge_input() for case in decision_cases),
                 )
+            collection_completed = True
         finally:
-            if applied is not None and applied.ok:
+            if applied is not None and applied.ok and not collection_completed:
                 restore = self.adapters.fault.restore(run_id=str(run_id), subject=subject)
 
-        if restore is None:
-            raise RuntimeError("H03 DLQ restore did not execute")
-        redrive = None
-        if (
-            terminal is not None
-            and restore.ok
-            and restore.data.get("marker_inactive") is True
-            and restore.data.get("worker_healthy") is True
-        ):
-            redrive = queue.redrive(source_event_id=str(source_event_id))
+        if terminal is not None:
+            recovery = coordinate_reporting_recovery(
+                fault=self.adapters.fault,
+                redrive=queue,
+                effects=None,
+                run_id=run_id,
+                source_event_id=source_event_id,
+                logical_operation_id=uuid5(
+                    NAMESPACE_URL, f"controlproof:{run_id}:h03:reporting-recovery"
+                ),
+                subject=subject,
+                clock=self.clock,
+                poll_seconds=self.scenario.timing_policy.poll_seconds,
+                deadline_seconds=(
+                    self.scenario.timing_policy.environment_restore_deadline_seconds
+                ),
+            )
+            restore = recovery.restore
+            redrive = recovery.redrive
+        else:
+            restore = self.adapters.fault.restore(run_id=str(run_id), subject=subject)
+            redrive = None
         assertions = judge_h03_dlq(
             attempts=attempts,
             attempts_presence=attempts_presence,
@@ -423,12 +439,14 @@ def _read_required_boundary(
     *,
     run_id: UUID,
     source_event_id: UUID,
+    session_id: str,
 ) -> FaultBoundaryReceipt:
     reader = _required_adapter(adapter, "boundary receipt")
     result = reader.read_boundary_receipt(
         run_id=str(run_id),
         source_event_id=str(source_event_id),
         fault_variant=FaultVariant.BEFORE_RESULT_DURABLE.value,
+        session_id=session_id,
     )
     if isinstance(result, FaultBoundaryReceipt):
         return result

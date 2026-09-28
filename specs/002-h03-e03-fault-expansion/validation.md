@@ -240,3 +240,88 @@ All checks passed!
 - 전체 H03 sealed Run과 H03-A1~A9의 canonical 증적 bundle은 US3 이후 공통 복구·증적 orchestration을
   합성하고 actual-stack gate에 도달해야 생성할 수 있다.
 - AWS 및 외부 AI는 계속 `NOT_RUN`이다.
+
+## 2026-09-28 — User Story 3: 저장 전 장애의 누락 없는 복구 (T042~T052)
+
+### 이번 단계에서 고정한 의미
+
+- `BEFORE_RESULT_DURABLE`은 report, assistant retrieval projection, `processed_messages`가
+  저장되기 전에 발동해야 한다. 장애 영수증이 없으면 효과가 0건이어도 E03-A3을 PASS로 추정하지
+  않고 `INCONCLUSIVE`로 판정한다.
+- 장애 중 필수 내구 효과는 0건이어야 하지만 원 `report.generation_requested` Outbox 사건은
+  보존돼야 한다. WhyYou가 생성하지 않는 별도 report-completed Outbox event는 요구하지 않는다.
+- 복구 후 필수 reporting 효과는 논리 report 1건, 그 report를 가리키는 중복 없는 assistant
+  projection 집합, `(reporting-worker, event_id, event_version=1)` processed key 1건과 원 Outbox 사건
+  1건이다.
+- 조회 성공 뒤 효과가 없거나 누락·중복·불일치한 경우는 직접 `FAIL`이고, DB·queue 접근 자체가
+  실패하면 `INCONCLUSIVE: ACCESS_LIMITED`다.
+- 복구는 marker 비활성·worker health를 먼저 확인한 뒤 선택된 DLQ 메시지 하나만 원문 body와
+  attributes 그대로 source queue에 send하고, send 성공 뒤에만 DLQ 건을 delete한다. send 성공 후
+  delete 실패도 안전 복구가 아니며 `ExecutionSession`에서 `RESTORE_FAILED`로 전이될 수 있는 false
+  recovery outcome으로 보존한다.
+
+### 테스트 우선 확인(RED)
+
+T042~T045 테스트를 먼저 추가한 최초 실행은 collection 단계에서 다음 필수 구현이 없어 실패했다.
+
+```text
+ImportError: cannot import name 'coordinate_reporting_recovery' from 'engine.execution'
+ModuleNotFoundError: No module named 'engine.judges.e03'
+ModuleNotFoundError: No module named 'engine.executors.e03_before'
+```
+
+이 실패를 reporting effect adapter, 공통 복구 조정자, E-03 judge와 BEFORE executor 구현의 출발점으로
+사용했다.
+
+### 구현 결과
+
+- `WhyYouEffectAdapter`가 합성 company·invitation·session·원 event 범위에서 report,
+  `assistant_retrieval_documents`, `processed_messages`, 원 Outbox를 조회한다. ID와 projection 집합은
+  정렬한 canonical 투영으로 만들기 때문에 DB 반환 순서가 달라도 같은 digest를 얻는다.
+- `coordinate_reporting_recovery`가 marker 제거와 worker health → send-to-source → 영수증 append →
+  DLQ delete → recovered effect polling 순서를 한 곳에서 소유한다. `ExecutionSession.recover_reporting`은
+  모든 send/delete 결과를 `redrive-receipts.jsonl`에 append한다. H-03 US1/US2도 직접 queue mutation
+  순서를 재구현하지 않고 같은 조정자를 사용한다.
+- BEFORE boundary reader가 run, session, Outbox event, fault variant와 delivery attempt를 함께
+  검증한다. marker 제거 여부는 report 생성 성공과 별개인 `probe_marker_removed`로 확인할 수 있다.
+- canonical `E03_BEFORE_V2` scenario에는 E03-A1~A4/A7/A8과 EV2-01~05·09~12, 600초 전체 제한,
+  180초 복구 제한, max receive 3·visibility 5초 계약을 선언했다.
+- `E03BeforeExecutor.collect_us3`가 seed → BEFORE fault → trigger → 재시도/DLQ → injected effect 0건
+  → marker 복구 → redrive → recovered effects를 실행하고 E03-A1~A4/A8만 독립 평가한다.
+- E03-A7 사람 결정 replay는 US5의 책임으로 `pending_assertion_ids=(E03-A7,)`에 남겼다. 이 단계에서는
+  `E03_BEFORE_V2`를 runner/CLI에 등록하지 않고, subset PASS를 profile verdict나 봉인 bundle로 만들지
+  않는다.
+
+### US3 subset gate(GREEN)
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q tests/contract/test_whyyou_effect_adapter.py tests/unit/test_whyyou_queue_redrive.py tests/unit/test_judge_e03_before.py tests/integration/test_e03_before.py
+.\.venv\Scripts\ruff.exe check engine tests
+```
+
+결과:
+
+```text
+13 passed in 0.86s
+All checks passed!
+```
+
+공통 복구 변경이 기존 H-03과 Spec 001을 훼손하지 않는지 전체 회귀도 실행했다.
+
+```powershell
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+결과:
+
+```text
+205 passed in 157.01s (0:02:37)
+```
+
+### 아직 실행하지 않은 것
+
+- Docker/LocalStack·PostgreSQL 실제 대상에서 E-03 BEFORE Run을 만들거나 제품 verdict를 봉인하지
+  않았다.
+- E03-A7 같은-key 사람 결정 replay와 완전한 adapter composition은 US5에서 구현한다.
+- 실제 AWS와 외부 AI는 계속 `NOT_RUN`이며 로컬 queue·DB 계약 결과를 AWS 검증으로 확대하지 않는다.
+- WhyYou 제품 코드는 이 단계에서 변경하지 않았다.

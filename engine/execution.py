@@ -2,13 +2,98 @@
 
 from __future__ import annotations
 
-from collections.abc import Callable
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any, Protocol
 
 from engine.lifecycle import RestoreBlockStore, TargetSubjectLock, transition
-from engine.models import Phase, Run, RunState, utcnow
+from engine.models import (
+    BusinessEffectSnapshot,
+    Phase,
+    Presence,
+    RedriveReceipt,
+    Run,
+    RunState,
+    utcnow,
+)
+
+
+@dataclass(frozen=True, slots=True)
+class ReportingRecoveryOutcome:
+    restore: Any
+    redrive: RedriveReceipt | None
+    recovered_effects: tuple[BusinessEffectSnapshot, ...]
+    restore_safe: bool
+
+    def __bool__(self) -> bool:
+        """Let ExecutionSession map recovery uncertainty to RESTORE_FAILED."""
+
+        return self.restore_safe
+
+
+def coordinate_reporting_recovery(
+    *,
+    fault: Any,
+    redrive: Any,
+    effects: Any | None,
+    run_id: Any,
+    source_event_id: Any,
+    logical_operation_id: Any,
+    subject: Mapping[str, Any],
+    clock: Any,
+    poll_seconds: float,
+    deadline_seconds: float,
+    append_receipt: Callable[[str, Any], None] | None = None,
+) -> ReportingRecoveryOutcome:
+    """Restore the marker first, redrive one selected message, then poll its effects."""
+
+    restored = fault.restore(run_id=str(run_id), subject=dict(subject))
+    safe = bool(
+        restored.ok
+        and restored.data.get("marker_inactive") is True
+        and restored.data.get("worker_healthy") is True
+    )
+    if not safe:
+        return ReportingRecoveryOutcome(restored, None, (), False)
+
+    receipt = redrive.redrive(source_event_id=str(source_event_id))
+    if append_receipt is not None:
+        append_receipt("redrive-receipts.jsonl", receipt.model_dump(mode="json"))
+    if not receipt.send_succeeded or not receipt.delete_succeeded:
+        return ReportingRecoveryOutcome(restored, receipt, (), False)
+    if effects is None:
+        return ReportingRecoveryOutcome(restored, receipt, (), True)
+
+    iterations = max(1, int(deadline_seconds / poll_seconds))
+    latest: tuple[BusinessEffectSnapshot, ...] = ()
+    for index in range(iterations):
+        latest = effects.read_reporting_effects(
+            subject=subject,
+            phase=Phase.RECOVERED,
+            run_id=run_id,
+            logical_operation_id=logical_operation_id,
+            source_event_id=source_event_id,
+            step_id="recovered-reporting-effects",
+            attempt=index + 1,
+        )
+        if _reporting_result_observed(latest):
+            break
+        if index + 1 < iterations:
+            clock.sleep(poll_seconds)
+    return ReportingRecoveryOutcome(restored, receipt, latest, True)
+
+
+def _reporting_result_observed(
+    snapshots: tuple[BusinessEffectSnapshot, ...],
+) -> bool:
+    if not snapshots:
+        return False
+    snapshot = snapshots[0]
+    return (
+        snapshot.source_status is Presence.UNAVAILABLE
+        or bool(snapshot.effects.get("logical_report_ids"))
+    )
 
 
 class SessionWriter(Protocol):
@@ -89,6 +174,14 @@ class ExecutionSession:
             {**self.run.model_dump(mode="python"), "fault_ever_applied": True}
         )
         self._persist_run()
+
+    def recover_reporting(self, **kwargs: Any) -> ReportingRecoveryOutcome:
+        """Run shared recovery while durably appending every mutation receipt."""
+
+        return coordinate_reporting_recovery(
+            **kwargs,
+            append_receipt=self.writer.append_jsonl,
+        )
 
     def execute(
         self,

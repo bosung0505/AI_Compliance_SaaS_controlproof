@@ -145,6 +145,16 @@ def test_schema_snapshot_database_mapping_and_chromium_are_probed(
         lambda _url: SimpleNamespace(connect=lambda: Connection()),
     )
     assert probe.probe("h03.subject.seed").status is ReadinessStatus.READY
+    assert (
+        probe.probe("reporting.effects.read").status
+        is ReadinessStatus.RUNNER_NOT_READY
+    )
+    effect_probe = WhyYouCapabilityProbe(
+        settings,
+        _client(Http(set())),
+        effects=object(),
+    )
+    assert effect_probe.probe("reporting.effects.read").status is ReadinessStatus.READY
 
     executable = tmp_path / "chromium.exe"
     executable.write_bytes(b"fixture")

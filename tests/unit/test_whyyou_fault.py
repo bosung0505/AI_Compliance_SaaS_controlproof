@@ -9,6 +9,7 @@ import httpx
 from engine.adapters.whyyou.client import WhyYouClient
 from engine.adapters.whyyou.fault import WhyYouFaultAdapter
 from engine.config import Settings
+from engine.models import FaultBoundaryReceipt
 
 
 def _adapter(tmp_path, *, report_status=202, health_status=200):
@@ -47,6 +48,7 @@ def test_apply_probe_and_idempotent_restore(tmp_path):
         expires_at=datetime.now(UTC) + timedelta(minutes=2),
     )
     assert applied.ok
+    assert not adapter.probe_marker_removed(subject=subject).ok
     receipt = {
         "run_id": run_id,
         "session_id": session_id,
@@ -68,6 +70,7 @@ def test_apply_probe_and_idempotent_restore(tmp_path):
     first = adapter.restore(run_id=run_id, subject=subject)
     second = adapter.restore(run_id=run_id, subject=subject)
     assert first.ok and second.ok
+    assert adapter.probe_marker_removed(subject=subject).ok
     assert first.data["environment_restore"] == "SUCCEEDED"
     assert first.data["report_processing_recovery"] == "TIMEOUT"
 
@@ -98,3 +101,55 @@ def test_wrong_session_receipt_and_restore_uncertainty_are_not_success(tmp_path)
     restored = adapter.restore(run_id=run_id, subject=subject)
     assert not restored.ok
     assert restored.data["environment_restore"] == "FAILED"
+
+
+def test_boundary_receipt_requires_run_session_event_variant_and_attempt(tmp_path):
+    adapter = _adapter(tmp_path)
+    run_id = str(uuid4())
+    session_id = str(uuid4())
+    event_id = str(uuid4())
+    path = adapter.receipt_path(run_id)
+    path.parent.mkdir(parents=True)
+    path.write_text(
+        json.dumps(
+            {
+                "schema_version": "controlproof.whyyou-fault-receipt.v2",
+                "run_id": run_id,
+                "session_id": session_id,
+                "outbox_event_id": event_id,
+                "delivery_attempt": 2,
+                "fault_variant": "BEFORE_RESULT_DURABLE",
+                "boundary": "BEFORE_REPORT_SIDE_EFFECT",
+                "triggered_at": "2026-09-28T00:00:00+00:00",
+                "one_shot_consumed": False,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+
+    wrong_session = adapter.read_boundary_receipt(
+        run_id=run_id,
+        source_event_id=event_id,
+        fault_variant="BEFORE_RESULT_DURABLE",
+        session_id=str(uuid4()),
+        expected_attempt=2,
+    )
+    wrong_attempt = adapter.read_boundary_receipt(
+        run_id=run_id,
+        source_event_id=event_id,
+        fault_variant="BEFORE_RESULT_DURABLE",
+        session_id=session_id,
+        expected_attempt=1,
+    )
+    matched = adapter.read_boundary_receipt(
+        run_id=run_id,
+        source_event_id=event_id,
+        fault_variant="BEFORE_RESULT_DURABLE",
+        session_id=session_id,
+        expected_attempt=2,
+    )
+
+    assert not wrong_session.ok and not wrong_attempt.ok
+    assert isinstance(matched, FaultBoundaryReceipt)
+    assert matched.delivery_attempt == 2

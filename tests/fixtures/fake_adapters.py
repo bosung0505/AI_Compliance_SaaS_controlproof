@@ -356,21 +356,60 @@ class FakeEffects:
         self.reporting_available = reporting_available
         self.decision_available = decision_available
 
-    def read_reporting_effects(self, *, subject, phase):
+    def read_reporting_effects(
+        self,
+        *,
+        subject,
+        phase,
+        run_id=RUN_ID,
+        logical_operation_id=None,
+        source_event_id=EVENT_ID,
+        step_id="state.effects.read",
+        attempt=1,
+    ):
         if not self.reporting_available:
             return (
                 reporting_effect(
+                    run_id=run_id,
                     phase=Phase(phase),
                     subject_ref=subject.get("subject_ref", "candidate-01"),
+                    logical_operation_id=logical_operation_id or UUID(int=1),
+                    source_event_id=source_event_id,
+                    step_id=step_id,
+                    attempt=attempt,
                     effects={},
                     source_status="UNAVAILABLE",
                     source_error_code="REPORTING_EFFECTS_UNAVAILABLE",
                 ),
             )
+        if Phase(phase) is Phase.INJECTED:
+            return (
+                reporting_effect(
+                    run_id=run_id,
+                    phase=Phase.INJECTED,
+                    subject_ref=subject.get("subject_ref", "candidate-01"),
+                    logical_operation_id=logical_operation_id or UUID(int=1),
+                    source_event_id=source_event_id,
+                    step_id=step_id,
+                    attempt=attempt,
+                    effects={
+                        "logical_report_ids": [],
+                        "projection_document_ids": [],
+                        "projection_report_ids": [],
+                        "processed_keys": [],
+                        "source_outbox_event_ids": [str(source_event_id)],
+                    },
+                ),
+            )
         return (
             reporting_effect(
+                run_id=run_id,
                 phase=Phase(phase),
                 subject_ref=subject.get("subject_ref", "candidate-01"),
+                logical_operation_id=logical_operation_id or UUID(int=1),
+                source_event_id=source_event_id,
+                step_id=step_id,
+                attempt=attempt,
             ),
         )
 

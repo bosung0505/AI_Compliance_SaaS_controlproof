@@ -10,6 +10,7 @@ from sqlalchemy import create_engine, text
 from engine.adapters.base import CapabilityProbeResult
 from engine.adapters.whyyou.client import TargetSnapshotCaptureError, WhyYouClient
 from engine.adapters.whyyou.decisions import WhyYouDecisionAdapter
+from engine.adapters.whyyou.effects import WhyYouEffectAdapter
 from engine.adapters.whyyou.environment import WhyYouEnvironmentAdapter
 from engine.adapters.whyyou.queue import (
     QueueAccessError,
@@ -41,6 +42,8 @@ CAPABILITY_VERSIONS = {
     "reporting.fault.boundary.read": "v1",
     "hiring.decision_paths.read": "v1",
     "hiring.decision_path.attempt": "v1",
+    "reporting.effects.read": "v1",
+    "hiring.decision_effects.read": "v1",
 }
 
 
@@ -53,12 +56,14 @@ class WhyYouCapabilityProbe:
         queue: WhyYouQueueAdapter | None = None,
         environment: WhyYouEnvironmentAdapter | None = None,
         decision: WhyYouDecisionAdapter | None = None,
+        effects: WhyYouEffectAdapter | None = None,
     ) -> None:
         self.settings = settings
         self.client = client
         self.queue = queue
         self.environment = environment
         self.decision = decision
+        self.effects = effects
         self._openapi_paths: set[str] | None = None
 
     @property
@@ -142,6 +147,17 @@ class WhyYouCapabilityProbe:
                 "h03.subject.seed",
                 "reporting.trigger",
             }:
+                return self._database(capability)
+            if capability in {
+                "reporting.effects.read",
+                "hiring.decision_effects.read",
+            }:
+                if self.effects is None:
+                    return _not_ready(
+                        capability,
+                        "effect adapter is not composed",
+                        "compose the scoped WhyYou effect adapter",
+                    )
                 return self._database(capability)
             if capability == "reporting.ui.observe":
                 return self._browser(capability)
