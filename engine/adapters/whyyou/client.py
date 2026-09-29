@@ -2,6 +2,7 @@
 
 from __future__ import annotations
 
+import ast
 import hashlib
 import subprocess
 from pathlib import Path
@@ -220,7 +221,57 @@ def _dirty_manifest_digest(repo: Path, porcelain: bytes) -> str:
 
 def _migration_head(repo: Path) -> str:
     versions = repo / "backend" / "alembic" / "versions"
-    candidates = sorted(path.stem for path in versions.rglob("*.py") if path.name != "__init__.py")
-    if not candidates:
+    revisions: set[str] = set()
+    referenced: set[str] = set()
+    for path in versions.rglob("*.py"):
+        if path.name == "__init__.py":
+            continue
+        try:
+            module = ast.parse(path.read_text(encoding="utf-8"), filename=str(path))
+            values = _migration_assignments(module)
+            revision = values.get("revision")
+            down_revision = values.get("down_revision")
+        except (OSError, SyntaxError, ValueError) as exc:
+            raise TargetSnapshotCaptureError(
+                "WhyYou migration graph cannot be parsed"
+            ) from exc
+        if not isinstance(revision, str) or not revision:
+            raise TargetSnapshotCaptureError("WhyYou migration revision is invalid")
+        if revision in revisions:
+            raise TargetSnapshotCaptureError("WhyYou migration graph has duplicate revisions")
+        revisions.add(revision)
+        if isinstance(down_revision, str):
+            referenced.add(down_revision)
+        elif isinstance(down_revision, (tuple, list)):
+            if not all(isinstance(item, str) for item in down_revision):
+                raise TargetSnapshotCaptureError("WhyYou down revision is invalid")
+            referenced.update(down_revision)
+        elif down_revision is not None:
+            raise TargetSnapshotCaptureError("WhyYou down revision is invalid")
+    if not revisions:
         raise TargetSnapshotCaptureError("WhyYou migration head cannot be determined")
-    return candidates[-1]
+    heads = revisions - referenced
+    if len(heads) != 1:
+        raise TargetSnapshotCaptureError("WhyYou migration graph must have exactly one head")
+    return next(iter(heads))
+
+
+def _migration_assignments(module: ast.Module) -> dict[str, Any]:
+    values: dict[str, Any] = {}
+    for statement in module.body:
+        name: str | None = None
+        value: ast.expr | None = None
+        if isinstance(statement, ast.AnnAssign) and isinstance(statement.target, ast.Name):
+            name = statement.target.id
+            value = statement.value
+        elif (
+            isinstance(statement, ast.Assign)
+            and len(statement.targets) == 1
+            and isinstance(statement.targets[0], ast.Name)
+        ):
+            name = statement.targets[0].id
+            value = statement.value
+        if name not in {"revision", "down_revision"} or value is None:
+            continue
+        values[name] = ast.literal_eval(value)
+    return values

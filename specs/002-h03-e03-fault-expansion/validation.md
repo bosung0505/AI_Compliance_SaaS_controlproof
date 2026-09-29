@@ -411,6 +411,16 @@ import한다. 이번 변경과 직접 연결된 SQL repository·worker·API·UI�
 이 보정은 부모 bundle을 다시 쓰지 않는다. 기존 FAIL은 당시 판정 결과로 불변 보존하며, 수정된
 판정기와 WhyYou target commit을 사용하는 T085 child Run에서 새 결과를 만든다.
 
+T085 preflight 직전에는 별도의 provenance 결함도 발견했다. target snapshot이 Alembic graph를 읽지
+않고 migration 파일명의 사전식 마지막 값을 head로 사용해, 실제 DB와 source graph가
+`m_021_report_generation_failures`인데도 `m_003_criterion_grounded_rag`를 기록했다.
+
+- Python AST로 각 migration의 `revision`과 `down_revision`을 읽어 graph head를 계산하도록 변경했다.
+- head가 없거나 둘 이상인 unmerged graph, 중복 revision과 해석 불가능한 값을 snapshot 실패로
+  처리한다. 잘못된 값을 그럴듯한 버전으로 봉인하지 않는다.
+- 파일명 순서와 graph 순서가 다른 RED fixture 및 unmerged graph 검사까지 포함해 13개 target snapshot
+  관련 검사가 통과했고, 실제 WhyYou head가 `m_021_report_generation_failures`로 확인됐다.
+
 ## 2026-09-29 — 실제 스택 3-profile preflight gate (T080)
 
 ### 검증 대상과 고정된 식별자
