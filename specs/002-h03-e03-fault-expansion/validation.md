@@ -325,6 +325,127 @@ All checks passed!
 - E03-A7 같은-key 사람 결정 replay와 완전한 adapter composition은 US5에서 구현한다.
 - 실제 AWS와 외부 AI는 계속 `NOT_RUN`이며 로컬 queue·DB 계약 결과를 AWS 검증으로 확대하지 않는다.
 
+## 2026-09-29 — Spec 002 최종 Quickstart·품질 gate (T086~T091)
+
+이 절은 위의 단계별 기록보다 나중에 수행한 최종 마감 기록이다. 위 절에 남아 있는 “아직 실행하지
+않음” 표기는 당시 단계의 사실이며, 아래 실제 스택 Run과 최종 gate가 그 후속 작업을 완료했다.
+
+### 최종 source와 주장 범위
+
+- ControlProof branch: `002-h03-e03-fault-expansion`
+- 검증한 ControlProof 구현 commit: `06f7a77` (`fix: await H03 redrive before teardown`)
+- WhyYou branch: `bosung/controlproof-h03-integration`
+- 검증한 WhyYou commit: `511ae9e2cae66b8d0ce31e8851537ed27ac6dd0c`
+- WhyYou `main`: `cc8bf556b75f563f01cbf0487e28c555125077e7` — 변경·push하지 않음
+- target snapshot:
+  `target-snapshot:sha256:fa4e235018335ee6806a2b5812bc3f783a7690adcaf837f920af9bbd232d1a83`
+- 실행환경: `LOCAL_EMULATED`
+- 실제 AWS·외부 AI: `NOT_RUN`
+- 주장 범위: `EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`; 전체 법적 준수 인증이나 보증이 아님
+
+### Quickstart 실실행에서 바로잡은 가정
+
+1. Windows Python launcher `py -3.12`는 설치돼 있지 않았고, 네트워크 없는 build isolation 재설치도
+   재현 가능한 시작법이 아니었다. 기존 `.venv`가 있으면 이를 재사용하고 interpreter·dependency·
+   Playwright browser를 확인하도록 Quickstart를 고쳤다.
+2. 한글이 포함된 WhyYou 절대 경로를 환경변수로 전달하면 subprocess에서 문자가 깨질 수 있었다.
+   `WHYYOU_REPO_PATH=..\gbsa_aws` 상대 경로를 사용하도록 고쳤다.
+3. 샌드박스 실행 계정과 파일 소유 계정 차이로 Git ownership 검사에 걸렸다. 전역 Git 설정을 바꾸지
+   않고 현재 PowerShell process의 두 정확한 저장소만 `safe.directory`로 전달하도록 고쳤다.
+4. `local reset 절차`라는 이름만 있고 실제 명령과 삭제 범위가 없었다. 전용 합성 환경에서만 Compose
+   volume 전체를 초기화하는 명령, 데이터 삭제 경고, queue 0건 확인 조건을 Quickstart에 명시했다.
+5. API ready만으로 worker 생존을 증명할 수 없었다. worker 터미널이 `Started 4 workers` 뒤 계속 실행
+   중인지 별도로 확인하도록 명시했다. 샌드박스에서 `/tmp/iep-worker-ready` 쓰기가 거부된 시도는 제품
+   실패가 아니며, worker가 종료된 상태에서 시작된 미봉인 합성 시도는 정확한 correlation fixture만
+   공식 teardown 함수로 제거했다.
+6. H-03이 DLQ 메시지를 source queue로 republish한 직후 reporting 처리를 기다리지 않고 seed를
+   teardown해, worker가 삭제된 session을 읽다가 같은 메시지를 다시 DLQ로 보내는 경합을 실환경에서
+   발견했다. RED 테스트로 `reporting effect → seed teardown` 순서를 고정하고 `06f7a77`에서 H-03도
+   공통 recovery polling을 사용하도록 수정했다. 관련 복구·타이밍 subset은 `17 passed`였고 이후 새
+   실제 Run에서 source/DLQ 잔여 0건을 확인했다.
+
+Docker Desktop 자체는 손상된 Windows Unix-socket reparse point 때문에 한 차례 시작하지 못했다.
+해당 임시 runtime 디렉터리는 삭제하지 않고 `*.controlproof-stale-20260929`로 옮겨 보존한 뒤 Docker를
+재기동했다. 이는 제품 판정이나 bundle에 포함하지 않은 workstation 복구 조치다.
+
+### 최종 3-profile 결과
+
+| profile | Run ID | verdict | assertions | restore | duration | bundle | `manifest.json` SHA-256 |
+|---|---|---|---|---|---:|---|---|
+| `H03_DLQ_V2` | `ac025c2c-b941-4c4c-b737-d3d3e61deb0b` | PASS | H03-A1~A9 PASS | SUCCEEDED | 208.30s | VERIFIED, 33 files | `b4fc92b2ccbc033517d9c71f837633e069989bf1effa67b8c3a58498758e6c65` |
+| `E03_BEFORE_V2` | `047fb27b-c50e-4e50-b43d-acc1c08623e9` | PASS | A1/A2/A3/A4/A7/A8 PASS | SUCCEEDED | 196.58s | VERIFIED, 23 files | `4ee03a350e7d61818b3f2159250dee772d002284f98b49417f2689625a881889` |
+| `E03_AFTER_V2` | `4e3e424e-f9ab-43c0-a4d4-7a3741f8e3f0` | PASS | A1/A5/A6/A8 PASS | SUCCEEDED | 11.29s | VERIFIED, 19 files | `52b86fdb0d9a248035c46833d1a84703f61ba8ba6c8e52ea17ca2aad2eddc0b6` |
+
+세 verifier 모두 missing, mismatched, unregistered file 0건이었다. 수정 후 H-03 종료 10초 뒤
+`iep-reporting`과 `iep-reporting-dlq`의 visible, in-flight, delayed 수가 모두 0이었다. host API·worker·
+company console과 Compose container도 최종 확인 뒤 정상 종료했다.
+
+H-03 결과의 보조 필드 `report_processing_recovery=FAILED`는 marker 해제 직후 redrive **전** API의
+기존 terminal failure를 읽은 시점값이다. canonical H03-A1~A9, redrive 뒤 reporting effect polling,
+최종 queue 0건 및 environment restore는 모두 PASS/SUCCEEDED다. 이 보조값을 최종 복구 실패로
+해석하지 않는다.
+
+### 최초 FAIL 보존과 재시험
+
+Quickstart의 “FAIL 봉인 후에만 수정” 및 “원본을 덮어쓰지 않는 retest” 조건은 T081~T085에서 이미
+실행했다. H-03 부모 `60b19e5a-6693-427b-bf87-039e45181cfc`와 E-03 부모
+`e17e0af0-b46a-4022-93a4-a91a3247f16d`의 FAIL bundle은 불변으로 남아 있고, WhyYou 보완 후 child/
+grandchild PASS가 parent link를 가진 별도 Run이다. 최종 Quickstart에서 인위적인 새 결함은 만들지
+않았다.
+
+### 최종 정적·회귀 gate
+
+ControlProof:
+
+```powershell
+.\.venv\Scripts\python.exe -m ruff check .
+.\.venv\Scripts\python.exe -m pytest -q
+```
+
+```text
+All checks passed!
+270 passed in 140.83s (0:02:20)
+```
+
+WhyYou Python 변경 범위와 Quickstart 범위:
+
+```powershell
+uv run --cache-dir .uv-cache --no-sync pytest `
+  backend/tests/unit/shared/test_local_queue_topology.py `
+  backend/tests/unit/runtime/test_controlproof_reporting_fault.py `
+  backend/tests/unit/runtime/test_controlproof_model_substitute.py `
+  backend/tests/integration/test_worker_delivery.py `
+  backend/tests/integration/test_controlproof_fault_hook_safety.py `
+  backend/tests/integration/cross_module/test_recruiting_stage_bidirectional_sql.py `
+  backend/tests/integration/reporting/test_final_decision_idempotency.py `
+  backend/tests/integration/reporting/test_recruiting_stage_decision.py `
+  backend/tests/integration/reporting/test_report_failure_visibility.py -q
+uv run --cache-dir .uv-cache --no-sync ruff check .
+```
+
+```text
+72 passed, 2 dependency deprecation warnings in 9.78s
+All checks passed!
+```
+
+WhyYou company console:
+
+```powershell
+npm.cmd run test --workspace @iep/company-console -- src/app/__tests__/reviewRoute.test.tsx
+npm.cmd run typecheck --workspace @iep/company-console
+npm.cmd run build --workspace @iep/company-console
+```
+
+```text
+1 file / 10 tests passed in 5.08s
+typecheck PASS
+production build PASS in 26.88s
+known non-blocking warning: main JS chunk > 500 kB
+```
+
+따라서 T090과 T091을 완료했고, Spec 002의 구현·로컬 실제 스택 검증·불변 FAIL→PASS 계보·최종
+회귀와 팀 재현 문서를 모두 닫는다. 실제 AWS 검증은 이 완료 판정에 포함되지 않으며 계속 `NOT_RUN`이다.
+
 ## 2026-09-29 — 최초 FAIL 근거 기반 WhyYou 보완 (T082~T084)
 
 ### 변경 허용 근거

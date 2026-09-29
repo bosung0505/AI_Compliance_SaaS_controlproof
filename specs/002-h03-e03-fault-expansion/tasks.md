@@ -231,8 +231,8 @@ description: "Spec 002 H-03·E-03 장애·재시도·DLQ 확장의 구현 작업
 - [X] T087 [P] Add deterministic clock tests proving 360-second DLQ, 60-second duplicate-ack, 180-second recovery and 600-second whole-Run deadlines come only from the scenario snapshot in `tests/integration/test_spec002_timing.py` [SC-001]
 - [X] T088 Add an FR/SC/H03-A/E03-A/EV2 → task → test → implementation traceability matrix in `specs/002-h03-e03-fault-expansion/traceability.md` [Constitution VII]
 - [X] T089 [P] Update team-facing setup, branch safety, profile meanings, AWS `NOT_RUN`, first FAIL preservation and result interpretation in `README.md`, including the exact boundary that ControlProof reports only executed scenarios and captured evidence and does not certify or guarantee overall legal compliance [SC-012, SC-014]
-- [ ] T090 Execute every command in `specs/002-h03-e03-fault-expansion/quickstart.md` from a clean environment and correct only inaccurate command/path/document assumptions found during execution
-- [ ] T091 Run `ruff check .` and the complete ControlProof `pytest -q` suite plus the scoped WhyYou tests, then record commands, counts, durations, known target FAILs, restore status and final source SHAs in `specs/002-h03-e03-fault-expansion/validation.md`
+- [X] T090 Execute every command in `specs/002-h03-e03-fault-expansion/quickstart.md` from a clean environment and correct only inaccurate command/path/document assumptions found during execution
+- [X] T091 Run `ruff check .` and the complete ControlProof `pytest -q` suite plus the scoped WhyYou tests, then record commands, counts, durations, known target FAILs, restore status and final source SHAs in `specs/002-h03-e03-fault-expansion/validation.md`
 
 ---
 

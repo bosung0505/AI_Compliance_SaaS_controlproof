@@ -1,7 +1,7 @@
 # Quickstart: Spec 002 구현 후 로컬 검증 절차
 
-이 문서는 지금 당장 완성된 기능을 실행한다는 뜻이 아니다. `tasks.md`에 따라 구현이 끝난 뒤,
-`whyyou-local`에서 H-03 확장과 E-03 두 장애 경계를 같은 조건으로 재현하기 위한 검증 순서다.
+이 문서는 구현이 완료된 Spec 002를 `whyyou-local`에서 다시 검증하는 재현 절차다. H-03 확장과
+E-03 두 장애 경계를 같은 조건으로 실행하고, 판정·bundle·복구 상태를 독립적으로 확인한다.
 
 ## 1. 주장 범위
 
@@ -151,8 +151,23 @@ cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
 .\scripts\local.ps1 company
 ```
 
-Docker Desktop의 PostgreSQL·LocalStack·Mailpit과 host process의 health를 먼저 확인한다. 과거 남은
-queue/message가 있으면 임의 삭제하지 말고 local reset 절차로 합성 시험환경을 새로 준비한다.
+Docker Desktop의 PostgreSQL·LocalStack·Mailpit과 host process의 health를 먼저 확인한다. `worker`
+터미널은 `Started 4 workers` 뒤 종료되지 않은 상태여야 한다. API `/health/ready`가 `ok`여도 worker
+프로세스가 이미 종료됐다면 장애 Run을 시작하면 안 된다.
+
+과거 Run의 queue/message 또는 합성 DB fixture가 남았다면 개별 메시지나 DB row를 손으로 삭제하지
+않는다. 로컬 Docker 데이터 전체를 버려도 되는 **전용 합성 시험환경**에서만 아래 reset을 수행한다.
+이 명령은 WhyYou Compose의 PostgreSQL·LocalStack·Mailpit volume을 모두 삭제한다. 보존할 로컬 데이터가
+있다면 실행하지 말고 잔여 원인을 먼저 조사한다.
+
+```powershell
+cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
+docker compose down --volumes --remove-orphans
+.\scripts\local.ps1 up
+```
+
+reset을 하지 않은 경우에도 source queue와 DLQ가 모두 visible/in-flight/delayed 0건인지 확인한 뒤에만
+preflight로 넘어간다.
 
 ```powershell
 cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
@@ -247,3 +262,8 @@ H03-A7 우회나 E03-A7 idempotency 결함처럼 최초 Run으로 입증된 사�
 각 Run의 restore가 성공한 것을 확인한 뒤 WhyYou local stack을 정상 종료한다. `RESTORE_FAILED`가 있으면
 후속 장애 Run을 실행하지 말고 Spec 001 `cleanup-confirm` 절차로 marker 부재와 target 안전 상태를 다시
 확인한다. bundle이나 DLQ 기록을 수동 삭제해 성공처럼 만들면 안 된다.
+
+```powershell
+cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
+.\scripts\local.ps1 down
+```
