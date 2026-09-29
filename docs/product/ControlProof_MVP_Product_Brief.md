@@ -10,8 +10,10 @@
 - 문서 성격: PRD-lite. 제품 관점의 결정 문서이며 상세 API, DB 스키마, 배포 구조와 구현 프레임워크는 후속 Spec과 Plan에서 정한다.
 - 현재 산출물: [Spec Kit Constitution](../../.specify/memory/constitution.md),
   [완료된 기능 Spec 001](../../specs/001-execution-evidence-h03/spec.md),
-  [기능 Spec 002 초안](../../specs/002-h03-e03-fault-expansion/spec.md)
-- 다음 산출물: 기능 Spec 002 명확화와 기술 Plan, 후속 기능 Spec과 웹 워크벤치
+  [완료된 기능 Spec 002](../../specs/002-h03-e03-fault-expansion/spec.md),
+  [팀 통합 인수인계](../TEAM_HANDOFF.md)
+- 다음 산출물: 기능 Spec 003 — N-02 동의·AI 처리 순서 수직 흐름. 이후 Spec 004 — E-01·E-02
+  점수 근거·평가 기준 보존, Spec 005 — 웹 워크벤치·보고서 순서로 진행한다.
 
 ### 0.1 기준 문서의 우선순위
 
@@ -671,8 +673,14 @@ H-03과 E-03은 같은 장애 실행에서 서로 다른 통제 관점으로 판
 
 ## 14. 후속 Spec Kit 작업 단위
 
-이 Brief를 기준으로 다음 순서로 진행한다. 14.1과 14.2는 명세·구현·실제 검증까지 완료되었고,
-현재 작업은 14.3 기능 Spec 002의 명세와 명확화다.
+14.1~14.3은 명세·구현·실제 로컬 검증까지 완료됐다. 2026-09-30부터 14.4~14.6을 공식 후속
+Spec 003~005로 사용한다. 각 Spec은 문서만 만든 뒤 한꺼번에 개발하는 단계가 아니다. 해당 Spec의
+clarify·plan·tasks·analyze를 마치면 곧바로 구현·실제 검증·converge까지 닫고 다음 Spec으로 넘어간다.
+
+기존 “남은 WhyYou 연결과 시험 조건” 후보는 독립 Spec으로 만들지 않는다. H-03·E-03 연결은 이미
+Spec 001·002에 있고, 앞으로 필요한 연결·시드·관찰·주입·복구 capability는 이를 사용하는 Spec 003
+또는 Spec 004 안에서 함께 명세하고 구현한다. 사용자 가치와 분리된 범용 연결 기반을 먼저 크게 만드는
+것을 피하기 위한 결정이다. 상세 이유는 [결정 기록 D-013](./ControlProof_MVP_Decision_Log.md)을 따른다.
 
 ### 14.1 Constitution
 
@@ -709,8 +717,9 @@ H-03과 E-03은 같은 장애 실행에서 서로 다른 통제 관점으로 판
 
 ### 14.3 기능 Spec 002 — H-03·E-03 장애 확장
 
-상태: 초안 — [Feature Specification](../../specs/002-h03-e03-fault-expansion/spec.md),
-[품질 체크리스트](../../specs/002-h03-e03-fault-expansion/checklists/requirements.md)
+상태: 완료 — [Feature Specification](../../specs/002-h03-e03-fault-expansion/spec.md),
+[품질 체크리스트](../../specs/002-h03-e03-fault-expansion/checklists/requirements.md),
+[검증 기록](../../specs/002-h03-e03-fault-expansion/validation.md)
 
 - reporting 재시도 소진과 DLQ 전환
 - DLQ 적재와 운영자 노출
@@ -719,28 +728,50 @@ H-03과 E-03은 같은 장애 실행에서 서로 다른 통제 관점으로 판
 - Outbox 이벤트와 결정 이력의 누락·중복 판정
 - H-03 결정 안전성과 E-03 증적 완전성의 독립 verdict
 
-### 14.4 기능 Spec 003 — WhyYou 연결과 시험 조건
+### 14.4 기능 Spec 003 — N-02 동의·AI 처리 순서 수직 흐름
 
-- 상태 시드와 경로 시드
-- API·로그·브라우저·큐 연결
-- 우회·데이터 변경·장애 주입
-- 테스트 환경 보호와 복구
+상태: 계획 확정·명세 미착수
 
-### 14.5 기능 Spec 004 — 워크벤치와 보고서
+- 동의를 거친 합성 지원자를 반복 생성하는 경로 시드
+- 동의 완료 전 자료 제출·분석 요청·녹화·평가 시작 우회 차단
+- `동의 완료 < 분석 요청 ≤ 실제 분석 시작` 사건 순서와 correlation 검증
+- 동의 정책 버전·내용 digest·동의 완료 시각 증적
+- 동의 저장 실패와 Outbox 지연 조건, 복구와 재시험
+- N-02에 필요한 WhyYou API·DB·로그·브라우저 연결과 test-only 조건 주입
+- 실제 `whyyou-local` Run, 봉인 bundle과 필요 시 불변 FAIL → PASS 재시험
 
-- 네 핵심 화면
-- 준비 상태와 결과 상태
-- 증적 조회
-- 최초 실행과 재시험 비교
-- 대상 기능 부재와 검증 한계 표시
+Spec 003의 완료로 V4 비협상 대표 시나리오 N-02·H-03·E-03 세 개가 모두 실제 완주 상태가 된다.
 
-### 14.6 기능 Spec 005 — 나머지 대표 시나리오
+### 14.5 기능 Spec 004 — E-01·E-02 점수 근거·평가 기준 보존
 
-- N-02
-- E-03 확장
-- E-01·E-02
-- H-01·H-02·N-01·N-03
-- A-01~A-03 대상 부재 표시
+상태: 계획 확정·명세 미착수
+
+- 누락·변조된 `quoted_evidence_ids`를 사용한 점수 저장·노출 우회 차단
+- 지원자·평가 기준·인용 근거의 연결 검증
+- `scoring_inputs`, 기준별·축별 가중치와 정책·모델 버전 snapshot
+- 평가 기준 변경 후 과거 리포트와 당시 입력의 불변성 검증
+- 잘못된 인용과 기준 변경 조건의 생성·복구 capability
+- E-01·E-02 독립 assertion·verdict·증적 bundle과 실제 로컬 검증
+
+### 14.6 기능 Spec 005 — 웹 워크벤치·12개 시나리오 카탈로그·보고서
+
+상태: 계획 확정·명세 미착수
+
+- V4의 통제 4종·시나리오 12개와 준비 상태·실행 방식 표시
+- `PASS`, `FAIL`, `INCONCLUSIVE`, `NOT_RUN`과 reason code 구분
+- A-01~A-03을 신규 구현하지 않고 증적이 연결된 `NO_TEST_TARGET`로 표시
+- 실행 결과의 기대·관찰·assertion·대표 증적·SHA-256 조회
+- 최초 FAIL과 child/grandchild 재시험 비교
+- 사람 최종결정과 AI 점수가 참고 정보라는 원칙 표시
+- `LOCAL_EMULATED`, AWS `NOT_RUN`, 미검증 범위와 법적 준수 비보증 표시
+- 실제 웹 결과 화면을 대상으로 한 역할별 이해도·사용성 검토
+
+H-01·H-02·N-01·N-03의 전체 실제 실행은 V4의 목표 상한이며 이 세 Spec의 비협상 완료선은 아니다.
+Spec 005에서는 최소한 준비 상태와 `NOT_RUN`을 사실대로 표시한다. 이 항목들까지 실제 완주하기로
+범위를 넓히면 별도 후속 Spec 또는 명시적인 Spec 003~005 범위 변경이 필요하다.
+
+Spec 005까지 완료됐다는 말은 그때 MVP 개발을 시작한다는 뜻이 아니다. Spec 003~005 각각이 구현과
+실제 검증을 포함하므로, 세 Spec이 모두 완료되고 V4 완료 기준을 다시 통과하면 2주 MVP 완료 후보가 된다.
 
 ---
 

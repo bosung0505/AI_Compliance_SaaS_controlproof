@@ -13,7 +13,7 @@ ControlProof는 합성 데이터를 이용해 AI 서비스의 절차적 보호�
 - Spec 002 재현 절차: [로컬 actual-stack quickstart](./specs/002-h03-e03-fault-expansion/quickstart.md)
 - Spec 002 검증 기록: [자동·실제 스택 검증 결과](./specs/002-h03-e03-fault-expansion/validation.md)
 - Spec 002 추적성: [요구사항→작업→테스트→구현](./specs/002-h03-e03-fault-expansion/traceability.md)
-- 팀 인수인계: [Spec 001 현황·재현·검토 가이드](./docs/TEAM_HANDOFF_SPEC_001.md)
+- 팀 인수인계: [현재 공식 상태·재현·검토 통합 가이드](./docs/TEAM_HANDOFF.md)
 - 도입 결정: [ADR-0001 — Spec Kit과 팀 골격 채택](./docs/decisions/0001-adopt-spec-kit-and-skeleton.md)
 
 `docs/reference/skeleton/`은 팀원이 만든 초기 골격의 원문 보관본이다. 제품 의미가 충돌할 때는 위 문서와 Constitution을 우선한다.
@@ -42,6 +42,21 @@ Spec 001과 Spec 002는 clarify, plan, tasks, analyze, implement와 actual-stack
 Spec 002는 로컬 WhyYou를 대상으로 H-03 재시도 소진·DLQ·결정 우회와 E-03 저장 전/후 장애,
 사람 최종결정 멱등성, 봉인 증적과 불변 FAIL→PASS 재시험을 구현했다. 이는 전체 2주 MVP나
 ControlProof 웹 UI가 완성됐다는 뜻이 아니며, 현재 사용자 접점은 개발·검증용 CLI다.
+
+## 후속 Spec 로드맵
+
+후속 순서는 [Product Brief](./docs/product/ControlProof_MVP_Product_Brief.md)와
+[Decision Log D-013](./docs/product/ControlProof_MVP_Decision_Log.md)을 기준으로 한다.
+
+| 순서 | 상태 | 범위 |
+|---|---|---|
+| Spec 003 | 계획 확정·미착수 | N-02 동의·AI 처리 순서와 이에 필요한 WhyYou 연결·주입·복구 |
+| Spec 004 | 계획 확정·미착수 | E-01·E-02 점수 근거·평가 기준 snapshot과 과거 결과 보존 |
+| Spec 005 | 계획 확정·미착수 | 웹 워크벤치·12개 시나리오 카탈로그·보고서와 웹 UX 검토 |
+
+WhyYou 연결 기반을 별도 Spec으로 먼저 만들지 않는다. 각 시나리오에 필요한 capability를 해당 Spec의
+수직 흐름 안에서 구현한다. 또한 세 Spec 문서만 먼저 완성한 뒤 개발하는 방식이 아니라, Spec 003의
+명세→구현→실제 검증을 닫은 뒤 Spec 004, Spec 005 순으로 같은 사이클을 반복한다.
 
 ## 개발 환경
 
@@ -152,7 +167,7 @@ manifest SHA-256은 [검증 기록](./specs/002-h03-e03-fault-expansion/validati
 향후 staging/AWS를 검증하려면 별도 target ID와 새 Run을 만들어야 한다. 로컬 verdict나 bundle을
 클라우드 결과로 복사·승격하지 않는다.
 
-처음 합류한 팀원은 먼저 [팀 인수인계 가이드](./docs/TEAM_HANDOFF_SPEC_001.md)를 읽고, Spec 002는
+처음 합류한 팀원은 먼저 [팀 통합 인수인계](./docs/TEAM_HANDOFF.md)를 읽고, Spec 002는
 [Spec 002 quickstart](./specs/002-h03-e03-fault-expansion/quickstart.md)를 따른다. Spec 001의 상세
 실제 스택 재현 절차는 [Spec 001 quickstart](./specs/001-execution-evidence-h03/quickstart.md),
 CLI 결과 검토 정책과 웹 UX 이관 결정은

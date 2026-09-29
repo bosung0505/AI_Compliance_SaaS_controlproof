@@ -50,4 +50,6 @@
   operation 2개·canonical path ID 3개,
   reporting·사람 결정의 정확한 필수 효과를 확정했다.
 - AWS가 내려간 상태를 숨기지 않고 로컬 결과와 실제 클라우드 미검증 범위를 분리했다.
-- `$speckit-clarify`는 완료됐다. 다음 단계는 `$speckit-plan`이며, 아직 Spec 002 구현을 시작하지 않는다.
+- 이 체크리스트를 닫은 당시에는 `$speckit-clarify` 완료 후 `$speckit-plan`으로 넘어가는 시점이었다.
+  이후 plan·tasks·analyze·implement·actual-stack validation을 모두 완료했으며 현재 공식 상태는
+  [Spec 002](../spec.md)의 `Complete`와 [최종 검증 기록](../validation.md)을 따른다.
