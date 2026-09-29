@@ -244,7 +244,11 @@ class H03DlqExecutor:
             recovery = coordinate_reporting_recovery(
                 fault=self.adapters.fault,
                 redrive=queue,
-                effects=None,
+                # A successful send/delete receipt only proves that the message moved from
+                # the DLQ back to the source queue.  Wait for the reporting effect before
+                # tearing down the synthetic subject; otherwise the worker can race the
+                # teardown and return the redriven message to the DLQ.
+                effects=_required_adapter(self.adapters.effects, "reporting effects"),
                 run_id=run_id,
                 source_event_id=source_event_id,
                 logical_operation_id=uuid5(

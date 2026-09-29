@@ -122,6 +122,51 @@ def test_us1_slice_collects_dlq_visibility_then_restores_before_redrive(tmp_path
     )
 
 
+def test_h03_waits_for_redriven_reporting_effect_before_seed_teardown(tmp_path):
+    scenario = load("scenarios/H-03-DLQ.yaml")
+    adapters, _browser = make_adapters(status_class="failed")
+    events = []
+    reads = 0
+    original_read = adapters.effects.read_reporting_effects
+    original_teardown = adapters.seed.teardown
+
+    def delayed_reporting_effect(**kwargs):
+        nonlocal reads
+        reads += 1
+        events.append(f"effects:{reads}")
+        rows = original_read(**kwargs)
+        if reads == 1:
+            return (
+                rows[0].model_copy(
+                        update={
+                            "effects": {
+                                "logical_report_ids": [],
+                                "projection_document_ids": [],
+                                "projection_report_ids": [],
+                                "processed_keys": [],
+                                "source_outbox_event_ids": [str(FIXTURE_EVENT_ID)],
+                            }
+                        },
+                ),
+            )
+        return rows
+
+    def tracked_teardown(**kwargs):
+        events.append("seed.teardown")
+        return original_teardown(**kwargs)
+
+    adapters.effects.read_reporting_effects = delayed_reporting_effect
+    adapters.seed.teardown = tracked_teardown
+    clock = FakeClock()
+    started = clock.now()
+
+    H03DlqExecutor(scenario, adapters, tmp_path, clock=clock).collect_us1(run_id=RUN_ID)
+
+    assert reads == 2
+    assert (clock.now() - started).total_seconds() == scenario.timing_policy.poll_seconds
+    assert events == ["effects:1", "effects:2", "seed.teardown"]
+
+
 def test_us1_slice_polls_for_the_async_boundary_receipt(tmp_path):
     class DelayedBoundary:
         def __init__(self, delegate):
