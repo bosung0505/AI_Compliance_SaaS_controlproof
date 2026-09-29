@@ -77,6 +77,7 @@ ControlProof 터미널에 다음처럼 가져오고, 이름이 다른 값만 명
 
 ```powershell
 cd "C:\Users\aaaa2\AI 기본법\AI_Compliance_SaaS_controlproof"
+$controlProofRepo = (Get-Location).Path
 $whyYouRepo = (Resolve-Path -LiteralPath "..\gbsa_aws").Path
 $whyYouEnv = Join-Path $whyYouRepo ".env"
 foreach ($line in Get-Content -LiteralPath $whyYouEnv -Encoding UTF8) {
@@ -87,6 +88,14 @@ foreach ($line in Get-Content -LiteralPath $whyYouEnv -Encoding UTF8) {
     $value = $matches[2].Trim().Trim('"').Trim("'")
     [Environment]::SetEnvironmentVariable($name, $value, "Process")
 }
+
+# Codex sandbox처럼 파일 소유 계정과 실행 계정이 다른 경우에도 전역 git config는 바꾸지 않는다.
+# 이 PowerShell process에서 정확히 이 두 저장소만 safe.directory로 전달한다.
+$env:GIT_CONFIG_COUNT = "2"
+$env:GIT_CONFIG_KEY_0 = "safe.directory"
+$env:GIT_CONFIG_VALUE_0 = $controlProofRepo
+$env:GIT_CONFIG_KEY_1 = "safe.directory"
+$env:GIT_CONFIG_VALUE_1 = $whyYouRepo
 
 $env:CONTROLPROOF_TARGET_ID = "whyyou-local"
 $env:CONTROLPROOF_ENVIRONMENT_KIND = "LOCAL_EMULATED"
