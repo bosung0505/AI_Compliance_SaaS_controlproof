@@ -140,15 +140,15 @@ class WhyYouEffectAdapter:
                 "invitation_status": str(source["invitation_status"]),
                 "human_review_ids": [str(item["human_review_id"]) for item in reviews],
                 "human_review_actor_types": [
-                    str(item.get("actor_type", "COMPANY_USER")) for item in reviews
+                    _canonical_actor_type(item.get("actor_type")) for item in reviews
                 ],
                 "decision_actor_types": [
-                    str(item["actor_type"])
+                    _canonical_actor_type(item["actor_type"])
                     for item in audits
                     if item.get("actor_type") is not None
                 ],
                 "final_decision_actor_types": [
-                    str(item["actor_type"])
+                    _canonical_actor_type(item["actor_type"])
                     for item in audits
                     if item.get("action") == "final_decision.create"
                     and item.get("actor_type") is not None
@@ -324,6 +324,13 @@ class WhyYouEffectAdapter:
             "processed_messages": processed,
             "outbox_events": outbox,
         }
+
+
+def _canonical_actor_type(value: Any) -> str:
+    if value is None:
+        return "UNKNOWN"
+    normalized = str(value).strip().replace("-", "_").upper()
+    return normalized or "UNKNOWN"
 
 
 def _reporting_projection(

@@ -168,7 +168,8 @@ def test_decision_projection_contains_only_the_required_human_effect_set():
                 "audit_event_id": "audit-01",
                 "action": "final_decision.create",
                 "request_id": "request-01",
-                "actor_type": "COMPANY_USER",
+                # WhyYou persists audit ActorType enum values in lowercase.
+                "actor_type": "company_user",
             }
         ],
         "ai_score": 99,

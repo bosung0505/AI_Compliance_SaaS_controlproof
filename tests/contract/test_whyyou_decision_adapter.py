@@ -225,7 +225,7 @@ def test_decision_effect_projection_distinguishes_present_absent_and_unavailable
     assert present.source_status is Presence.PRESENT
     assert present.effects["stage_id"] == str(ACCEPT_STAGE_ID)
     assert present.effects["human_review_ids"] == []
-    assert present.effects["decision_actor_types"] == ["system"]
+    assert present.effects["decision_actor_types"] == ["SYSTEM"]
 
     absent = WhyYouEffectAdapter(_settings(), loader=lambda _subject: None)
     missing = absent.read_decision_effects(
