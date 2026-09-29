@@ -144,6 +144,21 @@ def test_dlq_read_selects_only_matching_event_and_session_without_mutation(tmp_p
     assert sqs.operations == []
 
 
+def test_dlq_observation_receive_does_not_count_as_an_extra_worker_attempt(tmp_path):
+    sqs = RecordingSqs()
+    # The source worker exhausted its configured three attempts. Reading the message from
+    # the DLQ for evidence increments SQS ApproximateReceiveCount once more, but that
+    # observation is not a fourth worker processing attempt.
+    sqs.messages = [_message(receive_count="4")]
+    adapter = WhyYouQueueAdapter(_settings(tmp_path), sqs_client=sqs)
+
+    result = adapter.read_dlq(source_event_id=str(EVENT_ID), subject_ref=str(SESSION_ID))
+
+    assert result.ok
+    assert result.data["terminal_failure"].last_delivery_attempt == 3
+    assert result.data["dlq_observation_receive_count"] == 4
+
+
 def test_dlq_empty_and_unavailable_are_not_conflated_or_leaky(tmp_path):
     sqs = RecordingSqs()
     adapter = WhyYouQueueAdapter(_settings(tmp_path), sqs_client=sqs)

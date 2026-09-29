@@ -325,6 +325,92 @@ All checks passed!
 - E03-A7 같은-key 사람 결정 replay와 완전한 adapter composition은 US5에서 구현한다.
 - 실제 AWS와 외부 AI는 계속 `NOT_RUN`이며 로컬 queue·DB 계약 결과를 AWS 검증으로 확대하지 않는다.
 
+## 2026-09-29 — 최초 FAIL 근거 기반 WhyYou 보완 (T082~T084)
+
+### 변경 허용 근거
+
+문서 배치상 이 절이 실제 스택 절보다 먼저 보이지만, 실행 순서는 아래의 `T080 → T081`을 완료한 뒤
+본 절의 `T082 → T084`였다. 즉 보완 코드가 최초 FAIL보다 먼저 들어간 것이 아니다.
+
+보완은 최초 actual-stack bundle을 먼저 봉인한 뒤에만 수행했다. 부모 Run은 수정하지 않았다.
+
+| Task | 직접 근거 | 부모 Run | 보완 목표 |
+|---|---|---|---|
+| T082 | H03-A7에서 단일 final-decision은 report 부재로 거부됐지만 batch `최종합격`·`불합격`은 수락됨 | `60b19e5a-6693-427b-bf87-039e45181cfc` | batch 최종 단계도 report-ready 보호 적용 |
+| T083 | H03-A9/H03-A2에서 DLQ는 확인됐지만 제품 API가 계속 `queued` | `60b19e5a-6693-427b-bf87-039e45181cfc` | 영속 실패 projection과 API/UI terminal 상태 추가 |
+| T084 | E03-A7에서 동일 key·동일 body 재전송이 동등 성공으로 재생되지 않음 | `e17e0af0-b46a-4022-93a4-a91a3247f16d` | 사람 결정 command의 exactly-once 업무 효과 구현 |
+
+### T082 — batch 최종 단계 우회 차단
+
+- RED에서는 report가 없는 invitation을 batch `최종합격`과 `불합격`으로 옮기는 두 요청이 모두
+  성공했다.
+- 회사 API가 batch 이동을 호출할 때 `require_final_report=True`를 명시하도록 했다. 서비스는 전체
+  대상을 먼저 검증하므로 한 건이라도 report-ready가 아니면 어떤 pipeline row도 변경하지 않는다.
+- reporting의 단일 final-decision 경로는 이미 자체 report guard를 가지므로, 내부 경계가 batch
+  primitive를 사용할 때는 중복 guard를 강제하지 않는다. 이 차이는 호출부 인자로 명시해 숨은 정책
+  차이를 제거했다.
+
+### T083 — 숨은 최종 실패를 제품 상태로 공개
+
+- 대안과 선택 이유는 `implementation-decisions.md`의 `ID-002-01`에 기록했다.
+- 빈 실패 리포트를 만들거나 화면이 DLQ를 직접 읽지 않는다. 별도 `report_generation_failures`에 원
+  event·session·마지막 source attempt·sanitized error code만 저장한다.
+- 실제 report가 없고 terminal projection이 있을 때 API는 `failed`, `retryable=false`를 반환한다.
+  회사 화면은 polling을 멈추고 리포트 실패와 결정 불가를 명시한다. 복구 후 실제 report가 생기면
+  report가 실패 이력보다 우선한다.
+
+### T084 — 사람 최종결정 멱등성
+
+- `FinalDecisionService`가 report guard, 단계 이동, `HumanReview`, invitation `reviewed`, 감사 기록과
+  idempotency resource 연결을 하나의 transaction 경계에서 소유한다.
+- 동일 `Idempotency-Key`와 동일 본문 재전송은 최초 `HumanReview`와 현재 결정을 읽어 같은 201 응답을
+  반환하고 업무 효과를 추가하지 않는다.
+- 같은 key로 목표 단계 또는 `expected_pipeline_version`이 다른 본문을 보내면 409로 거부한다.
+  예상 버전도 최초 `HumanReview` 값에 보존해 canonical body의 일부로 비교한다.
+- production 조립은 기존 SQL `command_idempotency` store를 Lane D에 전달한다. 원본 key는 응답,
+  감사 metadata, ControlProof bundle에 복사하지 않는다.
+
+### WhyYou 변경과 검증
+
+- 저장소: `jhkim0602/gbsa_aws`
+- 브랜치: `bosung/controlproof-h03-integration`
+- 커밋: `511ae9e` (`fix: harden report failure and final decisions`)
+- `main`에는 push하지 않았다.
+
+검증 결과:
+
+```text
+T082~T084 + migration target: 40 passed
+T084 + cross-module transaction regression: 11 passed
+company-console review route: 10 passed
+company-console typecheck: PASS
+company-console production build: PASS
+Ruff changed-file gate: PASS
+Alembic heads: m_021_report_generation_failures (single head)
+Migration ownership/head/downgrade/drift: PASS
+```
+
+확장 reporting 디렉터리 전체 collection은 이번 변경과 무관한 기존 test helper 불일치로 중단됐다.
+현재 소스와 HEAD 모두 `InMemoryReportingRepository`를 제공하지 않지만 legacy 테스트 3개가 이를
+import한다. 이번 변경과 직접 연결된 SQL repository·worker·API·UI·교차 모듈 gate는 위와 같이 모두
+통과했다.
+
+### ControlProof 판정기 보정
+
+최초 Run의 fault receipt는 source worker 시도 `[1, 2, 3]`을 정확히 기록했지만, ControlProof가 DLQ
+메시지를 읽는 관찰 행위가 `ApproximateReceiveCount`를 4로 증가시켰다. 기존 adapter는 이 값을
+`last_delivery_attempt`로 저장해 H03-A8과 E03-A2를 거짓 FAIL로 만들었다.
+
+- RED 계약 테스트에서 DLQ 관찰 count 4가 worker attempt 4로 기록되는 문제를 재현했다.
+- terminal failure의 `last_delivery_attempt`는 검증된 redrive topology의 source max receive count 3으로
+  고정했다.
+- DLQ 자체 관찰 횟수 4는 `dlq_observation_receive_count`로 분리해 원본 관찰 사실을 버리지 않는다.
+- queue adapter·DLQ lineage·redrive·H03/E03 judge 회귀 28개가 통과했다.
+- ControlProof 전체 회귀 249개와 Ruff 전체 검사가 통과했다.
+
+이 보정은 부모 bundle을 다시 쓰지 않는다. 기존 FAIL은 당시 판정 결과로 불변 보존하며, 수정된
+판정기와 WhyYou target commit을 사용하는 T085 child Run에서 새 결과를 만든다.
+
 ## 2026-09-29 — 실제 스택 3-profile preflight gate (T080)
 
 ### 검증 대상과 고정된 식별자

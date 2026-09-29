@@ -233,13 +233,17 @@ class WhyYouQueueAdapter:
             if selected is None:
                 continue
             self._selected[event_id] = selected
-            receive_count = _receive_count(raw)
+            dlq_observation_receive_count = _receive_count(raw)
             terminal = TerminalFailureRecord(
                 route_type=TerminalFailureRoute.INFRASTRUCTURE_DLQ,
                 route_locator="localstack:sqs:iep-reporting-dlq",
                 source_event_id=event_id,
                 subject_ref=subject_ref,
-                last_delivery_attempt=receive_count,
+                # A receive performed by ControlProof on the DLQ is evidence collection,
+                # not another delivery to the WhyYou reporting worker. Presence in this
+                # configured redrive queue establishes that the source retry limit was
+                # exhausted, so the terminal worker attempt is the topology limit.
+                last_delivery_attempt=self.settings.reporting_max_receive_count,
                 last_failure_code="CONTROLPROOF_INJECTED_BEFORE_DURABLE",
                 message_body_digest=sha256_bytes(selected.body.encode("utf-8")),
                 observed_at=datetime.now(UTC),
@@ -247,7 +251,11 @@ class WhyYouQueueAdapter:
             return AdapterResult(
                 True,
                 "DLQ_MATCH_READ",
-                {"presence": Presence.PRESENT, "terminal_failure": terminal},
+                {
+                    "presence": Presence.PRESENT,
+                    "terminal_failure": terminal,
+                    "dlq_observation_receive_count": dlq_observation_receive_count,
+                },
             )
         return AdapterResult(
             True,
