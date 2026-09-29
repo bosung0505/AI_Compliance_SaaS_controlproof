@@ -38,12 +38,20 @@ WhyYou 변경을 `main`에 직접 push하지 않는다. 실제 Run을 만들 때
 
 ```powershell
 cd "C:\Users\aaaa2\AI 기본법\AI_Compliance_SaaS_controlproof"
-py -3.12 -m venv .venv
-.\.venv\Scripts\python.exe -m pip install -e ".[dev]"
-.\.venv\Scripts\python.exe -m playwright install chromium
+$python = ".\.venv\Scripts\python.exe"
+if (-not (Test-Path -LiteralPath $python)) {
+    uv venv --python 3.12 .venv
+    uv pip install --python $python -e ".[dev]"
+    & $python -m playwright install chromium
+}
+& $python --version
+& $python -c "import pytest, ruff, pydantic, playwright; print('ControlProof dependencies: ready')"
+& $python -m playwright install --list
 ```
 
-기존 `.venv`가 있으면 새로 만들지 않고 dependency와 browser 설치 상태만 확인한다.
+이 저장소는 Windows Python launcher `py -3.12`의 존재를 가정하지 않는다. 기존 `.venv`가 있으면
+build isolation을 다시 실행하지 않고 dependency와 browser 설치 상태만 확인한다. 새 환경을 만드는
+최초 한 번은 package와 Chromium 다운로드를 위한 네트워크가 필요하다.
 
 ## 4. Configure WhyYou local-only test profile
 
@@ -62,6 +70,51 @@ CONTROLPROOF_MODEL_SUBSTITUTE_ENABLED=true
 
 두 ControlProof flag는 local/test에서만 유효해야 하고 production-like environment에서는 시작 자체가
 거부돼야 한다. Run/session/subject allowlist가 없는 marker도 적용되면 안 된다.
+
+ControlProof CLI는 `.env`를 암묵적으로 읽지 않는다. WhyYou를 시작한 것과 **같은 로컬 설정을**
+ControlProof 터미널에 다음처럼 가져오고, 이름이 다른 값만 명시적으로 매핑한다. 이 block은 값을
+출력하지 않으며 현재 PowerShell process에만 보존한다.
+
+```powershell
+cd "C:\Users\aaaa2\AI 기본법\AI_Compliance_SaaS_controlproof"
+$whyYouRepo = (Resolve-Path -LiteralPath "..\gbsa_aws").Path
+$whyYouEnv = Join-Path $whyYouRepo ".env"
+foreach ($line in Get-Content -LiteralPath $whyYouEnv -Encoding UTF8) {
+    $trimmed = $line.Trim()
+    if (-not $trimmed -or $trimmed.StartsWith("#")) { continue }
+    if ($trimmed -notmatch "^([^=]+)=(.*)$") { continue }
+    $name = $matches[1].Trim()
+    $value = $matches[2].Trim().Trim('"').Trim("'")
+    [Environment]::SetEnvironmentVariable($name, $value, "Process")
+}
+
+$env:CONTROLPROOF_TARGET_ID = "whyyou-local"
+$env:CONTROLPROOF_ENVIRONMENT_KIND = "LOCAL_EMULATED"
+$env:CONTROLPROOF_AWS_DEPLOYMENT_STATUS = "NOT_RUN"
+$env:CONTROLPROOF_RUN_ROOT = (Join-Path (Get-Location) ".controlproof\runs")
+$env:CONTROLPROOF_MODEL_SUBSTITUTE_ENABLED = "true"
+$env:CONTROLPROOF_MODEL_FIXTURE_ID = "h03-report-v1"
+$env:CONTROLPROOF_MODEL_FIXTURE_DIGEST = "ce09b95403b34e1390502c90f5c5edc518ddf65d38c8ce881617a37cac6d16b1"
+$env:CONTROLPROOF_EMBEDDING_FIXTURE_ID = "h03-embedding-v1"
+$env:CONTROLPROOF_EMBEDDING_FIXTURE_DIGEST = $env:CONTROLPROOF_MODEL_FIXTURE_DIGEST
+$env:CONTROLPROOF_EXTERNAL_AI_ALLOWED = "false"
+$env:WHYYOU_BASE_URL = "http://localhost:8080"
+$env:WHYYOU_CONSOLE_URL = "http://localhost:5173"
+$env:WHYYOU_DATABASE_URL = $env:DATABASE_URL
+$env:WHYYOU_COMPANY_TOKEN = $env:LOCAL_COMPANY_ACCESS_TOKEN
+$env:WHYYOU_COMPANY_ID = $env:LOCAL_COMPANY_ID
+$env:WHYYOU_COMPANY_USER_ID = $env:LOCAL_COMPANY_USER_ID
+$env:WHYYOU_REPO_PATH = $whyYouRepo
+$env:WHYYOU_AWS_ENDPOINT_URL = "http://localhost:4566"
+$env:WHYYOU_AWS_REGION = $env:AWS_REGION
+$env:WHYYOU_REPORTING_QUEUE_NAME = "iep-reporting"
+$env:WHYYOU_REPORTING_DLQ_NAME = "iep-reporting-dlq"
+$env:WHYYOU_REPORTING_MAX_RECEIVE_COUNT = "3"
+$env:WHYYOU_REPORTING_VISIBILITY_TIMEOUT_SECONDS = "5"
+```
+
+`CONTROLPROOF_FAULT_ROOT`는 WhyYou `.env`에서 가져온 동일한 절대 경로를 유지해야 한다. 두 프로세스가
+서로 다른 marker/receipt 디렉터리를 보면 preflight 또는 실행이 실패하는 것이 정상이다.
 
 ## 5. Start the WhyYou local stack
 
@@ -90,6 +143,11 @@ cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
 Docker Desktop의 PostgreSQL·LocalStack·Mailpit과 host process의 health를 먼저 확인한다. 과거 남은
 queue/message가 있으면 임의 삭제하지 말고 local reset 절차로 합성 시험환경을 새로 준비한다.
 
+```powershell
+cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
+.\scripts\local.ps1 status
+```
+
 ## 6. Run regression and contract tests
 
 ```powershell
@@ -99,7 +157,7 @@ cd "C:\Users\aaaa2\AI 기본법\AI_Compliance_SaaS_controlproof"
 
 ```powershell
 cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
-py -3.12 -m pytest backend/tests/unit/shared/test_local_queue_topology.py backend/tests/unit/runtime/test_controlproof_reporting_fault.py backend/tests/unit/runtime/test_controlproof_model_substitute.py backend/tests/integration/test_worker_delivery.py backend/tests/integration/test_controlproof_fault_hook_safety.py -q
+uv run --cache-dir .uv-cache --no-sync pytest backend/tests/unit/shared/test_local_queue_topology.py backend/tests/unit/runtime/test_controlproof_reporting_fault.py backend/tests/unit/runtime/test_controlproof_model_substitute.py backend/tests/integration/test_worker_delivery.py backend/tests/integration/test_controlproof_fault_hook_safety.py -q
 ```
 
 Spec 001 회귀, scenario/bundle/CLI contract, queue·fault hook 단위 시험이 모두 통과해야 실제 장애 Run을
