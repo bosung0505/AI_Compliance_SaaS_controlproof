@@ -104,7 +104,9 @@ $env:WHYYOU_DATABASE_URL = $env:DATABASE_URL
 $env:WHYYOU_COMPANY_TOKEN = $env:LOCAL_COMPANY_ACCESS_TOKEN
 $env:WHYYOU_COMPANY_ID = $env:LOCAL_COMPANY_ID
 $env:WHYYOU_COMPANY_USER_ID = $env:LOCAL_COMPANY_USER_ID
-$env:WHYYOU_REPO_PATH = $whyYouRepo
+# Python은 현재 ControlProof 작업 디렉터리를 기준으로 이 ASCII 상대 경로를 resolve한다.
+# 한글이 포함된 절대 경로를 환경변수로 왕복시키지 않는다.
+$env:WHYYOU_REPO_PATH = "..\gbsa_aws"
 $env:WHYYOU_AWS_ENDPOINT_URL = "http://localhost:4566"
 $env:WHYYOU_AWS_REGION = $env:AWS_REGION
 $env:WHYYOU_REPORTING_QUEUE_NAME = "iep-reporting"
