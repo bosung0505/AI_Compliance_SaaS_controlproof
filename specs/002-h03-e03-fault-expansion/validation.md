@@ -421,6 +421,78 @@ T085 preflight 직전에는 별도의 provenance 결함도 발견했다. target 
 - 파일명 순서와 graph 순서가 다른 RED fixture 및 unmerged graph 검사까지 포함해 13개 target snapshot
   관련 검사가 통과했고, 실제 WhyYou head가 `m_021_report_generation_failures`로 확인됐다.
 
+## 2026-09-29 — 부모 연결 실제 스택 재시험 (T085)
+
+### 시험 대상과 변경 고정점
+
+- WhyYou는 개인 브랜치 `bosung/controlproof-h03-integration`의 `511ae9e`를 사용했다. `main`에는
+  push하지 않았다.
+- ControlProof는 DLQ 관찰 횟수와 실제 source delivery 횟수를 분리한 `fe89c58`, Alembic graph
+  head를 계산하는 `6fee737`, 사람 actor 표기를 canonical 값으로 정규화한 `dd3ec0d`를 순서대로
+  사용했다.
+- 모든 child Run의 target version은
+  `target-snapshot:sha256:fa4e235018335ee6806a2b5812bc3f783a7690adcaf837f920af9bbd232d1a83`이며,
+  snapshot의 schema head는 `m_021_report_generation_failures`다.
+- 실행환경은 `LOCAL_EMULATED`이고 실제 AWS와 외부 AI는 계속 `NOT_RUN`이다.
+
+### H03 FAIL → PASS 계보
+
+| 구분 | Run ID | 결과 | manifest SHA-256 | bundle 검증 |
+|---|---|---|---|---|
+| 최초 부모 | `60b19e5a-6693-427b-bf87-039e45181cfc` | FAIL | `40602160bcc9b6c534dcd0c582ec6dc39f2c5fe8b23455ba15760494d9193fec` | VERIFIED, 33 files |
+| 보완 후 child | `3ff1c0c7-7937-4d0a-996c-de4d63f4f1af` | PASS | `567f36281c23a1fa081e6a2113d5099e13d3af54f0d9cb3c919db156f683d285` | VERIFIED, 35 files |
+
+child는 부모 Run ID와 digest를 `retest-link.json`에 연결하며 부모 bundle은 다시 쓰지 않았다.
+H03-A1~A9가 모두 PASS했다. 특히 단일 final-decision과 batch `최종합격`·`불합격` 세 경로가
+모두 report 부재를 이유로 거부됐고 전후 효과가 동일했다. 실제 source delivery는 `[1, 2, 3]`,
+API는 `failed`, 화면 projection은 `final_failed`, 운영자 DLQ locator는 존재했다. marker·worker 복구와
+선택 메시지 redrive도 완료됐다.
+
+### E03 FAIL → 보정된 PASS 계보
+
+| 구분 | Run ID | 결과 | manifest SHA-256 | bundle 검증 |
+|---|---|---|---|---|
+| 최초 부모 | `e17e0af0-b46a-4022-93a4-a91a3247f16d` | FAIL | `d72dc8a9f63cb92a4c73a3db368b8463abf802536a947c7e2b475a6092300c5f` | VERIFIED, 23 files |
+| 제품 보완 후 child | `5a7f09ff-d80f-4a7d-926c-2a522ad51bbb` | FAIL(E03-A7만) | `0d6381efe7e50a87bafd60a13e91c5287dfdfcbeab01952bf867b74c4b8b1590` | VERIFIED, 25 files |
+| 판정 adapter 보정 후 grandchild | `ebeed35e-5779-4480-8d3b-e246a0bb72b6` | PASS | `ca38b91edcf4018be1f09f206b6b693aa599b5eebdcb2d8bef94dd526768247c` | VERIFIED, 25 files |
+
+첫 child에서는 WhyYou의 동일-key 재전송 효과가 실제로 한 세트로 유지됐지만, 감사 DB의 raw actor
+`company_user`를 ControlProof가 canonical `COMPANY_USER`와 다르다고 보아 E03-A7만 FAIL했다. 이는
+제품의 중복 결정 결함이 아니라 판정 adapter의 표현 정규화 결함이었다. adapter가 actor 값을 대문자
+underscore 형식으로 canonicalize하고 결측값은 `UNKNOWN`으로 보존하도록 고친 뒤, 기존 child를
+덮어쓰지 않고 그 child를 부모로 하는 grandchild를 새로 생성했다.
+
+최종 grandchild에서는 E03-A1/A2/A3/A4/A7/A8이 모두 PASS했다. 첫 요청과 replay의 stage assignment,
+invitation `reviewed`, HumanReview ID, final-decision audit ID가 각각 같은 한 세트였고 actor도
+`COMPANY_USER`였다. 장애 중 내구 효과는 0건, 복구 후 report·projection·processed marker는 정확히
+한 논리 세트였으며 delivery attempt는 `[1, 2, 3]`이었다.
+
+### 복구·잔여 큐와 판정 해석
+
+- H03 child와 두 E03 child/grandchild 모두 Run state는 `COMPLETED`, 수동 정리 필요 여부는
+  `false`였고 실행 세션의 environment restore는 성공했다.
+- 최종 확인 시 `iep-reporting`과 `iep-reporting-dlq` 모두 visible 0건, in-flight 0건이었다.
+- 보조 관찰값 `report_processing_recovery`는 marker 해제 직후, DLQ redrive 전에 제품 API를 읽기
+  때문에 terminal failure를 보고 `FAILED`로 남는다. redrive 뒤 실제 report는 `ready`이고 canonical
+  E03-A4와 restore 판정은 PASS다. 이 보조값을 제품 복구 실패로 확대 해석하지 않는다. 이름과 수집
+  시점의 혼동 가능성은 Phase 9 문서·polish 후보로 남긴다.
+- 각 manifest hash는 현재 bundle 파일 자체의 SHA-256이다. `verify`는 등록 파일의 누락·불일치·미등록
+  파일이 없음을 부모와 모든 자식에서 다시 확인했다.
+
+### T085 종료 gate
+
+```text
+ControlProof full pytest: 251 passed in 122.52s
+ControlProof Ruff: All checks passed!
+H03 parent/child bundle: VERIFIED (33/35 files)
+E03 parent/child/grandchild bundle: VERIFIED (23/25/25 files)
+LocalStack source/DLQ queue: visible 0, in-flight 0
+```
+
+따라서 최초 FAIL을 불변으로 보존하고, 직접 근거로 제품과 판정 경계를 보완한 뒤 부모 연결 PASS
+재시험을 남기라는 T085 요구를 충족했다. 이는 Spec 002 전체 종료가 아니라 actual-stack
+FAIL→PASS 계보 단계의 종료다.
+
 ## 2026-09-29 — 실제 스택 3-profile preflight gate (T080)
 
 ### 검증 대상과 고정된 식별자
