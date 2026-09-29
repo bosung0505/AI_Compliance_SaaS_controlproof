@@ -36,6 +36,10 @@ from engine.models import (
 from engine.retest import finalize_retest_records
 
 
+class RunDeadlineExceeded(RuntimeError):
+    """Raised only after the collector restored its fault but exceeded its snapshot budget."""
+
+
 def execute_profile(
     executor: Any,
     readiness: ScenarioReadiness,
@@ -61,6 +65,15 @@ def execute_profile(
     with lock:
         result = collector(run_id=active_run_id, subject_ref=subject_ref)
     ended_at = executor.clock.now()
+    run_deadline = executor.scenario.timing_policy.run_deadline_seconds
+    elapsed_seconds = (ended_at - started_at).total_seconds()
+    if run_deadline is None:
+        raise RuntimeError("Spec 002 profile is missing its snapshot Run deadline")
+    if elapsed_seconds > run_deadline:
+        raise RunDeadlineExceeded(
+            f"profile Run exceeded the scenario snapshot deadline: "
+            f"{elapsed_seconds:g}s > {run_deadline:g}s"
+        )
 
     environment = result.environment
     topology = result.topology

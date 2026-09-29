@@ -35,6 +35,16 @@ FORBIDDEN_KEYS = {
     "database_url",
     "idempotency_key",
     "idempotency-key",
+    "queue_url",
+    "source_queue_url",
+    "dead_letter_queue_url",
+    "receipt_handle",
+    "message_body",
+    "raw_message_body",
+    "db_projection",
+    "raw_db_projection",
+    "database_projection",
+    "database_dump",
 }
 PII_KEYS = {
     "name",
@@ -107,11 +117,7 @@ def redact(value: Any) -> Any:
         result: dict[str, Any] = {}
         for key, item in value.items():
             lowered = key.casefold()
-            if (
-                lowered in FORBIDDEN_KEYS
-                or lowered in PII_KEYS
-                or lowered.endswith(("_token", "_token_hash"))
-            ):
+            if _is_sensitive_key(lowered):
                 result[key] = HASHED if lowered.endswith("token_hash") else REDACTED
             else:
                 result[key] = redact(item)
@@ -133,6 +139,61 @@ def assert_redacted(payload: bytes) -> None:
     text = payload.decode("utf-8", errors="ignore")
     if BEARER_RE.search(text) or EMAIL_RE.search(text) or PHONE_RE.search(text):
         raise ValueError("redaction scanner found prohibited secret or PII pattern")
+    for document in _json_documents(text):
+        if _contains_unredacted_sensitive_field(document):
+            raise ValueError("redaction scanner found prohibited secret or PII field")
+
+
+def _is_sensitive_key(lowered: str) -> bool:
+    return (
+        lowered in FORBIDDEN_KEYS
+        or lowered in PII_KEYS
+        or lowered.endswith(
+            (
+                "_token",
+                "_token_hash",
+                "_receipt_handle",
+                "_queue_url",
+                "_message_body",
+                "_db_projection",
+                "_database_projection",
+                "_database_dump",
+            )
+        )
+    )
+
+
+def _json_documents(text: str) -> tuple[Any, ...]:
+    stripped = text.strip()
+    if not stripped:
+        return ()
+    try:
+        return (json.loads(stripped),)
+    except json.JSONDecodeError:
+        documents: list[Any] = []
+        for line in stripped.splitlines():
+            try:
+                documents.append(json.loads(line))
+            except json.JSONDecodeError:
+                return ()
+        return tuple(documents)
+
+
+def _contains_unredacted_sensitive_field(value: Any) -> bool:
+    if isinstance(value, dict):
+        for key, item in value.items():
+            if _is_sensitive_key(str(key).casefold()) and item not in {
+                None,
+                REDACTED,
+                HASHED,
+            }:
+                return True
+            if _contains_unredacted_sensitive_field(item):
+                return True
+        return False
+    if isinstance(value, (list, tuple)):
+        return any(_contains_unredacted_sensitive_field(item) for item in value)
+    return False
 
 
 def _relative(root: Path, relative_path: str) -> Path:
@@ -180,7 +241,11 @@ class EvidenceBundleWriter:
 
     def write_bytes(self, relative_path: str, payload: bytes, mime_type: str) -> Path:
         self._ensure_mutable()
-        if mime_type.startswith("text/") or mime_type in {"application/json", "application/yaml"}:
+        if mime_type.startswith("text/") or mime_type in {
+            "application/json",
+            "application/yaml",
+            "application/x-ndjson",
+        }:
             assert_redacted(payload)
         path = _relative(self.directory, relative_path)
         atomic_write(path, payload)
