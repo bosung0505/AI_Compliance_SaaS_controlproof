@@ -36,6 +36,16 @@ from engine.models import canonical_json_bytes
             },
             "full database row",
         ),
+        ({"policy_text": "full policy notice"}, "full policy notice"),
+        ({"answer_text": "private applicant answer"}, "private applicant answer"),
+        ({"document_text": "raw resume body"}, "raw resume body"),
+        ({"report_text": "model narrative"}, "model narrative"),
+        ({"model_prompt": "secret scoring prompt"}, "secret scoring prompt"),
+        ({"credential": "local-password-value"}, "local-password-value"),
+        (
+            {"source_path": "C:/Users/real-person/private/worktree/file.py"},
+            "real-person",
+        ),
     ],
 )
 def test_secret_and_pii_corpus_is_redacted(payload, forbidden):
@@ -79,6 +89,11 @@ def test_full_database_projection_is_not_persisted_as_an_allowlisted_effect():
         "terminal-failure.json",
         "redrive-receipts.jsonl",
         "artifacts/spec002-sensitive.json",
+        "policy-and-consent.json",
+        "bypass-attempts.jsonl",
+        "protected-effects.jsonl",
+        "causal-events.jsonl",
+        "fault-receipts.jsonl",
     ],
 )
 def test_every_spec002_artifact_gate_rejects_redaction_bypass(

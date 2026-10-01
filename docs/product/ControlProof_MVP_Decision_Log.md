@@ -153,6 +153,103 @@
 - 재검토 조건: WhyYou capability 조사에서 Spec 003과 004가 공유해야만 하는 독립 제품 기능이 확인되거나,
   2주 MVP의 비협상 완료 시나리오 자체가 변경될 때만 분할과 순서를 다시 결정한다.
 
+## D-014. 0단계 정합성·재현성 기준과 12개 시나리오 주장 범위
+
+- 상태: 확정
+- 결정일: 2026-10-01
+- 배경: Spec 001·002는 한 개발자 PC에서 실제 검증됐고, 팀원이 맡기로 했던 N-02 등 별도 명세는
+  존재하지 않는다. 또한 Product Brief의 12개 시나리오와 D-013의 실제 실행 5개가 설명 없이 함께
+  있으면 “12개 전부 실행”으로 오해할 수 있다.
+- 범위 결정: 12개는 제품이 **관리하는 카탈로그 수**다. 2주 MVP 실제 실행 목표는 H-03, E-03,
+  N-02, E-01, E-02의 5개다. H-01·H-02·N-01·N-03은 `NOT_RUN`, A-01~A-03은 WhyYou에 기능이 없어
+  `NO_TEST_TARGET`로 표시한다. 공식 문구와 상태표는 `ControlProof_MVP_Scenario_Coverage_Matrix.md`를
+  따른다.
+- 태오 자료 대체: 존재하지 않는 문서를 기다리거나 내용을 추정하지 않는다. Spec 003은 WhyYou
+  `bosung/controlproof-h03-integration`의 고정 commit을 직접 조사한 source baseline에서 시작하고,
+  불확실한 사항은 clarify·plan에서 닫는다.
+- N-02 초기 기준: 동의 완료는 브라우저 클릭이 아니라 서버 transaction이 durable consent record와
+  `consented` 상태를 commit한 시점이다. Outbox 전달 지연은 별도 관찰 대상이며 현재 근거 없이 동의
+  완료의 유일한 원본으로 간주하지 않는다.
+- 독립 재현 gate: Spec 001·002를 main에 병합하기 전에 다른 팀원이 새 checkout에서
+  `H03_DLQ_V2` 한 건을 실행하고 bundle verify·restore 성공, source SHA와 manifest SHA-256을
+  Validation에 기록한다. 이 전에는 기존 한 PC 결과를 독립 재현 완료로 표현하지 않는다.
+- 재현 문서: 개인 PC 절대 경로를 README와 Quickstart에서 제거하고 checkout 변수 또는 명시적
+  placeholder를 사용한다. runtime `runs/`는 계속 Git에서 제외하며, 실제 bundle을 Git에 넣어 독립
+  재현을 가장하지 않는다.
+- AI 작업 방식: 저장소 루트 `AGENTS.md`와 `docs/AI_SPEC_KIT_PLAYBOOK.md`를 팀의 AI 작업 진입점으로
+  둔다. 모든 기능은 `specify → clarify → plan → tasks → analyze → implement → actual validation →
+  converge` 한 사이클씩 진행한다.
+- 승인: 제품 책임자가 누락 자료에 대한 판단과 0단계 진행을 위임함
+- 영향: README, TEAM_HANDOFF, Product Brief, 후속 Spec과 발표 문구는 범위표와 같은 상태를 사용한다.
+- 재검토 조건: H-01·H-02·N-01·N-03의 실제 실행을 MVP에 추가하거나, WhyYou에 이의제기 기능이
+  도입되거나, main 병합 전 독립 재현 gate를 변경하려면 새 결정으로 변경 이유와 영향을 남긴다.
+
+## D-015. Spec 003 실제 경계·심층 probe·동의 fault 설계
+
+- 상태: 확정
+- 결정일: 2026-10-01
+- 조사 기준: WhyYou `bosung/controlproof-h03-integration` commit
+  `511ae9e2cae66b8d0ce31e8851537ed27ac6dd0c`
+- 동의 완료: consent record, invitation의 `consented` 상태·state change와
+  `invitation.consent_completed` Outbox가 한 HTTP transaction에서 commit된 사실을 기준으로 한다.
+  Outbox 전달 완료 시각은 별도 사건이며 전달 지연만으로 N-02 FAIL을 만들지 않는다.
+- 실제 처리 경계: 자료는 applicant upload-intent와 analysis event/worker, 녹화는 interview session 생성과
+  recording 경계, AI 평가는 독립 applicant API가 없으므로 실제 `report.generation_requested` worker
+  경계를 사용한다. ControlProof 전용 가짜 제품 endpoint는 만들지 않는다.
+- lane 결정: pristine 기준선, 자료 우회, 녹화 심층 probe, AI 평가 심층 probe, 정상 순서, 동의
+  fault·복구의 6개 독립 lane을 사용한다. 녹화·평가 경계가 앞 단계 산출물을 요구할 때는 digest와 허용
+  효과가 고정된 합성 fixture를 쓰되 fixture와 probe 뒤 증분 효과를 분리하고 다른 lane의 PASS 근거로
+  재사용하지 않는다.
+- 동의 fault: `save_consent()` 뒤 invitation 상태 전이·Outbox append 전에 local/test one-shot fault를
+  발동한다. 실제 발동 receipt를 fsync한 뒤 예외를 전파해 request transaction 전체 rollback을 시험한다.
+  marker는 Run·subject allowlist, 최대 10분 TTL, 의무 복구를 갖는다.
+- 순서 증적: timestamp만 비교하지 않고 request/trace, domain event identity, aggregate version,
+  consent 응답 뒤 다음 command를 보내는 program order와 worker boundary receipt로 causal graph를 만든다.
+- 최초 FAIL gate: seed·observer·fault·adapter는 첫 Run 전에 만들 수 있지만 analysis/recording/assessment
+  consent 보호조치는 actual FAIL bundle을 먼저 봉인한 뒤에만 WhyYou 개인 브랜치에서 보완한다.
+- 구현 구조: `N02_CONSENT_ORDER_V1`, scenario v3와 Spec 003 bundle profile을 additive하게 추가한다.
+  기존 Spec 001·002 scenario와 sealed bundle은 변경하지 않는다. 고객 웹 UI는 Spec 005 범위를 유지한다.
+- 이유: 업로드 경계의 403만으로 downstream 녹화·평가 side door까지 PASS 처리하면 거짓 보장이 된다.
+  반대로 prerequisite 없는 깊은 호출은 consent가 아니라 입력 부재로 거부되므로 실제 authorization을
+  검증하지 못한다. fixture와 증분 효과 분리는 두 문제를 동시에 피한다.
+- 영향: Spec 003 spec의 FR-007과 lane 설명을 기술 조사 결과에 맞게 명확화하고 Plan, Data Model,
+  contracts, Quickstart에 반영한다. 구현은 `$speckit-tasks`와 analyze 이후에만 시작한다.
+- 승인: 제품 책임자의 미결정 사항 위임과 Spec 003 진행 요청
+- 재검토 조건: WhyYou의 실제 처리 경계가 바뀌거나 deep probe fixture 없이 독립적으로 같은 경계를
+  시험하는 공식 API/event가 추가될 때 capability와 lane 설계를 새 결정으로 갱신한다.
+
+## D-016. Spec 003 Analyze 보완과 구현 착수 gate
+
+- 상태: 확정
+- 결정일: 2026-10-01
+- 배경: Tasks 생성 뒤 첫 `$speckit-analyze`에서 HIGH 5건·MEDIUM 7건이 확인됐다. 요구사항이나 제품
+  범위를 바꾸는 문제가 아니라 subject 격리 표현, 실제 observer 삽입 위치, 시간 예산, 비부작용 시험,
+  조건부 보완 책임과 추적성의 구현 전 모호함이었다.
+- subject 결정: US1은 지원자 한 명으로 세 경로를 연속 시험하지 않는다. pristine 확인용 subject와
+  자료·녹화·평가별 독립 subject lane을 사용하며 상태를 다른 경로의 PASS 근거로 재사용하지 않는다.
+- observer 결정: session 생성·시작·녹화 확정 receipt는 authorization adapter가 아니라 실제 효과가
+  확정되는 `SessionApplicationService`의 `_create_session_once`, `_start_session_once`,
+  `confirm_recording_upload` 성공 직후 남긴다. optional port로 주입하며 observer 저장 실패는 제품
+  transaction을 실패시키지 않고 N-02 증적 부족으로 처리한다.
+- 시간 결정: 성공 기준의 Run+bundle verify 10분을 실제로 만족하도록 scenario snapshot에
+  `run_deadline_seconds=540`, `bundle_verify_deadline_seconds=60`을 고정한다. polling 2초, 연속 3회·최소
+  4초 안정화, fault TTL 600초와 restore 120초는 별도 안전 계약으로 유지한다.
+- readiness·seed 결정: non-READY는 비민감 `operator_action`을 필수로 제공하고 preflight는 Run directory,
+  subject, marker와 event를 만들지 않는다. 6개 lane seed는 하나의 transaction이며 일부 실패 시 전체
+  rollback한다.
+- 조건부 보완 결정: 최초 actual Run의 직접 FAIL은 `TARGET_CONTROL_DEFECT`,
+  `RUNNER_OR_OBSERVER_DEFECT`, `RESTORE_OPERATOR_DEFECT`로 먼저 분류한다. A5~A7도 증적으로 책임 경계를
+  정하고 해당 경계만 수정하며 시험기 결함을 WhyYou 결함으로, WhyYou 결함을 시험기 수정으로 숨기지
+  않는다.
+- 결과: 위 내용을 Spec, Plan, contracts, Tasks와 Quickstart에 반영한 뒤 재분석에서 CRITICAL·HIGH 및
+  팀 해석 차이를 만드는 MEDIUM 0건을 확인했다. Spec 003은 구현 착수 가능하지만 코드와 actual Run은
+  아직 시작되지 않았다.
+- 영향: Tasks 수는 93개로 유지한다. 다음 단계는 `$speckit-implement`이며 최초 factual Run 봉인 전
+  WhyYou product guard 수정 금지 원칙은 유지한다.
+- 승인: 제품 책임자의 Analyze 권장 조치 재검토·해결 요청
+- 재검토 조건: 실제 WhyYou source boundary가 달라지거나 540+60초 예산이 준비된 로컬 환경에서 반복적으로
+  달성 불가능한 근거가 생길 때 새 결정으로 갱신한다.
+
 ---
 
 ## 2. 결정 적용 순서

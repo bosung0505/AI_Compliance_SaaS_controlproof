@@ -29,6 +29,9 @@ def test_spec002_composition_owns_every_before_after_and_decision_replay_boundar
     assert adapters.boundary_receipts is adapters.fault
     assert adapters.duplicate_acks is adapters.fault
     assert adapters.safe_redrive is adapters.queue
+    assert adapters.n02_consent is not None
+    assert adapters.n02_causality is not None
+    assert adapters.n02_fault is not None
     assert callable(adapters.fault.apply)
     assert callable(adapters.fault.apply_after)
     assert callable(adapters.decision.attempt)
@@ -40,4 +43,10 @@ def test_spec002_composition_owns_every_before_after_and_decision_replay_boundar
         "reporting.duplicate_ack.read": "v1",
         "hiring.final_decision.replay": "v1",
         "hiring.decision_effects.read": "v1",
+        "consent.policy.read": "v1",
+        "consent.commit.write": "v1",
+        "consent.state.read": "v1",
+        "consent.fault.inject": "v1",
+        "consent.fault.receipt.read": "v1",
+        "consent.fault.restore": "v1",
     }.items() <= CAPABILITY_VERSIONS.items()

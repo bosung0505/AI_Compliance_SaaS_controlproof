@@ -1,0 +1,152 @@
+schema_version: controlproof.scenario.v3
+scenario_id: N-02
+version: 1.0.0
+execution_profile: N02_CONSENT_ORDER_V1
+bundle_profile_contract: controlproof.bundle-profile.spec003.v1
+applicable_assertion_ids: [N02-A1, N02-A2, N02-A3, N02-A4, N02-A5, N02-A6, N02-A7]
+lanes:
+  - PRISTINE_BASELINE
+  - DOCUMENT_BYPASS
+  - RECORDING_BOUNDARY_PROBE
+  - ASSESSMENT_BOUNDARY_PROBE
+  - NORMAL_ORDER
+  - CONSENT_FAULT_RECOVERY
+title: 동의 완료 전 AI 처리 금지와 실패 안전성
+control_intent: >-
+  합성 지원자에게 필요한 동의가 완료되기 전에 문서 분석, 녹화, AI 평가가
+  시작되지 않음을 실제 보호 경계와 저장 효과로 확인하고, 정상 동의 순서와
+  동의 저장 장애 뒤 안전한 복구까지 독립 증적으로 남긴다.
+
+required_capabilities:
+  target.version.read: v1
+  target.environment.read: v1
+  consent.policy.read: v1
+  consent.commit.write: v1
+  consent.state.read: v1
+  n02.subjects.seed: v1
+  n02.subjects.teardown: v1
+  processing.paths.read: v1
+  processing.document.attempt: v1
+  processing.recording.attempt: v1
+  processing.assessment.attempt: v1
+  processing.effects.read: v1
+  processing.boundary.receipts.read: v1
+  consent.fault.inject: v1
+  consent.fault.receipt.read: v1
+  consent.fault.restore: v1
+
+preconditions:
+  - {precondition_id: isolated-target, kind: TARGET, description: clean local/test WhyYou target is available}
+  - {precondition_id: six-lane-seed, kind: RUNNER, description: six deterministic synthetic subjects can be atomically seeded}
+  - {precondition_id: protected-paths, kind: TARGET, description: the three real protected processing boundaries are mapped}
+  - {precondition_id: local-controls, kind: RUNNER, description: local observer and one-shot consent fault controls are enabled}
+
+steps:
+  - {step_id: capture-environment, phase: BASELINE, action: target.environment.read, outputs: [target.environment], evidence_requirements: [EV3-01]}
+  - {step_id: capture-path-capabilities, phase: BASELINE, action: processing.paths.read, outputs: [processing.paths], evidence_requirements: [EV3-01]}
+  - {step_id: seed-subject-lanes, phase: BASELINE, action: n02.subjects.seed, outputs: [subjects.lanes], evidence_requirements: [EV3-01]}
+  - {step_id: capture-pristine-baseline, phase: BASELINE, action: processing.effects.read, outputs: [effects.pristine], evidence_requirements: [EV3-03]}
+  - {step_id: attempt-document-bypass, phase: INJECTED, action: processing.document.attempt, outputs: [attempt.document], evidence_requirements: [EV3-04]}
+  - {step_id: capture-document-effects, phase: INJECTED, action: processing.effects.read, outputs: [effects.document], evidence_requirements: [EV3-05]}
+  - {step_id: attempt-recording-boundary, phase: INJECTED, action: processing.recording.attempt, outputs: [attempt.recording], evidence_requirements: [EV3-04]}
+  - {step_id: capture-recording-effects, phase: INJECTED, action: processing.effects.read, outputs: [effects.recording], evidence_requirements: [EV3-05]}
+  - {step_id: attempt-assessment-boundary, phase: INJECTED, action: processing.assessment.attempt, outputs: [attempt.assessment], evidence_requirements: [EV3-04]}
+  - {step_id: capture-assessment-effects, phase: INJECTED, action: processing.effects.read, outputs: [effects.assessment], evidence_requirements: [EV3-05]}
+  - {step_id: read-policy, phase: INJECTED, action: consent.policy.read, outputs: [consent.policy], evidence_requirements: [EV3-02]}
+  - {step_id: commit-normal-consent, phase: INJECTED, action: consent.commit.write, outputs: [consent.commit], evidence_requirements: [EV3-02]}
+  - {step_id: capture-normal-consent, phase: INJECTED, action: consent.state.read, outputs: [consent.normal], evidence_requirements: [EV3-02]}
+  - {step_id: run-normal-processing, phase: INJECTED, action: processing.normal.run, outputs: [processing.normal], evidence_requirements: [EV3-06]}
+  - {step_id: capture-normal-causality, phase: INJECTED, action: processing.causality.read, outputs: [causality.normal], evidence_requirements: [EV3-06]}
+  - {step_id: apply-consent-fault, phase: INJECTED, action: consent.fault.inject, outputs: [fault.marker], evidence_requirements: [EV3-07]}
+  - {step_id: attempt-faulted-consent, phase: INJECTED, action: consent.commit.write, outputs: [consent.failed], evidence_requirements: [EV3-07]}
+  - {step_id: read-fault-trigger, phase: INJECTED, action: consent.fault.receipt.read, outputs: [fault.receipt], evidence_requirements: [EV3-07]}
+  - {step_id: capture-failed-consent-effects, phase: INJECTED, action: consent.state.read, outputs: [effects.failed-consent], evidence_requirements: [EV3-08]}
+  - step_id: restore-consent-fault
+    phase: RECOVERED
+    action: consent.fault.restore
+    outputs: [fault.restore]
+    evidence_requirements: [EV3-09]
+    always_run: true
+  - step_id: verify-safe-state
+    phase: RECOVERED
+    action: consent.state.read
+    outputs: [consent.safe]
+    evidence_requirements: [EV3-09]
+    always_run: true
+  - {step_id: attempt-faulted-document-path, phase: RECOVERED, action: processing.document.attempt, outputs: [attempt.failed-document], evidence_requirements: [EV3-08]}
+  - {step_id: apply-fault-recording-overlay, phase: RECOVERED, action: n02.subjects.overlay.apply, outputs: [overlay.recording], evidence_requirements: [EV3-08]}
+  - {step_id: attempt-faulted-recording-path, phase: RECOVERED, action: processing.recording.attempt, outputs: [attempt.failed-recording], evidence_requirements: [EV3-08]}
+  - step_id: remove-fault-recording-overlay
+    phase: RECOVERED
+    action: n02.subjects.overlay.remove
+    outputs: [overlay.recording-removed]
+    evidence_requirements: [EV3-09]
+    always_run: true
+  - {step_id: apply-fault-assessment-overlay, phase: RECOVERED, action: n02.subjects.overlay.apply, outputs: [overlay.assessment], evidence_requirements: [EV3-08]}
+  - {step_id: attempt-faulted-assessment-path, phase: RECOVERED, action: processing.assessment.attempt, outputs: [attempt.failed-assessment], evidence_requirements: [EV3-08]}
+  - step_id: remove-fault-assessment-overlay
+    phase: RECOVERED
+    action: n02.subjects.overlay.remove
+    outputs: [overlay.assessment-removed]
+    evidence_requirements: [EV3-09]
+    always_run: true
+  - step_id: verify-pristine-before-retry
+    phase: RECOVERED
+    action: consent.state.read
+    outputs: [consent.retry-baseline]
+    evidence_requirements: [EV3-09]
+    always_run: true
+  - {step_id: retry-normal-consent, phase: RECOVERED, action: consent.commit.write, outputs: [consent.retry], evidence_requirements: [EV3-09]}
+  - {step_id: run-recovered-processing, phase: RECOVERED, action: processing.normal.run, outputs: [processing.recovered], evidence_requirements: [EV3-09]}
+  - {step_id: capture-recovered-effects, phase: RECOVERED, action: processing.effects.read, outputs: [effects.recovered], evidence_requirements: [EV3-09]}
+  - step_id: teardown-subject-lanes
+    phase: RECOVERED
+    action: n02.subjects.teardown
+    outputs: [subjects.removed]
+    evidence_requirements: [EV3-10]
+    always_run: true
+
+assertions:
+  - {assertion_id: N02-A1, description: pristine subject has no consent or protected processing effects, expectation: {protected_effect_count: 0}, required_observation_keys: [effects.pristine], required_evidence_ids: [EV3-03], source_requirements: [FR-008]}
+  - {assertion_id: N02-A2, description: document analysis cannot begin before consent, expectation: {response: DENIED, new_effect_count: 0}, required_observation_keys: [attempt.document, effects.document], required_evidence_ids: [EV3-04, EV3-05], source_requirements: [FR-013, FR-018]}
+  - {assertion_id: N02-A3, description: recording cannot begin before consent, expectation: {response: DENIED, new_effect_count: 0}, required_observation_keys: [attempt.recording, effects.recording], required_evidence_ids: [EV3-04, EV3-05], source_requirements: [FR-014, FR-018]}
+  - {assertion_id: N02-A4, description: AI assessment cannot begin before consent, expectation: {response: DENIED, new_effect_count: 0}, required_observation_keys: [attempt.assessment, effects.assessment], required_evidence_ids: [EV3-04, EV3-05], source_requirements: [FR-015, FR-019]}
+  - {assertion_id: N02-A5, description: normal consent causally precedes all protected processing, expectation: {causal_order: PROVEN}, required_observation_keys: [consent.normal, causality.normal], required_evidence_ids: [EV3-02, EV3-06], source_requirements: [FR-020, FR-021]}
+  - {assertion_id: N02-A6, description: failed consent storage leaves no consent completion or processing effect, expectation: {failed_request_effect_count: 0}, required_observation_keys: [fault.receipt, effects.failed-consent], required_evidence_ids: [EV3-07, EV3-08], source_requirements: [FR-022, FR-023]}
+  - {assertion_id: N02-A7, description: recovery allows one normal logical consent and no duplicate processing, expectation: {logical_consent_count: 1}, required_observation_keys: [fault.restore, effects.recovered], required_evidence_ids: [EV3-09, EV3-10], source_requirements: [FR-024, FR-025]}
+
+required_evidence:
+  - {evidence_id: EV3-01, description: target environment policy and protected-path capability snapshot, artifact_types: [VERSION_SNAPSHOT, CAPABILITY_SNAPSHOT]}
+  - {evidence_id: EV3-02, description: policy values and normal consent completion, artifact_types: [CONSENT_SNAPSHOT]}
+  - {evidence_id: EV3-03, description: pristine and per-lane pre-attempt state, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV3-04, description: direct protected-processing attempts and sanitized responses, artifact_types: [HTTP_EXCHANGE, DOMAIN_EVENT_RECEIPT]}
+  - {evidence_id: EV3-05, description: scoped post-attempt processing effects and deltas, artifact_types: [STATE_SNAPSHOT, PROCESSING_RECEIPT]}
+  - {evidence_id: EV3-06, description: normal consent-to-processing causal graph, artifact_types: [CAUSAL_GRAPH]}
+  - {evidence_id: EV3-07, description: consent persistence fault marker and trigger receipt, artifact_types: [FAULT_RECEIPT]}
+  - {evidence_id: EV3-08, description: failed-consent state and protected-effect snapshots, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV3-09, description: restored safe state normal retry and duplicate checks, artifact_types: [RECOVERY_RECORD, STATE_SNAPSHOT]}
+  - {evidence_id: EV3-10, description: assertion results artifact hashes and sealed manifest, artifact_types: [JUDGEMENT, MANIFEST]}
+
+timing_policy:
+  poll_seconds: 2
+  environment_restore_deadline_seconds: 120
+  run_deadline_seconds: 540
+  fault_ttl_seconds: 600
+  bundle_verify_deadline_seconds: 60
+  stability_consecutive: 3
+  stability_seconds: 4
+  expected_queue: {}
+
+restore_policy:
+  mandatory: true
+  action: consent.fault.restore
+  report_processing_result_field: consent.recovery
+
+observation_comparators: {}
+source_requirements: [FR-001, FR-007, FR-013, FR-018, FR-034]
+allowed_model_fixtures:
+  h03-report-v1: ce09b95403b34e1390502c90f5c5edc518ddf65d38c8ce881617a37cac6d16b1
+excluded_scope:
+  - N-01 visible notice presentation
+  - N-03 policy invalidation behavior
+  - appeal processing

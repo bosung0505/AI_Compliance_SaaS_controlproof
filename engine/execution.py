@@ -183,6 +183,58 @@ class ExecutionSession:
             append_receipt=self.writer.append_jsonl,
         )
 
+    def recover_n02_consent_fault(
+        self, restore: Callable[[], Any]
+    ) -> bool:
+        """Persist the N-02 restore boundary and return only verified-safe recovery."""
+
+        step_id = "n02-consent-fault-restore"
+        self.checkpoint(Phase.RECOVERED, step_id, "STARTED")
+        try:
+            result = restore()
+        except BaseException as exc:
+            self.checkpoint(
+                Phase.RECOVERED,
+                step_id,
+                "FAILED",
+                error_code=type(exc).__name__.upper(),
+            )
+            raise
+        data = dict(getattr(result, "data", {}))
+        safe = bool(
+            getattr(result, "ok", False)
+            and data.get("marker_removed") is True
+            and data.get("consumed_token_removed") is True
+            and data.get("hook_inactive") is True
+            and data.get("failed_request_effects_zero") is True
+            and data.get("manual_cleanup_required") is False
+        )
+        self.writer.append_jsonl(
+            "n02-recovery-receipts.jsonl",
+            {
+                "schema_version": "controlproof.n02-restore-receipt.v1",
+                "run_id": str(self.run.run_id),
+                "subject_ref": self.subject_ref,
+                "code": str(getattr(result, "code", "N02_RESTORE_RESULT_INVALID")),
+                "restore_safe": safe,
+                "marker_removed": data.get("marker_removed"),
+                "consumed_token_removed": data.get("consumed_token_removed"),
+                "hook_inactive": data.get("hook_inactive"),
+                "failed_request_effects_zero": data.get(
+                    "failed_request_effects_zero"
+                ),
+                "manual_cleanup_required": data.get("manual_cleanup_required"),
+                "recorded_at": utcnow().isoformat(),
+            },
+        )
+        self.checkpoint(
+            Phase.RECOVERED,
+            step_id,
+            "PASSED" if safe else "FAILED",
+            error_code=None if safe else str(getattr(result, "code", "N02_RESTORE_UNSAFE")),
+        )
+        return safe
+
     def execute(
         self,
         work: Callable[[ExecutionSession], Any],

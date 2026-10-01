@@ -53,6 +53,7 @@ def _settings(tmp_path):
             "WHYYOU_REPO_PATH": str(tmp_path),
             "CONTROLPROOF_RUN_ROOT": str(tmp_path / "runs"),
             "CONTROLPROOF_FAULT_ROOT": str(tmp_path / "faults"),
+            "CONTROLPROOF_TEST_HOOKS_ENABLED": "true",
             "CONTROLPROOF_MODEL_SUBSTITUTE_ENABLED": "true",
             "CONTROLPROOF_MODEL_FIXTURE_ID": "h03-report-v1",
             "CONTROLPROOF_MODEL_FIXTURE_DIGEST": (
@@ -82,6 +83,41 @@ def test_route_presence_and_credential_access_are_distinct(tmp_path):
     )
     assert denied.target_feature_exists()
     assert denied.probe("reporting.status.read").status is ReadinessStatus.ACCESS_BLOCKED
+
+
+def test_n02_consent_http_capabilities_require_route_and_composed_adapter(tmp_path):
+    route = "/v1/applicant/consents"
+    missing_adapter = WhyYouCapabilityProbe(
+        _settings(tmp_path), _client(Http({route}))
+    )
+    composed = WhyYouCapabilityProbe(
+        _settings(tmp_path), _client(Http({route})), n02_consent=object()
+    )
+    assert missing_adapter.probe("consent.policy.read").status is ReadinessStatus.RUNNER_NOT_READY
+    assert composed.probe("consent.policy.read").status is ReadinessStatus.READY
+    assert composed.probe("consent.commit.write").status is ReadinessStatus.READY
+
+
+def test_n02_consent_fault_capabilities_require_hook_adapter_and_writable_root(
+    tmp_path,
+) -> None:
+    settings = _settings(tmp_path)
+    missing = WhyYouCapabilityProbe(settings, _client(Http(set())))
+    composed = WhyYouCapabilityProbe(
+        settings,
+        _client(Http(set())),
+        n02_fault=object(),
+    )
+    assert (
+        missing.probe("consent.fault.inject").status
+        is ReadinessStatus.RUNNER_NOT_READY
+    )
+    for capability in (
+        "consent.fault.inject",
+        "consent.fault.receipt.read",
+        "consent.fault.restore",
+    ):
+        assert composed.probe(capability).status is ReadinessStatus.READY
 
 
 def test_fault_root_health_model_identity_and_restore_block(tmp_path):

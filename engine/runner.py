@@ -14,6 +14,7 @@ from engine.evidence import EvidenceBundleWriter
 from engine.executors.e03_after import E03AfterExecutor
 from engine.executors.e03_before import E03BeforeExecutor
 from engine.executors.h03_dlq import H03DlqExecutor
+from engine.executors.n02 import N02Executor
 from engine.judge import judge_h03
 from engine.lifecycle import RestoreBlockStore, TargetSubjectLock, transition
 from engine.models import (
@@ -914,6 +915,7 @@ PROFILE_REGISTRY = ExecutionProfileRegistry()
 PROFILE_REGISTRY.register(ExecutionProfile.H03_DLQ_V2, H03DlqExecutor)
 PROFILE_REGISTRY.register(ExecutionProfile.E03_AFTER_V2, E03AfterExecutor)
 PROFILE_REGISTRY.register(ExecutionProfile.E03_BEFORE_V2, E03BeforeExecutor)
+PROFILE_REGISTRY.register(ExecutionProfile.N02_CONSENT_ORDER_V1, N02Executor)
 
 
 def build_profile_runner(

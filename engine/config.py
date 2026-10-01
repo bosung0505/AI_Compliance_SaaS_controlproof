@@ -44,6 +44,9 @@ class Settings:
     environment_kind: str = "LOCAL_EMULATED"
     aws_deployment_status: str = "NOT_RUN"
     external_ai_allowed: bool = False
+    observer_root: Path = Path(".controlproof/observers")
+    test_hooks_enabled: bool = False
+    observer_enabled: bool = False
     whyyou_aws_endpoint_url: str = "http://localhost:4566"
     whyyou_aws_region: str = "ap-northeast-2"
     reporting_queue_name: str = "iep-reporting"
@@ -108,6 +111,9 @@ class Settings:
             )
         run_root = Path(env.get("CONTROLPROOF_RUN_ROOT", ".controlproof/runs")).resolve()
         fault_root = Path(env["CONTROLPROOF_FAULT_ROOT"]).resolve()
+        observer_root = Path(
+            env.get("CONTROLPROOF_OBSERVER_ROOT", ".controlproof/observers")
+        ).resolve()
         return cls(
             target_id=env.get("CONTROLPROOF_TARGET_ID", "whyyou-local").strip(),
             run_root=run_root,
@@ -137,6 +143,14 @@ class Settings:
                 "CONTROLPROOF_AWS_DEPLOYMENT_STATUS", "NOT_RUN"
             ).strip(),
             external_ai_allowed=external_ai_allowed,
+            observer_root=observer_root,
+            test_hooks_enabled=(
+                env.get("CONTROLPROOF_TEST_HOOKS_ENABLED", "false").casefold()
+                == "true"
+            ),
+            observer_enabled=(
+                env.get("CONTROLPROOF_OBSERVER_ENABLED", "false").casefold() == "true"
+            ),
             whyyou_aws_endpoint_url=aws_endpoint,
             whyyou_aws_region=env.get("WHYYOU_AWS_REGION", "ap-northeast-2").strip(),
             reporting_queue_name=env.get(
@@ -212,7 +226,45 @@ class Settings:
             "reporting_visibility_timeout_seconds": str(
                 self.reporting_visibility_timeout_seconds
             ),
+            "observer_root": str(self.observer_root),
+            "test_hooks_enabled": self.test_hooks_enabled,
+            "observer_enabled": self.observer_enabled,
         }
+
+    def validate_n02_safety(
+        self,
+        *,
+        controlproof_branch: str,
+        controlproof_dirty: bool,
+        whyyou_branch: str,
+        whyyou_dirty: bool,
+    ) -> None:
+        """Fail closed before an N-02 Run can create subjects or marker files."""
+
+        if self.target_id != "whyyou-local":
+            raise ConfigError("N-02 target must be whyyou-local")
+        if self.environment_kind != "LOCAL_EMULATED" or self.aws_deployment_status != "NOT_RUN":
+            raise ConfigError("N-02 requires LOCAL_EMULATED with AWS NOT_RUN")
+        if not self.model_substitute_enabled or self.external_ai_allowed:
+            raise ConfigError("N-02 requires fixed AI fixtures and denies external AI")
+        if not self.embedding_fixture_id or not SHA256_RE.fullmatch(
+            self.embedding_fixture_digest
+        ):
+            raise ConfigError("N-02 requires a fixed embedding fixture")
+        for name, branch, dirty in (
+            ("ControlProof", controlproof_branch, controlproof_dirty),
+            ("WhyYou", whyyou_branch, whyyou_dirty),
+        ):
+            if not branch.strip():
+                raise ConfigError(f"{name} git branch must be supplied")
+            if dirty:
+                raise ConfigError(f"{name} checkout must be clean before an N-02 Run")
+        if whyyou_branch.strip().casefold() in {"main", "master"}:
+            raise ConfigError("WhyYou main branch cannot be used for an N-02 Run")
+        if not self.test_hooks_enabled or not self.observer_enabled:
+            raise ConfigError("N-02 local test hook and observer must both be enabled")
+        _require_bounded_root("CONTROLPROOF_FAULT_ROOT", self.fault_root)
+        _require_bounded_root("CONTROLPROOF_OBSERVER_ROOT", self.observer_root)
 
 
 def _require_local_url(name: str, value: str) -> None:
@@ -229,3 +281,9 @@ def _require_local_database(value: str) -> None:
     parsed = urlparse(value.replace("postgresql+psycopg", "postgresql", 1))
     if parsed.hostname not in {"localhost", "127.0.0.1", "host.docker.internal", "postgres"}:
         raise ConfigError("WHYYOU_DATABASE_URL must point to an allowlisted local/test host")
+
+
+def _require_bounded_root(name: str, value: Path) -> None:
+    resolved = value.resolve()
+    if resolved == Path(resolved.anchor) or len(resolved.parts) < 3:
+        raise ConfigError(f"{name} must be a bounded non-root directory")

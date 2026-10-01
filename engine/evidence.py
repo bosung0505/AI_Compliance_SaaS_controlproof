@@ -45,6 +45,12 @@ FORBIDDEN_KEYS = {
     "raw_db_projection",
     "database_projection",
     "database_dump",
+    "policy_text",
+    "answer_text",
+    "document_text",
+    "report_text",
+    "model_prompt",
+    "credential",
 }
 PII_KEYS = {
     "name",
@@ -63,6 +69,9 @@ PHONE_RE = re.compile(
 )
 BEARER_RE = re.compile(r"(?i)\bBearer\s+[A-Za-z0-9._~+/=-]+")
 SIGNED_QUERY_RE = re.compile(r"(?i)(X-Amz-Signature|signature|sig|token)=([^&\s]+)")
+USER_PATH_RE = re.compile(
+    r"(?i)(?:[A-Z]:[/\\]Users[/\\][^/\\\s]+|/Users/[^/\s]+|/home/[^/\s]+)"
+)
 
 CANONICAL_FILES = {
     "run.json",
@@ -76,6 +85,7 @@ CANONICAL_FILES = {
 }
 
 SPEC002_PROFILE_CONTRACT = "controlproof.bundle-profile.spec002.v1"
+SPEC003_PROFILE_CONTRACT = "controlproof.bundle-profile.spec003.v1"
 SPEC002_COMMON_CANONICAL_FILES = CANONICAL_FILES | {
     "environment.snapshot.json",
     "queue-topology.snapshot.json",
@@ -85,6 +95,19 @@ SPEC002_COMMON_CANONICAL_FILES = CANONICAL_FILES | {
 SPEC002_DLQ_CANONICAL_FILES = SPEC002_COMMON_CANONICAL_FILES | {
     "terminal-failure.json",
     "redrive-receipts.jsonl",
+}
+SPEC003_CANONICAL_FILES = CANONICAL_FILES | {
+    "environment.snapshot.json",
+    "n02-capabilities.json",
+    "n02-lanes.json",
+    "policy-and-consent.json",
+    "baseline-effects.jsonl",
+    "bypass-attempts.jsonl",
+    "protected-effects.jsonl",
+    "causal-events.jsonl",
+    "causal-edges.jsonl",
+    "fault-receipts.jsonl",
+    "recovery.json",
 }
 
 REQUIRED_EVIDENCE_ARTIFACT_TYPES: dict[str, frozenset[str]] = {
@@ -101,7 +124,19 @@ REQUIRED_EVIDENCE_ARTIFACT_TYPES: dict[str, frozenset[str]] = {
 
 
 def _is_spec002_profile(profile: ExecutionProfile | None) -> bool:
-    return profile is not None and profile is not ExecutionProfile.H03_MINIMAL_V1
+    return profile in {
+        ExecutionProfile.H03_DLQ_V2,
+        ExecutionProfile.E03_BEFORE_V2,
+        ExecutionProfile.E03_AFTER_V2,
+    }
+
+
+def _is_spec003_profile(profile: ExecutionProfile | None) -> bool:
+    return profile is ExecutionProfile.N02_CONSENT_ORDER_V1
+
+
+def _is_versioned_profile(profile: ExecutionProfile | None) -> bool:
+    return _is_spec002_profile(profile) or _is_spec003_profile(profile)
 
 
 def _canonical_files(profile: ExecutionProfile | None) -> set[str]:
@@ -109,6 +144,8 @@ def _canonical_files(profile: ExecutionProfile | None) -> set[str]:
         return set(SPEC002_DLQ_CANONICAL_FILES)
     if profile is ExecutionProfile.E03_AFTER_V2:
         return set(SPEC002_COMMON_CANONICAL_FILES)
+    if _is_spec003_profile(profile):
+        return set(SPEC003_CANONICAL_FILES)
     return set(CANONICAL_FILES)
 
 
@@ -131,13 +168,19 @@ def redact(value: Any) -> Any:
         text = EMAIL_RE.sub("[SUBJECT_REF]", text)
         text = PHONE_RE.sub(REDACTED, text)
         text = SIGNED_QUERY_RE.sub(lambda match: f"{match.group(1)}={REDACTED}", text)
+        text = USER_PATH_RE.sub("[USER_ROOT]", text)
         return text
     return value
 
 
 def assert_redacted(payload: bytes) -> None:
     text = payload.decode("utf-8", errors="ignore")
-    if BEARER_RE.search(text) or EMAIL_RE.search(text) or PHONE_RE.search(text):
+    if (
+        BEARER_RE.search(text)
+        or EMAIL_RE.search(text)
+        or PHONE_RE.search(text)
+        or USER_PATH_RE.search(text)
+    ):
         raise ValueError("redaction scanner found prohibited secret or PII pattern")
     for document in _json_documents(text):
         if _contains_unredacted_sensitive_field(document):
@@ -215,7 +258,7 @@ class EvidenceBundleWriter:
         self.directory = (run_root.resolve() / str(run.run_id)).resolve()
         self.directory.mkdir(parents=True, exist_ok=True)
         self._files: dict[str, dict[str, Any]] = {}
-        if _is_spec002_profile(self.profile):
+        if _is_versioned_profile(self.profile):
             required = ScenarioProfile.canonical(self.profile).required_evidence
         else:
             required = tuple(f"EV-{index:02d}" for index in range(1, 10))
@@ -372,7 +415,7 @@ class EvidenceBundleWriter:
             if evidence_id not in self._required:
                 raise ValueError(f"unknown evidence requirement: {evidence_id}")
             reference = (
-                f"artifact:{active_id}" if _is_spec002_profile(self.profile) else str(active_id)
+                f"artifact:{active_id}" if _is_versioned_profile(self.profile) else str(active_id)
             )
             self._required[evidence_id].append(reference)
         return EvidenceArtifact(
@@ -430,7 +473,7 @@ class EvidenceBundleWriter:
             if evidence_id not in self._required:
                 raise ValueError(f"unknown evidence requirement: {evidence_id}")
             reference = (
-                f"artifact:{active_id}" if _is_spec002_profile(self.profile) else str(active_id)
+                f"artifact:{active_id}" if _is_versioned_profile(self.profile) else str(active_id)
             )
             self._required[evidence_id].append(reference)
         return EvidenceArtifact(
@@ -511,6 +554,17 @@ class EvidenceBundleWriter:
                     "execution_profile": self.profile.value,
                     "environment_snapshot_digest": self.run.environment_snapshot_digest,
                     "queue_topology_digest": self.run.queue_topology_digest,
+                }
+            )
+        elif _is_spec003_profile(self.profile):
+            manifest.update(
+                {
+                    "profile_contract": SPEC003_PROFILE_CONTRACT,
+                    "execution_profile": self.profile.value,
+                    "environment_snapshot_digest": self.run.environment_snapshot_digest,
+                    "lane_manifest_digest": self.run.lane_manifest_digest,
+                    "path_capability_digest": self.run.path_capability_digest,
+                    "policy_snapshot_digest": self.run.policy_snapshot_digest,
                 }
             )
         manifest["bundle_digest"] = sha256_bytes(canonical_json_bytes(manifest))
@@ -609,12 +663,25 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
                 artifact_records,
                 result,
             )
+        elif _is_spec003_profile(profile):
+            expected = ScenarioProfile.canonical(profile).required_evidence
+            _verify_spec002_evidence(
+                directory,
+                required_evidence,
+                expected,
+                registered,
+                artifact_records,
+                result,
+            )
+            result["checked_evidence_requirements"] = list(expected)
         else:
             _verify_v1_evidence(required_evidence, artifact_records, result)
     _verify_manifest_run_link(directory, manifest, result)
     _verify_snapshot_links(directory, result)
     if _is_spec002_profile(profile):
         _verify_spec002_snapshot_links(directory, manifest, result)
+    elif _is_spec003_profile(profile):
+        _verify_spec003_snapshot_links(directory, manifest, result)
     if result["missing_files"] or result["mismatched_files"]:
         result["bundle_status"] = "INVALID"
     result["missing_files"].sort()
@@ -674,13 +741,16 @@ def _resolve_bundle_profile(
         return None
     contract = manifest.get("profile_contract")
     if contract is None:
-        if _is_spec002_profile(profile):
+        if _is_versioned_profile(profile):
             result["mismatched_files"].append("manifest.json:profile_contract")
         return profile
-    if contract != SPEC002_PROFILE_CONTRACT:
+    expected_contract = (
+        SPEC003_PROFILE_CONTRACT if _is_spec003_profile(profile) else SPEC002_PROFILE_CONTRACT
+    )
+    if contract != expected_contract:
         result["mismatched_files"].append("manifest.json:profile_contract")
         return profile
-    if not _is_spec002_profile(profile):
+    if not _is_versioned_profile(profile):
         result["mismatched_files"].append("manifest.json:execution_profile")
         return profile
     if manifest.get("execution_profile") != profile.value:
@@ -953,3 +1023,54 @@ def _verify_spec002_snapshot_links(
         or queue.get("visibility_timeout_seconds") != 5
     ):
         result["mismatched_files"].append("queue-topology.snapshot.json:contract")
+
+
+def _verify_spec003_snapshot_links(
+    directory: Path,
+    manifest: dict[str, Any],
+    result: dict[str, Any],
+) -> None:
+    try:
+        run = json.loads((directory / "run.json").read_text(encoding="utf-8"))
+        environment = json.loads(
+            (directory / "environment.snapshot.json").read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(run, dict) or not isinstance(environment, dict):
+        result["mismatched_files"].append("spec003:snapshot-object")
+        return
+    environment_identity = {
+        key: value
+        for key, value in environment.items()
+        if key not in {"captured_at", "snapshot_digest"}
+    }
+    environment_digest = sha256_bytes(canonical_json_bytes(environment_identity))
+    if not (
+        environment_digest
+        == environment.get("snapshot_digest")
+        == run.get("environment_snapshot_digest")
+        == manifest.get("environment_snapshot_digest")
+    ):
+        result["mismatched_files"].append("environment.snapshot.json:link")
+    file_links = (
+        ("n02-lanes.json", "lane_manifest_digest"),
+        ("n02-capabilities.json", "path_capability_digest"),
+        ("policy-and-consent.json", "policy_snapshot_digest"),
+    )
+    for relative_path, field in file_links:
+        try:
+            digest = sha256_bytes((directory / relative_path).read_bytes())
+        except OSError:
+            continue
+        if not digest == run.get(field) == manifest.get(field):
+            result["mismatched_files"].append(f"{relative_path}:link")
+    expected_scope = {"AWS", "N-01", "N-03"}
+    if (
+        run.get("environment_kind") != "LOCAL_EMULATED"
+        or run.get("aws_deployment_status") != "NOT_RUN"
+        or set(run.get("unverified_scope", [])) != expected_scope
+        or environment.get("external_ai_allowed") is not False
+        or set(environment.get("unverified_scope", [])) != expected_scope
+    ):
+        result["mismatched_files"].append("run.json:n02-local-claim")

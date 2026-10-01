@@ -1,0 +1,486 @@
+"""WhyYou protected-processing attempts and scoped effect projections for N-02."""
+
+from __future__ import annotations
+
+import hashlib
+import json
+from collections.abc import Callable, Mapping
+from contextlib import AbstractContextManager
+from datetime import datetime
+from typing import Any
+from uuid import UUID, uuid5
+
+import httpx
+from sqlalchemy import create_engine, text
+
+from engine.adapters.base import AdapterResult
+from engine.adapters.whyyou.n02_seed import N02CredentialStore
+from engine.config import Settings
+from engine.models import (
+    ConsentPurpose,
+    N02EffectGroup,
+    N02LaneId,
+    Phase,
+    Presence,
+    ProcessingAttemptReceipt,
+    ProcessingEntryKind,
+    ProcessingResponseClass,
+    ProtectedEffectSnapshot,
+    ProtectedPathId,
+    ProtectedProcessingPath,
+    canonical_json_bytes,
+    sha256_bytes,
+    utcnow,
+)
+
+_PATHS = (
+    ProtectedProcessingPath(
+        path_id=ProtectedPathId.DOCUMENT_ANALYSIS,
+        entry_boundary="createSubmissionUploadIntent",
+        entry_kind=ProcessingEntryKind.HTTP,
+        independent_direct_route=True,
+        request_effect_keys=("submission_upload_intents.upload_id",),
+        start_effect_keys=("submissions.submission_id",),
+        result_effect_keys=("submission_analyses.submission_analysis_id",),
+        consent_purpose=ConsentPurpose.DOCUMENT_ANALYSIS,
+        source_locator={
+            "path": "backend/src/interview_evidence/submission_analysis/api/applicant_routes.py",
+            "symbol": "createSubmissionUploadIntent",
+        },
+    ),
+    ProtectedProcessingPath(
+        path_id=ProtectedPathId.RECORDING,
+        entry_boundary="createInterviewSession",
+        entry_kind=ProcessingEntryKind.HTTP,
+        independent_direct_route=False,
+        earliest_real_boundary="SessionApplicationService._create_session_once",
+        required_fixture_kind="n02-recording-boundary-probe-fixture-v1",
+        request_effect_keys=("interview_sessions.interview_session_id",),
+        start_effect_keys=("session_checkpoints.checkpoint_id",),
+        result_effect_keys=("recording_chunks.recording_chunk_id",),
+        consent_purpose=ConsentPurpose.RECORDING,
+        source_locator={
+            "path": "backend/src/interview_evidence/interview_engine/application/session_service.py",
+            "symbol": "_create_session_once",
+        },
+    ),
+    ProtectedProcessingPath(
+        path_id=ProtectedPathId.AI_ASSESSMENT,
+        entry_boundary="report.generation_requested",
+        entry_kind=ProcessingEntryKind.DOMAIN_EVENT,
+        independent_direct_route=False,
+        earliest_real_boundary="ReportRequestedEventHandler.__call__",
+        required_fixture_kind="n02-assessment-boundary-probe-fixture-v1",
+        request_effect_keys=("outbox_events.outbox_event_id",),
+        start_effect_keys=("processing_receipts.receipt_id",),
+        result_effect_keys=("reports.report_id",),
+        consent_purpose=ConsentPurpose.AI_ASSESSMENT,
+        source_locator={
+            "path": "backend/src/interview_evidence/runtime/worker.py",
+            "symbol": "ReportRequestedEventHandler.__call__",
+        },
+    ),
+)
+_ATTEMPT_NAMESPACE = UUID("0ffbda5e-6d56-54af-a426-69b59b6793fc")
+
+
+class WhyYouProtectedProcessingAdapter:
+    def __init__(
+        self,
+        settings: Settings,
+        *,
+        http_client: httpx.Client | None = None,
+        credentials: N02CredentialStore | None = None,
+        effect_reader: Callable[[Mapping[str, Any], ProtectedPathId], Mapping[str, Any]]
+        | None = None,
+        transaction_factory: Callable[[], AbstractContextManager] | None = None,
+    ) -> None:
+        self.settings = settings
+        self.credentials = credentials or N02CredentialStore()
+        self.http = http_client or httpx.Client(
+            base_url=settings.whyyou_base_url,
+            timeout=10,
+            trust_env=False,
+        )
+        self._engine = None
+        if transaction_factory is None:
+            self._engine = create_engine(settings.whyyou_database_url)
+            transaction_factory = self._engine.begin
+        self._transaction_factory = transaction_factory
+        self._effect_reader = effect_reader or self._read_effect_projection
+        self._baselines: dict[tuple[str, ProtectedPathId], tuple[str, ...]] = {}
+
+    def paths(self) -> tuple[ProtectedProcessingPath, ...]:
+        return _PATHS
+
+    def attempt(
+        self, *, path_id: str, subject: Mapping[str, Any]
+    ) -> ProcessingAttemptReceipt | AdapterResult:
+        path = ProtectedPathId(path_id)
+        if path is ProtectedPathId.AI_ASSESSMENT:
+            return self._attempt_assessment(subject)
+        credential = self.credentials.get(str(subject["subject_ref"]))
+        if credential is None:
+            return AdapterResult(False, "N02_APPLICANT_CREDENTIAL_MISSING")
+        sent_at = utcnow()
+        request_id = str(_attempt_id(subject, path, "request"))
+        trace_id = _trace_id(subject, path)
+        try:
+            if path is ProtectedPathId.DOCUMENT_ANALYSIS:
+                route = "/v1/applicant/submissions/upload-intents"
+                payload = {
+                    "source_type": "resume",
+                    "filename": "controlproof-synthetic-resume.pdf",
+                    "media_type": "application/pdf",
+                    "byte_size": 1,
+                    "sha256": "0" * 64,
+                }
+            else:
+                route = "/v1/applicant/interview-sessions"
+                payload = {
+                    "equipment_check_id": str(subject["equipment_check_id"]),
+                    "strategy_id": str(subject["strategy_id"]),
+                    "acknowledged_partial_analysis": True,
+                }
+            response = self.http.post(
+                route,
+                json=payload,
+                headers={
+                    "Idempotency-Key": request_id,
+                    "X-Trace-Id": trace_id,
+                    "Cookie": f"iep_applicant_session={credential}",
+                },
+            )
+        except httpx.HTTPError:
+            return _attempt_receipt(
+                path=path,
+                subject=subject,
+                request_id=request_id,
+                trace_id=trace_id,
+                sent_at=sent_at,
+                response_class=ProcessingResponseClass.NO_RESPONSE,
+                status_code=None,
+                reason="TRANSPORT_UNAVAILABLE",
+            )
+        response_class = (
+            ProcessingResponseClass.ACCEPTED
+            if 200 <= response.status_code < 300
+            else (
+                ProcessingResponseClass.DENIED
+                if response.status_code in {401, 403}
+                else ProcessingResponseClass.ERROR
+            )
+        )
+        reason = (
+            "CONSENT_REQUIRED"
+            if response_class is ProcessingResponseClass.DENIED
+            else response_class.value
+        )
+        return _attempt_receipt(
+            path=path,
+            subject=subject,
+            request_id=request_id,
+            trace_id=trace_id,
+            sent_at=sent_at,
+            response_class=response_class,
+            status_code=response.status_code,
+            reason=reason,
+        )
+
+    def _attempt_assessment(
+        self, subject: Mapping[str, Any]
+    ) -> ProcessingAttemptReceipt | AdapterResult:
+        sent_at = utcnow()
+        request_id = str(
+            _attempt_id(subject, ProtectedPathId.AI_ASSESSMENT, "request")
+        )
+        event_id = _attempt_id(subject, ProtectedPathId.AI_ASSESSMENT, "event")
+        trace_id = _trace_id(subject, ProtectedPathId.AI_ASSESSMENT)
+        params = {
+            "outbox_event_id": event_id,
+            "company_id": UUID(str(self.settings.whyyou_company_id)),
+            "aggregate_id": UUID(str(subject["interview_session_id"])),
+            "event_type": "report.generation_requested",
+            "payload": json.dumps(
+                {"interview_session_id": str(subject["interview_session_id"])}
+            ),
+            "idempotency_key": request_id,
+            "trace_id": trace_id,
+            "occurred_at": sent_at,
+        }
+        try:
+            with self._transaction_factory() as connection:
+                connection.execute(
+                    text(
+                        """
+                        INSERT INTO outbox_events (
+                            outbox_event_id, company_id, aggregate_type, aggregate_id,
+                            aggregate_version, event_type, event_version, payload,
+                            idempotency_key, trace_id, occurred_at, publish_status,
+                            publish_attempts
+                        ) VALUES (
+                            :outbox_event_id, :company_id, 'interview_session', :aggregate_id,
+                            1, :event_type, 1, CAST(:payload AS jsonb),
+                            :idempotency_key, :trace_id, :occurred_at, 'pending', 0
+                        )
+                        """
+                    ),
+                    params,
+                )
+        except Exception as exc:  # noqa: BLE001 - normalize database/provider detail
+            return AdapterResult(
+                False, "N02_ASSESSMENT_EVENT_WRITE_FAILED", detail=type(exc).__name__
+            )
+        return _attempt_receipt(
+            path=ProtectedPathId.AI_ASSESSMENT,
+            subject=subject,
+            request_id=request_id,
+            trace_id=trace_id,
+            sent_at=sent_at,
+            response_class=ProcessingResponseClass.ACCEPTED,
+            status_code=None,
+            reason="EVENT_PERSISTED",
+        )
+
+    def read_effects(
+        self,
+        *,
+        path_id: str,
+        subject: Mapping[str, Any],
+        phase: str,
+        step_id: str,
+    ) -> ProtectedEffectSnapshot | AdapterResult:
+        path = ProtectedPathId(path_id)
+        key = (str(subject["subject_ref"]), path)
+        try:
+            projection = self._effect_reader(subject, path)
+        except Exception as exc:  # noqa: BLE001 - source errors are evidence, not exceptions
+            projection = {
+                "source_status": Presence.UNAVAILABLE.value,
+                "error_code": type(exc).__name__.upper(),
+            }
+        status = Presence(str(projection.get("source_status", Presence.PRESENT.value)))
+        if status is Presence.UNAVAILABLE:
+            return ProtectedEffectSnapshot(
+                run_id=UUID(str(subject["run_id"])),
+                lane_id=N02LaneId(str(subject["lane_id"])),
+                subject_ref=str(subject["subject_ref"]),
+                path_id=path,
+                phase=Phase(phase),
+                step_id=step_id,
+                attempt=1,
+                effect_group=N02EffectGroup(path.value),
+                source_status=status,
+                source_error_code=str(projection.get("error_code", "SOURCE_UNAVAILABLE")),
+                state_digest=sha256_bytes(b"unavailable"),
+                captured_at=utcnow(),
+            )
+        current = tuple(sorted(str(value) for value in projection.get("effect_ids", ())))
+        fixtures = tuple(
+            sorted(
+                {str(value) for value in subject.get("allowed_fixture_effect_ids", ())}
+                & set(current)
+            )
+        )
+        if Phase(phase) is Phase.BASELINE:
+            self._baselines[key] = current
+        baseline = self._baselines.get(key, ())
+        new = tuple(sorted(set(current) - set(baseline) - set(fixtures)))
+        status = Presence.PRESENT if current else Presence.ABSENT
+        status_projection = dict(projection.get("status_projection", {}))
+        digest = sha256_bytes(
+            canonical_json_bytes(
+                {
+                    "path_id": path.value,
+                    "current": current,
+                    "fixture": fixtures,
+                    "status_projection": status_projection,
+                }
+            )
+        )
+        return ProtectedEffectSnapshot(
+            run_id=UUID(str(subject["run_id"])),
+            lane_id=N02LaneId(str(subject["lane_id"])),
+            subject_ref=str(subject["subject_ref"]),
+            path_id=path,
+            phase=Phase(phase),
+            step_id=step_id,
+            attempt=1,
+            effect_group=N02EffectGroup(path.value),
+            request_ids=tuple(
+                item
+                for item in current
+                if item.startswith(
+                    {
+                        ProtectedPathId.DOCUMENT_ANALYSIS: ("upload:", "analysis-event:"),
+                        ProtectedPathId.RECORDING: ("session:",),
+                        ProtectedPathId.AI_ASSESSMENT: ("event:",),
+                    }[path]
+                )
+            ),
+            result_ids=tuple(
+                item
+                for item in current
+                if item.startswith(
+                    {
+                        ProtectedPathId.DOCUMENT_ANALYSIS: ("analysis:", "strategy:"),
+                        ProtectedPathId.RECORDING: ("chunk:", "asset:"),
+                        ProtectedPathId.AI_ASSESSMENT: ("report:", "item:", "assistant:"),
+                    }[path]
+                )
+            ),
+            status_projection=status_projection,
+            baseline_effect_ids=baseline,
+            fixture_effect_ids=fixtures,
+            current_effect_ids=current,
+            new_effect_ids=new,
+            source_status=status,
+            state_digest=digest,
+            captured_at=utcnow(),
+        )
+
+    def read_processing_receipts(
+        self, *, run_id: str, lane_id: str, subject_ref: str
+    ) -> AdapterResult:
+        path = self.settings.observer_root / "receipts" / f"{UUID(run_id)}.jsonl"
+        if not path.exists():
+            return AdapterResult(True, "N02_PROCESSING_RECEIPTS_ABSENT", {"receipts": ()})
+        try:
+            receipts = tuple(
+                payload
+                for line in path.read_text(encoding="utf-8").splitlines()
+                if (payload := json.loads(line)).get("run_id") == str(UUID(run_id))
+                and payload.get("lane_id") == lane_id
+                and payload.get("subject_ref") == subject_ref
+            )
+        except (OSError, ValueError, json.JSONDecodeError) as exc:
+            return AdapterResult(
+                False, "N02_PROCESSING_RECEIPTS_UNAVAILABLE", detail=type(exc).__name__
+            )
+        return AdapterResult(True, "N02_PROCESSING_RECEIPTS_READ", {"receipts": receipts})
+
+    def _read_effect_projection(
+        self, subject: Mapping[str, Any], path: ProtectedPathId
+    ) -> Mapping[str, Any]:
+        queries = {
+            ProtectedPathId.DOCUMENT_ANALYSIS: (
+                "SELECT 'upload:' || upload_id::text AS effect_id "
+                "FROM submission_upload_intents WHERE company_id=:company_id "
+                "AND applicant_id=:applicant_id UNION ALL "
+                "SELECT 'submission:' || submission_id::text FROM submissions "
+                "WHERE company_id=:company_id AND applicant_id=:applicant_id UNION ALL "
+                "SELECT 'analysis:' || a.analysis_id::text "
+                "FROM submission_analyses a JOIN submissions s "
+                "ON s.company_id=a.company_id AND s.submission_id=a.submission_id "
+                "WHERE s.company_id=:company_id AND s.applicant_id=:applicant_id UNION ALL "
+                "SELECT 'strategy:' || interview_strategy_id::text "
+                "FROM interview_strategies WHERE company_id=:company_id "
+                "AND applicant_id=:applicant_id UNION ALL "
+                "SELECT 'analysis-event:' || o.outbox_event_id::text "
+                "FROM outbox_events o JOIN submissions s "
+                "ON s.company_id=o.company_id AND s.submission_id=o.aggregate_id "
+                "WHERE s.company_id=:company_id AND s.applicant_id=:applicant_id "
+                "AND o.event_type='submission.analysis_requested'"
+            ),
+            ProtectedPathId.RECORDING: (
+                "SELECT 'session:' || interview_session_id::text AS effect_id "
+                "FROM interview_sessions WHERE company_id=:company_id "
+                "AND applicant_id=:applicant_id UNION ALL "
+                "SELECT 'chunk:' || c.recording_chunk_id::text "
+                "FROM recording_chunks c JOIN interview_sessions s "
+                "ON s.company_id=c.company_id "
+                "AND s.interview_session_id=c.interview_session_id "
+                "WHERE s.company_id=:company_id AND s.applicant_id=:applicant_id UNION ALL "
+                "SELECT 'asset:' || a.recording_asset_id::text "
+                "FROM recording_assets a JOIN interview_sessions s "
+                "ON s.company_id=a.company_id "
+                "AND s.interview_session_id=a.interview_session_id "
+                "WHERE s.company_id=:company_id AND s.applicant_id=:applicant_id"
+            ),
+            ProtectedPathId.AI_ASSESSMENT: (
+                "SELECT 'event:' || outbox_event_id::text AS effect_id FROM outbox_events "
+                "WHERE company_id=:company_id AND aggregate_id=:session_id "
+                "AND event_type='report.generation_requested' UNION ALL "
+                "SELECT 'report:' || report_id::text AS effect_id FROM reports "
+                "WHERE company_id=:company_id AND interview_session_id=:session_id "
+                "UNION ALL SELECT 'item:' || i.report_item_id::text "
+                "FROM report_items i JOIN reports r ON r.company_id=i.company_id "
+                "AND r.report_id=i.report_id WHERE r.company_id=:company_id "
+                "AND r.interview_session_id=:session_id UNION ALL "
+                "SELECT 'assistant:' || d.assistant_document_id::text "
+                "FROM assistant_retrieval_documents d JOIN reports r "
+                "ON r.company_id=d.company_id AND r.report_id=d.report_id "
+                "WHERE r.company_id=:company_id "
+                "AND r.interview_session_id=:session_id UNION ALL "
+                "SELECT 'processed:' || p.event_id::text FROM processed_messages p "
+                "JOIN outbox_events o ON o.outbox_event_id=p.event_id "
+                "WHERE o.company_id=:company_id AND o.aggregate_id=:session_id "
+                "AND o.event_type='report.generation_requested'"
+            ),
+        }
+        params = {
+            "company_id": UUID(self.settings.whyyou_company_id),
+            "applicant_id": UUID(str(subject["applicant_id"])),
+            "session_id": UUID(str(subject["interview_session_id"])),
+        }
+        with self._transaction_factory() as connection:
+            rows = connection.execute(text(queries[path]), params)
+            ids = [row[0] for row in rows]
+        return {"source_status": Presence.PRESENT.value, "effect_ids": ids}
+
+
+def _trace_id(subject: Mapping[str, Any], path: ProtectedPathId) -> str:
+    return (
+        f"controlproof:{UUID(str(subject['run_id']))}:"
+        f"{N02LaneId(str(subject['lane_id'])).value}:{subject['subject_ref']}"
+    )
+
+
+def _attempt_id(
+    subject: Mapping[str, Any], path: ProtectedPathId, identity_kind: str
+) -> UUID:
+    return uuid5(
+        _ATTEMPT_NAMESPACE,
+        ":".join(
+            (
+                str(UUID(str(subject["run_id"]))),
+                N02LaneId(str(subject["lane_id"])).value,
+                path.value,
+                identity_kind,
+            )
+        ),
+    )
+
+
+def _attempt_receipt(
+    *,
+    path: ProtectedPathId,
+    subject: Mapping[str, Any],
+    request_id: str,
+    trace_id: str,
+    sent_at: datetime,
+    response_class: ProcessingResponseClass,
+    status_code: int | None,
+    reason: str,
+) -> ProcessingAttemptReceipt:
+    entry = (
+        ProcessingEntryKind.DOMAIN_EVENT
+        if path is ProtectedPathId.AI_ASSESSMENT
+        else ProcessingEntryKind.HTTP
+    )
+    return ProcessingAttemptReceipt(
+        run_id=UUID(str(subject["run_id"])),
+        lane_id=N02LaneId(str(subject["lane_id"])),
+        subject_ref=str(subject["subject_ref"]),
+        path_id=path,
+        entry_kind=entry,
+        operation_id={item.path_id: item.entry_boundary for item in _PATHS}[path],
+        request_id=request_id,
+        trace_id_digest=hashlib.sha256(trace_id.encode("utf-8")).hexdigest(),
+        sent_at=sent_at,
+        response_at=(None if response_class is ProcessingResponseClass.NO_RESPONSE else utcnow()),
+        response_class=response_class,
+        status_code=status_code,
+        sanitized_reason_code=reason,
+        source_ref=f"whyyou:{path.value.casefold()}:v1",
+    )

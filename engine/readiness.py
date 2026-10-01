@@ -81,7 +81,9 @@ def evaluate_readiness(
 
     if not target_feature_exists:
         status = ReadinessStatus.NO_TEST_TARGET
-        action = "select a target that exposes the H-03 reporting and final-decision controls"
+        action = (
+            f"select a target that exposes the {scenario.scenario_id} protected controls"
+        )
     elif any(check.status is ReadinessStatus.ACCESS_BLOCKED for check in checks):
         status = ReadinessStatus.ACCESS_BLOCKED
         action = _actions(checks, status)

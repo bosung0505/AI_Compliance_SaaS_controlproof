@@ -31,3 +31,10 @@ def test_unregistered_v2_profile_is_refused_before_run_creation(tmp_path):
     with pytest.raises(UnregisteredExecutionProfile, match="E03_BEFORE_V2"):
         registry.build(scenario, adapters, tmp_path, clock=FakeClock())
     assert set(tmp_path.iterdir()) == existing
+
+
+def test_v1_profile_identity_is_unchanged_by_spec003_registration():
+    scenario = load("scenarios/H-03.yaml")
+    assert scenario.schema_version is None
+    assert scenario.execution_profile is None
+    assert scenario.snapshot().definition["scenario_id"] == "H-03"

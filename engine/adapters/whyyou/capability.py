@@ -10,9 +10,12 @@ from sqlalchemy import create_engine, text
 
 from engine.adapters.base import CapabilityProbeResult
 from engine.adapters.whyyou.client import TargetSnapshotCaptureError, WhyYouClient
+from engine.adapters.whyyou.consent import WhyYouConsentAdapter
+from engine.adapters.whyyou.consent_fault import WhyYouConsentFaultAdapter
 from engine.adapters.whyyou.decisions import WhyYouDecisionAdapter
 from engine.adapters.whyyou.effects import WhyYouEffectAdapter
 from engine.adapters.whyyou.environment import WhyYouEnvironmentAdapter
+from engine.adapters.whyyou.protected_processing import WhyYouProtectedProcessingAdapter
 from engine.adapters.whyyou.queue import (
     QueueAccessError,
     QueueContractError,
@@ -48,6 +51,20 @@ CAPABILITY_VERSIONS = {
     "hiring.final_decision.replay": "v1",
     "reporting.effects.read": "v1",
     "hiring.decision_effects.read": "v1",
+    "n02.subjects.seed": "v1",
+    "n02.subjects.teardown": "v1",
+    "processing.paths.read": "v1",
+    "processing.document.attempt": "v1",
+    "processing.recording.attempt": "v1",
+    "processing.assessment.attempt": "v1",
+    "processing.effects.read": "v1",
+    "processing.boundary.receipts.read": "v1",
+    "consent.policy.read": "v1",
+    "consent.commit.write": "v1",
+    "consent.state.read": "v1",
+    "consent.fault.inject": "v1",
+    "consent.fault.receipt.read": "v1",
+    "consent.fault.restore": "v1",
 }
 
 
@@ -61,6 +78,9 @@ class WhyYouCapabilityProbe:
         environment: WhyYouEnvironmentAdapter | None = None,
         decision: WhyYouDecisionAdapter | None = None,
         effects: WhyYouEffectAdapter | None = None,
+        n02_processing: WhyYouProtectedProcessingAdapter | None = None,
+        n02_consent: WhyYouConsentAdapter | None = None,
+        n02_fault: WhyYouConsentFaultAdapter | None = None,
     ) -> None:
         self.settings = settings
         self.client = client
@@ -68,6 +88,9 @@ class WhyYouCapabilityProbe:
         self.environment = environment
         self.decision = decision
         self.effects = effects
+        self.n02_processing = n02_processing
+        self.n02_consent = n02_consent
+        self.n02_fault = n02_fault
         self._openapi_paths: set[str] | None = None
 
     @property
@@ -100,6 +123,123 @@ class WhyYouCapabilityProbe:
                     )
                 self.environment.capture_environment()
                 return _ready(capability, "canonical local environment snapshot is available")
+            if capability in {"n02.subjects.seed", "n02.subjects.teardown"}:
+                return self._database(capability)
+            if capability in {"consent.policy.read", "consent.commit.write"}:
+                if self.n02_consent is None:
+                    return _not_ready(
+                        capability,
+                        "N-02 consent adapter is not composed",
+                        "compose the N-02 consent adapter",
+                    )
+                return self._route(capability, "/v1/applicant/consents")
+            if capability == "consent.state.read":
+                if self.n02_consent is None:
+                    return _not_ready(
+                        capability,
+                        "N-02 consent state adapter is not composed",
+                        "compose the N-02 consent adapter",
+                    )
+                return self._database(capability)
+            if capability in {
+                "consent.fault.inject",
+                "consent.fault.receipt.read",
+                "consent.fault.restore",
+            }:
+                if self.n02_fault is None:
+                    return _not_ready(
+                        capability,
+                        "N-02 consent fault adapter is not composed",
+                        "compose the N-02 consent fault adapter",
+                    )
+                if not self.settings.test_hooks_enabled:
+                    return _not_ready(
+                        capability,
+                        "local/test consent fault hook is disabled",
+                        "enable CONTROLPROOF_TEST_HOOKS_ENABLED only in local/test",
+                    )
+                try:
+                    self.settings.fault_root.mkdir(parents=True, exist_ok=True)
+                    probe = self.settings.fault_root / f".n02-consent-probe-{os.getpid()}"
+                    probe.write_text("probe", encoding="utf-8")
+                    probe.unlink()
+                except OSError:
+                    return CapabilityProbeResult(
+                        capability,
+                        ReadinessStatus.ACCESS_BLOCKED,
+                        "consent fault root is not writable",
+                        "grant local/test write access to CONTROLPROOF_FAULT_ROOT",
+                    )
+                return _ready(capability, "bounded local/test consent fault root is writable")
+            if capability == "processing.paths.read":
+                if self.n02_processing is None:
+                    return _not_ready(
+                        capability,
+                        "N-02 protected-processing adapter is not composed",
+                        "compose the N-02 protected-processing adapter",
+                    )
+                if len(self.n02_processing.paths()) != 3:
+                    return _not_ready(
+                        capability,
+                        "the exact three protected paths are not mapped",
+                        "map document, recording and assessment boundaries",
+                    )
+                return _ready(capability, "the exact three protected paths are mapped")
+            if capability == "processing.document.attempt":
+                if self.n02_processing is None:
+                    return _not_ready(
+                        capability,
+                        "document attempt adapter is not composed",
+                        "compose the N-02 protected-processing adapter",
+                    )
+                return self._route(
+                    capability, "/v1/applicant/submissions/upload-intents"
+                )
+            if capability == "processing.recording.attempt":
+                if self.n02_processing is None:
+                    return _not_ready(
+                        capability,
+                        "recording attempt adapter is not composed",
+                        "compose the N-02 protected-processing adapter",
+                    )
+                return self._route(capability, "/v1/applicant/interview-sessions")
+            if capability in {
+                "processing.assessment.attempt",
+                "processing.effects.read",
+            }:
+                if self.n02_processing is None:
+                    return _not_ready(
+                        capability,
+                        "N-02 database adapter is not composed",
+                        "compose the N-02 protected-processing adapter",
+                    )
+                return self._database(capability)
+            if capability == "processing.boundary.receipts.read":
+                if self.n02_processing is None:
+                    return _not_ready(
+                        capability,
+                        "processing receipt reader is not composed",
+                        "compose the N-02 processing receipt reader",
+                    )
+                if not self.settings.observer_enabled:
+                    return _not_ready(
+                        capability,
+                        "local processing observer is disabled",
+                        "enable CONTROLPROOF_OBSERVER_ENABLED only in local/test",
+                    )
+                try:
+                    self.settings.observer_root.mkdir(parents=True, exist_ok=True)
+                    probe = self.settings.observer_root / f".controlproof-probe-{os.getpid()}"
+                    probe.write_text("probe", encoding="utf-8")
+                    probe.unlink()
+                except OSError:
+                    return CapabilityProbeResult(
+                        capability,
+                        ReadinessStatus.ACCESS_BLOCKED,
+                        "processing observer root is not writable",
+                        "grant local/test write access to CONTROLPROOF_OBSERVER_ROOT",
+                    )
+                return _ready(capability, "local processing receipts are readable")
             if capability in {
                 "messaging.reporting.topology.read",
                 "messaging.reporting.attempts.read",

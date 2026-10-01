@@ -296,7 +296,7 @@ def _cleanup_confirm(args: argparse.Namespace) -> int:
 
 def _readiness_payload(readiness, scenario=None) -> dict[str, Any]:
     profile = getattr(scenario, "execution_profile", None)
-    is_v2 = profile is not None and profile is not ExecutionProfile.H03_MINIMAL_V1
+    is_versioned = profile is not None and profile is not ExecutionProfile.H03_MINIMAL_V1
     return {
         "schema_version": SCHEMA_VERSION,
         "command": "preflight",
@@ -308,9 +308,13 @@ def _readiness_payload(readiness, scenario=None) -> dict[str, Any]:
         ),
         "claim_scope": "EXECUTED_SCENARIO_AND_EVIDENCE_ONLY",
         "target_id": readiness.target_id,
-        "environment_kind": EnvironmentKind.LOCAL_EMULATED.value if is_v2 else None,
-        "aws_deployment_status": AwsDeploymentStatus.NOT_RUN.value if is_v2 else None,
-        "unverified_scope": sorted(SPEC002_UNVERIFIED_SCOPE) if is_v2 else [],
+        "environment_kind": EnvironmentKind.LOCAL_EMULATED.value if is_versioned else None,
+        "aws_deployment_status": AwsDeploymentStatus.NOT_RUN.value if is_versioned else None,
+        "unverified_scope": (
+            ["AWS", "N-01", "N-03"]
+            if profile is ExecutionProfile.N02_CONSENT_ORDER_V1
+            else sorted(SPEC002_UNVERIFIED_SCOPE) if is_versioned else []
+        ),
         "target_version": readiness.target_version,
         "target_snapshot": (
             readiness.target_snapshot.model_dump(mode="json") if readiness.target_snapshot else None
@@ -334,10 +338,10 @@ def _scenario_selection(
     args: argparse.Namespace,
 ) -> tuple[Path, ExecutionProfile]:
     raw_profile = getattr(args, "profile", None)
-    if args.scenario_id == "E-03" and raw_profile is None:
+    if args.scenario_id in {"E-03", "N-02"} and raw_profile is None:
         raise CliContractError(
             "PROFILE_REQUIRED",
-            "E-03 requires --profile E03_BEFORE_V2 or E03_AFTER_V2",
+            f"{args.scenario_id} requires an explicit compatible --profile",
         )
     profile = (
         ExecutionProfile(raw_profile)
@@ -347,6 +351,7 @@ def _scenario_selection(
     allowed = {
         "H-03": {ExecutionProfile.H03_MINIMAL_V1, ExecutionProfile.H03_DLQ_V2},
         "E-03": {ExecutionProfile.E03_BEFORE_V2, ExecutionProfile.E03_AFTER_V2},
+        "N-02": {ExecutionProfile.N02_CONSENT_ORDER_V1},
     }
     if profile not in allowed.get(args.scenario_id, set()):
         raise CliContractError(
@@ -363,6 +368,7 @@ def _profile_scenario_path(profile: ExecutionProfile) -> Path:
         ExecutionProfile.H03_DLQ_V2: root / "H-03-DLQ.yaml",
         ExecutionProfile.E03_BEFORE_V2: root / "E-03-BEFORE.yaml",
         ExecutionProfile.E03_AFTER_V2: root / "E-03-AFTER.yaml",
+        ExecutionProfile.N02_CONSENT_ORDER_V1: root / "N-02.yaml",
     }[profile]
 
 

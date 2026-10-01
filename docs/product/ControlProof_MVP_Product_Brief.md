@@ -5,14 +5,19 @@
 - 문서 목적: 팀이 상세 기능 명세와 UI 프로토타입을 만들기 전에 제품의 사용자, 핵심 흐름, 상태, 결과물과 성공 기준을 같은 의미로 합의한다.
 - 기준 문서: [ControlProof × WhyYou 2주 MVP 기능 범위 V4](./ControlProof_WhyYou_2주_MVP_기능범위_v4.md)
 - 참고 자산: `controlproof-skeleton_1`의 문서·YAML·판정 엔진·상태 시드 코드
-- 작성 기준일: 2026-09-23
+- 작성 기준일: 2026-09-23, 현재 상태 갱신 2026-10-01
 - 결정 상태: 팀 동기화 전 제품 책임자의 위임에 따라 MVP 구현 기준을 임시 확정했다. 변경은 [MVP 결정 기록](./ControlProof_MVP_Decision_Log.md)에 이유와 영향을 남긴다.
 - 문서 성격: PRD-lite. 제품 관점의 결정 문서이며 상세 API, DB 스키마, 배포 구조와 구현 프레임워크는 후속 Spec과 Plan에서 정한다.
 - 현재 산출물: [Spec Kit Constitution](../../.specify/memory/constitution.md),
   [완료된 기능 Spec 001](../../specs/001-execution-evidence-h03/spec.md),
   [완료된 기능 Spec 002](../../specs/002-h03-e03-fault-expansion/spec.md),
+  [12개 시나리오 공식 범위표](./ControlProof_MVP_Scenario_Coverage_Matrix.md),
+  [Spec 003 N-02 source baseline](../research/Spec003_N02_WhyYou_Source_Baseline.md),
+  [Spec 003 기능 명세](../../specs/003-n02-consent-order/spec.md),
+  [Spec 003 기술 Plan](../../specs/003-n02-consent-order/plan.md),
+  [Spec 003 Tasks](../../specs/003-n02-consent-order/tasks.md),
   [팀 통합 인수인계](../TEAM_HANDOFF.md)
-- 다음 산출물: 기능 Spec 003 — N-02 동의·AI 처리 순서 수직 흐름. 이후 Spec 004 — E-01·E-02
+- 다음 산출물: Spec 003 US4 구현·actual Run·converge. 이후 Spec 004 — E-01·E-02
   점수 근거·평가 기준 보존, Spec 005 — 웹 워크벤치·보고서 순서로 진행한다.
 
 ### 0.1 기준 문서의 우선순위
@@ -677,6 +682,10 @@ H-03과 E-03은 같은 장애 실행에서 서로 다른 통제 관점으로 판
 Spec 003~005로 사용한다. 각 Spec은 문서만 만든 뒤 한꺼번에 개발하는 단계가 아니다. 해당 Spec의
 clarify·plan·tasks·analyze를 마치면 곧바로 구현·실제 검증·converge까지 닫고 다음 Spec으로 넘어간다.
 
+12개 시나리오는 전부 실행한다는 뜻이 아니라 제품 카탈로그에서 상태를 관리한다는 뜻이다. 2주 MVP의
+실제 실행 목표 5개, `NOT_RUN` 4개, `NO_TEST_TARGET` 3개의 정확한 구분과 발표 문구는
+[시나리오 범위표](./ControlProof_MVP_Scenario_Coverage_Matrix.md)와 Decision Log D-014를 따른다.
+
 기존 “남은 WhyYou 연결과 시험 조건” 후보는 독립 Spec으로 만들지 않는다. H-03·E-03 연결은 이미
 Spec 001·002에 있고, 앞으로 필요한 연결·시드·관찰·주입·복구 capability는 이를 사용하는 Spec 003
 또는 Spec 004 안에서 함께 명세하고 구현한다. 사용자 가치와 분리된 범용 연결 기반을 먼저 크게 만드는
@@ -730,15 +739,37 @@ Spec 001·002에 있고, 앞으로 필요한 연결·시드·관찰·주입·복
 
 ### 14.4 기능 Spec 003 — N-02 동의·AI 처리 순서 수직 흐름
 
-상태: 계획 확정·명세 미착수
+상태: Implement 진행 중. T001~T064와 US1~US3 A1~A7 자동 gate 완료, actual Run은 `NOT_RUN`
 
 - 동의를 거친 합성 지원자를 반복 생성하는 경로 시드
 - 동의 완료 전 자료 제출·분석 요청·녹화·평가 시작 우회 차단
 - `동의 완료 < 분석 요청 ≤ 실제 분석 시작` 사건 순서와 correlation 검증
 - 동의 정책 버전·내용 digest·동의 완료 시각 증적
-- 동의 저장 실패와 Outbox 지연 조건, 복구와 재시험
+- 동의 저장 실패 시 transaction rollback, Outbox 누락·지연의 영향 관찰, 복구와 재시험
 - N-02에 필요한 WhyYou API·DB·로그·브라우저 연결과 test-only 조건 주입
 - 실제 `whyyou-local` Run, 봉인 bundle과 필요 시 불변 FAIL → PASS 재시험
+
+태오 별도 자료는 존재하지 않으므로 WhyYou 고정 commit을 직접 조사한
+[N-02 source baseline](../research/Spec003_N02_WhyYou_Source_Baseline.md)을 명세 입력으로 사용한다. 이 조사로
+자료 제출 경계의 동의 확인은 찾았지만 모든 분석·녹화·평가 우회가 차단된다고 아직 단정하지 않는다.
+또한 durable consent record를 현재 권위 원본으로 보고, Outbox 전달 지연 자체를 근거 없이 위반으로
+판정하지 않는다. Plan은 자료 upload-intent, 면접 session 생성, 실제 reporting worker event를 경계로
+고정하고 pristine 기준선과 깊은 경계용 합성 전제 fixture를 분리했다. Tasks는 테스트 우선 구현과 최초
+factual Run을 제품 guard 보완보다 앞에 두며, 구현은 analyze에서 모순·누락을 제거한 뒤 시작했다.
+Analyze에서는 HIGH 5건·MEDIUM 7건을 보완했고 재분석에서 CRITICAL·HIGH·팀 해석 차이를 만드는
+MEDIUM 0건을 확인했다. Run deadline 540초와 bundle verify 60초를 분리하고, 실제 session observer
+경계와 A5~A7 원인 소유권 분류를 Tasks·계약에 고정했다.
+
+현재 구현은 6개 결정론적 합성 lane, 실제 upload-intent·session-create·report-event 경계 시도,
+경로별 effect delta, local/test 전용 비침습 observer, A1~A7 증거 전용 판정까지 완료했다. US2는 서버
+정책 수신·정확한 목적 제출·동의 레코드/상태 전이/Outbox의 내구 상태 재조회 뒤에만 세 처리 명령을
+보내며, 요청·시작·결과를 timestamp가 아닌 명시적 edge로 판정한다. 응답 timeout 뒤 상태를 모르면
+처리 명령을 보내지 않고 `INCONCLUSIVE`로 남긴다. US3는 `save_consent()` 직후·상태/Outbox 전의
+local/test one-shot fault, 별도 연결의 부분 효과 0건, 세 미동의 경로 차단, marker/token·overlay 복구,
+동일 지원자의 정확히 한 번 정상 재시도를 검증한다. 복구가 불확실하면 `RESTORE_FAILED`로 후속 장애
+Run을 막는다. 자동 gate는 ControlProof 전체 366개와 WhyYou 관련 회귀 88개를 포함해 통과했다. 이는
+자동 구현 gate이며 WhyYou 제품 PASS가 아니다. 통합 bundle·CLI 검토와 최초 actual Run은 뒤 단계에
+남아 있다.
 
 Spec 003의 완료로 V4 비협상 대표 시나리오 N-02·H-03·E-03 세 개가 모두 실제 완주 상태가 된다.
 
@@ -792,6 +823,10 @@ Spec 005까지 완료됐다는 말은 그때 MVP 개발을 시작한다는 뜻�
 | D-009 | 멱등성 | 재시도 중 이벤트·결정 이력의 중복·누락 판정은 E-03이 소유하고, H-03은 결정 안전성을 판정한다. |
 | D-010 | 첨부 골격 | 구현 시작점으로 채택하되 spike로 취급한다. 핵심 계약을 바로잡은 뒤 확장하며 현재 YAML·스키마를 고정하지 않는다. |
 | D-011 | reason code | 판정 불가 4종과 실행 준비 상태를 표준화하고 문서·코드·화면에서 같은 명칭을 사용한다. |
+| D-012 | CLI 검토 | 사람 시간 측정은 고객용 웹 결과 화면 구현 뒤 UX 검토로 이관한다. |
+| D-013 | 후속 Spec | Spec 003 N-02, Spec 004 E-01·E-02, Spec 005 웹 워크벤치 순으로 각 수직 사이클을 닫는다. |
+| D-014 | 0단계·범위 주장 | 12개 관리/5개 실행/4개 NOT_RUN/3개 NO_TEST_TARGET을 구분하고, source baseline·독립 재현·AI 작업 규칙을 선행한다. |
+| D-015 | N-02 기술 경계 | 실제 자료·녹화·평가 경계, 6개 lane, deep probe fixture, 동의 fault와 causal 증적을 고정한다. |
 
 이 결정은 기능 Spec 001의 입력이다. `clarify` 단계에서는 결정을 다시 원점에서 고르는 대신, 실제 WhyYou 접점과 모순되는 사실이 발견될 때만 변경 제안을 낸다. 증적 스키마와 시나리오 YAML은 기능 Spec과 Plan을 거쳐 계약으로 고정한다.
 

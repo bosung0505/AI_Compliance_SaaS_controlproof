@@ -6,6 +6,7 @@ from uuid import uuid4
 
 import pytest
 
+from engine.config import Settings
 from engine.models import (
     Observation,
     Phase,
@@ -18,6 +19,32 @@ from engine.models import (
 
 MODEL_FIXTURE_ID = "h03-report-v1"
 MODEL_FIXTURE_DIGEST = hashlib.sha256(b"controlproof:h03-report-v1").hexdigest()
+
+
+@pytest.fixture
+def settings(tmp_path):
+    """Return a credential-free local Settings object for adapter contracts."""
+    whyyou_repo = tmp_path / "whyyou"
+    whyyou_repo.mkdir(exist_ok=True)
+    return Settings.from_env(
+        {
+            "WHYYOU_BASE_URL": "http://localhost:8000",
+            "WHYYOU_CONSOLE_URL": "http://localhost:3000",
+            "WHYYOU_DATABASE_URL": "postgresql+psycopg://local:local@localhost:5432/whyyou",
+            "WHYYOU_COMPANY_TOKEN": "local-test-token",
+            "WHYYOU_COMPANY_ID": "00000000-0000-7000-8000-000000000001",
+            "WHYYOU_COMPANY_USER_ID": "00000000-0000-7000-8000-000000000002",
+            "WHYYOU_REPO_PATH": str(whyyou_repo),
+            "CONTROLPROOF_RUN_ROOT": str(tmp_path / "runs"),
+            "CONTROLPROOF_FAULT_ROOT": str(tmp_path / "faults"),
+            "CONTROLPROOF_OBSERVER_ROOT": str(tmp_path / "observers"),
+            "CONTROLPROOF_MODEL_SUBSTITUTE_ENABLED": "true",
+            "CONTROLPROOF_MODEL_FIXTURE_ID": MODEL_FIXTURE_ID,
+            "CONTROLPROOF_MODEL_FIXTURE_DIGEST": MODEL_FIXTURE_DIGEST,
+            "CONTROLPROOF_TEST_HOOKS_ENABLED": "true",
+            "CONTROLPROOF_OBSERVER_ENABLED": "true",
+        }
+    )
 
 
 @pytest.fixture(autouse=True)

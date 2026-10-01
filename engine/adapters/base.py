@@ -9,11 +9,21 @@ from typing import Any, Protocol
 
 from engine.models import (
     BusinessEffectSnapshot,
+    CausalEdge,
+    CausalEvent,
+    ConsentFaultReceipt,
+    ConsentPolicySnapshot,
+    ConsentStateSnapshot,
     DecisionPathCapability,
     FaultBoundaryReceipt,
+    ProcessingAttemptReceipt,
+    ProtectedEffectSnapshot,
+    ProtectedProcessingPath,
     QueueTopologySnapshot,
     ReadinessStatus,
+    RecoveryRecord,
     RedriveReceipt,
+    RunSubjectLane,
     TargetEnvironmentSnapshot,
     TargetSnapshot,
 )
@@ -191,6 +201,75 @@ class EffectAdapter(Protocol):
     ) -> tuple[BusinessEffectSnapshot, ...]: ...
 
 
+class ConsentAdapter(Protocol):
+    def read_policy(self, *, subject: Mapping[str, Any]) -> ConsentPolicySnapshot | AdapterResult: ...
+
+    def commit(
+        self,
+        *,
+        subject: Mapping[str, Any],
+        policy: ConsentPolicySnapshot,
+        request_id: str,
+        trace_id: str,
+    ) -> AdapterResult: ...
+
+    def read_state(
+        self, *, subject: Mapping[str, Any], phase: str, step_id: str
+    ) -> ConsentStateSnapshot | AdapterResult: ...
+
+
+class N02SeedAdapter(Protocol):
+    def seed_lanes(self, *, run_id: str) -> tuple[RunSubjectLane, ...] | AdapterResult: ...
+
+    def apply_probe_overlay(
+        self, *, subject: Mapping[str, Any], path_id: str
+    ) -> AdapterResult: ...
+
+    def remove_probe_overlay(
+        self, *, subject: Mapping[str, Any], path_id: str
+    ) -> AdapterResult: ...
+
+    def teardown_lanes(self, *, run_id: str, lanes: tuple[RunSubjectLane, ...]) -> AdapterResult: ...
+
+
+class ProtectedProcessingAdapter(Protocol):
+    def paths(self) -> tuple[ProtectedProcessingPath, ...]: ...
+
+    def attempt(
+        self, *, path_id: str, subject: Mapping[str, Any]
+    ) -> ProcessingAttemptReceipt | AdapterResult: ...
+
+    def read_effects(
+        self, *, path_id: str, subject: Mapping[str, Any], phase: str, step_id: str
+    ) -> ProtectedEffectSnapshot | AdapterResult: ...
+
+
+class CausalityAdapter(Protocol):
+    def read_graph(
+        self, *, subject: Mapping[str, Any]
+    ) -> tuple[tuple[CausalEvent, ...], tuple[CausalEdge, ...]] | AdapterResult: ...
+
+
+class ConsentFaultAdapter(Protocol):
+    def apply_consent_fault(
+        self, *, run_id: str, subject: Mapping[str, Any], expires_at: datetime
+    ) -> AdapterResult: ...
+
+    def read_consent_fault_receipt(
+        self, *, run_id: str, subject: Mapping[str, Any]
+    ) -> ConsentFaultReceipt | AdapterResult: ...
+
+    def restore_consent_fault(
+        self, *, run_id: str, subject: Mapping[str, Any]
+    ) -> RecoveryRecord | AdapterResult: ...
+
+
+class ProcessingObserverAdapter(Protocol):
+    def read_processing_receipts(
+        self, *, run_id: str, lane_id: str, subject_ref: str
+    ) -> AdapterResult: ...
+
+
 @dataclass(frozen=True, slots=True)
 class AdapterSet:
     target: TargetAdapter
@@ -206,3 +285,9 @@ class AdapterSet:
     boundary_receipts: BoundaryReceiptAdapter | None = None
     duplicate_acks: DuplicateAckAdapter | None = None
     safe_redrive: SafeRedriveAdapter | None = None
+    n02_consent: ConsentAdapter | None = None
+    n02_seed: N02SeedAdapter | None = None
+    n02_processing: ProtectedProcessingAdapter | None = None
+    n02_causality: CausalityAdapter | None = None
+    n02_fault: ConsentFaultAdapter | None = None
+    n02_observer: ProcessingObserverAdapter | None = None

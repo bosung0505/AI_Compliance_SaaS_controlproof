@@ -16,12 +16,18 @@ E-03 두 장애 경계를 같은 조건으로 실행하고, 판정·bundle·복�
 
 ## 2. Branch and source prerequisites
 
+각 PowerShell 터미널에서 먼저 두 placeholder를 실제 checkout으로 바꾸고 이 bootstrap을 실행한다.
+두 저장소는 같은 부모 폴더에 있을 필요가 없다.
+
 ```powershell
-cd "C:\Users\aaaa2\AI 기본법\AI_Compliance_SaaS_controlproof"
+$controlProofRepo = (Resolve-Path -LiteralPath "<ControlProof-checkout>").Path
+$whyYouRepo = (Resolve-Path -LiteralPath "<WhyYou-checkout>").Path
+
+Set-Location -LiteralPath $controlProofRepo
 git branch --show-current
 git status --short
 
-cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
+Set-Location -LiteralPath $whyYouRepo
 git branch --show-current
 git status --short
 ```
@@ -37,7 +43,7 @@ WhyYou 변경을 `main`에 직접 push하지 않는다. 실제 Run을 만들 때
 ## 3. Install ControlProof development dependencies
 
 ```powershell
-cd "C:\Users\aaaa2\AI 기본법\AI_Compliance_SaaS_controlproof"
+Set-Location -LiteralPath $controlProofRepo
 $python = ".\.venv\Scripts\python.exe"
 if (-not (Test-Path -LiteralPath $python)) {
     uv venv --python 3.12 .venv
@@ -76,9 +82,7 @@ ControlProof 터미널에 다음처럼 가져오고, 이름이 다른 값만 명
 출력하지 않으며 현재 PowerShell process에만 보존한다.
 
 ```powershell
-cd "C:\Users\aaaa2\AI 기본법\AI_Compliance_SaaS_controlproof"
-$controlProofRepo = (Get-Location).Path
-$whyYouRepo = (Resolve-Path -LiteralPath "..\gbsa_aws").Path
+Set-Location -LiteralPath $controlProofRepo
 $whyYouEnv = Join-Path $whyYouRepo ".env"
 foreach ($line in Get-Content -LiteralPath $whyYouEnv -Encoding UTF8) {
     $trimmed = $line.Trim()
@@ -100,7 +104,7 @@ $env:GIT_CONFIG_VALUE_1 = $whyYouRepo
 $env:CONTROLPROOF_TARGET_ID = "whyyou-local"
 $env:CONTROLPROOF_ENVIRONMENT_KIND = "LOCAL_EMULATED"
 $env:CONTROLPROOF_AWS_DEPLOYMENT_STATUS = "NOT_RUN"
-$env:CONTROLPROOF_RUN_ROOT = (Join-Path (Get-Location) ".controlproof\runs")
+$env:CONTROLPROOF_RUN_ROOT = (Join-Path $controlProofRepo ".controlproof\runs")
 $env:CONTROLPROOF_MODEL_SUBSTITUTE_ENABLED = "true"
 $env:CONTROLPROOF_MODEL_FIXTURE_ID = "h03-report-v1"
 $env:CONTROLPROOF_MODEL_FIXTURE_DIGEST = "ce09b95403b34e1390502c90f5c5edc518ddf65d38c8ce881617a37cac6d16b1"
@@ -113,9 +117,9 @@ $env:WHYYOU_DATABASE_URL = $env:DATABASE_URL
 $env:WHYYOU_COMPANY_TOKEN = $env:LOCAL_COMPANY_ACCESS_TOKEN
 $env:WHYYOU_COMPANY_ID = $env:LOCAL_COMPANY_ID
 $env:WHYYOU_COMPANY_USER_ID = $env:LOCAL_COMPANY_USER_ID
-# Python은 현재 ControlProof 작업 디렉터리를 기준으로 이 ASCII 상대 경로를 resolve한다.
-# 한글이 포함된 절대 경로를 환경변수로 왕복시키지 않는다.
-$env:WHYYOU_REPO_PATH = "..\gbsa_aws"
+# Python은 현재 ControlProof 작업 디렉터리를 기준으로 이 상대 경로를 resolve한다.
+# 두 checkout의 실제 위치를 유지하면서 사용자별 절대 경로를 문서에 고정하지 않는다.
+$env:WHYYOU_REPO_PATH = [System.IO.Path]::GetRelativePath($controlProofRepo, $whyYouRepo)
 $env:WHYYOU_AWS_ENDPOINT_URL = "http://localhost:4566"
 $env:WHYYOU_AWS_REGION = $env:AWS_REGION
 $env:WHYYOU_REPORTING_QUEUE_NAME = "iep-reporting"
@@ -132,22 +136,22 @@ $env:WHYYOU_REPORTING_VISIBILITY_TIMEOUT_SECONDS = "5"
 WhyYou repository에서 터미널을 나눠 실행한다.
 
 ```powershell
-cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
+Set-Location -LiteralPath $whyYouRepo
 .\scripts\local.ps1 up
 ```
 
 ```powershell
-cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
+Set-Location -LiteralPath $whyYouRepo
 .\scripts\local.ps1 api
 ```
 
 ```powershell
-cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
+Set-Location -LiteralPath $whyYouRepo
 .\scripts\local.ps1 worker
 ```
 
 ```powershell
-cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
+Set-Location -LiteralPath $whyYouRepo
 .\scripts\local.ps1 company
 ```
 
@@ -161,7 +165,7 @@ Docker Desktop의 PostgreSQL·LocalStack·Mailpit과 host process의 health를 �
 있다면 실행하지 말고 잔여 원인을 먼저 조사한다.
 
 ```powershell
-cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
+Set-Location -LiteralPath $whyYouRepo
 docker compose down --volumes --remove-orphans
 .\scripts\local.ps1 up
 ```
@@ -170,19 +174,19 @@ reset을 하지 않은 경우에도 source queue와 DLQ가 모두 visible/in-fli
 preflight로 넘어간다.
 
 ```powershell
-cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
+Set-Location -LiteralPath $whyYouRepo
 .\scripts\local.ps1 status
 ```
 
 ## 6. Run regression and contract tests
 
 ```powershell
-cd "C:\Users\aaaa2\AI 기본법\AI_Compliance_SaaS_controlproof"
+Set-Location -LiteralPath $controlProofRepo
 .\.venv\Scripts\python.exe -m pytest -q
 ```
 
 ```powershell
-cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
+Set-Location -LiteralPath $whyYouRepo
 uv run --cache-dir .uv-cache --no-sync pytest backend/tests/unit/shared/test_local_queue_topology.py backend/tests/unit/runtime/test_controlproof_reporting_fault.py backend/tests/unit/runtime/test_controlproof_model_substitute.py backend/tests/integration/test_worker_delivery.py backend/tests/integration/test_controlproof_fault_hook_safety.py -q
 ```
 
@@ -192,7 +196,7 @@ Spec 001 회귀, scenario/bundle/CLI contract, queue·fault hook 단위 시험�
 ## 7. Preflight all three profiles
 
 ```powershell
-cd "C:\Users\aaaa2\AI 기본법\AI_Compliance_SaaS_controlproof"
+Set-Location -LiteralPath $controlProofRepo
 .\.venv\Scripts\python.exe -m engine.cli preflight H-03 --profile H03_DLQ_V2 --target whyyou-local --json
 .\.venv\Scripts\python.exe -m engine.cli preflight E-03 --profile E03_BEFORE_V2 --target whyyou-local --json
 .\.venv\Scripts\python.exe -m engine.cli preflight E-03 --profile E03_AFTER_V2 --target whyyou-local --json
@@ -264,6 +268,6 @@ H03-A7 우회나 E03-A7 idempotency 결함처럼 최초 Run으로 입증된 사�
 확인한다. bundle이나 DLQ 기록을 수동 삭제해 성공처럼 만들면 안 된다.
 
 ```powershell
-cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
+Set-Location -LiteralPath $whyYouRepo
 .\scripts\local.ps1 down
 ```

@@ -5,6 +5,7 @@ ControlProof는 합성 데이터를 이용해 AI 서비스의 절차적 보호�
 ## 현재 개발 기준
 
 - 제품 범위: [ControlProof × WhyYou 2주 MVP 기능 범위 V4](./docs/product/ControlProof_WhyYou_2주_MVP_기능범위_v4.md)
+- 시나리오 범위표: [12개 관리·5개 실행·4개 NOT_RUN·3개 NO_TEST_TARGET](./docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md)
 - 제품 정의: [MVP Product Brief](./docs/product/ControlProof_MVP_Product_Brief.md)
 - 제품 결정: [MVP Decision Log](./docs/product/ControlProof_MVP_Decision_Log.md)
 - 개발 원칙: [ControlProof Constitution](./.specify/memory/constitution.md)
@@ -14,6 +15,15 @@ ControlProof는 합성 데이터를 이용해 AI 서비스의 절차적 보호�
 - Spec 002 검증 기록: [자동·실제 스택 검증 결과](./specs/002-h03-e03-fault-expansion/validation.md)
 - Spec 002 추적성: [요구사항→작업→테스트→구현](./specs/002-h03-e03-fault-expansion/traceability.md)
 - 팀 인수인계: [현재 공식 상태·재현·검토 통합 가이드](./docs/TEAM_HANDOFF.md)
+- AI 작업 플레이북: [다른 AI 세션에서도 같은 Spec Kit 사이클을 재현하는 방법](./docs/AI_SPEC_KIT_PLAYBOOK.md)
+- Spec 003 소스 기준선: [WhyYou N-02 확인 사실과 미확인 사항](./docs/research/Spec003_N02_WhyYou_Source_Baseline.md)
+- 작성된 기능 명세: [Spec 003 — N-02 동의·AI 처리 순서 검증](./specs/003-n02-consent-order/spec.md)
+- Spec 003 기술 계획: [경계·lane·fault·인과관계·시험 설계](./specs/003-n02-consent-order/plan.md)
+- Spec 003 작업 목록: [테스트 우선 구현·최초 Run·조건부 보완 순서](./specs/003-n02-consent-order/tasks.md)
+- Spec 003 검증 기록: [US1~US3 자동 gate·미실행 actual Run·알려진 한계](./specs/003-n02-consent-order/validation.md)
+- Spec 003 구현 계약: [데이터 모델](./specs/003-n02-consent-order/data-model.md),
+  [계약](./specs/003-n02-consent-order/contracts/),
+  [구현 후 재현 절차](./specs/003-n02-consent-order/quickstart.md)
 - 도입 결정: [ADR-0001 — Spec Kit과 팀 골격 채택](./docs/decisions/0001-adopt-spec-kit-and-skeleton.md)
 
 `docs/reference/skeleton/`은 팀원이 만든 초기 골격의 원문 보관본이다. 제품 의미가 충돌할 때는 위 문서와 Constitution을 우선한다.
@@ -30,6 +40,7 @@ ControlProof는 합성 데이터를 이용해 AI 서비스의 절차적 보호�
 Codex에서 프로젝트를 다시 연 뒤 `.agents/skills/`의 기능을 사용한다.
 
 ```text
+$speckit-specify
 $speckit-clarify
 $speckit-plan
 $speckit-tasks
@@ -50,13 +61,17 @@ ControlProof 웹 UI가 완성됐다는 뜻이 아니며, 현재 사용자 접점
 
 | 순서 | 상태 | 범위 |
 |---|---|---|
-| Spec 003 | 계획 확정·미착수 | N-02 동의·AI 처리 순서와 이에 필요한 WhyYou 연결·주입·복구 |
+| Spec 003 | Implement 진행 중 — US1~US3 완료 | T001~T064 완료. 6개 lane, 세 보호 경계, 정상 동의 인과 graph, 원자적 동의 실패 주입·복구, 비침습 observer와 A1~A7 자동 gate 구현; actual Run은 아직 `NOT_RUN` |
 | Spec 004 | 계획 확정·미착수 | E-01·E-02 점수 근거·평가 기준 snapshot과 과거 결과 보존 |
 | Spec 005 | 계획 확정·미착수 | 웹 워크벤치·12개 시나리오 카탈로그·보고서와 웹 UX 검토 |
 
 WhyYou 연결 기반을 별도 Spec으로 먼저 만들지 않는다. 각 시나리오에 필요한 capability를 해당 Spec의
 수직 흐름 안에서 구현한다. 또한 세 Spec 문서만 먼저 완성한 뒤 개발하는 방식이 아니라, Spec 003의
 명세→구현→실제 검증을 닫은 뒤 Spec 004, Spec 005 순으로 같은 사이클을 반복한다.
+
+Spec 001·002의 actual Run은 현재 한 PC에서만 수행됐다. main 통합 전 다른 팀원이 새 checkout에서
+`H03_DLQ_V2` 한 건을 재현해 source SHA·manifest SHA-256·restore 결과를 Validation에 추가해야 한다.
+이 외부 gate 전에는 “독립 재현 완료”라고 표현하지 않는다.
 
 ## 개발 환경
 
@@ -81,10 +96,10 @@ Spec 002는 나란히 있는 두 저장소를 사용한다.
 
 | 저장소 | 허용 브랜치 | 용도 |
 |---|---|---|
-| `AI_Compliance_SaaS_controlproof` | `002-h03-e03-fault-expansion` | 실행기·판정기·증적·문서 |
-| `gbsa_aws` | `bosung/controlproof-h03-integration` | WhyYou local/test fault hook과 증적으로 확인된 보호조치 보완 |
+| `AI_Compliance_SaaS_controlproof` | `003-n02-consent-order` | Spec 001·002 기반과 Spec 003 구현·판정·증적·문서 |
+| `gbsa_aws` | `bosung/controlproof-n02-integration` | WhyYou local/test 전용 N-02 observer·fault hook; product guard 변경 전 최초 사실 시험 대상 |
 
-WhyYou의 `main`에 Spec 002 변경을 직접 commit 또는 push하지 않는다. actual Run 전에는 두 checkout이
+WhyYou의 `main`에 ControlProof 변경을 직접 commit 또는 push하지 않는다. actual Run 전에는 두 checkout이
 모두 clean이어야 하며, preflight가 commit·dirty 상태와 target snapshot을 다시 고정한다. `.env`,
 credential, 원본 queue URL, receipt handle, message body와 실제 지원자 자료는 commit하거나 bundle에
 복사하지 않는다.
@@ -92,14 +107,20 @@ credential, 원본 queue URL, receipt handle, message body와 실제 지원자 �
 처음 합류한 팀원은 아래를 먼저 확인한다.
 
 ```powershell
-cd "C:\Users\aaaa2\AI 기본법\AI_Compliance_SaaS_controlproof"
+$controlProofRepo = (Resolve-Path -LiteralPath "<ControlProof-checkout>").Path
+$whyYouRepo = (Resolve-Path -LiteralPath "<WhyYou-checkout>").Path
+
+Set-Location -LiteralPath $controlProofRepo
 git branch --show-current
 git status --short
 
-cd "C:\Users\aaaa2\AI 기본법\gbsa_aws"
+Set-Location -LiteralPath $whyYouRepo
 git branch --show-current
 git status --short
 ```
+
+두 placeholder는 각 팀원의 실제 checkout으로 한 번만 바꾼다. 두 저장소가 같은 부모 폴더에 있을
+필요는 없다.
 
 ## 실행 프로필의 의미
 

@@ -87,6 +87,7 @@ class ExecutionProfile(StrEnum):
     H03_DLQ_V2 = "H03_DLQ_V2"
     E03_BEFORE_V2 = "E03_BEFORE_V2"
     E03_AFTER_V2 = "E03_AFTER_V2"
+    N02_CONSENT_ORDER_V1 = "N02_CONSENT_ORDER_V1"
 
 
 class FaultVariant(StrEnum):
@@ -129,6 +130,99 @@ class DecisionPathId(StrEnum):
 class EffectGroup(StrEnum):
     REPORTING = "REPORTING"
     DECISION = "DECISION"
+
+
+class N02LaneId(StrEnum):
+    PRISTINE_BASELINE = "PRISTINE_BASELINE"
+    DOCUMENT_BYPASS = "DOCUMENT_BYPASS"
+    RECORDING_BOUNDARY_PROBE = "RECORDING_BOUNDARY_PROBE"
+    ASSESSMENT_BOUNDARY_PROBE = "ASSESSMENT_BOUNDARY_PROBE"
+    NORMAL_ORDER = "NORMAL_ORDER"
+    CONSENT_FAULT_RECOVERY = "CONSENT_FAULT_RECOVERY"
+
+
+class BaselineKind(StrEnum):
+    PRISTINE = "PRISTINE"
+    PREREQUISITE_FIXTURE = "PREREQUISITE_FIXTURE"
+
+
+class ProtectedPathId(StrEnum):
+    DOCUMENT_ANALYSIS = "DOCUMENT_ANALYSIS"
+    RECORDING = "RECORDING"
+    AI_ASSESSMENT = "AI_ASSESSMENT"
+
+
+class N02EffectGroup(StrEnum):
+    DOCUMENT_ANALYSIS = "DOCUMENT_ANALYSIS"
+    RECORDING = "RECORDING"
+    AI_ASSESSMENT = "AI_ASSESSMENT"
+
+
+class ProcessingEntryKind(StrEnum):
+    HTTP = "HTTP"
+    WEBSOCKET = "WEBSOCKET"
+    DOMAIN_EVENT = "DOMAIN_EVENT"
+
+
+class ProcessingResponseClass(StrEnum):
+    ACCEPTED = "ACCEPTED"
+    DENIED = "DENIED"
+    ERROR = "ERROR"
+    NO_RESPONSE = "NO_RESPONSE"
+
+
+class ConsentPurpose(StrEnum):
+    DOCUMENT_ANALYSIS = "document_analysis"
+    RECORDING = "recording"
+    AI_ASSESSMENT = "ai_assessment"
+
+
+class CausalEventKind(StrEnum):
+    POLICY_RECEIVED = "POLICY_RECEIVED"
+    CONSENT_REQUESTED = "CONSENT_REQUESTED"
+    CONSENT_COMMITTED = "CONSENT_COMMITTED"
+    PROCESSING_REQUESTED = "PROCESSING_REQUESTED"
+    PROCESSING_STARTED = "PROCESSING_STARTED"
+    RESULT_CREATED = "RESULT_CREATED"
+
+
+class CausalRelation(StrEnum):
+    PROGRAM_ORDER = "PROGRAM_ORDER"
+    SAME_TRANSACTION = "SAME_TRANSACTION"
+    EMITTED = "EMITTED"
+    HANDLED = "HANDLED"
+    PRODUCED = "PRODUCED"
+
+
+class CausalEdgeStatus(StrEnum):
+    PROVEN = "PROVEN"
+    UNAVAILABLE = "UNAVAILABLE"
+    CONFLICTING = "CONFLICTING"
+
+
+class ConsentFaultVariant(StrEnum):
+    AFTER_CONSENT_RECORD_BEFORE_STATE = "AFTER_CONSENT_RECORD_BEFORE_STATE"
+
+
+class ConsentFaultBoundary(StrEnum):
+    AFTER_CONSENT_RECORD_BEFORE_INVITATION_STATE = (
+        "AFTER_CONSENT_RECORD_BEFORE_INVITATION_STATE"
+    )
+
+
+class ConsentFaultLifecycle(StrEnum):
+    REQUESTED = "REQUESTED"
+    APPLIED = "APPLIED"
+    TRIGGERED = "TRIGGERED"
+    RESTORING = "RESTORING"
+    RESTORED = "RESTORED"
+    RESTORE_FAILED = "RESTORE_FAILED"
+
+
+class RecoveryStatus(StrEnum):
+    SUCCEEDED = "SUCCEEDED"
+    FAILED = "FAILED"
+    UNVERIFIED = "UNVERIFIED"
 
 
 class AssertionStatus(StrEnum):
@@ -187,6 +281,7 @@ class FrozenModel(BaseModel):
 SPEC002_UNVERIFIED_SCOPE = frozenset(
     {"AWS_SQS", "AWS_ECS", "AWS_IAM", "AWS_CLOUDWATCH", "AWS_NETWORK"}
 )
+SPEC003_UNVERIFIED_SCOPE = frozenset({"AWS", "N-01", "N-03"})
 
 
 class ScenarioProfile(FrozenModel):
@@ -256,6 +351,24 @@ class ScenarioProfile(FrozenModel):
                 ),
                 timing_policy=timing,
             )
+        if profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
+            return cls(
+                execution_profile=profile,
+                scenario_id="N-02",
+                scenario_version="1.0.0",
+                fault_variant=None,
+                applicable_assertion_ids=tuple(f"N02-A{i}" for i in range(1, 8)),
+                required_evidence=tuple(f"EV3-{i:02d}" for i in range(1, 11)),
+                timing_policy={
+                    "poll_seconds": 2,
+                    "stability_consecutive": 3,
+                    "stability_seconds": 4,
+                    "fault_ttl_seconds": 600,
+                    "environment_restore_deadline_seconds": 120,
+                    "run_deadline_seconds": 540,
+                    "bundle_verify_deadline_seconds": 60,
+                },
+            )
         return cls(
             execution_profile=profile,
             scenario_id="E-03",
@@ -294,6 +407,11 @@ class ScenarioProfile(FrozenModel):
                 "E-03",
                 FaultVariant.AFTER_RESULT_DURABLE_BEFORE_COMPLETION,
                 ("E03-A1", "E03-A5", "E03-A6", "E03-A8"),
+            ),
+            ExecutionProfile.N02_CONSENT_ORDER_V1: (
+                "N-02",
+                None,
+                tuple(f"N02-A{i}" for i in range(1, 8)),
             ),
         }[self.execution_profile]
         if (self.scenario_id, self.fault_variant, self.applicable_assertion_ids) != canonical:
@@ -351,8 +469,11 @@ class TargetEnvironmentSnapshot(FrozenModel):
             raise ValueError("external AI must be disabled")
         if self.aws_deployment_status is not AwsDeploymentStatus.NOT_RUN:
             raise ValueError("local environment requires AWS deployment status NOT_RUN")
-        if set(self.unverified_scope) != SPEC002_UNVERIFIED_SCOPE:
-            raise ValueError("local environment must declare the exact unverified AWS scope")
+        if set(self.unverified_scope) not in (
+            SPEC002_UNVERIFIED_SCOPE,
+            SPEC003_UNVERIFIED_SCOPE,
+        ):
+            raise ValueError("local environment must declare an exact profile-owned scope")
         if not _is_sha(self.model_fixture_digest):
             raise ValueError("model fixture digest must be lowercase SHA-256")
         if self.captured_at.tzinfo is None:
@@ -676,6 +797,417 @@ def _is_prefixed_sha(value: str) -> bool:
     return value.startswith("sha256:") and _is_sha(value.removeprefix("sha256:"))
 
 
+class RunSubjectLane(FrozenModel):
+    schema_version: str = "controlproof.n02-subject-lane.v1"
+    run_id: UUID
+    lane_id: N02LaneId
+    subject_ref: str
+    invitation_id: UUID
+    applicant_id: UUID
+    baseline_kind: BaselineKind
+    fixture_kind: str | None = None
+    fixture_digest: str | None = None
+    allowed_preexisting_effects: dict[str, int] = Field(default_factory=dict)
+    probe_overlays: tuple[str, ...] = ()
+    target_effect_groups: tuple[N02EffectGroup, ...]
+    trace_namespace: str
+    seed_correlation_id: str
+
+    @model_validator(mode="after")
+    def validate_lane(self) -> RunSubjectLane:
+        pristine = {
+            N02LaneId.PRISTINE_BASELINE,
+            N02LaneId.DOCUMENT_BYPASS,
+            N02LaneId.NORMAL_ORDER,
+            N02LaneId.CONSENT_FAULT_RECOVERY,
+        }
+        if self.lane_id in pristine:
+            if self.baseline_kind is not BaselineKind.PRISTINE or any(
+                value for value in (self.fixture_kind, self.fixture_digest)
+            ) or self.allowed_preexisting_effects:
+                raise ValueError("pristine lane cannot declare prerequisite fixture effects")
+        else:
+            if self.baseline_kind is not BaselineKind.PREREQUISITE_FIXTURE:
+                raise ValueError("probe lane requires PREREQUISITE_FIXTURE baseline")
+            if not self.fixture_kind or not _is_sha(self.fixture_digest):
+                raise ValueError("probe lane requires fixture kind and digest")
+            if not self.allowed_preexisting_effects:
+                raise ValueError("probe lane requires allowlisted fixture effects")
+        if self.probe_overlays and self.lane_id is not N02LaneId.CONSENT_FAULT_RECOVERY:
+            raise ValueError("probe overlays belong only to the consent fault lane")
+        expected_trace = f"controlproof:{self.run_id}:{self.lane_id.value}"
+        if self.trace_namespace != expected_trace:
+            raise ValueError("trace_namespace must bind the Run and lane")
+        if not self.subject_ref.strip() or not self.seed_correlation_id.strip():
+            raise ValueError("lane identity fields must be non-empty")
+        if not self.target_effect_groups or len(set(self.target_effect_groups)) != len(
+            self.target_effect_groups
+        ):
+            raise ValueError("target effect groups must be non-empty and unique")
+        if any(value < 0 for value in self.allowed_preexisting_effects.values()):
+            raise ValueError("fixture effect counts cannot be negative")
+        return self
+
+
+class ProtectedProcessingPath(FrozenModel):
+    schema_version: str = "controlproof.n02-processing-path.v1"
+    path_id: ProtectedPathId
+    entry_boundary: str
+    entry_kind: ProcessingEntryKind
+    independent_direct_route: bool
+    earliest_real_boundary: str | None = None
+    required_fixture_kind: str | None = None
+    request_effect_keys: tuple[str, ...]
+    start_effect_keys: tuple[str, ...]
+    result_effect_keys: tuple[str, ...]
+    consent_purpose: ConsentPurpose
+    contract_version: str = "v1"
+    source_locator: dict[str, str]
+
+    @model_validator(mode="after")
+    def validate_path(self) -> ProtectedProcessingPath:
+        expected_purpose = ConsentPurpose(self.path_id.value.casefold())
+        if self.consent_purpose is not expected_purpose:
+            raise ValueError("processing path must own its matching consent purpose")
+        if not self.independent_direct_route and not self.earliest_real_boundary:
+            raise ValueError("deep path requires earliest_real_boundary")
+        if self.contract_version != "v1":
+            raise ValueError("N-02 MVP processing path contract must be v1")
+        for value in self.source_locator.values():
+            path = PurePosixPath(value.replace("\\", "/"))
+            if path.is_absolute() or re.match(r"^[A-Za-z]:/", value.replace("\\", "/")):
+                raise ValueError("source locators must be repository-relative")
+        return self
+
+
+class ConsentPolicySnapshot(FrozenModel):
+    schema_version: str = "controlproof.n02-policy.v1"
+    policy_version: str
+    content_digest: str
+    required_purposes: tuple[ConsentPurpose, ...]
+    retention_days: int = Field(ge=1)
+    received_at: datetime
+    request_id: UUID
+    source_ref: str
+
+    @model_validator(mode="after")
+    def validate_policy(self) -> ConsentPolicySnapshot:
+        if not self.policy_version.strip() or not _is_sha(self.content_digest):
+            raise ValueError("policy version and content digest are required")
+        if set(self.required_purposes) != set(ConsentPurpose) or len(
+            self.required_purposes
+        ) != len(ConsentPurpose):
+            raise ValueError("policy must contain the exact three N-02 purposes")
+        if self.received_at.tzinfo is None:
+            raise ValueError("received_at must be timezone-aware")
+        return self
+
+
+class ConsentStateSnapshot(FrozenModel):
+    schema_version: str = "controlproof.n02-consent-state.v1"
+    run_id: UUID
+    lane_id: N02LaneId
+    subject_ref: str
+    phase: Phase
+    step_id: str
+    attempt: int = Field(ge=1)
+    invitation_status: str
+    invitation_row_version: int = Field(ge=0)
+    consent_record_ids: tuple[UUID, ...] = ()
+    active_consent_count: int = Field(default=0, ge=0)
+    consent_policy_versions: tuple[str, ...] = ()
+    consent_content_digests: tuple[str, ...] = ()
+    accepted_purpose_sets: tuple[tuple[ConsentPurpose, ...], ...] = ()
+    consented_state_change_ids: tuple[UUID, ...] = ()
+    consent_completed_event_ids: tuple[UUID, ...] = ()
+    trace_ids: tuple[str, ...] = ()
+    captured_at: datetime
+    source_status: Presence
+    source_error_code: str | None = None
+    state_digest: str
+
+    @model_validator(mode="after")
+    def validate_consent_state(self) -> ConsentStateSnapshot:
+        if self.captured_at.tzinfo is None or not _is_sha(self.state_digest):
+            raise ValueError("consent state requires aware time and SHA-256 digest")
+        if any(not _is_sha(item) for item in (*self.consent_content_digests, *self.trace_ids)):
+            raise ValueError("consent and trace digests must be lowercase SHA-256")
+        if self.source_status is Presence.UNAVAILABLE:
+            if not self.source_error_code:
+                raise ValueError("UNAVAILABLE consent state requires source_error_code")
+            if any(
+                (
+                    self.consent_record_ids,
+                    self.active_consent_count,
+                    self.consented_state_change_ids,
+                    self.consent_completed_event_ids,
+                )
+            ):
+                raise ValueError("UNAVAILABLE consent state cannot claim projected facts")
+        elif self.source_error_code is not None:
+            raise ValueError("only UNAVAILABLE consent state may have source_error_code")
+        if self.source_status is Presence.ABSENT and any(
+            (
+                self.consent_record_ids,
+                self.active_consent_count,
+                self.consented_state_change_ids,
+                self.consent_completed_event_ids,
+            )
+        ):
+            raise ValueError("ABSENT consent state cannot claim consent effects")
+        if self.active_consent_count > len(self.consent_record_ids):
+            raise ValueError("active consent count cannot exceed projected records")
+        return self
+
+
+class ProtectedEffectSnapshot(FrozenModel):
+    schema_version: str = "controlproof.n02-protected-effect.v1"
+    run_id: UUID
+    lane_id: N02LaneId
+    subject_ref: str
+    path_id: ProtectedPathId
+    phase: Phase
+    step_id: str
+    attempt: int = Field(ge=1)
+    effect_group: N02EffectGroup
+    request_ids: tuple[str, ...] = ()
+    start_receipt_ids: tuple[str, ...] = ()
+    result_ids: tuple[str, ...] = ()
+    status_projection: dict[str, Any] = Field(default_factory=dict)
+    baseline_effect_ids: tuple[str, ...] = ()
+    fixture_effect_ids: tuple[str, ...] = ()
+    current_effect_ids: tuple[str, ...] = ()
+    new_effect_ids: tuple[str, ...] = ()
+    source_status: Presence
+    source_error_code: str | None = None
+    state_digest: str
+    captured_at: datetime
+
+    @model_validator(mode="after")
+    def validate_effect(self) -> ProtectedEffectSnapshot:
+        if self.effect_group.value != self.path_id.value:
+            raise ValueError("effect group must match processing path")
+        if not _is_sha(self.state_digest) or self.captured_at.tzinfo is None:
+            raise ValueError("protected effect requires aware time and SHA-256 digest")
+        if self.source_status is Presence.UNAVAILABLE:
+            if not self.source_error_code:
+                raise ValueError("UNAVAILABLE effect source requires error code")
+            if any((self.request_ids, self.start_receipt_ids, self.result_ids, self.new_effect_ids)):
+                raise ValueError("UNAVAILABLE effect source cannot claim facts")
+            return self
+        if self.source_error_code is not None:
+            raise ValueError("only UNAVAILABLE effect source may have error code")
+        expected = set(self.current_effect_ids) - set(self.baseline_effect_ids) - set(
+            self.fixture_effect_ids
+        )
+        if set(self.new_effect_ids) != expected:
+            raise ValueError("new effect IDs must equal the canonical delta")
+        if not set(self.fixture_effect_ids) <= set(self.current_effect_ids):
+            raise ValueError("fixture effects must remain present in current projection")
+        if self.source_status is Presence.ABSENT and any(
+            (self.current_effect_ids, self.new_effect_ids)
+        ):
+            raise ValueError("ABSENT effect source cannot claim present effects")
+        return self
+
+
+class ProcessingAttemptReceipt(FrozenModel):
+    schema_version: str = "controlproof.n02-processing-attempt.v1"
+    attempt_id: UUID = Field(default_factory=uuid4)
+    run_id: UUID
+    lane_id: N02LaneId
+    subject_ref: str
+    path_id: ProtectedPathId
+    entry_kind: ProcessingEntryKind
+    operation_id: str
+    request_id: str
+    trace_id_digest: str
+    sent_at: datetime
+    response_at: datetime | None = None
+    response_class: ProcessingResponseClass
+    status_code: int | None = None
+    sanitized_reason_code: str | None = None
+    source_ref: str
+
+    @model_validator(mode="after")
+    def validate_attempt(self) -> ProcessingAttemptReceipt:
+        if not _is_sha(self.trace_id_digest):
+            raise ValueError("attempt trace_id_digest must be lowercase SHA-256")
+        if self.sent_at.tzinfo is None or (
+            self.response_at is not None and self.response_at.tzinfo is None
+        ):
+            raise ValueError("attempt timestamps must be timezone-aware")
+        if self.response_class is ProcessingResponseClass.NO_RESPONSE:
+            if self.response_at is not None or self.status_code is not None:
+                raise ValueError("NO_RESPONSE cannot contain response fields")
+        elif self.response_at is None:
+            raise ValueError("completed attempt requires response_at")
+        if self.entry_kind is not ProcessingEntryKind.HTTP and self.status_code is not None:
+            raise ValueError("status_code belongs only to HTTP attempts")
+        return self
+
+
+class CausalEvent(FrozenModel):
+    schema_version: str = "controlproof.n02-causal-event.v1"
+    causal_event_id: UUID = Field(default_factory=uuid4)
+    kind: CausalEventKind
+    run_id: UUID
+    lane_id: N02LaneId
+    subject_ref: str
+    path_id: ProtectedPathId | None = None
+    domain_identity: dict[str, str]
+    occurred_at: datetime | None = None
+    observed_at: datetime
+    source_type: str
+    source_ref: str
+
+    @model_validator(mode="after")
+    def validate_event(self) -> CausalEvent:
+        processing = {
+            CausalEventKind.PROCESSING_REQUESTED,
+            CausalEventKind.PROCESSING_STARTED,
+            CausalEventKind.RESULT_CREATED,
+        }
+        if (self.kind in processing) != (self.path_id is not None):
+            raise ValueError("processing causal events require exactly one path")
+        if not self.domain_identity:
+            raise ValueError("causal event requires allowlisted domain identity")
+        if self.observed_at.tzinfo is None or (
+            self.occurred_at is not None and self.occurred_at.tzinfo is None
+        ):
+            raise ValueError("causal event timestamps must be timezone-aware")
+        return self
+
+
+class CausalEdge(FrozenModel):
+    schema_version: str = "controlproof.n02-causal-edge.v1"
+    run_id: UUID
+    lane_id: N02LaneId
+    subject_ref: str
+    from_event_id: UUID
+    to_event_id: UUID
+    relation: CausalRelation
+    proof_refs: tuple[str, ...]
+    status: CausalEdgeStatus
+
+    @model_validator(mode="after")
+    def validate_edge(self) -> CausalEdge:
+        if self.from_event_id == self.to_event_id or not self.proof_refs:
+            raise ValueError("causal edge requires distinct events and proof refs")
+        return self
+
+
+class ConsentFaultCondition(FrozenModel):
+    schema_version: str = "controlproof.n02-consent-fault.v1"
+    run_id: UUID
+    lane_id: N02LaneId = N02LaneId.CONSENT_FAULT_RECOVERY
+    subject_ref: str
+    invitation_id: UUID
+    applicant_id: UUID
+    fault_kind: str = "consent_after_record_before_state_v1"
+    fault_variant: ConsentFaultVariant = ConsentFaultVariant.AFTER_CONSENT_RECORD_BEFORE_STATE
+    marker_digest: str
+    one_shot: bool = True
+    lifecycle: ConsentFaultLifecycle = ConsentFaultLifecycle.REQUESTED
+    trigger_receipt_id: UUID | None = None
+    requested_at: datetime
+    expires_at: datetime
+    restored_at: datetime | None = None
+    environment_restore_success: bool | None = None
+
+    @model_validator(mode="after")
+    def validate_fault(self) -> ConsentFaultCondition:
+        if self.lane_id is not N02LaneId.CONSENT_FAULT_RECOVERY:
+            raise ValueError("consent fault belongs to the fault recovery lane")
+        if not self.one_shot or not _is_sha(self.marker_digest):
+            raise ValueError("consent fault requires one-shot marker digest")
+        if any(item.tzinfo is None for item in (self.requested_at, self.expires_at)):
+            raise ValueError("fault timestamps must be timezone-aware")
+        if not self.requested_at < self.expires_at or (
+            self.expires_at - self.requested_at
+        ).total_seconds() > 600:
+            raise ValueError("consent fault TTL must be in (0, 600] seconds")
+        if self.lifecycle in {
+            ConsentFaultLifecycle.TRIGGERED,
+            ConsentFaultLifecycle.RESTORING,
+            ConsentFaultLifecycle.RESTORED,
+            ConsentFaultLifecycle.RESTORE_FAILED,
+        } and self.trigger_receipt_id is None:
+            raise ValueError("triggered fault lifecycle requires trigger receipt")
+        if self.lifecycle in {
+            ConsentFaultLifecycle.RESTORED,
+            ConsentFaultLifecycle.RESTORE_FAILED,
+        } and (self.restored_at is None or self.environment_restore_success is None):
+            raise ValueError("terminal fault lifecycle requires restore result")
+        return self
+
+
+class ConsentFaultReceipt(FrozenModel):
+    schema_version: str = "controlproof.whyyou-consent-fault-receipt.v1"
+    receipt_id: UUID = Field(default_factory=uuid4)
+    run_id: UUID
+    lane_id: N02LaneId
+    subject_ref: str
+    invitation_id: UUID
+    applicant_id: UUID
+    fault_variant: ConsentFaultVariant
+    boundary: ConsentFaultBoundary
+    request_id: str
+    triggered_at: datetime
+    one_shot_consumed: bool
+
+    @model_validator(mode="after")
+    def validate_receipt(self) -> ConsentFaultReceipt:
+        if self.lane_id is not N02LaneId.CONSENT_FAULT_RECOVERY:
+            raise ValueError("fault receipt belongs to the fault recovery lane")
+        if not self.one_shot_consumed:
+            raise ValueError("fault receipt requires consumed one-shot token")
+        if self.triggered_at.tzinfo is None:
+            raise ValueError("triggered_at must be timezone-aware")
+        return self
+
+
+class RecoveryRecord(FrozenModel):
+    schema_version: str = "controlproof.n02-recovery.v1"
+    run_id: UUID
+    lane_id: N02LaneId
+    subject_ref: str
+    marker_removed: bool
+    consumed_token_removed: bool
+    hook_inactive: bool
+    failed_request_effects_zero: bool | None
+    normal_retry_succeeded: bool | None
+    logical_consent_count: int | None = Field(default=None, ge=0)
+    consent_completed_event_count: int | None = Field(default=None, ge=0)
+    processing_order_proven: bool | None
+    restore_status: RecoveryStatus
+    manual_cleanup_required: bool
+
+    @model_validator(mode="after")
+    def validate_recovery(self) -> RecoveryRecord:
+        if self.lane_id is not N02LaneId.CONSENT_FAULT_RECOVERY:
+            raise ValueError("recovery belongs to the consent fault lane")
+        if self.restore_status is RecoveryStatus.SUCCEEDED:
+            if self.manual_cleanup_required:
+                raise ValueError("successful recovery cannot require manual cleanup")
+            if not all(
+                (
+                    self.marker_removed,
+                    self.consumed_token_removed,
+                    self.hook_inactive,
+                    self.failed_request_effects_zero,
+                    self.normal_retry_succeeded,
+                    self.processing_order_proven,
+                )
+            ):
+                raise ValueError("successful recovery requires every safety proof")
+            if (self.logical_consent_count, self.consent_completed_event_count) != (1, 1):
+                raise ValueError("successful recovery requires exactly one logical consent set")
+        elif not self.manual_cleanup_required:
+            raise ValueError("failed or unverified recovery requires manual cleanup")
+        return self
+
+
 class Run(FrozenModel):
     run_id: UUID = Field(default_factory=uuid4)
     scenario_id: str
@@ -702,6 +1234,9 @@ class Run(FrozenModel):
     aws_deployment_status: AwsDeploymentStatus | None = None
     environment_snapshot_digest: str | None = None
     queue_topology_digest: str | None = None
+    lane_manifest_digest: str | None = None
+    path_capability_digest: str | None = None
+    policy_snapshot_digest: str | None = None
     source_event_id: UUID | None = None
     unverified_scope: tuple[str, ...] = ()
 
@@ -729,7 +1264,12 @@ class Run(FrozenModel):
             raise ValueError("non-terminal Run cannot have ended_at")
         if self.state is RunState.RESTORE_FAILED and not self.manual_cleanup_required:
             raise ValueError("RESTORE_FAILED requires manual_cleanup_required=true")
-        if self.execution_profile is not None and self.execution_profile is not ExecutionProfile.H03_MINIMAL_V1:
+        spec002_profiles = {
+            ExecutionProfile.H03_DLQ_V2,
+            ExecutionProfile.E03_BEFORE_V2,
+            ExecutionProfile.E03_AFTER_V2,
+        }
+        if self.execution_profile in spec002_profiles:
             if self.fault_variant is None:
                 raise ValueError("Spec 002 Run requires fault_variant")
             if self.environment_kind is not EnvironmentKind.LOCAL_EMULATED:
@@ -742,6 +1282,27 @@ class Run(FrozenModel):
                 raise ValueError("Spec 002 Run requires environment and queue snapshot digests")
             if set(self.unverified_scope) != SPEC002_UNVERIFIED_SCOPE:
                 raise ValueError("Spec 002 Run requires the exact unverified AWS scope")
+        if self.execution_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
+            if self.scenario_id != "N-02" or self.fault_variant is not None:
+                raise ValueError("N-02 Run requires canonical scenario and no Spec 002 fault variant")
+            if self.environment_kind is not EnvironmentKind.LOCAL_EMULATED:
+                raise ValueError("N-02 Run requires LOCAL_EMULATED environment")
+            if self.aws_deployment_status is not AwsDeploymentStatus.NOT_RUN:
+                raise ValueError("N-02 local Run requires AWS NOT_RUN")
+            required_digests = (
+                self.environment_snapshot_digest,
+                self.lane_manifest_digest,
+                self.path_capability_digest,
+                self.policy_snapshot_digest,
+            )
+            if any(not _is_sha(value) for value in required_digests):
+                raise ValueError("N-02 Run requires environment, lane, path and policy digests")
+            if self.queue_topology_digest is not None and not _is_sha(
+                self.queue_topology_digest
+            ):
+                raise ValueError("optional N-02 queue topology digest must be SHA-256")
+            if set(self.unverified_scope) != SPEC003_UNVERIFIED_SCOPE:
+                raise ValueError("N-02 Run requires exact AWS/N-01/N-03 unverified scope")
         return self
 
 

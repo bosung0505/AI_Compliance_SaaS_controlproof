@@ -17,7 +17,7 @@
 ## 2. ControlProof 설치
 
 ```powershell
-cd C:\Users\aaaa2\AI 기본법\AI_Compliance_SaaS_controlproof
+Set-Location -LiteralPath "<ControlProof-checkout>"
 py -3.12 -m venv .venv
 .\.venv\Scripts\Activate.ps1
 python -m pip install -e ".[dev]"

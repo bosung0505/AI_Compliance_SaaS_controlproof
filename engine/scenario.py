@@ -12,6 +12,7 @@ from engine.models import (
     ComparatorPolicy,
     ExecutionProfile,
     FaultVariant,
+    N02LaneId,
     Phase,
     ScenarioProfile,
     ScenarioSnapshot,
@@ -22,6 +23,69 @@ from engine.observations import H03_EXACT_COMPARATORS
 
 H03_ASSERTIONS = tuple(f"H03-A{index}" for index in range(1, 7))
 H03_EVIDENCE = tuple(f"EV-{index:02d}" for index in range(1, 10))
+N02_CANONICAL_STEPS = (
+    "capture-environment",
+    "capture-path-capabilities",
+    "seed-subject-lanes",
+    "capture-pristine-baseline",
+    "attempt-document-bypass",
+    "capture-document-effects",
+    "attempt-recording-boundary",
+    "capture-recording-effects",
+    "attempt-assessment-boundary",
+    "capture-assessment-effects",
+    "read-policy",
+    "commit-normal-consent",
+    "capture-normal-consent",
+    "run-normal-processing",
+    "capture-normal-causality",
+    "apply-consent-fault",
+    "attempt-faulted-consent",
+    "read-fault-trigger",
+    "capture-failed-consent-effects",
+    "restore-consent-fault",
+    "verify-safe-state",
+    "attempt-faulted-document-path",
+    "apply-fault-recording-overlay",
+    "attempt-faulted-recording-path",
+    "remove-fault-recording-overlay",
+    "apply-fault-assessment-overlay",
+    "attempt-faulted-assessment-path",
+    "remove-fault-assessment-overlay",
+    "verify-pristine-before-retry",
+    "retry-normal-consent",
+    "run-recovered-processing",
+    "capture-recovered-effects",
+    "teardown-subject-lanes",
+)
+N02_ALWAYS_RUN_STEPS = frozenset(
+    {
+        "restore-consent-fault",
+        "verify-safe-state",
+        "remove-fault-recording-overlay",
+        "remove-fault-assessment-overlay",
+        "verify-pristine-before-retry",
+        "teardown-subject-lanes",
+    }
+)
+N02_REQUIRED_CAPABILITIES = {
+    "target.version.read": "v1",
+    "target.environment.read": "v1",
+    "consent.policy.read": "v1",
+    "consent.commit.write": "v1",
+    "consent.state.read": "v1",
+    "n02.subjects.seed": "v1",
+    "n02.subjects.teardown": "v1",
+    "processing.paths.read": "v1",
+    "processing.document.attempt": "v1",
+    "processing.recording.attempt": "v1",
+    "processing.assessment.attempt": "v1",
+    "processing.effects.read": "v1",
+    "processing.boundary.receipts.read": "v1",
+    "consent.fault.inject": "v1",
+    "consent.fault.receipt.read": "v1",
+    "consent.fault.restore": "v1",
+}
 
 
 class ScenarioError(ValueError):
@@ -73,6 +137,8 @@ class TimingPolicy(ScenarioModel):
     duplicate_ack_deadline_seconds: float | None = Field(default=None, gt=0)
     environment_restore_deadline_seconds: float = Field(gt=0)
     run_deadline_seconds: float | None = Field(default=None, gt=0)
+    fault_ttl_seconds: float | None = Field(default=None, gt=0, le=600)
+    bundle_verify_deadline_seconds: float | None = Field(default=None, gt=0)
     stability_consecutive: int = Field(ge=1)
     stability_seconds: float = Field(ge=0)
     expected_queue: dict[str, int] = Field(default_factory=dict)
@@ -90,7 +156,9 @@ class ScenarioDefinition(ScenarioModel):
     version: str
     execution_profile: ExecutionProfile | None = None
     fault_variant: FaultVariant | None = None
+    bundle_profile_contract: str | None = None
     applicable_assertion_ids: tuple[str, ...] = ()
+    lanes: tuple[N02LaneId, ...] = ()
     title: str
     control_intent: str
     required_capabilities: dict[str, str]
@@ -116,8 +184,53 @@ class ScenarioDefinition(ScenarioModel):
         if self.execution_profile is None:
             if self.schema_version not in {None, "controlproof.scenario.v1"}:
                 raise ValueError("v1 scenario has an unsupported schema_version")
-            if self.fault_variant is not None or self.applicable_assertion_ids:
+            if (
+                self.fault_variant is not None
+                or self.applicable_assertion_ids
+                or self.bundle_profile_contract is not None
+                or self.lanes
+            ):
                 raise ValueError("v1 scenario cannot declare partial v2 profile fields")
+        elif self.execution_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
+            if self.schema_version != "controlproof.scenario.v3":
+                raise ValueError("N-02 profile requires controlproof.scenario.v3")
+            canonical = ScenarioProfile.canonical(self.execution_profile)
+            if self.scenario_id != canonical.scenario_id or self.fault_variant is not None:
+                raise ValueError("scenario_id or fault variant does not match N-02 profile")
+            if self.bundle_profile_contract != "controlproof.bundle-profile.spec003.v1":
+                raise ValueError("N-02 requires the Spec 003 bundle profile")
+            if tuple(self.applicable_assertion_ids) != canonical.applicable_assertion_ids:
+                raise ValueError("applicable assertions do not match canonical N-02 profile")
+            if assertion_ids != canonical.applicable_assertion_ids:
+                raise ValueError("YAML assertions do not match canonical N-02 profile")
+            if evidence_ids != canonical.required_evidence:
+                raise ValueError("required evidence does not match canonical N-02 profile")
+            if self.lanes != tuple(N02LaneId):
+                raise ValueError("N-02 lanes must match the canonical ordered six lanes")
+            if self.required_capabilities != N02_REQUIRED_CAPABILITIES:
+                raise ValueError("N-02 required capabilities must match the canonical registry")
+            if tuple(step.step_id for step in self.steps) != N02_CANONICAL_STEPS:
+                raise ValueError("N-02 ordered steps do not match the canonical contract")
+            actual_always = frozenset(step.step_id for step in self.steps if step.always_run)
+            if actual_always != N02_ALWAYS_RUN_STEPS:
+                raise ValueError("N-02 restore and teardown always-run steps are not canonical")
+            timing = self.timing_policy
+            if (
+                timing.poll_seconds,
+                timing.stability_consecutive,
+                timing.stability_seconds,
+                timing.fault_ttl_seconds,
+                timing.environment_restore_deadline_seconds,
+                timing.run_deadline_seconds,
+                timing.bundle_verify_deadline_seconds,
+                timing.expected_queue,
+            ) != (2, 3, 4, 600, 120, 540, 60, {}):
+                raise ValueError("N-02 timing policy must match the fixed 600-second contract")
+            forbidden = ("n-01", "n-03", "viewport", "policy invalidation")
+            for step in self.steps:
+                searchable = f"{step.step_id} {step.action}".casefold()
+                if any(term in searchable for term in forbidden):
+                    raise ValueError("N-01/N-03 steps are forbidden in the N-02 profile")
         else:
             if self.schema_version != "controlproof.scenario.v2":
                 raise ValueError("v2 profile requires controlproof.scenario.v2")
@@ -179,8 +292,21 @@ class ScenarioDefinition(ScenarioModel):
     def snapshot(self) -> ScenarioSnapshot:
         exclude = set()
         if self.execution_profile is None:
-            exclude = {"schema_version", "execution_profile", "fault_variant", "applicable_assertion_ids"}
+            exclude = {
+                "schema_version",
+                "execution_profile",
+                "fault_variant",
+                "bundle_profile_contract",
+                "applicable_assertion_ids",
+                "lanes",
+            }
+        elif self.execution_profile is not ExecutionProfile.N02_CONSENT_ORDER_V1:
+            exclude = {"bundle_profile_contract", "lanes"}
         definition = self.model_dump(mode="json", exclude=exclude)
+        if self.execution_profile is not ExecutionProfile.N02_CONSENT_ORDER_V1:
+            timing = definition["timing_policy"]
+            for field in ("fault_ttl_seconds", "bundle_verify_deadline_seconds"):
+                timing.pop(field, None)
         if self.execution_profile is None:
             timing = definition["timing_policy"]
             for field in (

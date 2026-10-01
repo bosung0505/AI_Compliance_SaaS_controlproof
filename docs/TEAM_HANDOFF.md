@@ -6,9 +6,9 @@
 한곳에서 이해하기 위한 단일 진입점이다. 과거의 `TEAM_HANDOFF_SPEC_001.md`를 대체하며, 프로젝트 상태를
 확인할 때는 이 문서를 먼저 읽는다.
 
-- 상태 기준일: 2026-09-30
-- ControlProof 현재 작업 브랜치: `002-h03-e03-fault-expansion`
-- 이 문서가 설명하는 최종 완료 범위: Spec 001과 Spec 002
+- 상태 기준일: 2026-10-01
+- ControlProof 현재 작업 브랜치: `003-n02-consent-order`
+- 이 문서가 설명하는 완료 범위: Spec 001·002 전체와 Spec 003 T001~T064 자동 검증 범위
 - 현재 사용자 접점: 고객용 웹 화면이 아니라 개발·검증용 `controlproof` CLI
 
 이 문서는 상세 요구사항, 기술 계약 또는 실행 원본을 복제하지 않는다. 각 사실의 상세 근거는 아래에
@@ -22,16 +22,19 @@
 | Constitution | Complete | 모든 기능 Spec과 구현이 따라야 할 개발·검증 원칙이 확정됐다. |
 | Spec 001 | Complete | 실행·증적 기본 모델과 H-03 최소 수직 흐름을 구현하고 실제 WhyYou 로컬 스택에서 검증했다. |
 | Spec 002 | Complete | H-03 DLQ 확장과 E-03 저장 전/후 장애·재시도·멱등성을 구현하고 `LOCAL_EMULATED`에서 검증했다. |
-| Spec 003 | 계획 확정·미착수 | 다음 작업. N-02 동의·AI 처리 순서 수직 흐름을 명세부터 실제 검증까지 진행한다. |
+| Spec 003 | Implement 진행 중 — US1~US3 완료 | T001~T064를 완료했다. 합성 6개 lane, 동의 전 세 보호 경계·효과 delta, 정상 동의 인과 graph, 동의 저장 실패의 원자적 rollback·복구, 비침습 observer와 A1~A7 자동 gate가 구현됐다. US4와 actual Run은 아직 `NOT_RUN`이다. |
 | Spec 004 | 계획 확정·미착수 | E-01·E-02 점수 근거·평가 기준 보존을 구현·검증한다. |
 | Spec 005 | 계획 확정·미착수 | 웹 워크벤치·12개 시나리오 카탈로그·보고서와 웹 UX 검토를 구현·검증한다. |
 | 실제 AWS | `NOT_RUN` | AWS SQS·ECS·IAM·CloudWatch·운영 네트워크는 검증하지 않았다. |
 | ControlProof 웹 워크벤치 | 미구현 | 현재 결과 확인과 재현은 CLI·JSON·봉인 bundle을 사용한다. |
 | 2주 MVP 전체 | 미완료 | Spec 001·002 완료를 전체 제품 또는 전체 시나리오 완료로 확대하면 안 된다. |
 | 웹 결과 사용성 검토 | 미실시 | CLI 사람 시간 측정은 완료 gate에서 제외했고, 고객용 웹 결과 화면을 만든 뒤 별도 검토한다. |
+| 0단계 정합성 작업 | 완료 | 12개 범위표, Spec 003 source baseline, AI 플레이북과 휴대 가능한 재현 문서를 정리했다. |
+| 독립 PC 재현 | `PENDING_EXTERNAL_REPRODUCTION` | Spec 001·002 actual Run은 한 PC에서만 수행됐다. 다른 팀원의 H03_DLQ_V2 재현 전에는 독립 재현 완료로 주장하지 않는다. |
+| main 통합 | 보류 | 독립 재현 gate 뒤 Spec 001·002를 포함한 현재 브랜치를 검토 가능한 PR로 통합한다. |
 
-따라서 저장소의 공식 상태는 **“Spec 001 Complete”에서 멈춘 것이 아니라 “Spec 001과 Spec 002가
-각각 Complete”**다. 단, `Complete`는 해당 Spec의 명시된 범위에만 적용된다.
+따라서 저장소의 공식 상태는 **Spec 001·002 Complete, Spec 003 Implement 진행 중(US1~US3 자동 gate
+완료)**이다. Spec 003은 US4 결과·bundle 통합과 실제 WhyYou Run이 남아 있으므로 Complete로 부르지 않는다.
 
 ## 3. 절대로 바꾸어 해석하면 안 되는 제품 원칙
 
@@ -153,6 +156,8 @@ source queue와 DLQ의 visible, in-flight, delayed 수도 모두 0이었다.
 - 전체 시나리오 카탈로그를 한 번에 실행하는 제품 흐름
 - 조직·사용자·권한 관리, 결제, 운영 배포와 상용 SaaS 운영 기능
 - 실제 AWS·production 환경 검증
+- 다른 팀원 PC의 Spec 002 `H03_DLQ_V2` 독립 재현과 Validation 추가
+- Spec 001·002 feature branch의 PR 검토와 main 통합
 
 후속 개발 순서는 다음과 같이 확정했다.
 
@@ -163,18 +168,23 @@ source queue와 DLQ의 visible, in-flight, delayed 수도 모두 0이었다.
 | 3 | Spec 005 — 웹 워크벤치·보고서 | 12개 시나리오, 결과·증적·재시험 비교, A 계열 `NO_TEST_TARGET`, 미실행·미검증 범위, 웹 UX 검토 | V4 결과물 완료 기준 검증 |
 
 기존의 “남은 WhyYou 연결과 시험 조건”은 독립 Spec으로 만들지 않는다. N-02에 필요한 capability는
-Spec 003, E-01·E-02에 필요한 capability는 Spec 004 안에서 사용자 흐름과 함께 구현한다.
+N-02에 필요한 capability는 Spec 003, E-01·E-02에 필요한 capability는 Spec 004 안에서 사용자 흐름과
+함께 구현한다.
 
 H-01·H-02·N-01·N-03의 실제 완주는 V4의 목표 상한이다. Spec 005에서 readiness와 `NOT_RUN`을
 사실대로 표시하되, 실제 실행까지 요구하려면 별도 후속 Spec 또는 승인된 범위 변경이 필요하다.
 결정 이유와 변경 전·후는 [Decision Log D-013](./product/ControlProof_MVP_Decision_Log.md)에 있다.
 
+12개라는 숫자의 공식 해석은 [MVP 시나리오 범위표](./product/ControlProof_MVP_Scenario_Coverage_Matrix.md)를
+따른다. 현재는 12개 관리, 5개 실제 실행 목표, 4개 `NOT_RUN`, 3개 `NO_TEST_TARGET`이며 “12개 검증
+완료”라고 표현하지 않는다.
+
 ## 7. 저장소와 브랜치 안전성
 
 | 저장소 | 사용 브랜치 | 역할 |
 |---|---|---|
-| `bosung0505/AI_Compliance_SaaS_controlproof` | `002-h03-e03-fault-expansion` | 실행기·판정기·증적·문서 |
-| `jhkim0602/gbsa_aws` | `bosung/controlproof-h03-integration` | WhyYou 로컬 시험 hook과 증적으로 확인된 보호조치 보완 |
+| `bosung0505/AI_Compliance_SaaS_controlproof` | `003-n02-consent-order` | Spec 001·002 완료 기반과 Spec 003 구현·판정·증적·문서 |
+| `jhkim0602/gbsa_aws` | `bosung/controlproof-n02-integration` | WhyYou local/test 전용 N-02 observer·fault hook; product guard 변경 전 최초 사실 시험 대상 |
 
 현재 브랜치와 원격의 일치 여부는 아래 명령으로 확인한다. Spec 002 최종 actual-stack에서 검증한
 ControlProof 구현 commit은 `06f7a77`, WhyYou commit은
@@ -199,16 +209,18 @@ git rev-list --left-right --count HEAD...@{upstream}
 1. 이 문서
 2. 저장소 [README](../README.md)
 3. [2주 MVP 기능 범위 V4](./product/ControlProof_WhyYou_2주_MVP_기능범위_v4.md)
-4. [Spec 002](../specs/002-h03-e03-fault-expansion/spec.md)
-5. [Spec 002 Validation](../specs/002-h03-e03-fault-expansion/validation.md)의 최종 closure 절
-6. [Spec 002 Traceability](../specs/002-h03-e03-fault-expansion/traceability.md)
-7. 재현할 때 [Spec 002 Quickstart](../specs/002-h03-e03-fault-expansion/quickstart.md)
-8. 구현 세부가 필요할 때 [Plan](../specs/002-h03-e03-fault-expansion/plan.md),
+4. [MVP 시나리오 범위표](./product/ControlProof_MVP_Scenario_Coverage_Matrix.md)
+5. [AI·Spec Kit 작업 플레이북](./AI_SPEC_KIT_PLAYBOOK.md)
+6. [Spec 002](../specs/002-h03-e03-fault-expansion/spec.md)
+7. [Spec 002 Validation](../specs/002-h03-e03-fault-expansion/validation.md)의 최종 closure 절
+8. [Spec 002 Traceability](../specs/002-h03-e03-fault-expansion/traceability.md)
+9. 재현할 때 [Spec 002 Quickstart](../specs/002-h03-e03-fault-expansion/quickstart.md)
+10. 구현 세부가 필요할 때 [Plan](../specs/002-h03-e03-fault-expansion/plan.md),
    [Data Model](../specs/002-h03-e03-fault-expansion/data-model.md),
    [Contracts](../specs/002-h03-e03-fault-expansion/contracts/),
    [Tasks](../specs/002-h03-e03-fault-expansion/tasks.md),
    [Implementation Decisions](../specs/002-h03-e03-fault-expansion/implementation-decisions.md)
-9. 기본 모델의 유래가 필요할 때 [Spec 001](../specs/001-execution-evidence-h03/spec.md),
+11. 기본 모델의 유래가 필요할 때 [Spec 001](../specs/001-execution-evidence-h03/spec.md),
    [Validation](../specs/001-execution-evidence-h03/validation.md),
    [Traceability](../specs/001-execution-evidence-h03/traceability.md)
 
@@ -309,15 +321,25 @@ manifest SHA와 assertion 결과는 Validation에 남아 있다.
 
 ## 12. 다음 작업 순서
 
-현재 다음 작업은 Spec 003이다. 아래 순서를 건너뛰지 않는다.
+Spec 003의 Specify·Clarify·Plan·Tasks·Analyze와 Implement의 T001~T064까지 완료됐다. 태오 별도 자료는 없으므로
+[Spec 003 N-02 source baseline](./research/Spec003_N02_WhyYou_Source_Baseline.md)을 공식 조사 입력으로
+사용한다. 아래 순서를 건너뛰지 않는다.
 
-1. Product Brief와 D-013을 입력으로 Spec 003의 `spec.md`를 작성한다.
-2. N-02의 경계·증적·완료 조건을 clarify한다.
-3. WhyYou의 동의·분석 경로를 확인하고 기술 Plan을 작성한다.
-4. Tasks와 traceability를 만든 뒤 analyze에서 모순·누락을 제거한다.
-5. Spec 003 범위만 구현하고 `whyyou-local` actual Run과 bundle을 검증한다.
-6. 필요하면 최초 FAIL을 보존한 child 재시험을 만들고 converge로 Spec 003을 닫는다.
-7. 같은 전체 사이클로 Spec 004를 완료한 뒤 Spec 005로 넘어간다.
+1. 완료 — 개인 절대 경로 제거, 12개 범위 정합성, source baseline과 AI 작업 규칙을 만든다.
+2. 완료 — Product Brief, D-013·D-014와 source baseline을 입력으로 `$speckit-specify`를 실행해
+   [Spec 003](../specs/003-n02-consent-order/spec.md)을 작성한다.
+3. 완료 — `$speckit-clarify`로 N-02 경계·증적·완료 조건의 해석 차이를 제거한다.
+4. 완료 — `$speckit-plan`으로 WhyYou의 실제 동의·자료·녹화·평가 경계, 6개 독립 lane, 동의 저장
+   실패 주입점, 인과관계와 EV3 계약을 작성한다.
+5. 완료 — `$speckit-tasks`로 테스트 우선 구현, 최초 actual Run, 조건부 보완과 retest를 93개 작업으로
+   분해한다.
+6. 완료 — `$speckit-analyze`에서 HIGH 5건·MEDIUM 7건을 보완하고 재분석에서 CRITICAL·HIGH·팀 해석
+   차이를 만드는 MEDIUM 0건을 확인한다.
+7. 진행 중 — `$speckit-implement`의 Foundation과 US1~US3(T001~T064)를 완료했다. 다음은 US4
+   통합 verdict·CLI·bundle·검토(T065~T073)다.
+8. 구현 gate를 마친 뒤 `whyyou-local` 최초 actual Run과 bundle을 검증한다.
+9. 필요하면 최초 FAIL을 보존한 child 재시험을 만들고 converge로 Spec 003을 닫는다.
+10. 같은 전체 사이클로 Spec 004를 완료한 뒤 Spec 005로 넘어간다.
 
 Spec 003~005 문서를 모두 먼저 작성한 뒤 개발을 시작하는 것이 아니다. 각 Spec은 명세·구현·실제
 검증을 포함하는 독립 수직 흐름이며, 하나를 완료한 뒤 다음으로 진행한다. Spec 005까지 완료되면
