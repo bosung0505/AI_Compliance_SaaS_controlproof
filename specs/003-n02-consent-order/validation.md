@@ -4,9 +4,9 @@
 
 - Workflow stage: `$speckit-implement` in progress
 - Automated implementation gates: US1~US4 T001~T073 `PASS`; US5 retest contract T074~T076 scoped gate `PASS` (35 relevant tests). The Phase 6 full ControlProof regression was 407 passed. These are fixture results, not a WhyYou verdict.
-- WhyYou actual N-02 preflight: `INCOMPLETE_ENV_BLOCKED` (2026-10-02 attempt produced no readiness result)
-- Initial actual Run: `NOT_RUN`
-- Child retest: `NOT_REQUIRED` until the initial Run proves a direct FAIL
+- WhyYou actual N-02 preflight: `READY` on 2026-10-02 after Docker restart and process-local Git trust configuration
+- Initial actual Run: `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`; `RESTORE_FAILED` / `INCONCLUSIVE`; sealed bundle `VERIFIED`
+- Child retest: `BLOCKED_RESTORE_FAILED`; the initial Run has direct FAIL facts and requires cleanup/root-cause review first
 - AWS: `NOT_RUN`
 - Claim scope: `EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`
 
@@ -42,8 +42,8 @@ These are implementation checkpoint SHAs, not an actual-Run source claim.
 | US4 partial implementation | T069/T071 | N-02 presentation, CLI fixture projection and EV3 verifier selection | PASS; 33 passed | 10.40 seconds |
 | US4 review/bundle | T065~T073 | selected US4/EV3 pytest, scoped CLI/orchestration pytest, Ruff, full ControlProof pytest | PASS; 42 scoped and 407 full | 14.00 seconds scoped; 179.22 seconds full |
 | US5 immutable retest | T074~T076 | N-02 test-first RED, N-02 child/CLI scoped pytest and existing H-03/E-03 retest/EV3 contracts | PASS; 6 N-02 and 35 relevant tests | 13.85 seconds N-02; 48.79 seconds relevant |
-| Initial actual truth | T077~T079 | T077 CLI preflight attempted; Docker/local services unavailable | BLOCKED; no readiness result or actual Run | — |
-| Conditional remediation | T080~T084 | `PENDING_INITIAL_RUN` | `NOT_RUN` | — |
+| Initial actual truth | T077~T079 | clean-source preflight, one initial actual Run, show/verify, source/result mapping | READY preflight; Run `RESTORE_FAILED` / `INCONCLUSIVE`; bundle VERIFIED | Run 5.70 seconds; show/verify command 6.87 seconds |
+| Conditional remediation | T080~T084 | parent artifact `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` | PENDING_CLASSIFICATION; child blocked by restore failure | — |
 | Closure | T085~T093 | `NOT_RUN` | `NOT_RUN` | — |
 
 ## Implementation command log
@@ -103,12 +103,17 @@ output. A test name in this table does not mean that an actual WhyYou Run occurr
 | 2026-10-02 | T076 | ControlProof | `.\.venv\Scripts\python.exe -m pytest -q tests/integration/test_n02_retest_lineage.py tests/contract/test_n02_retest_bundle.py tests/integration/test_spec002_retest_lineage.py tests/contract/test_cli_retest.py --tb=short` | PASS; 9 passed in 21.41s after requiring the child environment snapshot to match the actual Run. |
 | 2026-10-02 | T077 attempt | ControlProof/WhyYou | `git branch --show-current`, `git rev-parse HEAD`, `git status --short` | Both clean on personal branches: ControlProof `b2b1c5e553302f93552b8616ccf6c3374d1ae45c`; WhyYou `94ad7f2caa0083d3d029b4b7726ee9b34c48eb21`. These are preflight-attempt sources, not actual-Run sources. |
 | 2026-10-02 | T077 attempt | Local environment | `docker desktop status`; `docker version --format '{{.Server.Version}}'`; local TCP checks on 8080/5432/4566 | Docker Desktop status unavailable; Docker API access denied in sandbox, and host-permission query did not return. API, PostgreSQL and LocalStack ports were closed. |
-| 2026-10-02 | T077 attempt | ControlProof | `.\.venv\Scripts\python.exe -m engine.cli preflight N-02 --profile N02_CONSENT_ORDER_V1 --target whyou-local --json` with process-only local/test settings from WhyYou `.env` | No JSON or readiness result after about 6 minutes; interrupted while local services were unavailable. No new Run directory dated after the attempt; no actual Run was invoked. T077 remains unchecked. |
+| 2026-10-02 | T077 attempt | ControlProof | `.\.venv\Scripts\python.exe -m engine.cli preflight N-02 --profile N02_CONSENT_ORDER_V1 --target whyou-local --json` with process-only local/test settings from WhyYou `.env` | No JSON or readiness result after about 6 minutes; interrupted while local services were unavailable. No new Run directory dated after the attempt; no actual Run was invoked. T077 was left unchecked at that point. |
 | 2026-10-02 | T077 attempt | ControlProof | `.\.venv\Scripts\python.exe -m ruff check .`; `.\.venv\Scripts\python.exe -m ruff format --check .` | Ruff lint PASS; repository-wide format check FAIL on 76 files, including unchanged files. No broad reformat applied. |
+| 2026-10-02 | T077 retry | WhyYou | `.\scripts\local.ps1 up`; `.\scripts\local.ps1 api`; `.\scripts\local.ps1 worker` | Docker 29.6.2; Postgres, LocalStack and Mailpit healthy; API `/health/ready` all dependencies `ok`; four workers running after host-permission launch. The sandbox-only worker launch could not write `C:\tmp\iep-worker-ready`. |
+| 2026-10-02 | T077 retry | ControlProof | `.\.venv\Scripts\python.exe -m engine.cli preflight N-02 --profile N02_CONSENT_ORDER_V1 --target whyou-local --json` | `RUNNER_NOT_READY` (exit 1): isolated subprocess Git rejected WhyYou's ownership, leaving target/environment snapshots absent; 14 other capabilities READY. No Run created. |
+| 2026-10-02 | T077 | ControlProof | Same preflight with corrected `--target whyyou-local` and process-only `safe.directory` entries for both repositories | READY (exit 0) at `2026-10-02T02:49:18.980136Z`: all 16 capabilities READY; WhyYou snapshot clean at `94ad7f2caa0083d3d029b4b7726ee9b34c48eb21`; model fixture `h03-report-v1` / `ce09b95403b34e1390502c90f5c5edc518ddf65d38c8ce881617a37cac6d16b1`; protected paths document, recording and AI assessment; AWS `NOT_RUN`. ControlProof clean at `b92b9ada48e82c5290d5b6eb99883e5dcc50f0ee`. Run directory count remained 23 before T078. The quickstart's misspelled target was corrected after the sealed Run; the configured and tested target is `whyyou-local`. |
+| 2026-10-02 | T078 | ControlProof | `.\.venv\Scripts\python.exe -m engine.cli run N-02 --profile N02_CONSENT_ORDER_V1 --target whyyou-local --label n02-initial --json` | Exactly one initial actual Run; exit 6 in 5.70 seconds; `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`, `RESTORE_FAILED` / `INCONCLUSIVE`. A1~A3 PASS; A4~A7 FAIL. No remediation or second Run. |
+| 2026-10-02 | T078 | ControlProof | `.\.venv\Scripts\python.exe -m engine.cli show 15cef078-ee24-4f0e-91ef-381e0f7a1cc2 --json`; `.\.venv\Scripts\python.exe -m engine.cli verify 15cef078-ee24-4f0e-91ef-381e0f7a1cc2 --json`; `Get-FileHash ...\manifest.json -Algorithm SHA256` | show exit 0; verify exit 0, VERIFIED, 19 files checked, no missing/mismatched/unregistered files. Manifest SHA-256 `d2306f3cd6e2b15ce87d94e4844a2278c7ea3c0b3c052a2aac45e1bff8f2bc9b`. |
 
-T070 uses the approved read-only preflight contract: protected path identities are shown before a Run, while actual path, policy and lane SHA-256 digests are captured only inside the Run and linked to the sealed bundle. Preflight creates no Run/subject/marker/event. The US4 deterministic fixture verifies six lanes seeded once, A1~A7 PASS, a direct Recording FAIL, and restore failure as RESTORE_FAILED/INCONCLUSIVE with a persistent block. A fixture PASS is not an actual WhyYou verdict; the 2026-10-02 actual preflight attempt has no readiness result and the first Run remains `NOT_RUN`. No WhyYou source or product guard was changed in this phase.
+T070 uses the approved read-only preflight contract: protected path identities are shown before a Run, while actual path, policy and lane SHA-256 digests are captured only inside the Run and linked to the sealed bundle. Preflight creates no Run/subject/marker/event. The US4 deterministic fixture verifies six lanes seeded once, A1~A7 PASS, a direct Recording FAIL, and restore failure as RESTORE_FAILED/INCONCLUSIVE with a persistent block. Those fixture results remain separate from the actual WhyYou result below. No WhyYou source or product guard was changed before the first actual Run.
 
-T074~T076 are a scoped synthetic child-Run gate. The child uses a fresh six-subject set, records target/path/policy/fixture differences in its own sealed bundle, and verifies the parent manifest and evidence bytes remain unchanged. An unresolved cleanup block or RESTORE_FAILED parent refuses retest. The approved implementation also needed N-02 dispatch and parent-link verification in CLI, executor and Evidence Bundle code. No actual WhyYou parent or child Run was executed; Phase 7 full regression remains pending.
+T074~T076 are a scoped synthetic child-Run gate. The child uses a fresh six-subject set, records target/path/policy/fixture differences in its own sealed bundle, and verifies the parent manifest and evidence bytes remain unchanged. An unresolved cleanup block or RESTORE_FAILED parent refuses retest. The approved implementation also needed N-02 dispatch and parent-link verification in CLI, executor and Evidence Bundle code. The actual parent now exists, but no actual child Run was executed; Phase 7 full regression remains pending.
 
 An additional pre-existing WhyYou integration collection issue remains outside this
 foundation gate: `tests/integration/test_production_runtime.py` imports the absent
@@ -132,8 +137,8 @@ A1~A7 are independently evaluable, that an unknown timeout cannot send processin
 that consent record/state transition/Outbox commit or roll back together, and that the
 configured post-`save_consent()` fault returns 5xx with zero committed partial effects.
 They also prove marker/token cleanup, overlay restoration, same-subject exactly-once retry and
-`RESTORE_FAILED` blocking in the automated harness. They are **not** an actual WhyYou product
-verdict: no live N-02 Run, six-subject seed or evidence bundle was created.
+`RESTORE_FAILED` blocking in the automated harness. They were **not** an actual WhyYou product
+verdict when recorded; the separate first actual Run is recorded below.
 
 The expected-red rows above freeze the contract before implementation. They are not
 an actual N-02 Run and do not imply a WhyYou product verdict.
@@ -142,14 +147,31 @@ an actual N-02 Run and do not imply a WhyYou product verdict.
 
 | Role | Run ID | Parent Run | ControlProof SHA | WhyYou SHA | Verdict | Restore | Manifest SHA-256 |
 |---|---|---|---|---|---|---|---|
-| Initial factual Run | `NOT_RUN` | — | — | — | `NOT_RUN` | — | — |
-| Evidence-required child | `NOT_REQUIRED` | — | — | — | — | — | — |
+| Initial factual Run | `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` | — | `b92b9ada48e82c5290d5b6eb99883e5dcc50f0ee` | `94ad7f2caa0083d3d029b4b7726ee9b34c48eb21` | `INCONCLUSIVE` | `RESTORE_FAILED`; manual cleanup required | `d2306f3cd6e2b15ce87d94e4844a2278c7ea3c0b3c052a2aac45e1bff8f2bc9b` |
+| Evidence-required child | `BLOCKED_RESTORE_FAILED` | `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` | — | — | — | — | — |
 
 ## Assertion and bundle ledger
 
 | Run ID | A1 | A2 | A3 | A4 | A5 | A6 | A7 | EV3-01~10 | Bundle verify |
 |---|---|---|---|---|---|---|---|---|---|
-| `NOT_RUN` | — | — | — | — | — | — | — | — | — |
+| `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` | PASS | PASS | PASS | FAIL | FAIL | FAIL | FAIL | Required files sealed; facts below include gaps | VERIFIED; 19 files |
+
+The parent bundle is `.controlproof/runs/15cef078-ee24-4f0e-91ef-381e0f7a1cc2` and remains unchanged. Its manifest `bundle_digest` is `f5c00a0e5d75262206991c82047d1f0dbfc814482feed22e840e218b1f991dc4`. Run-owned path, policy and lane digests are `2d7693a17e8380f1153d8ff12559bcf4ba1f68f2daaffdf9f4e1abb83765213a`, `74f0c6e4650088245ede3c3a992a28f2e9fa27834bee770c55cc41e357bd4d74` and `ffac35805fc0d5171101f149f2ba97080f8f29de7b17f98946e736f73562f07b` respectively. These were captured by the Run, not invented at preflight.
+
+| Actual fact | Parent evidence | Result and limit |
+|---|---|---|
+| A1~A3 | `assertions.json`, `baseline-effects.jsonl`, `bypass-attempts.jsonl`, `protected-effects.jsonl` | Pristine baseline and document/recording bypass checks PASS. |
+| A4 / AI assessment | `assertions.json`, `bypass-attempts.jsonl`, `protected-effects.jsonl` | FAIL: pre-consent assessment request was accepted (`EVENT_PERSISTED`) and new effect `event:497fd25e-9939-5ccf-9118-287fd1053b25` was observed. Root-cause class remains unassigned until T080/T083. |
+| A5 / normal order | `assertions.json`, `policy-and-consent.json`, `causal-events.jsonl`, `causal-edges.jsonl` | FAIL: consent source absent, policy identity mismatch and zero causal events/edges; the normal-order three-path chain was not established. Root-cause class remains unassigned. |
+| A6 / failed commit | `assertions.json`, `policy-and-consent.json`, `fault-receipts.jsonl`, `bypass-attempts.jsonl`, `protected-effects.jsonl` | FAIL: consent request returned `CONSENT_POLICY_MISMATCH`, no trigger receipt was captured, and the AI-assessment path accepted a request with new effect `event:a3a48891-2564-57d5-bb72-913827ee2e7a`. This does not yet establish whether target, runner or observer caused each missing fact. |
+| A7 / recovery | `assertions.json`, `recovery.json`, `run.json`, `blocks/whyyou-local--n02-consent-order.json` | FAIL: restore `FAILED`, `manual_cleanup_required=true`, normal retry did not succeed. Hook inactive and marker removed were reported; the persistent restore block references this Run. No child or repeat Run was attempted. |
+| Overall | `judgement.json`, `run.json`, `manifest.json` | `RESTORE_FAILED` takes precedence: overall `INCONCLUSIVE` with `INSUFFICIENT_EVIDENCE`, even though A4~A7 retain individual FAIL facts. No individual assertion is INCONCLUSIVE. Bundle `VERIFIED` proves integrity, not that the missing receipt/causal facts exist. |
+
+Path results are `DOCUMENT_ANALYSIS=PASS`, `RECORDING=PASS`, `AI_ASSESSMENT=FAIL`. `fault-receipts.jsonl`, `faults.jsonl`, `causal-events.jsonl` and `causal-edges.jsonl` are sealed but empty. AWS, N-01 and N-03 remain unverified. No product guard or sealed parent artifact was changed after observing this result.
+
+The WhyYou working tree became dirty **after** the clean-source Run because the local observer created untracked `.controlproof/observers/receipts/15cef078-ee24-4f0e-91ef-381e0f7a1cc2.jsonl` (3,060 bytes; SHA-256 `61874278514f93f35acdc8242546539eb6fc5ab8297a02bb0b12b11b3095c833`). This runtime receipt is preserved for diagnosis; it was not part of the captured source snapshot and is not committed. Do not delete it or mistake a later dirty working tree for the Run's clean source state.
+
+The worker console reported repeated delivery-cycle exceptions, including a missing `CriterionVerificationGuide.time_budget_seconds` and `TenantScopedInterviewNotFound`. This unsealed diagnostic output is not yet a root-cause classification. After bundle verification, the API and four worker processes started for this attempt were stopped; no matching Python worker/API process remained. A stale `C:\tmp\iep-worker-ready` file created by those workers was removed after process verification. Postgres, LocalStack, the observer receipt, sealed bundle and persistent N-02 restore block were preserved. No manual target cleanup was claimed.
 
 ## Conditional remediation ledger
 
@@ -160,11 +182,11 @@ Run artifact and one root-cause class:
 
 | Task | Assertion/path | Parent artifact | Root-cause class | Decision | Regression | Child Run |
 |---|---|---|---|---|---|---|
-| T080 | A5~A7/general | `PENDING_INITIAL_RUN` | — | `PENDING_INITIAL_RUN` | — | — |
-| T081 | A2/document | `PENDING_INITIAL_RUN` | — | `PENDING_INITIAL_RUN` | — | — |
-| T082 | A3/recording | `PENDING_INITIAL_RUN` | — | `PENDING_INITIAL_RUN` | — | — |
-| T083 | A4/assessment | `PENDING_INITIAL_RUN` | — | `PENDING_INITIAL_RUN` | — | — |
-| T084 | child/reverify | `PENDING_INITIAL_RUN` | — | `PENDING_INITIAL_RUN` | — | — |
+| T080 | A5~A7/general | `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` | — | `PENDING_CLASSIFICATION` | — | — |
+| T081 | A2/document | `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` | — | `PENDING_DECISION`; parent A2 PASS | — | — |
+| T082 | A3/recording | `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` | — | `PENDING_DECISION`; parent A3 PASS | — | — |
+| T083 | A4/assessment | `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` | — | `PENDING_CLASSIFICATION`; parent A4 FAIL | — | — |
+| T084 | child/reverify | `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` | — | `BLOCKED_RESTORE_FAILED` pending safety cleanup and evidence-selected remediation | — | — |
 
 ## Portability and limitations
 

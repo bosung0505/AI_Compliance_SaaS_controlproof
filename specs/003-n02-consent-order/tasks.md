@@ -197,11 +197,12 @@ T076의 실제 child 경로에는 승인된 최소 확장으로 `engine/cli.py`,
 
 ### Actual-stack first truth gate
 
-- [ ] T077 [US5] On clean committed ControlProof and WhyYou personal feature branches, execute the `N02_CONSENT_ORDER_V1` preflight from `specs/003-n02-consent-order/quickstart.md`; record non-sensitive source SHAs, readiness, capability/policy/lane digests and AWS `NOT_RUN` in `specs/003-n02-consent-order/validation.md`, and create no Run unless READY [FR-003~006, SC-011~012]
-- [ ] T078 [US5] Execute exactly one initial N-02 actual Run before any product consent-guard remediation, then run show/verify and record Run ID, A1~A7 results, path results, restore status and manifest SHA-256 in `specs/003-n02-consent-order/validation.md` [FR-033~041, SC-001~SC-009]
-- [ ] T079 [US5] Freeze the T078 source/result mapping in `specs/003-n02-consent-order/traceability.md` and document every direct FAIL, INCONCLUSIVE fact and unavailable scope without changing the sealed parent bundle [FR-002, FR-033~041]
+- [X] T077 [US5] On clean committed ControlProof and WhyYou personal feature branches, execute the `N02_CONSENT_ORDER_V1` preflight from `specs/003-n02-consent-order/quickstart.md`; record non-sensitive source SHAs, readiness, capability/policy/lane digests and AWS `NOT_RUN` in `specs/003-n02-consent-order/validation.md`, and create no Run unless READY [FR-003~006, SC-011~012]
+- [X] T078 [US5] Execute exactly one initial N-02 actual Run before any product consent-guard remediation, then run show/verify and record Run ID, A1~A7 results, path results, restore status and manifest SHA-256 in `specs/003-n02-consent-order/validation.md` [FR-033~041, SC-001~SC-009]
+- [X] T079 [US5] Freeze the T078 source/result mapping in `specs/003-n02-consent-order/traceability.md` and document every direct FAIL, INCONCLUSIVE fact and unavailable scope without changing the sealed parent bundle [FR-002, FR-033~041]
 
-T077 2026-10-02 attempt: both branches were clean and committed, but the local Docker/API/DB/LocalStack environment was unavailable. The CLI preflight produced no readiness result and was interrupted; T077 remains open and no actual Run was started. See `validation.md`.
+T077 2026-10-02 first attempt: both branches were clean and committed, but the local Docker/API/DB/LocalStack environment was unavailable. The CLI preflight produced no readiness result and was interrupted; T077 remained open and no actual Run was started at that point. See `validation.md`.
+T077~T079 retry after Docker restart: clean-source preflight READY; the one initial actual Run `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` ended `RESTORE_FAILED` / `INCONCLUSIVE` with A4~A7 FAIL. The sealed bundle VERIFIED and its source/result mapping is in `validation.md` and `traceability.md`. No child Run or remediation was started.
 
 ### Evidence-gated conditional product remediation
 

@@ -119,7 +119,7 @@ legacy cross-module suite 전체가 collection되는 것을 N-02 선행조건으
 ```powershell
 .\.venv\Scripts\python.exe -m engine.cli preflight N-02 `
   --profile N02_CONSENT_ORDER_V1 `
-  --target whyou-local `
+  --target whyyou-local `
   --json
 ```
 
@@ -144,7 +144,7 @@ subject row, marker와 event가 새로 생기면 계약 위반이므로 Run을 �
 ```powershell
 .\.venv\Scripts\python.exe -m engine.cli run N-02 `
   --profile N02_CONSENT_ORDER_V1 `
-  --target whyou-local `
+  --target whyyou-local `
   --label n02-initial `
   --json
 ```
@@ -184,7 +184,7 @@ Run 시작 직전부터 아래 `verify` 완료까지 경과시간을 측정한�
 
 ```powershell
 .\.venv\Scripts\python.exe -m engine.cli retest <parent-run-id> `
-  --target whyou-local `
+  --target whyyou-local `
   --label n02-after-fix `
   --json
 ```
