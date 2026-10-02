@@ -125,6 +125,38 @@ def test_missing_post_effect_is_inconclusive() -> None:
     assert judge_n02_bypass(baseline, tuple(changed))[1].status is AssertionStatus.INCONCLUSIVE
 
 
+def test_submitted_assessment_probe_without_target_outcome_is_inconclusive() -> None:
+    baseline, cases = _inputs()
+    changed = list(cases)
+    changed[2] = replace(
+        changed[2],
+        attempt=_attempt(
+            ProtectedPathId.AI_ASSESSMENT,
+            N02LaneId.ASSESSMENT_BOUNDARY_PROBE,
+            ProcessingResponseClass.SUBMITTED,
+        ),
+    )
+    assert judge_n02_bypass(baseline, tuple(changed))[3].status is AssertionStatus.INCONCLUSIVE
+
+
+def test_assessment_start_receipt_is_direct_fail_even_without_result() -> None:
+    baseline, cases = _inputs()
+    changed = list(cases)
+    changed[2] = replace(
+        changed[2],
+        attempt=_attempt(
+            ProtectedPathId.AI_ASSESSMENT,
+            N02LaneId.ASSESSMENT_BOUNDARY_PROBE,
+            ProcessingResponseClass.SUBMITTED,
+        ),
+        effects=_effect(
+            ProtectedPathId.AI_ASSESSMENT,
+            N02LaneId.ASSESSMENT_BOUNDARY_PROBE,
+        ).model_copy(update={"start_receipt_ids": ("receipt-1",)}),
+    )
+    assert judge_n02_bypass(baseline, tuple(changed))[3].status is AssertionStatus.FAIL
+
+
 def test_invalid_pristine_baseline_aborts_before_bypass_attempts() -> None:
     baseline, cases = _inputs()
     with pytest.raises(N02BaselinePreconditionError):

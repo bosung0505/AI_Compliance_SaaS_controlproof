@@ -166,6 +166,7 @@ class ProcessingEntryKind(StrEnum):
 
 class ProcessingResponseClass(StrEnum):
     ACCEPTED = "ACCEPTED"
+    SUBMITTED = "SUBMITTED"
     DENIED = "DENIED"
     ERROR = "ERROR"
     NO_RESPONSE = "NO_RESPONSE"
@@ -976,6 +977,7 @@ class ProtectedEffectSnapshot(FrozenModel):
     status_projection: dict[str, Any] = Field(default_factory=dict)
     baseline_effect_ids: tuple[str, ...] = ()
     fixture_effect_ids: tuple[str, ...] = ()
+    probe_input_effect_ids: tuple[str, ...] = ()
     current_effect_ids: tuple[str, ...] = ()
     new_effect_ids: tuple[str, ...] = ()
     source_status: Presence
@@ -997,13 +999,18 @@ class ProtectedEffectSnapshot(FrozenModel):
             return self
         if self.source_error_code is not None:
             raise ValueError("only UNAVAILABLE effect source may have error code")
-        expected = set(self.current_effect_ids) - set(self.baseline_effect_ids) - set(
-            self.fixture_effect_ids
+        expected = (
+            set(self.current_effect_ids)
+            - set(self.baseline_effect_ids)
+            - set(self.fixture_effect_ids)
+            - set(self.probe_input_effect_ids)
         )
         if set(self.new_effect_ids) != expected:
             raise ValueError("new effect IDs must equal the canonical delta")
         if not set(self.fixture_effect_ids) <= set(self.current_effect_ids):
             raise ValueError("fixture effects must remain present in current projection")
+        if not set(self.probe_input_effect_ids) <= set(self.current_effect_ids):
+            raise ValueError("probe inputs must remain present in current projection")
         if self.source_status is Presence.ABSENT and any(
             (self.current_effect_ids, self.new_effect_ids)
         ):
@@ -1027,6 +1034,7 @@ class ProcessingAttemptReceipt(FrozenModel):
     response_class: ProcessingResponseClass
     status_code: int | None = None
     sanitized_reason_code: str | None = None
+    probe_input_effect_id: str | None = None
     source_ref: str
 
     @model_validator(mode="after")
@@ -1175,6 +1183,10 @@ class RecoveryRecord(FrozenModel):
     marker_removed: bool
     consumed_token_removed: bool
     hook_inactive: bool
+    condition_cleanup_succeeded: bool | None = None
+    safe_state_confirmed: bool | None = None
+    retry_commit_code: str | None = None
+    retry_target_reason_code: str | None = None
     failed_request_effects_zero: bool | None
     normal_retry_succeeded: bool | None
     logical_consent_count: int | None = Field(default=None, ge=0)

@@ -3,8 +3,11 @@
 from __future__ import annotations
 
 import hashlib
+import json
 import os
+from datetime import UTC, datetime
 from pathlib import Path
+from uuid import UUID
 
 from sqlalchemy import create_engine, text
 
@@ -184,7 +187,7 @@ class WhyYouCapabilityProbe:
                         "the exact three protected paths are not mapped",
                         "map document, recording and assessment boundaries",
                     )
-                return _ready(capability, "the exact three protected paths are mapped")
+                return self._n02_worker_isolation(capability)
             if capability == "processing.document.attempt":
                 if self.n02_processing is None:
                     return _not_ready(
@@ -461,6 +464,79 @@ class WhyYouCapabilityProbe:
                 "activate the allowed fixed fixture without external-model fallback",
             )
         return _ready(capability, "deterministic model fixture ID and digest match")
+
+    def _n02_worker_isolation(self, capability: str) -> CapabilityProbeResult:
+        action = "restart the isolated local worker pool with matching loopback AI endpoints"
+        if not self.settings.model_substitute_enabled or self.settings.external_ai_allowed:
+            return _not_ready(capability, "N-02 external AI isolation is disabled", action)
+        try:
+            response = self.client.http.get("/internal/controlproof/health")
+            health = response.json() if response.status_code == 200 else {}
+            digest = health.get("ai_isolation_digest")
+            if (
+                health.get("external_ai_isolated") is not True
+                or health.get("model_substitute_enabled") is not True
+                or health.get("fixture_id") != self.settings.model_fixture_id
+                or health.get("fixture_digest") != self.settings.model_fixture_digest
+                or not isinstance(digest, str)
+                or len(digest) != 64
+                or any(character not in "0123456789abcdef" for character in digest)
+            ):
+                return _not_ready(capability, "API AI isolation proof is missing or mismatched", action)
+            root = self.settings.observer_root.resolve()
+            session = json.loads((root / "worker-session.json").read_text(encoding="utf-8"))
+            session_id = str(UUID(str(session["session_id"])))
+            launcher_pid = session["launcher_pid"]
+            worker_pids = session["worker_pids"]
+            if (
+                session.get("schema_version") != "controlproof.n02-worker-session.v1"
+                or session.get("ai_isolation_digest") != digest
+                or type(launcher_pid) is not int
+                or launcher_pid < 1
+                or not isinstance(worker_pids, list)
+                or not 1 <= len(worker_pids) <= 16
+                or session.get("expected_worker_count") != len(worker_pids)
+                or any(type(pid) is not int or pid < 1 for pid in worker_pids)
+                or len(set(worker_pids)) != len(worker_pids)
+                or not _fresh_heartbeat(session.get("heartbeat_at"), max_age_seconds=5)
+            ):
+                return _not_ready(capability, "worker pool proof is missing or stale", action)
+            directory = root / "worker-attestations"
+            for pid in worker_pids:
+                proof = json.loads(
+                    (directory / f"{session_id}-{pid}.json").read_text(encoding="utf-8")
+                )
+                if (
+                    proof.get("schema_version") != "controlproof.n02-worker-attestation.v1"
+                    or proof.get("session_id") != session_id
+                    or proof.get("launcher_pid") != launcher_pid
+                    or proof.get("worker_pid") != pid
+                    or proof.get("ai_isolation_digest") != digest
+                    or not _fresh_heartbeat(proof.get("heartbeat_at"), max_age_seconds=30)
+                ):
+                    return _not_ready(capability, "worker AI isolation proof is mismatched or stale", action)
+            for path in directory.glob("*.json"):
+                if path.name in {f"{session_id}-{pid}.json" for pid in worker_pids}:
+                    continue
+                other = json.loads(path.read_text(encoding="utf-8"))
+                if _fresh_heartbeat(other.get("heartbeat_at"), max_age_seconds=30):
+                    return _not_ready(capability, "an unmanaged worker attestation is active", action)
+        except (OSError, ValueError, KeyError, TypeError, AttributeError):
+            return _not_ready(capability, "worker AI isolation proof is unavailable", action)
+        return _ready(capability, "API and all managed workers attest the same local AI isolation")
+
+
+def _fresh_heartbeat(value: object, *, max_age_seconds: int) -> bool:
+    if not isinstance(value, str):
+        return False
+    try:
+        moment = datetime.fromisoformat(value)
+        if moment.tzinfo is None:
+            return False
+        age = (datetime.now(UTC) - moment).total_seconds()
+    except ValueError:
+        return False
+    return -2 <= age <= max_age_seconds
 
 
 def _ready(capability: str, detail: str) -> CapabilityProbeResult:

@@ -29,6 +29,26 @@ from engine.models import (
 
 _CONSENT_NAMESPACE = UUID("891f416c-f6ef-59bb-b92e-e63334418760")
 
+_TARGET_REJECTION_REASONS = {
+    "all required consent purposes must be accepted": "REQUIRED_PURPOSES_MISSING",
+    "consent policy version or digest is stale": "CONSENT_POLICY_STALE",
+    "stale invitation version": "INVITATION_VERSION_STALE",
+}
+
+
+def _target_rejection_reason(response: httpx.Response) -> str:
+    """Return only known, non-sensitive WhyYou reasons; never retain response text."""
+    try:
+        body = response.json()
+    except (ValueError, UnicodeError):
+        return "UNRECOGNIZED_REJECTION"
+    detail = body.get("detail") if isinstance(body, dict) else None
+    if not isinstance(detail, str):
+        return "UNRECOGNIZED_REJECTION"
+    if detail.startswith("cannot transition invitation from "):
+        return "INVITATION_TRANSITION_REJECTED"
+    return _TARGET_REJECTION_REASONS.get(detail, "UNRECOGNIZED_REJECTION")
+
 
 class WhyYouConsentAdapter:
     """Collect only the identifiers needed to prove the consent transaction."""
@@ -139,9 +159,10 @@ class WhyYouConsentAdapter:
                 detail=type(exc).__name__,
             )
         if not 200 <= response.status_code < 300:
+            target_reason_code = _target_rejection_reason(response)
             code = (
                 "CONSENT_POLICY_MISMATCH"
-                if response.status_code in {409, 422}
+                if target_reason_code in {"CONSENT_POLICY_STALE", "REQUIRED_PURPOSES_MISSING"}
                 else "CONSENT_COMMIT_REJECTED"
             )
             return AdapterResult(
@@ -151,6 +172,7 @@ class WhyYouConsentAdapter:
                     "status_code": response.status_code,
                     "durable_state": "NOT_COMMITTED",
                     "request_id": request_id,
+                    "target_reason_code": target_reason_code,
                 },
             )
         try:

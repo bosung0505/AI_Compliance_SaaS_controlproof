@@ -9,7 +9,8 @@ from uuid import uuid4
 from engine import cli
 from engine.evidence import verify_bundle
 from engine.models import sha256_bytes
-from tests.integration.test_n02_retest_lineage import _prepare, _runner
+from tests.fixtures.fake_adapters import FakeN02Adapters
+from tests.integration.test_n02_retest_lineage import _confirmed_cleanup, _prepare, _runner
 
 
 def _bytes_by_path(bundle):
@@ -66,3 +67,25 @@ def test_n02_cli_retest_dispatches_to_new_child_bundle(tmp_path, monkeypatch, ca
     assert output["parent_run_id"] == str(parent.run_id)
     assert output["run_id"] != str(parent.run_id)
     assert verify_bundle(tmp_path / output["run_id"])["bundle_status"] == "VERIFIED"
+
+
+def test_n02_cli_retest_uses_cleanup_evidence_for_restored_parent(tmp_path, monkeypatch, capsys):
+    parent_runner = _runner(tmp_path, n02=FakeN02Adapters(restore_succeeded=False))
+    parent, _, parent_bundle = parent_runner.execute(parent_runner.preflight("whyyou-local"))
+    evidence = _confirmed_cleanup(tmp_path, parent)
+    child_runner = _runner(tmp_path)
+    monkeypatch.setattr(cli, "_settings", lambda _args: SimpleNamespace(run_root=tmp_path))
+    monkeypatch.setattr(cli, "create_runtime", lambda _settings, _path: child_runner)
+
+    code = cli.main([
+        "retest", str(parent_bundle), "--target", "whyyou-local",
+        "--cleanup-evidence", str(evidence), "--json",
+    ])
+    output = json.loads(capsys.readouterr().out)
+
+    assert code == 0
+    assert output["parent_run_id"] == str(parent.run_id)
+    child_bundle = tmp_path / output["run_id"]
+    assert verify_bundle(child_bundle)["bundle_status"] == "VERIFIED"
+    link = json.loads((child_bundle / "retest-link.json").read_text(encoding="utf-8"))
+    assert link["cleanup_confirmation"]["blocked_run_id"] == str(parent.run_id)

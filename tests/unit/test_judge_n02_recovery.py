@@ -12,6 +12,7 @@ from engine.models import (
     N02LaneId,
     Phase,
     Presence,
+    ProcessingResponseClass,
     ProtectedPathId,
     RecoveryRecord,
     RecoveryStatus,
@@ -128,6 +129,27 @@ def test_partial_consent_and_protected_effect_leakage_are_direct_failures() -> N
     )
     assert partial_a6.status is AssertionStatus.FAIL
     assert leaked_a6.status is AssertionStatus.FAIL
+
+
+def test_submitted_assessment_probe_requires_target_outcome_for_a6_fail() -> None:
+    failure, run_id = _facts()
+    submitted = failure.attempts[2].model_copy(
+        update={"response_class": ProcessingResponseClass.SUBMITTED}
+    )
+    attempts = (*failure.attempts[:2], submitted)
+    unresolved, _ = judge_n02_fault_recovery(
+        replace(failure, attempts=attempts), _recovery(run_id), _order()
+    )
+    started = failure.effects[2].model_copy(
+        update={"start_receipt_ids": ("target-start-1",)}
+    )
+    direct, _ = judge_n02_fault_recovery(
+        replace(failure, attempts=attempts, effects=(*failure.effects[:2], started)),
+        _recovery(run_id),
+        _order(),
+    )
+    assert unresolved.status is AssertionStatus.INCONCLUSIVE
+    assert direct.status is AssertionStatus.FAIL
 
 
 def test_overlay_residue_and_restore_failure_require_manual_cleanup() -> None:

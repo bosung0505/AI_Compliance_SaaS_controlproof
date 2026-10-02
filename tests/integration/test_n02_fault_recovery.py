@@ -52,6 +52,9 @@ def test_faulted_consent_rolls_back_blocks_three_paths_then_recovers_same_subjec
     assert result.recovery.logical_consent_count == 1
     assert result.recovery.consent_completed_event_count == 1
     assert result.recovery.processing_order_proven is True
+    assert result.recovery.condition_cleanup_succeeded is True
+    assert result.recovery.safe_state_confirmed is True
+    assert result.recovery.retry_commit_code == "CONSENT_COMMITTED"
     assert result.recovered_order is not None
     assert result.recovered_order.status is AssertionStatus.PASS
     assert [item.status for item in result.assertions] == [
@@ -78,6 +81,8 @@ def test_restore_failure_prevents_retry_and_requires_manual_cleanup(tmp_path) ->
     a6, a7 = result.assertions
     assert result.recovery.restore_status is RecoveryStatus.FAILED
     assert result.recovery.manual_cleanup_required is True
+    assert result.recovery.condition_cleanup_succeeded is False
+    assert result.recovery.safe_state_confirmed is None
     assert result.recovered_order is None
     assert a6.status is AssertionStatus.INCONCLUSIVE
     assert a7.status is AssertionStatus.INCONCLUSIVE

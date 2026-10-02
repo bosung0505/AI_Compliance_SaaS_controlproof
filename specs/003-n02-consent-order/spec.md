@@ -390,6 +390,25 @@ fixture를 각각 판정해 예상 결과·사유·증적 연결과 미검증 �
 
 ### N-02 Assertion Contract
 
+#### Post-T078 evidence provenance clarification (2026-10-02)
+
+The sealed initial Run `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` is immutable. A
+ControlProof-inserted `report.generation_requested` outbox row is the assessment
+probe input, not by itself a WhyYou acceptance, processing start or result. A4/A6
+direct effects require a separately observed target boundary/start/result or a
+target-created durable effect. Mere worker handler entry before an authorization
+decision does not establish assessment start. If the target outcome is unavailable,
+the corrected evidence contract yields `INCONCLUSIVE`, preserving the parent
+verdict as a historical result with its documented runner provenance defect.
+
+For A5/A6, preserve a bounded, allowlisted reason code for a rejected consent
+HTTP response; do not seal raw response bodies, credentials or personal data.
+For A7, record condition removal, safe-state check and normal retry separately
+while retaining the existing `RESTORE_FAILED` precedence and persistent block
+until independently confirmed safe. Any later Run uses a new Run ID and links
+the original parent; a changed evidence interpretation must be visible in that
+lineage rather than applied retrospectively to the parent.
+
 | Assertion ID | 반드시 확인할 질문 | PASS 조건 | 직접 FAIL 조건 |
 |---|---|---|---|
 | N02-A1 | pristine 미동의 기준선이 맞는가 | 동의 사실·완료 상태·보호 대상 효과가 모두 없음 | pristine lane에 이미 동의 또는 처리 효과가 있으면 Run 전제 실패로 종료 |

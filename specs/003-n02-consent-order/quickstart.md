@@ -139,6 +139,13 @@ subject row, marker와 event가 새로 생기면 계약 위반이므로 Run을 �
 
 `RUNNER_NOT_READY`는 WhyYou FAIL이 아니다. 빠진 adapter/hook/fixture를 구현한 뒤 preflight를 다시 한다.
 
+원본 로컬 DB에 미처리 outbox 이벤트가 남아 있다면 그 DB에 작업자를 바로 연결하지 않는다. 새로 마이그레이션한
+로컬 DB와 전용 LocalStack 큐를 준비하고 API·모든 작업자·ControlProof가 같은 process-local 설정과
+observer root를 사용하게 한다. WhyYou의 실행 중인 worker lock 같은 `.controlproof/` 생성 파일은
+Git 대상 스냅샷의 미추적 파일 읽기를 방해할 수 있으므로 checkout 밖에 두거나 로컬 Git 제외 설정으로
+분리한다. 이 조치는 추적 중인 소스 변경을 clean으로 만들지 않는다. 두 저장소의 실제 source gate가
+clean일 때 새 preflight의 `READY`를 확인해야 한다.
+
 ## 7. 최초 actual Run
 
 ```powershell
@@ -185,6 +192,7 @@ Run 시작 직전부터 아래 `verify` 완료까지 경과시간을 측정한�
 ```powershell
 .\.venv\Scripts\python.exe -m engine.cli retest <parent-run-id> `
   --target whyyou-local `
+  --cleanup-evidence <n02-cleanup-evidence.json> `
   --label n02-after-fix `
   --json
 ```
@@ -200,11 +208,17 @@ parent manifest digest는 수정 전과 같아야 한다. child의 target snapsh
 ## 9. Restore failure
 
 Run state가 `RESTORE_FAILED`이거나 exit 6이면 새 fault Run을 실행하지 않는다. 먼저 show 결과의
-marker/subject와 operator action을 확인한다. 자동 복구를 다시 시도해 안전 상태가 확인된 경우에만 기존
-`cleanup-confirm` 계약을 사용한다.
+marker/subject와 operator action을 확인한다. N-02 대상의 marker/token 및 동의·처리 효과가 없는지
+읽기 전용으로 확인하고, 해당 부모 Run·lane과 일치하는 증거로 `cleanup-confirm`을 실행한다. 이후
+자식 retest에는 같은 증거 파일을 `--cleanup-evidence`로 전달한다. 파일 내용의 SHA-256이 정비 기록과
+다르거나 새 차단 파일이 있으면 retest가 거부된다.
 
 ```powershell
-.\.venv\Scripts\python.exe -m engine.cli cleanup-confirm <run-id> --json
+.\.venv\Scripts\python.exe -m engine.cli cleanup-confirm `
+  --target whyyou-local `
+  --subject n02-consent-order `
+  --evidence <n02-cleanup-evidence.json> `
+  --json
 ```
 
 marker를 수동으로 지울 때는 current Run과 invitation ID 및 resolved fault root를 확인해야 한다. 넓은

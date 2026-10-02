@@ -1,7 +1,10 @@
 from __future__ import annotations
 
 import hashlib
+import json
+from datetime import UTC, datetime, timedelta
 from types import SimpleNamespace
+from uuid import uuid4
 
 import playwright.sync_api
 
@@ -53,6 +56,7 @@ def _settings(tmp_path):
             "WHYYOU_REPO_PATH": str(tmp_path),
             "CONTROLPROOF_RUN_ROOT": str(tmp_path / "runs"),
             "CONTROLPROOF_FAULT_ROOT": str(tmp_path / "faults"),
+            "CONTROLPROOF_OBSERVER_ROOT": str(tmp_path / "observers"),
             "CONTROLPROOF_TEST_HOOKS_ENABLED": "true",
             "CONTROLPROOF_MODEL_SUBSTITUTE_ENABLED": "true",
             "CONTROLPROOF_MODEL_FIXTURE_ID": "h03-report-v1",
@@ -175,6 +179,86 @@ def test_model_digest_mismatch_is_runner_not_ready(tmp_path):
     )
     assert result.status is ReadinessStatus.RUNNER_NOT_READY
     assert result.operator_action
+
+
+def test_n02_processing_preflight_requires_active_worker_isolation_proof(tmp_path):
+    settings = _settings(tmp_path)
+    probe = WhyYouCapabilityProbe(
+        settings,
+        _client(Http(set())),
+        n02_processing=SimpleNamespace(paths=lambda: (object(), object(), object())),
+    )
+    result = probe.probe("processing.paths.read")
+    assert result.status is ReadinessStatus.RUNNER_NOT_READY
+    assert "worker" in result.detail.lower() or "isolation" in result.detail.lower()
+
+
+def _n02_worker_proof(settings, *, stale_pid=None, extra_worker=False):
+    digest = "a" * 64
+    session_id = str(uuid4())
+    now = datetime.now(UTC)
+    root = settings.observer_root
+    root.mkdir(parents=True)
+    directory = root / "worker-attestations"
+    directory.mkdir()
+    session = {
+        "schema_version": "controlproof.n02-worker-session.v1",
+        "session_id": session_id,
+        "launcher_pid": 1234,
+        "expected_worker_count": 2,
+        "worker_pids": [2345, 3456],
+        "ai_isolation_digest": digest,
+        "heartbeat_at": now.isoformat(),
+    }
+    (root / "worker-session.json").write_text(json.dumps(session), encoding="utf-8")
+    for pid in session["worker_pids"] + ([4567] if extra_worker else []):
+        proof = {
+            "schema_version": "controlproof.n02-worker-attestation.v1",
+            "session_id": session_id if pid != 4567 else str(uuid4()),
+            "launcher_pid": 1234,
+            "worker_pid": pid,
+            "ai_isolation_digest": digest,
+            "heartbeat_at": (
+                now - timedelta(minutes=2) if pid == stale_pid else now
+            ).isoformat(),
+        }
+        (directory / f"{proof['session_id']}-{pid}.json").write_text(
+            json.dumps(proof), encoding="utf-8"
+        )
+    health = {
+        "external_ai_isolated": True,
+        "model_substitute_enabled": True,
+        "fixture_id": settings.model_fixture_id,
+        "fixture_digest": settings.model_fixture_digest,
+        "ai_isolation_digest": digest,
+    }
+    return health
+
+
+def test_n02_processing_preflight_requires_each_current_worker_proof(tmp_path):
+    settings = _settings(tmp_path)
+    health = _n02_worker_proof(settings)
+    probe = WhyYouCapabilityProbe(
+        settings,
+        _client(Http(set(), health)),
+        n02_processing=SimpleNamespace(paths=lambda: (object(), object(), object())),
+    )
+    assert probe.probe("processing.paths.read").status is ReadinessStatus.READY
+
+    path = settings.observer_root / "worker-attestations"
+    (path / next(item.name for item in path.glob("*-3456.json"))).unlink()
+    assert probe.probe("processing.paths.read").status is ReadinessStatus.RUNNER_NOT_READY
+
+
+def test_n02_processing_preflight_rejects_stale_or_extra_worker(tmp_path):
+    settings = _settings(tmp_path)
+    health = _n02_worker_proof(settings, stale_pid=3456, extra_worker=True)
+    probe = WhyYouCapabilityProbe(
+        settings,
+        _client(Http(set(), health)),
+        n02_processing=SimpleNamespace(paths=lambda: (object(), object(), object())),
+    )
+    assert probe.probe("processing.paths.read").status is ReadinessStatus.RUNNER_NOT_READY
 
 
 def test_schema_snapshot_database_mapping_and_chromium_are_probed(

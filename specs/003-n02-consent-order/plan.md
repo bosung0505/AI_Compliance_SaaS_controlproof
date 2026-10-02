@@ -189,6 +189,20 @@ observer receipt 기록·flush가 실패해도 WhyYou product transaction은 계
 
 ### Conditional remediation gate
 
+Post-T078 evidence correction: the initial bundle remains immutable. The direct
+assessment outbox insert is a probe input; its database acknowledgement is not
+the report handler's consent decision. Add an observer boundary after the
+existing fault hook and before the first report read, then seal its
+Run/lane/subject/event-linked receipt with the attempt and effect evidence.
+Any later consent guard must execute before this start receipt. Treat handler
+entry alone as diagnostic. If the authorization outcome or effect
+source is unavailable, report insufficient evidence. Preserve only allowlisted
+consent rejection reasons and separate restore cleanup from retry/order facts.
+Use scoped RED-to-green contracts before applying any target product guard.
+The evidence correction may touch the adapters, model, judge, executor, bundle
+verifier and local/test observer files listed in T080-E1; it does not alter the
+historical parent or authorize a child Run while the restore block remains.
+
 instrumentation·seed·adapter는 첫 Run 전에 구현할 수 있다. 아래 제품 보호조치는 첫 actual FAIL을 봉인한
 뒤에만 구현한다.
 

@@ -270,9 +270,14 @@ class N02Executor:
         policy = {
             "policy": us2.policy.model_dump(mode="json"),
             "consent": us2.consent_state.model_dump(mode="json"),
+            "normal_commit": _commit_evidence(us2.commit),
             "failed_request_id": us3.failed_commit.data.get("request_id"),
+            "failed_commit": _commit_evidence(us3.failed_commit),
             "failed_state": us3.failed_state.model_dump(mode="json"),
         }
+        observer_rows = _collect_n02_observer_rows(
+            self.adapters.n02_observer, active_run_id, us1.lanes
+        )
         if retest_records is not None:
             finalize_n02_retest_records(
                 retest_records,
@@ -337,7 +342,9 @@ class N02Executor:
             ("recovery.json", us3.recovery.model_dump(mode="json")),
         ):
             writer.write_json(name, value, redact_first=False)
-        _write_n02_rows(writer, us1, us2, us3)
+        _write_n02_rows(writer, us1, us2, us3, observer_rows)
+        if observer_rows:
+            writer.link_file_evidence("EV3-05", "observations.jsonl")
         if retest_records is not None:
             writer.write_json("retest-link.json", retest_records["link"], redact_first=False)
             writer.write_json("retest-diff.json", retest_records["diff"], redact_first=False)
@@ -597,6 +604,7 @@ class N02Executor:
             recovered_order: AssertionResult | None = None
             recovered_state = failed_state
             retry_commit = AdapterResult(False, "RECOVERY_RETRY_NOT_ATTEMPTED")
+            safe_state_confirmed: bool | None = None
             if restore.ok:
                 attempt_rows = []
                 effect_rows = []
@@ -655,6 +663,7 @@ class N02Executor:
                     raise N02ExecutionError(
                         "N-02 safe-state verification failed before retry"
                     )
+                safe_state_confirmed = True
                 retry_commit = consent.commit(
                     subject=subject,
                     policy=policy,
@@ -740,6 +749,10 @@ class N02Executor:
                     restore_data.get("consumed_token_removed")
                 ),
                 hook_inactive=bool(restore_data.get("hook_inactive")),
+                condition_cleanup_succeeded=restore.ok and overlay_cleanup_succeeded,
+                safe_state_confirmed=safe_state_confirmed,
+                retry_commit_code=retry_commit.code,
+                retry_target_reason_code=retry_commit.data.get("target_reason_code"),
                 failed_request_effects_zero=failed_zero if restore.ok else None,
                 normal_retry_succeeded=(
                     _durable_consent_matches(policy, recovered_state)
@@ -802,11 +815,12 @@ def _write_n02_rows(
     us1: N02BypassSliceResult,
     us2: N02NormalOrderSliceResult,
     us3: N02FaultRecoverySliceResult,
+    observer_rows: tuple[dict[str, str], ...] = (),
 ) -> None:
     """Write every canonical stream, including legitimately empty streams."""
     streams = {
         "faults.jsonl": [],
-        "observations.jsonl": [],
+        "observations.jsonl": list(observer_rows),
         "baseline-effects.jsonl": list(us1.baseline),
         "bypass-attempts.jsonl": [
             *(case.attempt for case in us1.cases),
@@ -827,7 +841,75 @@ def _write_n02_rows(
             writer.write_bytes(name, b"", "application/x-ndjson")
             continue
         for row in rows:
-            writer.append_jsonl(name, row.model_dump(mode="json"))
+            writer.append_jsonl(
+                name, row.model_dump(mode="json") if hasattr(row, "model_dump") else row
+            )
+
+
+def _commit_evidence(result: AdapterResult) -> dict[str, Any]:
+    return {
+        "code": result.code,
+        "ok": result.ok,
+        "request_id": result.data.get("request_id"),
+        "status_code": result.data.get("status_code"),
+        "target_reason_code": result.data.get("target_reason_code"),
+    }
+
+
+def _collect_n02_observer_rows(
+    observer: Any, run_id: UUID, lanes: tuple[RunSubjectLane, ...]
+) -> tuple[dict[str, str], ...]:
+    if observer is None:
+        return ()
+    rows: list[dict[str, str]] = []
+    for lane in lanes:
+        observed = observer.read_processing_receipts(
+            run_id=str(run_id),
+            lane_id=lane.lane_id.value,
+            subject_ref=lane.subject_ref,
+        )
+        if not observed.ok:
+            continue
+        for item in observed.data.get("receipts", ()):
+            if not isinstance(item, dict):
+                continue
+            try:
+                if (
+                    item.get("run_id") != str(run_id)
+                    or item.get("lane_id") != lane.lane_id.value
+                    or item.get("subject_ref") != lane.subject_ref
+                    or item.get("path_id") not in {path.value for path in ProtectedPathId}
+                    or item.get("boundary") not in {
+                        "ANALYSIS_HANDLER_ENTERED",
+                        "INTERVIEW_SESSION_CREATED",
+                        "INTERVIEW_SESSION_STARTED",
+                        "RECORDING_CONFIRMED",
+                        "REPORT_HANDLER_ENTERED",
+                        "REPORT_ASSESSMENT_STARTED",
+                    }
+                ):
+                    continue
+                receipt_id = str(UUID(str(item["receipt_id"])))
+                event_id = str(UUID(str(item["request_or_event_id"])))
+                observed_at = str(item["observed_at"])
+                trace_digest = str(item["trace_id_digest"])
+                if len(trace_digest) != 64 or any(c not in "0123456789abcdef" for c in trace_digest):
+                    continue
+            except (KeyError, TypeError, ValueError):
+                continue
+            rows.append({
+                "schema_version": "controlproof.whyyou-processing-receipt.v1",
+                "receipt_id": receipt_id,
+                "run_id": str(run_id),
+                "lane_id": lane.lane_id.value,
+                "subject_ref": lane.subject_ref,
+                "path_id": str(item["path_id"]),
+                "boundary": str(item["boundary"]),
+                "request_or_event_id": event_id,
+                "trace_id_digest": trace_digest,
+                "observed_at": observed_at,
+            })
+    return tuple(rows)
 
 
 def _subject(seed: Any, run_id: str, lane: RunSubjectLane) -> dict[str, Any]:

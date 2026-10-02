@@ -64,6 +64,7 @@ def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]
     n02_fault = WhyYouConsentFaultAdapter(
         settings,
         consent_adapter=n02_consent,
+        processing_adapter=n02_processing,
     )
     capability = WhyYouCapabilityProbe(
         settings,

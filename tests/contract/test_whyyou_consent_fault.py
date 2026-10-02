@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 from datetime import timedelta
+from types import SimpleNamespace
 from uuid import uuid4
 
 from engine.adapters.base import AdapterResult
@@ -166,3 +167,33 @@ def test_foreign_marker_is_never_deleted_and_requires_manual_cleanup(settings) -
     assert result.code == "CONSENT_FAULT_FOREIGN_MARKER"
     assert result.data["manual_cleanup_required"] is True
     assert marker_path.exists()
+
+
+def test_n02_cleanup_safe_probe_requires_zero_consent_document_effects_and_no_fault_files(settings) -> None:
+    subject = _subject()
+    effects = SimpleNamespace(source_status=Presence.ABSENT, current_effect_ids=())
+    processing = SimpleNamespace(read_effects=lambda **_kwargs: effects)
+    adapter = WhyYouConsentFaultAdapter(
+        settings,
+        consent_adapter=_AbsentConsent(),
+        processing_adapter=processing,
+        cleanup_counts_reader=lambda _subject: {"consent_records": 0, "invitation_events": 0},
+    )
+    assert adapter.target_safe(subject=subject) is True
+    marker = settings.fault_root / "consent" / f"{subject['invitation_id']}.json"
+    marker.parent.mkdir(parents=True)
+    marker.write_text("{}", encoding="utf-8")
+    assert adapter.target_safe(subject=subject) is False
+    marker.unlink()
+    token = settings.fault_root / "consumed" / f"{subject['run_id']}-{subject['invitation_id']}.consent"
+    token.parent.mkdir(parents=True)
+    token.write_text("consumed", encoding="utf-8")
+    assert adapter.target_safe(subject=subject) is False
+    token.unlink()
+    effects.current_effect_ids = ("upload:unexpected",)
+    assert adapter.target_safe(subject=subject) is False
+    effects.current_effect_ids = ()
+    adapter.cleanup_counts_reader = lambda _subject: {"consent_records": 1, "invitation_events": 0}
+    assert adapter.target_safe(subject=subject) is False
+    adapter.cleanup_counts_reader = lambda _subject: (_ for _ in ()).throw(ValueError("unavailable"))
+    assert adapter.target_safe(subject=subject) is False

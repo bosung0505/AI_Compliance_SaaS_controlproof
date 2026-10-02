@@ -108,6 +108,63 @@ def test_commit_timeout_is_unknown_until_durable_state_is_read(settings) -> None
     assert result.data["durable_state"] == "UNKNOWN"
 
 
+def test_rejected_commit_preserves_only_allowlisted_target_reason(settings) -> None:
+    subject = _subject()
+    credentials = N02CredentialStore()
+    credentials.put(subject["subject_ref"], "raw-secret-cookie")
+    from tests.fixtures.fake_adapters import FakeN02Adapters
+
+    policy = FakeN02Adapters().read_policy(subject=subject)
+    adapter = WhyYouConsentAdapter(
+        settings,
+        http_client=_client(
+            settings,
+            lambda _request: httpx.Response(
+                422,
+                json={"detail": "cannot transition invitation from identity_verified to consented"},
+            ),
+        ),
+        credentials=credentials,
+    )
+    result = adapter.commit(
+        subject=subject,
+        policy=policy,
+        request_id="consent-command-0003",
+        trace_id="controlproof:trace",
+    )
+    assert result.data["status_code"] == 422
+    assert result.data["target_reason_code"] == "INVITATION_TRANSITION_REJECTED"
+    assert "identity_verified" not in str(result.data)
+    assert "raw-secret-cookie" not in str(result.data)
+
+
+def test_unknown_rejection_does_not_seal_raw_response(settings) -> None:
+    subject = _subject()
+    credentials = N02CredentialStore()
+    credentials.put(subject["subject_ref"], "cookie")
+    from tests.fixtures.fake_adapters import FakeN02Adapters
+
+    adapter = WhyYouConsentAdapter(
+        settings,
+        http_client=_client(
+            settings,
+            lambda _request: httpx.Response(
+                422,
+                json={"detail": "private applicant@example.com"},
+            ),
+        ),
+        credentials=credentials,
+    )
+    result = adapter.commit(
+        subject=subject,
+        policy=FakeN02Adapters().read_policy(subject=subject),
+        request_id="consent-command-0004",
+        trace_id="controlproof:trace",
+    )
+    assert result.data["target_reason_code"] == "UNRECOGNIZED_REJECTION"
+    assert "applicant@example.com" not in str(result.data)
+
+
 def test_state_projection_distinguishes_successful_empty_from_unavailable(settings) -> None:
     subject = _subject()
     empty = WhyYouConsentAdapter(

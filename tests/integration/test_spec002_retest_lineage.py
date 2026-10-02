@@ -6,6 +6,7 @@ from uuid import uuid4
 import pytest
 
 from engine.evidence import verify_bundle
+from engine.lifecycle import RestoreBlockStore
 from engine.models import ExecutionProfile
 from engine.retest import RetestError, assert_parent_unchanged, prepare_retest
 from engine.runner import build_profile_runner
@@ -71,6 +72,25 @@ def test_retest_rejects_restore_failed_parent(tmp_path):
     runner = _runner(tmp_path, dlq_presence="ABSENT", restore=False)
     parent, _, bundle = runner.execute(runner.preflight("whyyou-local"))
     assert parent.manual_cleanup_required is True
+    with pytest.raises(RetestError, match="safe cleanup"):
+        prepare_retest(
+            bundle,
+            child_run_id=uuid4(),
+            child_target=runner.preflight("whyyou-local").target_snapshot,
+            child_scenario_version=runner.scenario.version,
+            child_scenario_digest=runner.scenario.snapshot().digest,
+            child_profile=runner.scenario.execution_profile,
+            child_fault_variant=runner.scenario.fault_variant,
+            child_environment=runner.adapters.environment.capture_environment(),
+            child_queue=runner.adapters.queue.capture_topology(),
+        )
+    blocks = RestoreBlockStore(tmp_path)
+    block_path = next(blocks.root.glob("*.json"))
+    blocked = json.loads(block_path.read_text(encoding="utf-8"))
+    blocks.confirm_cleanup(
+        blocked["target_id"], blocked["subject_ref"],
+        evidence_sha256="a" * 64, target_safe=True,
+    )
     with pytest.raises(RetestError, match="safe cleanup"):
         prepare_retest(
             bundle,

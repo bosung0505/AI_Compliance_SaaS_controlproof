@@ -213,6 +213,23 @@ AI-assessment consent guard는 해당 경계의 FAIL bundle을 봉인한 뒤에�
 - source review 뒤 즉시 세 guard 추가: FAIL→PASS 계보가 사라진다.
 - 모든 경계를 무조건 수정: 중복 방어와 unintended behavior 위험이 있다.
 
+## R-013a. Post-T078 evidence provenance correction
+
+**Decision**: Correct the evidence contract before classifying A4~A7. The
+ControlProof-inserted report event is a probe input. Only a separate WhyYou
+authorization/processing boundary or target-created durable effect can support
+a direct target FAIL. An early handler-entry receipt is diagnostic and cannot
+alone prove assessment work started. Seal only allowlisted consent rejection
+codes; keep restore cleanup, safe-state and retry outcomes distinguishable.
+
+**Rationale**: The verified first Run contains an adapter-created report event,
+an uninformative 422 mapping, and a composite recovery failure. None should be
+silently promoted into a target-control root cause. The parent remains unchanged.
+
+**Alternatives rejected**: Treat the runner's inserted row as target acceptance;
+patch a WhyYou consent guard from source review alone; clear the restore block
+because marker removal succeeded; capture raw HTTP response bodies.
+
 ## R-014. DB migration과 웹 UI
 
 **Decision**: 기본 구현은 WhyYou DB migration과 ControlProof 웹 UI를 추가하지 않는다. 기존 row의

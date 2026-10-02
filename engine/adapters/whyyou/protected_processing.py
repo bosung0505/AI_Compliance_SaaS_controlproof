@@ -4,6 +4,7 @@ from __future__ import annotations
 
 import hashlib
 import json
+import time
 from collections.abc import Callable, Mapping
 from contextlib import AbstractContextManager
 from datetime import datetime
@@ -109,6 +110,7 @@ class WhyYouProtectedProcessingAdapter:
         self._transaction_factory = transaction_factory
         self._effect_reader = effect_reader or self._read_effect_projection
         self._baselines: dict[tuple[str, ProtectedPathId], tuple[str, ...]] = {}
+        self._probe_inputs: dict[tuple[str, ProtectedPathId], str] = {}
 
     def paths(self) -> tuple[ProtectedProcessingPath, ...]:
         return _PATHS
@@ -231,15 +233,20 @@ class WhyYouProtectedProcessingAdapter:
             return AdapterResult(
                 False, "N02_ASSESSMENT_EVENT_WRITE_FAILED", detail=type(exc).__name__
             )
+        probe_input_effect_id = f"event:{event_id}"
+        self._probe_inputs[(str(subject["subject_ref"]), ProtectedPathId.AI_ASSESSMENT)] = (
+            probe_input_effect_id
+        )
         return _attempt_receipt(
             path=ProtectedPathId.AI_ASSESSMENT,
             subject=subject,
             request_id=request_id,
             trace_id=trace_id,
             sent_at=sent_at,
-            response_class=ProcessingResponseClass.ACCEPTED,
+            response_class=ProcessingResponseClass.SUBMITTED,
             status_code=None,
-            reason="EVENT_PERSISTED",
+            reason="PROBE_INPUT_PERSISTED",
+            probe_input_effect_id=probe_input_effect_id,
         )
 
     def read_effects(
@@ -285,15 +292,54 @@ class WhyYouProtectedProcessingAdapter:
         if Phase(phase) is Phase.BASELINE:
             self._baselines[key] = current
         baseline = self._baselines.get(key, ())
-        new = tuple(sorted(set(current) - set(baseline) - set(fixtures)))
+        probe_input = self._probe_inputs.get(key)
+        probe_inputs = (
+            (probe_input,) if probe_input is not None and probe_input in current else ()
+        )
+        new = tuple(
+            sorted(set(current) - set(baseline) - set(fixtures) - set(probe_inputs))
+        )
         status = Presence.PRESENT if current else Presence.ABSENT
         status_projection = dict(projection.get("status_projection", {}))
+        start_receipt_ids: tuple[str, ...] = ()
+        if (
+            path is ProtectedPathId.AI_ASSESSMENT
+            and probe_input is not None
+            and self.settings.observer_enabled
+        ):
+            event_id = probe_input.removeprefix("event:")
+            deadline = time.monotonic() + 2.0
+            while True:
+                observed = self.read_processing_receipts(
+                    run_id=str(subject["run_id"]),
+                    lane_id=str(subject["lane_id"]),
+                    subject_ref=str(subject["subject_ref"]),
+                )
+                if not observed.ok:
+                    status_projection["observer_status"] = "UNAVAILABLE"
+                    break
+                start_receipt_ids = tuple(
+                    sorted(
+                        str(row["receipt_id"])
+                        for row in observed.data.get("receipts", ())
+                        if isinstance(row, dict)
+                        and row.get("path_id") == ProtectedPathId.AI_ASSESSMENT.value
+                        and row.get("boundary") == "REPORT_ASSESSMENT_STARTED"
+                        and row.get("request_or_event_id") == event_id
+                        and isinstance(row.get("receipt_id"), str)
+                    )
+                )
+                if start_receipt_ids or time.monotonic() >= deadline:
+                    break
+                time.sleep(0.05)
         digest = sha256_bytes(
             canonical_json_bytes(
                 {
                     "path_id": path.value,
                     "current": current,
                     "fixture": fixtures,
+                    "probe_input": probe_inputs,
+                    "start_receipts": start_receipt_ids,
                     "status_projection": status_projection,
                 }
             )
@@ -329,9 +375,11 @@ class WhyYouProtectedProcessingAdapter:
                     }[path]
                 )
             ),
+            start_receipt_ids=start_receipt_ids,
             status_projection=status_projection,
             baseline_effect_ids=baseline,
             fixture_effect_ids=fixtures,
+            probe_input_effect_ids=probe_inputs,
             current_effect_ids=current,
             new_effect_ids=new,
             source_status=status,
@@ -462,6 +510,7 @@ def _attempt_receipt(
     response_class: ProcessingResponseClass,
     status_code: int | None,
     reason: str,
+    probe_input_effect_id: str | None = None,
 ) -> ProcessingAttemptReceipt:
     entry = (
         ProcessingEntryKind.DOMAIN_EVENT
@@ -482,5 +531,6 @@ def _attempt_receipt(
         response_class=response_class,
         status_code=status_code,
         sanitized_reason_code=reason,
+        probe_input_effect_id=probe_input_effect_id,
         source_ref=f"whyyou:{path.value.casefold()}:v1",
     )

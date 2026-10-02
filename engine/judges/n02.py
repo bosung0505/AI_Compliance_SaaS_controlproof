@@ -222,6 +222,7 @@ def _judge_bypass_case(assertion_id: str, case: N02BypassCase) -> AssertionResul
     actual = {
         "response_class": case.attempt.response_class.value,
         "new_effect_ids": case.effects.new_effect_ids,
+        "start_receipt_ids": case.effects.start_receipt_ids,
         "source_status": case.effects.source_status.value,
     }
     if case.effects.source_status is Presence.UNAVAILABLE:
@@ -235,12 +236,23 @@ def _judge_bypass_case(assertion_id: str, case: N02BypassCase) -> AssertionResul
             detail="처리 후 효과 원장을 읽지 못해 차단 여부를 단정할 수 없습니다.",
             source_requirements=("EV3-04", "EV3-05"),
         )
-    if case.effects.new_effect_ids:
+    if case.effects.new_effect_ids or case.effects.start_receipt_ids:
         status = AssertionStatus.FAIL
-        detail = "동의 전 직접 시도 뒤 금지된 신규 처리 효과가 생성되었습니다."
+        detail = "동의 전 직접 시도 뒤 금지된 신규 처리 효과 또는 실제 처리 시작이 확인되었습니다."
     elif case.attempt.response_class is ProcessingResponseClass.DENIED:
         status = AssertionStatus.PASS
         detail = "동의 전 직접 시도가 거부되었고 신규 처리 효과도 없습니다."
+    elif case.attempt.response_class is ProcessingResponseClass.SUBMITTED:
+        return AssertionResult(
+            assertion_id=assertion_id,
+            subject_ref=case.attempt.subject_ref,
+            status=AssertionStatus.INCONCLUSIVE,
+            expected=expected,
+            actual=actual,
+            reason_code=InconclusiveReason.INSUFFICIENT_EVIDENCE,
+            detail="시험 입력은 제출됐지만 대상의 거부 또는 처리 시작 결과가 확인되지 않았습니다.",
+            source_requirements=("EV3-04", "EV3-05"),
+        )
     else:
         status = AssertionStatus.FAIL
         detail = "동의 전 직접 시도가 거부되지 않아 보호 경계가 열려 있습니다."
@@ -476,10 +488,22 @@ def judge_n02_fault_recovery(
     leaked_effects = tuple(
         effect_id for effect in failure.effects for effect_id in effect.new_effect_ids
     )
+    started_receipts = tuple(
+        receipt_id for effect in failure.effects for receipt_id in effect.start_receipt_ids
+    )
     accepted_paths = tuple(
         item.path_id.value
         for item in failure.attempts
-        if item.response_class is not ProcessingResponseClass.DENIED
+        if item.response_class is ProcessingResponseClass.ACCEPTED
+    )
+    unresolved_paths = tuple(
+        item.path_id.value
+        for item in failure.attempts
+        if item.response_class in {
+            ProcessingResponseClass.SUBMITTED,
+            ProcessingResponseClass.NO_RESPONSE,
+            ProcessingResponseClass.ERROR,
+        }
     )
     a6_actual = {
         "commit_code": failure.failed_commit.code,
@@ -494,9 +518,11 @@ def judge_n02_fault_recovery(
         "partial_consent": partial_consent,
         "accepted_paths": accepted_paths,
         "leaked_effect_ids": leaked_effects,
+        "started_receipt_ids": started_receipts,
+        "unresolved_paths": unresolved_paths,
         "overlay_cleanup_succeeded": failure.overlay_cleanup_succeeded,
     }
-    if partial_consent or leaked_effects or accepted_paths or failure.failed_commit.ok:
+    if partial_consent or leaked_effects or started_receipts or accepted_paths or failure.failed_commit.ok:
         a6 = AssertionResult(
             assertion_id="N02-A6",
             subject_ref=failure.consent_state.subject_ref,
@@ -515,6 +541,7 @@ def judge_n02_fault_recovery(
         or {item.path_id for item in failure.effects} != set(ProtectedPathId)
         or failure.consent_state.source_status is Presence.UNAVAILABLE
         or any(item.source_status is Presence.UNAVAILABLE for item in failure.effects)
+        or unresolved_paths
     ):
         a6 = AssertionResult(
             assertion_id="N02-A6",

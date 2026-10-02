@@ -45,6 +45,18 @@ retest child에는 기존 `retest-diff.json`도 필수다.
 | EV3-09 | recovery + recovered effects |
 | EV3-10 | assertion results + judgement + manifest, retest diff if child |
 
+Post-T078 additive evidence rule: a runner-inserted AI assessment outbox event is
+recorded in `bypass-attempts.jsonl` as `SUBMITTED` with a `probe_input_effect_id`.
+`protected-effects.jsonl` retains the row in `current_effect_ids` but excludes it
+from `new_effect_ids` and lists it under `probe_input_effect_ids`. A target
+`REPORT_ASSESSMENT_STARTED` receipt is stored in the existing
+`observations.jsonl` stream and cross-linked through `start_receipt_ids` by
+Run/lane/subject/path/event ID. The earlier sealed parent lacks these additive
+fields and remains verifiable. A missing start/deny/result signal cannot be
+promoted to PASS or target FAIL from the injected row alone. The consent
+response evidence includes only an allowlisted target reason code, status and
+request ID; recovery evidence distinguishes cleanup, safe state and retry.
+
 한 파일이 여러 EV3를 충족할 수 있으나 manifest reference는 각 EV3에서 독립적으로 검증한다.
 
 ## Cross-reference rules

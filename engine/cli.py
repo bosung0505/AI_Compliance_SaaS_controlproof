@@ -6,6 +6,7 @@ import argparse
 import hashlib
 import json
 import sys
+from datetime import UTC, datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID, uuid4
@@ -119,6 +120,7 @@ def _parser() -> argparse.ArgumentParser:
     retest.add_argument("--operator", default="local-operator")
     retest.add_argument("--run-root", type=Path)
     retest.add_argument("--scenario-file", type=Path)
+    retest.add_argument("--cleanup-evidence", type=Path)
     retest.add_argument("--json", action="store_true")
     retest.set_defaults(handler=_retest)
 
@@ -127,7 +129,7 @@ def _parser() -> argparse.ArgumentParser:
     cleanup.add_argument("--subject", required=True)
     cleanup.add_argument("--evidence", required=True, type=Path)
     cleanup.add_argument("--run-root", type=Path)
-    cleanup.add_argument("--scenario-file", type=Path, default=_default_scenario())
+    cleanup.add_argument("--scenario-file", type=Path)
     cleanup.add_argument("--json", action="store_true")
     cleanup.set_defaults(handler=_cleanup_confirm)
     return parser
@@ -274,6 +276,7 @@ def _retest(args: argparse.Namespace) -> int:
         child_fault_variant=runtime.scenario.fault_variant,
         child_environment=child_environment,
         child_queue=child_queue,
+        cleanup_evidence=args.cleanup_evidence,
     )
     run, judgement, bundle = runtime.execute(
         readiness,
@@ -295,10 +298,23 @@ def _cleanup_confirm(args: argparse.Namespace) -> int:
     if not args.evidence.is_file():
         raise FileNotFoundError("cleanup evidence file is required")
     settings = _settings(args)
-    runtime = create_runtime(settings, args.scenario_file)
-    safe = runtime.adapters.fault.target_safe(subject_ref=args.subject)
     evidence = args.evidence.read_bytes()
-    record = RestoreBlockStore(settings.run_root).confirm_cleanup(
+    blocks = RestoreBlockStore(settings.run_root)
+    if args.subject == "n02-consent-order":
+        subject = _n02_cleanup_subject(settings.run_root, blocks, args, evidence)
+        scenario_path = _profile_scenario_path(ExecutionProfile.N02_CONSENT_ORDER_V1)
+        if args.scenario_file is not None and args.scenario_file.resolve() != scenario_path.resolve():
+            raise CliContractError("N02_CLEANUP_SCENARIO_MISMATCH", "N-02 cleanup requires the N-02 scenario")
+        runtime = create_runtime(settings, scenario_path)
+        safe = runtime.adapters.n02_fault is not None and runtime.adapters.n02_fault.target_safe(
+            subject=subject
+        )
+        if not safe:
+            raise CliContractError("N02_SAFE_STATE_NOT_CONFIRMED", "N-02 target safety probe did not pass")
+    else:
+        runtime = create_runtime(settings, args.scenario_file or _default_scenario())
+        safe = runtime.adapters.fault.target_safe(subject_ref=args.subject)
+    record = blocks.confirm_cleanup(
         args.target,
         args.subject,
         evidence_sha256=hashlib.sha256(evidence).hexdigest(),
@@ -309,6 +325,76 @@ def _cleanup_confirm(args: argparse.Namespace) -> int:
         as_json=args.json,
     )
     return 0
+
+
+def _n02_cleanup_subject(
+    run_root: Path, blocks: RestoreBlockStore, args: argparse.Namespace, evidence: bytes
+) -> dict[str, Any]:
+    block_path = blocks.path_for(args.target, args.subject)
+    if not block_path.is_file():
+        raise FileNotFoundError("no N-02 restore block exists")
+    try:
+        block = json.loads(block_path.read_text(encoding="utf-8"))
+        run_id = str(UUID(str(block["run_id"])))
+        bundle = run_root / run_id
+        if (
+            block.get("target_id") != args.target
+            or block.get("subject_ref") != args.subject
+            or verify_bundle(bundle)["bundle_status"] != "VERIFIED"
+        ):
+            raise ValueError("N-02 block or parent bundle is invalid")
+        run = json.loads((bundle / "run.json").read_text(encoding="utf-8"))
+        if any(
+            (
+                run.get("run_id") != run_id,
+                run.get("target_id") != args.target,
+                run.get("scenario_id") != "N-02",
+                run.get("execution_profile") != ExecutionProfile.N02_CONSENT_ORDER_V1.value,
+                run.get("state") != RunState.RESTORE_FAILED.value,
+            )
+        ):
+            raise ValueError("blocked parent is not the N-02 restore failure")
+        subjects = json.loads((bundle / "subjects.json").read_text(encoding="utf-8"))
+        matches = [
+            item for item in subjects
+            if item.get("lane_id") == "CONSENT_FAULT_RECOVERY" and item.get("run_id") == run_id
+        ]
+        if len(matches) != 1:
+            raise ValueError("N-02 fault subject is not unique")
+        subject = matches[0]
+        record = json.loads(evidence)
+        captured = datetime.fromisoformat(record["captured_at"])
+        age = (datetime.now(UTC) - captured).total_seconds()
+        if captured.tzinfo is None or not -2 <= age <= 300:
+            raise ValueError("N-02 cleanup evidence is stale or undated")
+        expected = {
+            "schema_version": "controlproof.n02-cleanup-evidence.v1",
+            "parent_run_id": run_id,
+            "target_id": args.target,
+            "subject_ref": args.subject,
+            "lane_subject_ref": subject["subject_ref"],
+            "invitation_id": subject["invitation_id"],
+            "applicant_id": subject["applicant_id"],
+            "safe_state_read_only": True,
+        }
+        if any(record.get(key) != value for key, value in expected.items()):
+            raise ValueError("N-02 cleanup evidence does not match the blocked subject")
+        findings = record["findings"]
+        if findings.get("invitation") != [["identity_verified", 1]] or any(
+            type(findings.get(name)) is not int or findings[name] != 0
+            for name in (
+                "consent_records", "active_consents", "consented_transitions",
+                "consent_completed_events", "all_invitation_events", "upload_intents",
+                "submissions", "analyses", "interview_strategies",
+            )
+        ):
+            raise ValueError("N-02 cleanup evidence does not show zero effects")
+        fault_files = record["fault_files_exist"]
+        if fault_files.get("marker") is not False or fault_files.get("consumed_token") is not False:
+            raise ValueError("N-02 cleanup evidence shows an active fault")
+        return subject
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise CliContractError("N02_CLEANUP_EVIDENCE_INVALID", "N-02 cleanup evidence or parent is invalid") from exc
 
 
 def _readiness_payload(readiness, scenario=None) -> dict[str, Any]:

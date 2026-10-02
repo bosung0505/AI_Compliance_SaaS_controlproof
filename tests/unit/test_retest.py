@@ -5,6 +5,7 @@ from uuid import uuid4
 
 import pytest
 
+from engine.lifecycle import RestoreBlockStore
 from engine.models import TargetSnapshot
 from engine.retest import RetestError, assert_parent_unchanged, prepare_retest
 from engine.runner import RunOrchestrator
@@ -54,4 +55,28 @@ def test_tampered_parent_is_rejected(tmp_path):
             child_target=target,
             child_scenario_version="1.0.0",
             child_scenario_digest="a" * 64,
+        )
+
+
+def test_h03_restore_failed_parent_still_refuses_after_maintenance(tmp_path):
+    adapters, _ = make_adapters(restore=False)
+    runner = RunOrchestrator(load("scenarios/H-03.yaml"), adapters, tmp_path, clock=FakeClock())
+    parent, _, bundle = runner.execute(runner.preflight("whyyou-local"))
+    assert parent.manual_cleanup_required is True
+    blocks = RestoreBlockStore(tmp_path)
+    block_path = next(blocks.root.glob("*.json"))
+    blocked = json.loads(block_path.read_text(encoding="utf-8"))
+    blocks.confirm_cleanup(
+        blocked["target_id"], blocked["subject_ref"],
+        evidence_sha256="a" * 64, target_safe=True,
+    )
+    target = TargetSnapshot.model_validate(json.loads((bundle / "target.snapshot.json").read_text(encoding="utf-8")))
+
+    with pytest.raises(RetestError, match="safe cleanup"):
+        prepare_retest(
+            bundle,
+            child_run_id=uuid4(),
+            child_target=target,
+            child_scenario_version=parent.scenario_version,
+            child_scenario_digest=parent.scenario_digest,
         )

@@ -4,6 +4,8 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
+from datetime import UTC, datetime
+from hashlib import sha256
 from uuid import uuid4
 
 import pytest
@@ -62,6 +64,44 @@ def _prepare(parent_bundle, child_runner, child_id):
         child_fault_variant=child_runner.scenario.fault_variant,
         child_environment=_environment(child_runner),
     )
+
+
+def _confirmed_cleanup(tmp_path, parent):
+    evidence = tmp_path / "cleanup-evidence.json"
+    lanes = json.loads((tmp_path / str(parent.run_id) / "subjects.json").read_text(encoding="utf-8"))
+    fault = next(row for row in lanes if row["lane_id"] == "CONSENT_FAULT_RECOVERY")
+    evidence.write_text(
+        json.dumps({
+            "schema_version": "controlproof.n02-cleanup-evidence.v1",
+            "parent_run_id": str(parent.run_id),
+            "target_id": parent.target_id,
+            "subject_ref": "n02-consent-order",
+            "lane_subject_ref": fault["subject_ref"],
+            "invitation_id": fault["invitation_id"],
+            "applicant_id": fault["applicant_id"],
+            "safe_state_read_only": True,
+            "captured_at": datetime.now(UTC).isoformat(),
+            "findings": {
+                "invitation": [["identity_verified", 1]],
+                **{key: 0 for key in (
+                    "consent_records", "active_consents", "consented_transitions",
+                    "consent_completed_events", "all_invitation_events", "upload_intents",
+                    "submissions", "analyses", "interview_strategies",
+                )},
+            },
+            "fault_files_exist": {"marker": False, "consumed_token": False, "fault_receipt": False},
+        }),
+        encoding="utf-8",
+    )
+    blocks = RestoreBlockStore(tmp_path)
+    blocks.block_run_id(parent.target_id, "n02-consent-order", parent.run_id)
+    blocks.confirm_cleanup(
+        parent.target_id,
+        "n02-consent-order",
+        evidence_sha256=sha256(evidence.read_bytes()).hexdigest(),
+        target_safe=True,
+    )
+    return evidence
 
 
 def test_n02_retest_inherits_profile_and_creates_fresh_six_subjects(tmp_path):
@@ -159,5 +199,78 @@ def test_n02_retest_rejects_restore_failed_parent(tmp_path):
     parent_runner = _runner(tmp_path, n02=FakeN02Adapters(restore_succeeded=False))
     parent, _, parent_bundle = parent_runner.execute(parent_runner.preflight("whyyou-local"))
     assert parent.manual_cleanup_required is True
-    with pytest.raises(RetestError, match="safe cleanup"):
+    with pytest.raises(RetestError, match="cleanup"):
         _prepare(parent_bundle, _runner(tmp_path), uuid4())
+
+
+def test_n02_retest_accepts_confirmed_cleanup_without_changing_parent(tmp_path):
+    parent_runner = _runner(tmp_path, n02=FakeN02Adapters(restore_succeeded=False))
+    parent, _, parent_bundle = parent_runner.execute(parent_runner.preflight("whyyou-local"))
+    original = (parent_bundle / "manifest.json").read_bytes()
+    evidence = _confirmed_cleanup(tmp_path, parent)
+    child_runner = _runner(tmp_path)
+
+    inherited, digest, records = prepare_retest(
+        parent_bundle,
+        child_run_id=uuid4(),
+        child_target=child_runner.preflight("whyyou-local").target_snapshot,
+        child_scenario_version=child_runner.scenario.version,
+        child_scenario_digest=child_runner.scenario.snapshot().digest,
+        child_profile=child_runner.scenario.execution_profile,
+        child_fault_variant=child_runner.scenario.fault_variant,
+        child_environment=_environment(child_runner),
+        cleanup_evidence=evidence,
+    )
+
+    assert inherited.run_id == parent.run_id
+    assert inherited.manual_cleanup_required is True
+    assert records["link"]["cleanup_confirmation"]["evidence_sha256"] == sha256(evidence.read_bytes()).hexdigest()
+    assert (parent_bundle / "manifest.json").read_bytes() == original
+    assert_parent_unchanged(parent_bundle, digest)
+
+
+@pytest.mark.parametrize("invalid", [
+    "missing_evidence", "missing_record", "wrong_digest", "wrong_run", "wrong_target",
+    "wrong_subject", "bad_timestamp", "unsafe_evidence", "new_block",
+])
+def test_n02_retest_rejects_unverified_or_reblocked_cleanup(tmp_path, invalid):
+    parent_runner = _runner(tmp_path, n02=FakeN02Adapters(restore_succeeded=False))
+    parent, _, parent_bundle = parent_runner.execute(parent_runner.preflight("whyyou-local"))
+    evidence = _confirmed_cleanup(tmp_path, parent)
+    record_path = tmp_path / "blocks" / "maintenance" / f"{parent.run_id}.json"
+    record = json.loads(record_path.read_text(encoding="utf-8"))
+    if invalid == "wrong_digest":
+        record["evidence_sha256"] = "0" * 64
+    elif invalid == "missing_record":
+        record_path.unlink()
+    elif invalid == "wrong_run":
+        record["blocked_run_id"] = str(uuid4())
+    elif invalid == "wrong_target":
+        record["target_id"] = "another-target"
+    elif invalid == "wrong_subject":
+        record["subject_ref"] = "another-subject"
+    elif invalid == "bad_timestamp":
+        record["confirmed_at"] = parent.ended_at.isoformat()
+    elif invalid == "unsafe_evidence":
+        payload = json.loads(evidence.read_text(encoding="utf-8"))
+        payload["findings"]["consent_records"] = 1
+        evidence.write_text(json.dumps(payload), encoding="utf-8")
+        record["evidence_sha256"] = sha256(evidence.read_bytes()).hexdigest()
+    elif invalid == "new_block":
+        RestoreBlockStore(tmp_path).block_run_id(parent.target_id, "n02-consent-order", uuid4())
+    if invalid in {"wrong_digest", "wrong_run", "wrong_target", "wrong_subject", "bad_timestamp", "unsafe_evidence"}:
+        record_path.write_text(json.dumps(record), encoding="utf-8")
+    child_runner = _runner(tmp_path)
+
+    with pytest.raises(RetestError, match="cleanup"):
+        prepare_retest(
+            parent_bundle,
+            child_run_id=uuid4(),
+            child_target=child_runner.preflight("whyyou-local").target_snapshot,
+            child_scenario_version=child_runner.scenario.version,
+            child_scenario_digest=child_runner.scenario.snapshot().digest,
+            child_profile=child_runner.scenario.execution_profile,
+            child_fault_variant=child_runner.scenario.fault_variant,
+            child_environment=_environment(child_runner),
+            cleanup_evidence=None if invalid == "missing_evidence" else evidence,
+        )

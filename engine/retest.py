@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import json
+from datetime import UTC, datetime, timedelta
+from hashlib import sha256
 from pathlib import Path
 from typing import Any
 from uuid import UUID
@@ -44,6 +46,7 @@ def prepare_retest(
     child_fault_variant: FaultVariant | None = None,
     child_environment: TargetEnvironmentSnapshot | None = None,
     child_queue: QueueTopologySnapshot | None = None,
+    cleanup_evidence: Path | None = None,
 ) -> tuple[Run, str, dict[str, Any]]:
     directory = parent_bundle.resolve()
     verification = verify_bundle(directory)
@@ -52,14 +55,18 @@ def prepare_retest(
     parent_run = Run.model_validate(_read(directory / "run.json"))
     if parent_run.state not in TERMINAL_RUN_STATES:
         raise RetestError("retest parent must be terminal")
-    if parent_run.state is RunState.RESTORE_FAILED or parent_run.manual_cleanup_required:
+    parent_profile = parent_run.execution_profile or ExecutionProfile.H03_MINIMAL_V1
+    cleanup_confirmation = None
+    if parent_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
+        if parent_run.state is RunState.RESTORE_FAILED or parent_run.manual_cleanup_required:
+            cleanup_confirmation = _verified_n02_cleanup(directory, parent_run, cleanup_evidence)
+    elif parent_run.state is RunState.RESTORE_FAILED or parent_run.manual_cleanup_required:
         raise RetestError("retest parent does not prove safe cleanup")
     if parent_run.run_id == child_run_id:
         raise RetestError("retest child must use a new Run ID")
     parent_target = TargetSnapshot.model_validate(_read(directory / "target.snapshot.json"))
     parent_digest = _read(directory / "manifest.json")["bundle_digest"]
     parent_manifest = _read(directory / "manifest.json")
-    parent_profile = parent_run.execution_profile or ExecutionProfile.H03_MINIMAL_V1
     active_child_profile = child_profile or ExecutionProfile.H03_MINIMAL_V1
     if active_child_profile is not parent_profile:
         raise RetestError("retest child must inherit the parent execution profile")
@@ -78,6 +85,7 @@ def prepare_retest(
             child_scenario_digest=child_scenario_digest,
             child_environment=child_environment,
             child_queue=child_queue,
+            cleanup_confirmation=cleanup_confirmation,
         )
     parent_subjects = _read(directory / "subjects.json")
     if not isinstance(parent_subjects, list) or len(parent_subjects) != 1:
@@ -252,6 +260,7 @@ def _prepare_n02_retest(
     child_scenario_digest: str,
     child_environment: TargetEnvironmentSnapshot | None,
     child_queue: QueueTopologySnapshot | None,
+    cleanup_confirmation: dict[str, Any] | None,
 ) -> tuple[Run, str, dict[str, Any]]:
     if RestoreBlockStore(directory.parent).blocked(parent_run.target_id, "n02-consent-order"):
         raise RetestError("N-02 retest refused: unresolved manual cleanup block")
@@ -346,6 +355,8 @@ def _prepare_n02_retest(
         "parent_bundle_digest": parent_digest,
         "parent_judgement_sha256": origin["sha256"],
     }
+    if cleanup_confirmation is not None:
+        link_payload["cleanup_confirmation"] = cleanup_confirmation
     records = {
         "link": link_payload,
         "diff": diff,
@@ -355,6 +366,77 @@ def _prepare_n02_retest(
         },
     }
     return parent_run, parent_digest, records
+
+
+def _verified_n02_cleanup(
+    directory: Path, parent_run: Run, cleanup_evidence: Path | None
+) -> dict[str, Any]:
+    blocks = RestoreBlockStore(directory.parent)
+    if blocks.blocked(parent_run.target_id, "n02-consent-order"):
+        raise RetestError("N-02 retest refused: unresolved manual cleanup block")
+    if cleanup_evidence is None:
+        raise RetestError("N-02 retest requires cleanup evidence")
+    try:
+        record = _read(blocks.root / "maintenance" / f"{parent_run.run_id}.json")
+        evidence_bytes = cleanup_evidence.read_bytes()
+        evidence = json.loads(evidence_bytes)
+        confirmed_at = datetime.fromisoformat(record["confirmed_at"])
+        captured_at = datetime.fromisoformat(evidence["captured_at"])
+        parent_subjects = _read(directory / "subjects.json")
+        fault_subjects = [
+            row for row in parent_subjects
+            if row.get("lane_id") == N02LaneId.CONSENT_FAULT_RECOVERY.value
+            and row.get("run_id") == str(parent_run.run_id)
+        ]
+        if len(fault_subjects) != 1:
+            raise ValueError("N-02 parent fault subject is not unique")
+        fault_subject = fault_subjects[0]
+        expected_record = {
+            "schema_version": "controlproof.cleanup-confirmation.v1",
+            "target_id": parent_run.target_id,
+            "subject_ref": "n02-consent-order",
+            "blocked_run_id": str(parent_run.run_id),
+            "evidence_sha256": sha256(evidence_bytes).hexdigest(),
+        }
+        if any(record.get(key) != value for key, value in expected_record.items()):
+            raise ValueError("N-02 cleanup confirmation does not match parent or evidence")
+        expected_evidence = {
+            "schema_version": "controlproof.n02-cleanup-evidence.v1",
+            "parent_run_id": str(parent_run.run_id),
+            "target_id": parent_run.target_id,
+            "subject_ref": "n02-consent-order",
+            "lane_subject_ref": fault_subject["subject_ref"],
+            "invitation_id": fault_subject["invitation_id"],
+            "applicant_id": fault_subject["applicant_id"],
+            "safe_state_read_only": True,
+        }
+        if any(evidence.get(key) != value for key, value in expected_evidence.items()):
+            raise ValueError("N-02 cleanup evidence does not match parent")
+        if (
+            confirmed_at.tzinfo is None
+            or captured_at.tzinfo is None
+            or parent_run.ended_at is None
+            or not parent_run.ended_at <= captured_at <= confirmed_at
+            or confirmed_at > datetime.now(UTC) + timedelta(seconds=2)
+            or confirmed_at - captured_at > timedelta(seconds=300)
+        ):
+            raise ValueError("N-02 cleanup confirmation time is invalid")
+        findings = evidence["findings"]
+        if findings.get("invitation") != [["identity_verified", 1]] or any(
+            type(findings.get(key)) is not int or findings[key] != 0
+            for key in (
+                "consent_records", "active_consents", "consented_transitions",
+                "consent_completed_events", "all_invitation_events", "upload_intents",
+                "submissions", "analyses", "interview_strategies",
+            )
+        ):
+            raise ValueError("N-02 cleanup evidence contains effects")
+        files = evidence["fault_files_exist"]
+        if any(files.get(key) is not False for key in ("marker", "consumed_token", "fault_receipt")):
+            raise ValueError("N-02 cleanup evidence contains active fault files")
+    except (OSError, KeyError, TypeError, ValueError) as exc:
+        raise RetestError("N-02 retest cleanup confirmation is invalid") from exc
+    return record
 
 
 def finalize_n02_retest_records(

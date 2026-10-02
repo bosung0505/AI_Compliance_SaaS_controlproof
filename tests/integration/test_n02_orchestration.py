@@ -4,11 +4,21 @@ from __future__ import annotations
 
 import json
 from dataclasses import replace
+from uuid import UUID
 
 import pytest
 
+from engine.adapters.base import AdapterResult
 from engine.evidence import verify_bundle
-from engine.models import N02LaneId, Presence, ProtectedPathId, RunState, Verdict, sha256_bytes
+from engine.models import (
+    N02LaneId,
+    Presence,
+    ProcessingResponseClass,
+    ProtectedPathId,
+    RunState,
+    Verdict,
+    sha256_bytes,
+)
 from engine.presentation import load_bundle_summary
 from engine.runner import build_profile_runner
 from engine.scenario import load
@@ -67,6 +77,9 @@ def test_complete_six_lane_run_seals_verified_bundle_and_review(tmp_path) -> Non
     ]
     assert len(json.loads((bundle / "n02-lanes.json").read_text(encoding="utf-8"))["lanes"]) == 6
     assert run.policy_snapshot_digest == sha256_bytes((bundle / "policy-and-consent.json").read_bytes())
+    policy_evidence = json.loads((bundle / "policy-and-consent.json").read_text(encoding="utf-8"))
+    assert policy_evidence["normal_commit"]["code"] == "CONSENT_COMMITTED"
+    assert policy_evidence["failed_commit"]["status_code"] == 500
     assert run.lane_manifest_digest == sha256_bytes((bundle / "n02-lanes.json").read_bytes())
     assert summary["verdict"] == "PASS"
     assert set(summary["path_results"].values()) == {"PASS"}
@@ -99,6 +112,60 @@ def test_direct_recording_effect_remains_fail_in_combined_run(tmp_path) -> None:
     assert run.state is RunState.COMPLETED
     assert judgement.verdict is Verdict.FAIL
     assert "N02-A3" in {item.assertion_id for item in judgement.assertion_results if item.status.value == "FAIL"}
+    assert verify_bundle(bundle)["bundle_status"] == "VERIFIED"
+
+
+def test_target_assessment_start_receipt_is_sealed_and_linked(tmp_path) -> None:
+    event_id = UUID("00000000-0000-7000-8000-000000000041")
+    receipt_id = UUID("00000000-0000-7000-8000-000000000042")
+
+    class AssessmentStart(CountingN02):
+        def attempt(self, *, path_id, subject):
+            result = super().attempt(path_id=path_id, subject=subject)
+            if subject["lane_id"] == "ASSESSMENT_BOUNDARY_PROBE" and path_id == "AI_ASSESSMENT":
+                return result.model_copy(update={
+                    "response_class": ProcessingResponseClass.SUBMITTED,
+                    "probe_input_effect_id": f"event:{event_id}",
+                })
+            return result
+
+        def read_effects(self, *, path_id, subject, phase, step_id):
+            result = super().read_effects(
+                path_id=path_id, subject=subject, phase=phase, step_id=step_id
+            )
+            if subject["lane_id"] == "ASSESSMENT_BOUNDARY_PROBE" and path_id == "AI_ASSESSMENT":
+                return result.model_copy(update={
+                    "source_status": Presence.PRESENT,
+                    "current_effect_ids": (f"event:{event_id}",),
+                    "probe_input_effect_ids": (f"event:{event_id}",),
+                    "start_receipt_ids": (str(receipt_id),),
+                })
+            return result
+
+        def read_processing_receipts(self, *, run_id, lane_id, subject_ref):
+            if lane_id != "ASSESSMENT_BOUNDARY_PROBE":
+                return AdapterResult(True, "RECEIPTS_READ", {"receipts": ()})
+            return AdapterResult(True, "RECEIPTS_READ", {"receipts": ({
+                "schema_version": "controlproof.whyyou-processing-receipt.v1",
+                "receipt_id": str(receipt_id),
+                "run_id": run_id,
+                "lane_id": lane_id,
+                "subject_ref": subject_ref,
+                "path_id": "AI_ASSESSMENT",
+                "boundary": "REPORT_ASSESSMENT_STARTED",
+                "request_or_event_id": str(event_id),
+                "trace_id_digest": "a" * 64,
+                "observed_at": "2026-10-02T00:00:00+00:00",
+            },)})
+
+    runner = _runner(tmp_path, AssessmentStart())
+    _, judgement, bundle = runner.execute(runner.preflight("whyyou-local"))
+    observations = [
+        json.loads(line)
+        for line in (bundle / "observations.jsonl").read_text(encoding="utf-8").splitlines()
+    ]
+    assert judgement.assertion_results[3].status.value == "FAIL"
+    assert any(row.get("receipt_id") == str(receipt_id) for row in observations)
     assert verify_bundle(bundle)["bundle_status"] == "VERIFIED"
 
 

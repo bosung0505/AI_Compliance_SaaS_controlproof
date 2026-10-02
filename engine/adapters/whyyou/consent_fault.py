@@ -3,11 +3,14 @@
 from __future__ import annotations
 
 import json
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from datetime import datetime
 from pathlib import Path
 from typing import Any
 from uuid import UUID
+
+from sqlalchemy import create_engine, text
+from sqlalchemy.exc import SQLAlchemyError
 
 from engine.adapters.base import AdapterResult
 from engine.lifecycle import atomic_write
@@ -18,6 +21,7 @@ from engine.models import (
     N02LaneId,
     Phase,
     Presence,
+    ProtectedPathId,
     canonical_json_bytes,
     sha256_bytes,
     utcnow,
@@ -29,10 +33,98 @@ _FAULT_TYPE = "consent_after_record_before_state_v1"
 
 
 class WhyYouConsentFaultAdapter:
-    def __init__(self, settings, *, consent_adapter=None) -> None:
+    def __init__(
+        self,
+        settings,
+        *,
+        consent_adapter=None,
+        processing_adapter=None,
+        cleanup_counts_reader: Callable[[Mapping[str, Any]], Mapping[str, int]] | None = None,
+    ) -> None:
         self.settings = settings
         self.root = Path(settings.fault_root).resolve()
         self.consent_adapter = consent_adapter
+        self.processing_adapter = processing_adapter
+        self.cleanup_counts_reader = cleanup_counts_reader or self._read_cleanup_counts
+
+    def _read_cleanup_counts(self, subject: Mapping[str, Any]) -> Mapping[str, int]:
+        engine = create_engine(self.settings.whyyou_database_url)
+        params = {
+            "company_id": UUID(self.settings.whyyou_company_id),
+            "invitation_id": UUID(str(subject["invitation_id"])),
+        }
+        try:
+            with engine.connect() as connection:
+                return {
+                    "consent_records": connection.execute(
+                        text(
+                            "SELECT COUNT(*) FROM consent_records "
+                            "WHERE company_id=:company_id AND invitation_id=:invitation_id"
+                        ),
+                        params,
+                    ).scalar_one(),
+                    "invitation_events": connection.execute(
+                        text(
+                            "SELECT COUNT(*) FROM outbox_events "
+                            "WHERE company_id=:company_id AND aggregate_id=:invitation_id"
+                        ),
+                        params,
+                    ).scalar_one(),
+                }
+        finally:
+            engine.dispose()
+
+    def target_safe(self, *, subject: Mapping[str, Any]) -> bool:
+        """Read the current N-02 fault lane without changing its parent Run."""
+        try:
+            if N02LaneId(str(subject["lane_id"])) is not N02LaneId.CONSENT_FAULT_RECOVERY:
+                return False
+            run_id = UUID(str(subject["run_id"]))
+            invitation_id = UUID(str(subject["invitation_id"]))
+            UUID(str(subject["applicant_id"]))
+            marker = self._marker_path(invitation_id)
+            consumed = self._consumed_path(run_id, invitation_id)
+            self._assert_bounded(marker)
+            self._assert_bounded(consumed)
+            if marker.exists() or consumed.exists():
+                return False
+            if self.consent_adapter is None or self.processing_adapter is None:
+                return False
+            counts = self.cleanup_counts_reader(subject)
+            if (
+                type(counts.get("consent_records")) is not int
+                or counts["consent_records"] != 0
+                or type(counts.get("invitation_events")) is not int
+                or counts["invitation_events"] != 0
+            ):
+                return False
+            state = self.consent_adapter.read_state(
+                subject=subject,
+                phase=Phase.RECOVERED.value,
+                step_id="cleanup-confirm-safe-state",
+            )
+            if isinstance(state, AdapterResult) or not (
+                state.source_status is Presence.ABSENT
+                and state.invitation_status == "identity_verified"
+                and state.active_consent_count == 0
+                and not state.consent_record_ids
+                and not state.consented_state_change_ids
+                and not state.consent_completed_event_ids
+            ):
+                return False
+            effects = self.processing_adapter.read_effects(
+                path_id=ProtectedPathId.DOCUMENT_ANALYSIS.value,
+                subject={**subject, "interview_session_id": str(UUID(int=0))},
+                phase=Phase.RECOVERED.value,
+                step_id="cleanup-confirm-document-effects",
+            )
+            return (
+                not isinstance(effects, AdapterResult)
+                and effects.source_status is Presence.ABSENT
+                and not effects.current_effect_ids
+            )
+        except (OSError, KeyError, TypeError, ValueError, SQLAlchemyError):
+            return False
 
     def apply_consent_fault(
         self,

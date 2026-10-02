@@ -1159,6 +1159,7 @@ def _verify_spec003_facts(directory: Path, result: dict[str, Any]) -> None:
             result["mismatched_files"].append(f"{source}:lane-subject-run")
 
     row_files = (
+        "observations.jsonl",
         "baseline-effects.jsonl",
         "bypass-attempts.jsonl",
         "protected-effects.jsonl",
@@ -1189,6 +1190,13 @@ def _verify_spec003_facts(directory: Path, result: dict[str, Any]) -> None:
         item["request_id"]: item
         for item in attempts if isinstance(item.get("request_id"), str)
     }
+    observer_receipts = {
+        item.get("receipt_id"): item
+        for item in documents.get("observations.jsonl", [])
+        if isinstance(item, dict)
+        and item.get("schema_version") == "controlproof.whyyou-processing-receipt.v1"
+        and isinstance(item.get("receipt_id"), str)
+    }
     for effect in effects:
         linked = []
         attempt_id = effect.get("attempt_id")
@@ -1205,6 +1213,38 @@ def _verify_spec003_facts(directory: Path, result: dict[str, Any]) -> None:
             attempt = attempts_by_request.get(request_id)
             if attempt is not None:
                 linked.append(attempt)
+        probe_inputs = effect.get("probe_input_effect_ids", [])
+        if probe_inputs:
+            matching_attempts = [
+                attempt for attempt in attempts
+                if attempt.get("lane_id") == effect.get("lane_id")
+                and attempt.get("subject_ref") == effect.get("subject_ref")
+                and attempt.get("path_id") == effect.get("path_id")
+                and attempt.get("probe_input_effect_id") in probe_inputs
+            ]
+            if len(matching_attempts) != len(probe_inputs) or any(
+                item in effect.get("new_effect_ids", []) for item in probe_inputs
+            ):
+                result["mismatched_files"].append("protected-effects.jsonl:probe-input-link")
+        for receipt_id in (
+            effect.get("start_receipt_ids", [])
+            if effect.get("path_id") == "AI_ASSESSMENT" and probe_inputs
+            else []
+        ):
+            receipt = observer_receipts.get(receipt_id)
+            expected_event_ids = {
+                item.removeprefix("event:") for item in probe_inputs
+                if isinstance(item, str)
+            }
+            if (
+                receipt is None
+                or receipt.get("lane_id") != effect.get("lane_id")
+                or receipt.get("subject_ref") != effect.get("subject_ref")
+                or receipt.get("path_id") != effect.get("path_id")
+                or receipt.get("boundary") != "REPORT_ASSESSMENT_STARTED"
+                or receipt.get("request_or_event_id") not in expected_event_ids
+            ):
+                result["mismatched_files"].append("protected-effects.jsonl:start-receipt-link")
         if any(
             attempt.get("lane_id") != effect.get("lane_id")
             or attempt.get("subject_ref") != effect.get("subject_ref")
