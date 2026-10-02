@@ -87,6 +87,12 @@ Spec 001·002의 현재 actual Run은 한 PC에서 생성됐고 runtime bundle�
 - 향후 공유용 export를 만들면 redaction 재검증, allowlist 파일만 포함, 새 archive SHA-256과 import
   verify 절차를 별도 Spec으로 정의한다.
 
+2026-10-02 일회성 팀 인계 예외: 사용자가 공개 Git 게시를 승인한 Spec 003 N-02 부모 Run
+`15cef078-ee24-4f0e-91ef-381e0f7a1cc2`의 원본 bundle, 대응 정비 기록, WhyYou cleanup 증거 JSON만
+두 기능 브랜치에 추적한다. 그 밖의 `.controlproof/` 생성물과 이후 Run에는 위 원칙을 그대로 적용한다.
+이 예외는 독립 PC Run 완료나 대상 서비스 PASS를 뜻하지 않는다. 팀원은 pull 후 원본 SHA와 bundle
+`verify`를 확인한다.
+
 ## 8. AI에게 이어서 맡길 때 사용할 프롬프트
 
 ```text

@@ -223,13 +223,14 @@ ControlProof 구현 commit은 `06f7a77`, WhyYou commit은
 `511ae9e2cae66b8d0ce31e8851537ed27ac6dd0c`다. 이후 문서 commit이 추가돼도 검증 source는
 Validation에 기록된 SHA로 식별한다.
 
-2026-10-02 전달 checkpoint에서 WhyYou `bosung/controlproof-n02-integration`의 추적 소스는
-`7f98370d8f8b5c0513c7901ef8ecb85f0776d492`로 commit·원격 게시됐다. ControlProof 전달 소스는
+2026-10-02 전달 checkpoint에서 WhyYou `bosung/controlproof-n02-integration`의 소스 변경 commit은
+`7f98370d8f8b5c0513c7901ef8ecb85f0776d492`이고, 원본 cleanup 증거의 바이트 보존까지 반영한
+전달 HEAD는 `c8e9970d1b873247f95928e68e93d5afdc6791ae`다. ControlProof 전달 소스는
 이 인수인계를 포함해 `origin/003-n02-consent-order`에 게시된 HEAD로 식별하고, 팀원은 checkout
 뒤 전체 SHA를 직접 기록한다. 두 전달 브랜치는 최초 actual Run 당시의 source SHA와 다르다. 원본
 Run의 과거 source claim은 위 Validation ledger의 SHA로 계속 식별한다. 기존 로컬 WhyYou checkout에는
-Git 제외 대상인 `.controlproof/` 실행 증거가 미추적 파일로 남아 있다. 이를 새 소스 commit에 넣거나
-clean-source 증명으로 취급하지 않는다.
+이번에 추적한 cleanup JSON 외의 `.controlproof/` 진단 로그·작업자 증거가 미추적 파일로 남아 있다.
+이를 새 소스 commit에 넣거나 clean-source 증명으로 취급하지 않는다.
 
 WhyYou `main`에는 ControlProof 관련 변경을 직접 commit하거나 push하지 않는다. actual Run 전에는 두
 checkout 모두 clean이어야 한다. 기존 체크포인트와 원본 Run을 덮어쓰지 않는다.
@@ -250,15 +251,22 @@ git rev-list --left-right --count HEAD...@{upstream}
 `git branch --show-current`, `git rev-parse HEAD`, `git status --short`로 전달받은 SHA와 clean 상태를
 대조한다. 파일 몇 개만 별도 pull하면 실행기·시나리오·테스트·WhyYou 계측 버전이 어긋날 수 있다.
 
-Git에는 `.env`, credential, `.controlproof/`와 Run bundle이 포함되지 않는다. 새 독립 N-02 Run만
-수행하는 팀원은 로컬 설정을 별도로 만들고 새 Run ID를 기록하면 된다. **이 부모의 child retest를
-이어받는 팀원**에게는 별도의 비밀 제거·allowlist 전달 절차를 마련한 뒤 ControlProof의
-`.controlproof/runs/15cef078-ee24-4f0e-91ef-381e0f7a1cc2/` 원본 bundle 및
-`.controlproof/runs/blocks/maintenance/15cef078-ee24-4f0e-91ef-381e0f7a1cc2.json` 정비 기록,
-WhyYou의 `.controlproof/n02-cleanup-evidence-375c2f2bfcaf.json` 원본 바이트가 필요하다. 마지막
-파일 SHA-256은 `406a87bc88cf2f0ec0bcff1799f7ad4b8099937e507484d11ad9e3d801649eef`다.
-전달 전후 hash와 parent `verify`를 확인하고 Git에는 넣지 않는다. 증거가 없으면 같은 부모에 대한
-`--cleanup-evidence` 재시험 준비는 거부되는 것이 정상이다.
+일반 규칙상 `.env`, credential, `.controlproof/`와 Run bundle은 Git에 넣지 않는다. 다만 사용자가
+2026-10-02에 **공개 Git 게시를 승인한 일회성 예외**로, 이 부모의 정확한 bundle 20개 파일과
+정비 기록만 ControlProof 작업 브랜치에, cleanup 증거 JSON 하나만 WhyYou 작업 브랜치에 포함했다.
+따라서 팀원은 두 브랜치를 pull하면 아래 세 경로를 별도 복사 없이 받는다.
+
+| 저장소 | pull 뒤 확인할 원본 경로 | SHA-256 확인 |
+|---|---|---|
+| ControlProof | `.controlproof/runs/15cef078-ee24-4f0e-91ef-381e0f7a1cc2/` 폴더 전체 | `manifest.json`: `d2306f3cd6e2b15ce87d94e4844a2278c7ea3c0b3c052a2aac45e1bff8f2bc9b`; `verify`는 19개 증거 파일 `VERIFIED` |
+| ControlProof | `.controlproof/runs/blocks/maintenance/15cef078-ee24-4f0e-91ef-381e0f7a1cc2.json` | `3180d28664f7274e8c653fb7c3b59a1342c1801c153c81485d80db7767668666` |
+| WhyYou | `.controlproof/n02-cleanup-evidence-375c2f2bfcaf.json` | `406a87bc88cf2f0ec0bcff1799f7ad4b8099937e507484d11ad9e3d801649eef` |
+
+팀원은 ControlProof 루트에서 `Get-FileHash`로 세 해시를 확인하고
+`.\.venv\Scripts\python.exe -m engine.cli verify 15cef078-ee24-4f0e-91ef-381e0f7a1cc2 --json`을
+실행한다. T084에는 WhyYou JSON을 `--cleanup-evidence`로 지정한다. 이후 새 Run과 진단 로그는
+이 예외에 포함되지 않는다. 새 독립 N-02 Run을 수행하는 팀원은 자신의 로컬 설정과 새 Run ID를
+별도로 기록한다.
 
 ## 8. 팀원이 읽을 문서 순서
 
@@ -409,9 +417,10 @@ checkout과 새 Run ID로 수행한다. 현재 어느 경로도 N-02 최종 PASS
 restore 상태, 실제 failure route, 누락·중복 effect, 미검증 범위와 implementation status를 확인한다.
 `verify`는 원본을 고치지 않고 hash, manifest, artifact envelope, scenario/target 연결을 검사한다.
 
-과거 Run bundle은 `.controlproof/`에 있고 Git에 포함되지 않는다. 팀원이 pull만으로 같은 과거 Run ID를
-조회할 수는 없지만, 코드·시나리오·fixture·자동 시험은 재현할 수 있다. 과거 결과의 Run ID, source SHA,
-manifest SHA와 assertion 결과는 Validation에 남아 있다.
+일반적으로 과거 Run bundle은 `.controlproof/`에만 있고 Git에 포함되지 않는다. 이번 N-02 부모
+`15cef078-ee24-4f0e-91ef-381e0f7a1cc2`만 위 일회성 예외로 공개 작업 브랜치에 정확한 원본을
+보존했다. 이 파일을 pull해 조회·검증하는 것은 팀원 PC에서 새 Run을 독립 재현한 결과가 아니다.
+과거 결과의 Run ID, source SHA, manifest SHA와 assertion 결과는 Validation에도 남아 있다.
 
 N-02 최초 부모는 개별 A4~A7 FAIL이 있어도 복구 실패가 최종 판정보다 우선해 전체
 `INCONCLUSIVE`다. 이후 `cleanup-confirm`은 현재의 안전 상태를 증명할 뿐 부모의 과거 verdict를
@@ -442,9 +451,9 @@ PASS로 바꾸지 않는다. 자동 fixture PASS, API/작업자 readiness, bundl
 Spec 003의 Specify·Clarify·Plan·Tasks·Analyze, Implement T001~T079와 T080-E1~E4가 완료됐다.
 최초 사실 Run은 이미 봉인됐다. 이 순서로 다음 작업을 이어간다.
 
-1. **전달 source 확인:** 두 작업 브랜치의 게시된 HEAD를 fetch하고 전달받은 SHA·clean 상태를
-   대조한다. WhyYou `main`은 수정하지 않는다. Git 제외 원본 Run·정비 증거는 같은 부모의 child를
-   이어받는 경우에만 별도 안전 전달·hash 확인 대상으로 둔다.
+1. **전달 source·증거 확인:** 두 작업 브랜치의 게시된 HEAD를 fetch하고 전달받은 SHA·clean 상태를
+   대조한다. WhyYou `main`은 수정하지 않는다. 위 일회성 부모 bundle·정비·cleanup 증거의 원본
+   SHA와 `verify`를 확인한다. 다른 `.controlproof/` 실행 생성물은 전달 대상이 아니다.
 2. **T080~T083:** [Spec 003 Implementation Decisions](../specs/003-n02-consent-order/implementation-decisions.md)의
    미분류 A4~A7을 확인할 새 증거 계획을 확정한다. 필요한 진단은 격리 DB·큐에서 수행한다. A2/A3
    `NOT_REQUIRED` 여부를 부모 PASS로 기록하고, A4 target 경계 증거가 없으면 제품 guard 수정을

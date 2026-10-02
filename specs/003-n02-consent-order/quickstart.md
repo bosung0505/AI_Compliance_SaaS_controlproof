@@ -224,10 +224,21 @@ marker/subject와 operator action을 확인한다. N-02 대상의 marker/token �
 marker를 수동으로 지울 때는 current Run과 invitation ID 및 resolved fault root를 확인해야 한다. 넓은
 폴더나 다른 Run marker를 재귀 삭제하지 않는다.
 
-## 10. Bundle을 Git에 넣지 않는 이유
+## 10. Bundle과 일회성 부모 증거 인계
 
 `.controlproof/runs/`는 Git 제외 대상이다. 한 PC의 bundle을 commit하면 독립 재현이 되지 않는다.
 팀원은 같은 source SHA로 새 Run을 만들고 다음만 Validation에 기록한다.
+
+예외적으로 2026-10-02에 사용자가 공개 Git 게시를 승인한 최초 부모
+`15cef078-ee24-4f0e-91ef-381e0f7a1cc2`의 정확한 bundle과 정비 기록만 ControlProof
+`003-n02-consent-order`에, 같은 부모의 cleanup 증거 JSON만 WhyYou
+`bosung/controlproof-n02-integration`에 올렸다. 팀원은 두 브랜치를 pull한 뒤 별도 파일 복사 없이
+기본 `.controlproof/runs` 위치에서 부모 `verify`를 실행하고 `--cleanup-evidence`에
+`../gbsa_aws/.controlproof/n02-cleanup-evidence-375c2f2bfcaf.json`을 지정한다. manifest SHA-256은
+`d2306f3cd6e2b15ce87d94e4844a2278c7ea3c0b3c052a2aac45e1bff8f2bc9b`, cleanup 증거
+SHA-256은 `406a87bc88cf2f0ec0bcff1799f7ad4b8099937e507484d11ad9e3d801649eef`이어야 한다.
+이 원본 전달은 T093의 독립 Run을 대신하지 않으며 이후 Run이나 진단 로그를 Git에 추가하라는
+허가가 아니다.
 
 - 실행자/환경 식별의 비민감 요약
 - ControlProof와 WhyYou commit SHA

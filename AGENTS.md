@@ -39,6 +39,10 @@ without actual validation or an explicit truthful non-execution status. Update V
   based on it. Never commit or push ControlProof work directly to WhyYou `main`.
 - Inspect both repositories' branch, HEAD and dirty state before an actual Run.
 - Never commit `.env`, credentials, production data, `.controlproof/`, or `runs/`.
+- Historical one-time exception approved on 2026-10-02: the exact synthetic Spec 003 N-02 parent bundle
+  `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`, its matching cleanup maintenance record, and the matching
+  WhyYou cleanup evidence JSON were published on the two Spec 003 feature branches for teammate handoff.
+  Preserve those bytes; do not extend this exception to later Runs, probe logs, credentials, or other artifacts.
 - Do not rewrite or delete prior validation history to make a result look successful.
 
 ## Current next feature

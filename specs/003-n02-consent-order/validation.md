@@ -215,7 +215,14 @@ Run artifact and one root-cause class:
 ## Portability and limitations
 
 - Only synthetic applicants and local/test credentials are permitted.
-- Runtime bundles remain ignored and are not copied into Git.
+- Runtime bundles are ignored by default. The user approved a one-time public Git handoff of only
+  parent `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` (its exact sealed bundle and cleanup maintenance
+  record) on the ControlProof feature branch and the matching cleanup evidence JSON on the WhyYou
+  feature branch. The WhyYou handoff HEAD is `c8e9970d1b873247f95928e68e93d5afdc6791ae`.
+  The parent manifest SHA-256 is `d2306f3cd6e2b15ce87d94e4844a2278c7ea3c0b3c052a2aac45e1bff8f2bc9b`;
+  the cleanup evidence SHA-256 is `406a87bc88cf2f0ec0bcff1799f7ad4b8099937e507484d11ad9e3d801649eef`.
+  This transport does not change the historical verdict or satisfy independent reproduction. No other
+  runtime bundle or probe log is approved for Git.
 - A local result does not establish AWS or production behavior.
 - N-01 and N-03 remain outside Spec 003.
 - A passing automated fixture is not an actual WhyYou N-02 verdict.
