@@ -18,11 +18,14 @@ from engine.evidence import redact, verify_bundle
 from engine.lifecycle import RestoreBlockStore
 from engine.models import (
     SPEC002_UNVERIFIED_SCOPE,
+    SPEC003_UNVERIFIED_SCOPE,
     AwsDeploymentStatus,
     EnvironmentKind,
     ExecutionProfile,
+    ProtectedPathId,
     ReadinessStatus,
     RunState,
+    TargetEnvironmentSnapshot,
     Verdict,
 )
 from engine.presentation import load_bundle_summary, render_human
@@ -170,8 +173,10 @@ def _preflight(args: argparse.Namespace) -> int:
     _validate_runtime_selection(runtime, args.scenario_id, selected_profile)
     readiness = runtime.preflight(args.target)
     payload = _readiness_payload(readiness, runtime.scenario)
+    if selected_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
+        _add_n02_paths(payload, runtime)
     _emit(payload, as_json=args.json)
-    return 0 if readiness.status is ReadinessStatus.READY else EXIT_NOT_READY
+    return 0 if payload["readiness"] == ReadinessStatus.READY.value else EXIT_NOT_READY
 
 
 def _run(args: argparse.Namespace) -> int:
@@ -180,8 +185,11 @@ def _run(args: argparse.Namespace) -> int:
     runtime = create_runtime(settings, scenario_path)
     _validate_runtime_selection(runtime, args.scenario_id, selected_profile)
     readiness = runtime.preflight(args.target)
-    if readiness.status is not ReadinessStatus.READY:
-        _emit(_readiness_payload(readiness, runtime.scenario), as_json=args.json)
+    payload = _readiness_payload(readiness, runtime.scenario)
+    if selected_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
+        _add_n02_paths(payload, runtime)
+    if payload["readiness"] != ReadinessStatus.READY.value:
+        _emit(payload, as_json=args.json)
         return EXIT_NOT_READY
     run, judgement, bundle = runtime.execute(
         readiness,
@@ -233,18 +241,27 @@ def _retest(args: argparse.Namespace) -> int:
     runtime = create_runtime(settings, scenario_path)
     _validate_runtime_selection(runtime, parent_payload["scenario_id"], parent_profile)
     readiness = runtime.preflight(args.target)
-    if readiness.status is not ReadinessStatus.READY:
-        _emit(_readiness_payload(readiness, runtime.scenario), as_json=args.json)
+    readiness_payload = _readiness_payload(readiness, runtime.scenario)
+    if parent_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
+        _add_n02_paths(readiness_payload, runtime)
+    if readiness_payload["readiness"] != ReadinessStatus.READY.value:
+        _emit(readiness_payload, as_json=args.json)
         return EXIT_NOT_READY
     child_id = uuid4()
-    child_environment = (
-        runtime.adapters.environment.capture_environment()
-        if parent_profile is not ExecutionProfile.H03_MINIMAL_V1
-        else None
-    )
+    child_environment = None
+    if parent_profile is not ExecutionProfile.H03_MINIMAL_V1:
+        child_environment = runtime.adapters.environment.capture_environment()
+        if parent_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
+            child_environment = TargetEnvironmentSnapshot.model_validate(
+                child_environment.model_dump(mode="json", exclude={"snapshot_digest"})
+                | {"unverified_scope": sorted(SPEC003_UNVERIFIED_SCOPE)}
+            )
     child_queue = (
         runtime.adapters.queue.capture_topology()
-        if parent_profile is not ExecutionProfile.H03_MINIMAL_V1
+        if parent_profile not in {
+            ExecutionProfile.H03_MINIMAL_V1,
+            ExecutionProfile.N02_CONSENT_ORDER_V1,
+        }
         else None
     )
     parent_run, parent_digest, records = prepare_retest(
@@ -327,6 +344,24 @@ def _readiness_payload(readiness, scenario=None) -> dict[str, Any]:
         "operator_action": readiness.operator_action,
         "checked_at": readiness.checked_at.isoformat(),
     }
+
+
+def _add_n02_paths(payload: dict[str, Any], runtime: Any) -> None:
+    """Project only read-only path identity; Run-owned digests come later."""
+    try:
+        processing = runtime.adapters.n02_processing
+        paths = processing.paths() if processing is not None else ()
+        names = [item.path_id.value for item in paths]
+        if set(names) != {path.value for path in ProtectedPathId} or len(names) != len(ProtectedPathId):
+            raise ValueError("incomplete protected paths")
+        payload["protected_paths"] = names
+    except Exception:  # noqa: BLE001 - never project adapter details into CLI output
+        payload["protected_paths"] = []
+        payload["readiness"] = ReadinessStatus.RUNNER_NOT_READY.value
+        payload["operator_action"] = (
+            "N-02 보호 대상 경로 capability를 읽을 수 없습니다. "
+            "로컬 adapter 설정과 경로 등록을 확인한 뒤 preflight를 다시 실행하세요."
+        )
 
 
 def _run_payload(run, judgement, bundle: Path) -> dict[str, Any]:

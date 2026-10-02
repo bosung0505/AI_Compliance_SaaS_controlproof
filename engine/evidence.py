@@ -109,6 +109,18 @@ SPEC003_CANONICAL_FILES = CANONICAL_FILES | {
     "fault-receipts.jsonl",
     "recovery.json",
 }
+SPEC003_REQUIRED_FILE_LINKS = {
+    "EV3-01": {"n02-capabilities.json", "n02-lanes.json", "environment.snapshot.json", "scenario.snapshot.yaml", "target.snapshot.json"},
+    "EV3-02": {"policy-and-consent.json"},
+    "EV3-03": {"baseline-effects.jsonl", "n02-lanes.json"},
+    "EV3-04": {"bypass-attempts.jsonl"},
+    "EV3-05": {"protected-effects.jsonl"},
+    "EV3-06": {"causal-events.jsonl", "causal-edges.jsonl"},
+    "EV3-07": {"fault-receipts.jsonl"},
+    "EV3-08": {"policy-and-consent.json", "protected-effects.jsonl"},
+    "EV3-09": {"recovery.json", "protected-effects.jsonl"},
+    "EV3-10": {"assertions.json", "judgement.json"},
+}
 
 REQUIRED_EVIDENCE_ARTIFACT_TYPES: dict[str, frozenset[str]] = {
     "EV-01": frozenset({"STATE_SNAPSHOT"}),
@@ -673,6 +685,14 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
                 artifact_records,
                 result,
             )
+            for evidence_id, paths in SPEC003_REQUIRED_FILE_LINKS.items():
+                references = required_evidence.get(evidence_id, [])
+                if not isinstance(references, list) or not {
+                    f"file:{name}" for name in paths
+                }.issubset(references):
+                    result["mismatched_files"].append(
+                        f"evidence:{evidence_id}:canonical-files"
+                    )
             result["checked_evidence_requirements"] = list(expected)
         else:
             _verify_v1_evidence(required_evidence, artifact_records, result)
@@ -682,6 +702,7 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
         _verify_spec002_snapshot_links(directory, manifest, result)
     elif _is_spec003_profile(profile):
         _verify_spec003_snapshot_links(directory, manifest, result)
+        _verify_spec003_facts(directory, result)
     if result["missing_files"] or result["mismatched_files"]:
         result["bundle_status"] = "INVALID"
     result["missing_files"].sort()
@@ -1074,3 +1095,391 @@ def _verify_spec003_snapshot_links(
         or set(environment.get("unverified_scope", [])) != expected_scope
     ):
         result["mismatched_files"].append("run.json:n02-local-claim")
+
+
+def _verify_spec003_facts(directory: Path, result: dict[str, Any]) -> None:
+    """Validate N-02 identities and readable PASS facts after the byte-level seal."""
+    documents: dict[str, Any] = {}
+    for relative_path in sorted(SPEC003_CANONICAL_FILES):
+        path = directory / relative_path
+        if not path.is_file():
+            continue
+        try:
+            payload = path.read_bytes()
+            assert_redacted(payload)
+            if relative_path.endswith(".jsonl"):
+                value = [
+                    json.loads(line)
+                    for line in payload.decode("utf-8").splitlines()
+                    if line.strip()
+                ]
+                if not all(isinstance(item, dict) for item in value):
+                    raise ValueError("JSONL rows must be objects")
+            else:
+                value = json.loads(payload.decode("utf-8"))
+            documents[relative_path] = value
+        except (OSError, UnicodeDecodeError, json.JSONDecodeError, ValueError, TypeError) as exc:
+            result["mismatched_files"].append(
+                f"{relative_path}:unreadable-or-unredacted:{type(exc).__name__}"
+            )
+    run = documents.get("run.json")
+    lane_document = documents.get("n02-lanes.json")
+    if not isinstance(run, dict) or not isinstance(lane_document, dict):
+        return
+    run_id = run.get("run_id")
+    if run.get("parent_run_id") is not None:
+        _verify_spec003_retest_link(directory, run, result)
+    lane_rows = lane_document.get("lanes")
+    if not isinstance(lane_rows, list):
+        result["mismatched_files"].append("n02-lanes.json:lanes")
+        return
+    lanes: dict[str, str] = {}
+    for lane in lane_rows:
+        if not isinstance(lane, dict):
+            result["mismatched_files"].append("n02-lanes.json:lane-object")
+            continue
+        lane_id = lane.get("lane_id")
+        subject_ref = lane.get("subject_ref")
+        if not isinstance(lane_id, str) or not isinstance(subject_ref, str):
+            result["mismatched_files"].append("n02-lanes.json:lane-identity")
+            continue
+        if lane_id in lanes or subject_ref in lanes.values():
+            result["mismatched_files"].append("n02-lanes.json:duplicate-lane-or-subject")
+        lanes[lane_id] = subject_ref
+        if lane.get("run_id", run_id) != run_id:
+            result["mismatched_files"].append(f"n02-lanes.json:{lane_id}:run")
+
+    def check_identity(row: dict[str, Any], source: str) -> None:
+        lane_id = row.get("lane_id")
+        if (
+            row.get("run_id") != run_id
+            or not isinstance(lane_id, str)
+            or lanes.get(lane_id) != row.get("subject_ref")
+        ):
+            result["mismatched_files"].append(f"{source}:lane-subject-run")
+
+    row_files = (
+        "baseline-effects.jsonl",
+        "bypass-attempts.jsonl",
+        "protected-effects.jsonl",
+        "causal-events.jsonl",
+        "fault-receipts.jsonl",
+    )
+    for name in row_files:
+        rows = documents.get(name, ())
+        if not isinstance(rows, list):
+            result["mismatched_files"].append(f"{name}:rows")
+            continue
+        for row in rows:
+            check_identity(row, name)
+    for name in ("policy-and-consent.json", "recovery.json"):
+        value = documents.get(name)
+        if isinstance(value, dict) and "lane_id" in value:
+            check_identity(value, name)
+
+    attempts = documents.get("bypass-attempts.jsonl", [])
+    effects = documents.get("protected-effects.jsonl", [])
+    if not isinstance(attempts, list) or not isinstance(effects, list):
+        return
+    attempts_by_id = {
+        item["attempt_id"]: item
+        for item in attempts if isinstance(item.get("attempt_id"), str)
+    }
+    attempts_by_request = {
+        item["request_id"]: item
+        for item in attempts if isinstance(item.get("request_id"), str)
+    }
+    for effect in effects:
+        linked = []
+        attempt_id = effect.get("attempt_id")
+        if attempt_id is not None:
+            if attempt_id not in attempts_by_id:
+                result["mismatched_files"].append("protected-effects.jsonl:unknown-attempt")
+            else:
+                linked.append(attempts_by_id[attempt_id])
+        request_ids = effect.get("request_ids", [])
+        if not isinstance(request_ids, list):
+            result["mismatched_files"].append("protected-effects.jsonl:request-ids")
+            continue
+        for request_id in request_ids:
+            attempt = attempts_by_request.get(request_id)
+            if attempt is not None:
+                linked.append(attempt)
+        if any(
+            attempt.get("lane_id") != effect.get("lane_id")
+            or attempt.get("subject_ref") != effect.get("subject_ref")
+            or attempt.get("path_id") != effect.get("effect_group")
+            for attempt in linked
+        ):
+            result["mismatched_files"].append("protected-effects.jsonl:attempt-effect-link")
+
+    events = documents.get("causal-events.jsonl", [])
+    if not isinstance(events, list):
+        return
+    event_by_id = {
+        item["causal_event_id"]: item
+        for item in events if isinstance(item.get("causal_event_id"), str)
+    }
+    edges = documents.get("causal-edges.jsonl", [])
+    if not isinstance(edges, list):
+        return
+    for edge in edges:
+        before = event_by_id.get(edge.get("from_event_id"))
+        after = event_by_id.get(edge.get("to_event_id"))
+        if before is None or after is None or any(
+            before.get(key) != after.get(key) for key in ("run_id", "lane_id", "subject_ref")
+        ):
+            result["mismatched_files"].append("causal-edges.jsonl:event-link")
+
+    policy = documents.get("policy-and-consent.json")
+    failed_request_id = (
+        policy.get("failed_request_id") if isinstance(policy, dict) else None
+    )
+    receipts = documents.get("fault-receipts.jsonl", [])
+    if not isinstance(receipts, list):
+        return
+    for receipt in receipts:
+        if receipt.get("lane_id") != "CONSENT_FAULT_RECOVERY":
+            result["mismatched_files"].append("fault-receipts.jsonl:fault-lane")
+        if failed_request_id and receipt.get("request_id") != failed_request_id:
+            result["mismatched_files"].append("fault-receipts.jsonl:failed-request")
+
+    judgement = documents.get("judgement.json")
+    assertions = documents.get("assertions.json")
+    if not isinstance(judgement, dict) or not isinstance(assertions, list):
+        return
+    judged = judgement.get("assertion_results", [])
+    valid_assertion_rows = isinstance(judged, list) and all(
+        isinstance(item, dict) for item in judged + assertions
+    )
+    if ("run_id" in judgement or "assertion_results" in judgement or judgement.get("verdict") == "PASS") and (
+        judgement.get("run_id") != run_id
+        or not valid_assertion_rows
+        or [(item.get("assertion_id"), item.get("status")) for item in judged]
+        != [(item.get("assertion_id"), item.get("status")) for item in assertions]
+    ):
+        result["mismatched_files"].append("assertions.json:judgement-link")
+    if judgement.get("verdict") == "PASS":
+        if not valid_assertion_rows:
+            result["mismatched_files"].append("judgement.json:pass-assertions-unreadable")
+            return
+        if {
+            item.get("assertion_id") for item in judged if item.get("status") == "PASS"
+        } != {f"N02-A{index}" for index in range(1, 8)}:
+            result["mismatched_files"].append("judgement.json:pass-assertions")
+        required_rows = (
+            "n02-lanes.json",
+            "policy-and-consent.json",
+            "baseline-effects.jsonl",
+            "bypass-attempts.jsonl",
+            "protected-effects.jsonl",
+            "causal-events.jsonl",
+            "causal-edges.jsonl",
+            "fault-receipts.jsonl",
+            "recovery.json",
+        )
+        for name in required_rows:
+            value = documents.get(name)
+            if name == "n02-lanes.json":
+                readable = len(lanes) == 6
+            elif name.endswith(".jsonl"):
+                readable = isinstance(value, list) and bool(value)
+            else:
+                readable = isinstance(value, dict) and len(value) > 1
+            if not readable:
+                result["mismatched_files"].append(f"{name}:pass-facts-unreadable")
+    _verify_spec003_pass_assertions(documents, result)
+
+
+def _verify_spec003_retest_link(
+    directory: Path, run: dict[str, Any], result: dict[str, Any]
+) -> None:
+    """A child is valid only while its sealed parent and comparison files remain intact."""
+    try:
+        parent_id = str(UUID(str(run["parent_run_id"])))
+        child_id = str(UUID(str(run["run_id"])))
+        link = json.loads((directory / "retest-link.json").read_text(encoding="utf-8"))
+        diff = json.loads((directory / "retest-diff.json").read_text(encoding="utf-8"))
+        manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+        parent_dir = directory.parent / parent_id
+        parent_manifest = json.loads((parent_dir / "manifest.json").read_text(encoding="utf-8"))
+        parent_run = json.loads((parent_dir / "run.json").read_text(encoding="utf-8"))
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
+        result["mismatched_files"].append("n02-retest:unreadable-link")
+        return
+    required = manifest.get("required_evidence", {}).get("EV3-10", [])
+    if (
+        parent_id == child_id
+        or parent_run.get("parent_run_id") == child_id
+        or link.get("parent_run_id") != parent_id
+        or link.get("child_run_id") != child_id
+        or diff.get("parent_run_id") != parent_id
+        or diff.get("child_run_id") != child_id
+        or "file:retest-link.json" not in required
+        or "file:retest-diff.json" not in required
+        or link.get("parent_bundle_digest") != parent_manifest.get("bundle_digest")
+        or link.get("parent_judgement_sha256")
+        != next(
+            (row.get("sha256") for row in parent_manifest.get("files", [])
+             if row.get("path") == "judgement.json"),
+            None,
+        )
+    ):
+        result["mismatched_files"].append("n02-retest:parent-link")
+        return
+    if verify_bundle(parent_dir, require_all_evidence=False)["bundle_status"] != "VERIFIED":
+        result["mismatched_files"].append("n02-retest:parent-invalid")
+
+
+def _verify_spec003_pass_assertions(
+    documents: dict[str, Any], result: dict[str, Any]
+) -> None:
+    judgement = documents.get("judgement.json")
+    if not isinstance(judgement, dict):
+        return
+    judged = judgement.get("assertion_results", [])
+    if not isinstance(judged, list):
+        return
+    passed = {
+        item.get("assertion_id")
+        for item in judged
+        if isinstance(item, dict) and item.get("status") == "PASS"
+    }
+    if not passed:
+        return
+    baselines = documents.get("baseline-effects.jsonl", [])
+    attempts = documents.get("bypass-attempts.jsonl", [])
+    effects = documents.get("protected-effects.jsonl", [])
+    events = documents.get("causal-events.jsonl", [])
+    edges = documents.get("causal-edges.jsonl", [])
+    receipts = documents.get("fault-receipts.jsonl", [])
+    policy = documents.get("policy-and-consent.json", {})
+    recovery = documents.get("recovery.json", {})
+    if not all(isinstance(value, list) for value in (baselines, attempts, effects, events, edges, receipts)):
+        result["mismatched_files"].append("spec003:pass-fact-types")
+        return
+    if "N02-A1" in passed and not any(
+        row.get("lane_id") == "PRISTINE_BASELINE"
+        and row.get("source_status") != "UNAVAILABLE"
+        and not row.get("new_effect_ids")
+        for row in baselines
+    ):
+        result["mismatched_files"].append("N02-A1:baseline-unreadable")
+    paths = {
+        "N02-A2": ("DOCUMENT_ANALYSIS", "DOCUMENT_BYPASS"),
+        "N02-A3": ("RECORDING", "RECORDING_BOUNDARY_PROBE"),
+        "N02-A4": ("AI_ASSESSMENT", "ASSESSMENT_BOUNDARY_PROBE"),
+    }
+    for assertion_id, (path, lane) in paths.items():
+        if assertion_id not in passed:
+            continue
+        denied = any(
+            row.get("lane_id") == lane
+            and row.get("path_id") == path
+            and row.get("response_class") == "DENIED"
+            for row in attempts
+        )
+        zero_delta = any(
+            row.get("lane_id") == lane
+            and row.get("effect_group") == path
+            and row.get("source_status") in {"ABSENT", "PRESENT"}
+            and row.get("new_effect_ids") == []
+            for row in effects
+        )
+        if not denied or not zero_delta:
+            result["mismatched_files"].append(f"{assertion_id}:denied-zero-delta-unreadable")
+    if "N02-A5" in passed:
+        policy_value = policy.get("policy", policy) if isinstance(policy, dict) else {}
+        consent = policy.get("consent") if isinstance(policy, dict) else None
+        committed = [
+            row for row in events
+            if row.get("kind") == "CONSENT_COMMITTED" and row.get("lane_id") == "NORMAL_ORDER"
+        ]
+        adjacency: dict[str, set[str]] = {}
+        for edge in edges:
+            if edge.get("status") == "PROVEN":
+                adjacency.setdefault(str(edge.get("from_event_id")), set()).add(
+                    str(edge.get("to_event_id"))
+                )
+
+        def reachable(start: str, goal: str) -> bool:
+            pending = [start]
+            visited: set[str] = set()
+            while pending:
+                current = pending.pop()
+                if current == goal:
+                    return True
+                if current in visited:
+                    continue
+                visited.add(current)
+                pending.extend(adjacency.get(current, set()) - visited)
+            return False
+
+        path_order_proven = all(
+            any(
+                reachable(
+                    str(commit.get("causal_event_id")),
+                    str(event.get("causal_event_id")),
+                )
+                for commit in committed
+                for event in events
+                if event.get("path_id") == path
+                and event.get("kind") == kind
+                and event.get("lane_id") == "NORMAL_ORDER"
+            )
+            for path in ("DOCUMENT_ANALYSIS", "RECORDING", "AI_ASSESSMENT")
+            for kind in ("PROCESSING_REQUESTED", "PROCESSING_STARTED", "RESULT_CREATED")
+        )
+        if (
+            not isinstance(policy_value, dict)
+            or not policy_value.get("policy_version")
+            or not policy_value.get("content_digest")
+            or not isinstance(consent, dict)
+            or not consent.get("consent_record_ids")
+            or not committed
+            or not path_order_proven
+        ):
+            result["mismatched_files"].append("N02-A5:policy-causal-facts-unreadable")
+    if "N02-A6" in passed:
+        failed_state = policy.get("failed_state") if isinstance(policy, dict) else None
+        fault_attempt_paths = {
+            row.get("path_id")
+            for row in attempts if row.get("lane_id") == "CONSENT_FAULT_RECOVERY"
+            and row.get("response_class") == "DENIED"
+        }
+        zero_effect_paths = {
+            row.get("effect_group")
+            for row in effects
+            if row.get("lane_id") == "CONSENT_FAULT_RECOVERY"
+            and row.get("source_status") in {"ABSENT", "PRESENT"}
+            and row.get("new_effect_ids") == []
+        }
+        if (
+            not receipts
+            or not isinstance(policy, dict)
+            or not policy.get("failed_request_id")
+            or any(row.get("request_id") != policy.get("failed_request_id") for row in receipts)
+            or not isinstance(failed_state, dict)
+            or failed_state.get("source_status") == "UNAVAILABLE"
+            or failed_state.get("active_consent_count") != 0
+            or failed_state.get("consent_record_ids") != []
+            or failed_state.get("consent_completed_event_ids") != []
+            or fault_attempt_paths != {"DOCUMENT_ANALYSIS", "RECORDING", "AI_ASSESSMENT"}
+            or zero_effect_paths != {"DOCUMENT_ANALYSIS", "RECORDING", "AI_ASSESSMENT"}
+            or not isinstance(recovery, dict)
+            or recovery.get("failed_request_effects_zero") is not True
+            or recovery.get("marker_removed") is not True
+            or recovery.get("consumed_token_removed") is not True
+            or recovery.get("hook_inactive") is not True
+        ):
+            result["mismatched_files"].append("N02-A6:fault-rollback-facts-unreadable")
+    if "N02-A7" in passed and (
+        not isinstance(recovery, dict)
+        or recovery.get("restore_status") != "SUCCEEDED"
+        or recovery.get("logical_consent_count") != 1
+        or recovery.get("consent_completed_event_count") != 1
+        or recovery.get("processing_order_proven") is not True
+        or recovery.get("normal_retry_succeeded") is not True
+        or recovery.get("manual_cleanup_required") is not False
+    ):
+        result["mismatched_files"].append("N02-A7:recovery-facts-unreadable")

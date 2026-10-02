@@ -6,9 +6,9 @@
 한곳에서 이해하기 위한 단일 진입점이다. 과거의 `TEAM_HANDOFF_SPEC_001.md`를 대체하며, 프로젝트 상태를
 확인할 때는 이 문서를 먼저 읽는다.
 
-- 상태 기준일: 2026-10-01
+- 상태 기준일: 2026-10-02
 - ControlProof 현재 작업 브랜치: `003-n02-consent-order`
-- 이 문서가 설명하는 완료 범위: Spec 001·002 전체와 Spec 003 T001~T064 자동 검증 범위
+- 이 문서가 설명하는 완료 범위: Spec 001·002 전체와 Spec 003 T001~T073 자동 검증 범위
 - 현재 사용자 접점: 고객용 웹 화면이 아니라 개발·검증용 `controlproof` CLI
 
 이 문서는 상세 요구사항, 기술 계약 또는 실행 원본을 복제하지 않는다. 각 사실의 상세 근거는 아래에
@@ -22,7 +22,7 @@
 | Constitution | Complete | 모든 기능 Spec과 구현이 따라야 할 개발·검증 원칙이 확정됐다. |
 | Spec 001 | Complete | 실행·증적 기본 모델과 H-03 최소 수직 흐름을 구현하고 실제 WhyYou 로컬 스택에서 검증했다. |
 | Spec 002 | Complete | H-03 DLQ 확장과 E-03 저장 전/후 장애·재시도·멱등성을 구현하고 `LOCAL_EMULATED`에서 검증했다. |
-| Spec 003 | Implement 진행 중 — US1~US3 완료 | T001~T064를 완료했다. 합성 6개 lane, 동의 전 세 보호 경계·효과 delta, 정상 동의 인과 graph, 동의 저장 실패의 원자적 rollback·복구, 비침습 observer와 A1~A7 자동 gate가 구현됐다. US4와 actual Run은 아직 `NOT_RUN`이다. |
+| Spec 003 | Implement 진행 중 — US1~US4 자동 gate 완료 | T001~T073 완료. 합성 6개 lane, A1~A7 통합 verdict, 경로별 CLI 검토와 EV3 봉인 bundle의 fixture gate가 통과했다. ControlProof 전체 회귀 407개 PASS. 실제 WhyYou N-02 preflight/Run과 verdict는 아직 `NOT_RUN`이다. |
 | Spec 004 | 계획 확정·미착수 | E-01·E-02 점수 근거·평가 기준 보존을 구현·검증한다. |
 | Spec 005 | 계획 확정·미착수 | 웹 워크벤치·12개 시나리오 카탈로그·보고서와 웹 UX 검토를 구현·검증한다. |
 | 실제 AWS | `NOT_RUN` | AWS SQS·ECS·IAM·CloudWatch·운영 네트워크는 검증하지 않았다. |
@@ -33,8 +33,8 @@
 | 독립 PC 재현 | `PENDING_EXTERNAL_REPRODUCTION` | Spec 001·002 actual Run은 한 PC에서만 수행됐다. 다른 팀원의 H03_DLQ_V2 재현 전에는 독립 재현 완료로 주장하지 않는다. |
 | main 통합 | 보류 | 독립 재현 gate 뒤 Spec 001·002를 포함한 현재 브랜치를 검토 가능한 PR로 통합한다. |
 
-따라서 저장소의 공식 상태는 **Spec 001·002 Complete, Spec 003 Implement 진행 중(US1~US3 자동 gate
-완료)**이다. Spec 003은 US4 결과·bundle 통합과 실제 WhyYou Run이 남아 있으므로 Complete로 부르지 않는다.
+따라서 저장소의 공식 상태는 **Spec 001·002 Complete, Spec 003 Implement 진행 중(US1~US4 자동 gate
+완료)**이다. Spec 003은 실제 WhyYou N-02 Run과 후속 검증·종결 작업이 남아 있으므로 Complete로 부르지 않는다.
 
 ## 3. 절대로 바꾸어 해석하면 안 되는 제품 원칙
 
@@ -321,7 +321,7 @@ manifest SHA와 assertion 결과는 Validation에 남아 있다.
 
 ## 12. 다음 작업 순서
 
-Spec 003의 Specify·Clarify·Plan·Tasks·Analyze와 Implement의 T001~T064까지 완료됐다. 태오 별도 자료는 없으므로
+Spec 003의 Specify·Clarify·Plan·Tasks·Analyze와 Implement의 T001~T073까지 완료됐다. 태오 별도 자료는 없으므로
 [Spec 003 N-02 source baseline](./research/Spec003_N02_WhyYou_Source_Baseline.md)을 공식 조사 입력으로
 사용한다. 아래 순서를 건너뛰지 않는다.
 
@@ -335,8 +335,8 @@ Spec 003의 Specify·Clarify·Plan·Tasks·Analyze와 Implement의 T001~T064까�
    분해한다.
 6. 완료 — `$speckit-analyze`에서 HIGH 5건·MEDIUM 7건을 보완하고 재분석에서 CRITICAL·HIGH·팀 해석
    차이를 만드는 MEDIUM 0건을 확인한다.
-7. 진행 중 — `$speckit-implement`의 Foundation과 US1~US3(T001~T064)를 완료했다. 다음은 US4
-   통합 verdict·CLI·bundle·검토(T065~T073)다.
+7. 완료 — `$speckit-implement`의 Foundation과 US1~US4(T001~T073) 자동 gate를 완료했다. 다음은
+   US5의 불변 retest 계약(T074~T076)과 실제 WhyYou 최초 사실 gate(T077~T079)다.
 8. 구현 gate를 마친 뒤 `whyyou-local` 최초 actual Run과 bundle을 검증한다.
 9. 필요하면 최초 FAIL을 보존한 child 재시험을 만들고 converge로 Spec 003을 닫는다.
 10. 같은 전체 사이클로 Spec 004를 완료한 뒤 Spec 005로 넘어간다.

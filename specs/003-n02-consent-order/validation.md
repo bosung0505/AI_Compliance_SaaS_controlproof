@@ -3,7 +3,7 @@
 ## Current status
 
 - Workflow stage: `$speckit-implement` in progress
-- Automated implementation gates: US1 A1~A4, US2 A5 and US3 A6~A7 `PASS`; US4 `NOT_RUN`
+- Automated implementation gates: US1~US4 T001~T073 `PASS`; US5 retest contract T074~T076 scoped gate `PASS` (35 relevant tests). The Phase 6 full ControlProof regression was 407 passed. These are fixture results, not a WhyYou verdict.
 - WhyYou actual N-02 preflight: `NOT_RUN`
 - Initial actual Run: `NOT_RUN`
 - Child retest: `NOT_REQUIRED` until the initial Run proves a direct FAIL
@@ -23,6 +23,12 @@ later result; append a new entry and link it to the original Run.
 The final implementation and actual-Run entries must record the then-current clean,
 committed SHAs again. The baseline above is not an actual-Run source claim.
 
+Phase 6 local checkpoint (2026-10-02): ControlProof `003-n02-consent-order` HEAD
+`5e077c9738ddb614f9e0a198415124a1b0b8f3ec` with uncommitted US4 changes;
+WhyYou `bosung/controlproof-n02-integration` HEAD
+`94ad7f2caa0083d3d029b4b7726ee9b34c48eb21` with a clean working tree.
+These are implementation checkpoint SHAs, not an actual-Run source claim.
+
 ## Gate ledger
 
 | Gate | Tasks | Command | Result | Duration |
@@ -32,7 +38,10 @@ committed SHAs again. The baseline above is not an actual-Run source claim.
 | US1 bypass/effects | T024~T040 | scoped pytest + full ControlProof regression + scoped Ruff | PASS | 2 minutes 54 seconds full regression; scoped gates < 2 seconds |
 | US2 normal order | T041~T051 | scoped pytest + full ControlProof regression + WhyYou transaction test + scoped Ruff | PASS | 2 minutes 53 seconds full regression; scoped gates < 14 seconds |
 | US3 fault/recovery | T052~T064 | scoped pytest + full ControlProof regression + scoped WhyYou rollback/fault regression + Ruff | PASS | 2 minutes 47 seconds full regression; scoped gates < 12 seconds |
-| US4 review/bundle | T065~T073 | `NOT_RUN` | `NOT_RUN` | — |
+| US4 tests first | T065~T068 | four scoped test files; commands below | EXPECTED RED; 25 failed, 11 passed | 9.48 seconds |
+| US4 partial implementation | T069/T071 | N-02 presentation, CLI fixture projection and EV3 verifier selection | PASS; 33 passed | 10.40 seconds |
+| US4 review/bundle | T065~T073 | selected US4/EV3 pytest, scoped CLI/orchestration pytest, Ruff, full ControlProof pytest | PASS; 42 scoped and 407 full | 14.00 seconds scoped; 179.22 seconds full |
+| US5 immutable retest | T074~T076 | N-02 test-first RED, N-02 child/CLI scoped pytest and existing H-03/E-03 retest/EV3 contracts | PASS; 6 N-02 and 35 relevant tests | 13.85 seconds N-02; 48.79 seconds relevant |
 | Initial actual truth | T077~T079 | `NOT_RUN` | `NOT_RUN` | — |
 | Conditional remediation | T080~T084 | `PENDING_INITIAL_RUN` | `NOT_RUN` | — |
 | Closure | T085~T093 | `NOT_RUN` | `NOT_RUN` | — |
@@ -74,6 +83,28 @@ output. A test name in this table does not mean that an actual WhyYou Run occurr
 | 2026-10-01 | T052~T064 | WhyYou | Runtime safety plus consent transaction/rollback, N-02 observer, worker delivery and local queue regression selection | PASS; 88 passed in 7.55s; one pytest-asyncio deprecation warning |
 | 2026-10-01 | T052~T064 | ControlProof | `python -m ruff check .` | PASS |
 | 2026-10-01 | T052~T064 | ControlProof | `python -m pytest -q` | PASS; 366 passed in 167.35s |
+| 2026-10-02 | T065~T068 | ControlProof | `.\.venv\Scripts\python.exe -m pytest tests/integration/test_n02_verdict_matrix.py tests/contract/test_presentation_spec003.py tests/contract/test_cli_n02.py tests/integration/test_n02_bundle_links.py -q --tb=short` | EXPECTED RED; 25 failed, 11 passed in 9.48s. Missing combined `judge_n02_run`, N-02 review/path projection, and semantic EV3 cross-reference/readability/redaction verification; no collection, syntax, or fixture setup error. |
+| 2026-10-02 | T065~T068 | ControlProof | `.\.venv\Scripts\python.exe -m pytest tests/contract/test_bundle_profile_spec003.py tests/contract/test_cli_n02_profile.py tests/contract/test_presentation_spec002.py -q` | PASS; 6 passed in 2.23s. Existing profile, preflight and presentation contracts remain intact. |
+| 2026-10-02 | T065~T068 | ControlProof | `.\.venv\Scripts\python.exe -m ruff check tests/integration/test_n02_verdict_matrix.py tests/contract/test_presentation_spec003.py tests/contract/test_cli_n02.py tests/integration/test_n02_bundle_links.py tests/fixtures/n02_review_bundle.py` | PASS. |
+| 2026-10-02 | T069/T071 | ControlProof | `.\.venv\Scripts\python.exe -m pytest tests/integration/test_n02_bundle_links.py tests/contract/test_bundle_profile_spec003.py tests/contract/test_cli_n02.py tests/contract/test_presentation_spec003.py tests/contract/test_presentation_spec002.py tests/contract/test_cli_n02_profile.py -q --tb=short` | PASS; 33 passed in 10.40s. The corrected CLI fixture tests a false PASS with unreadable facts; an empty INCONCLUSIVE bundle remains VERIFIED. |
+| 2026-10-02 | T069/T071 | ControlProof | `.\.venv\Scripts\python.exe -m pytest tests/contract/test_bundle_profile_spec002.py tests/contract/test_bundle_contract.py tests/contract/test_cli_profiles_v2.py tests/contract/test_cli_review.py -q --tb=short` | PASS; 12 passed in 11.36s. |
+| 2026-10-02 | T069/T071 | ControlProof | `.\.venv\Scripts\python.exe -m ruff check engine/evidence.py engine/presentation.py tests/integration/test_n02_bundle_links.py tests/contract/test_cli_n02.py` | PASS. |
+| 2026-10-02 | T070/T072/T073 | ControlProof | `.\.venv\Scripts\python.exe -m pytest -q tests/integration/test_n02_verdict_matrix.py tests/contract/test_presentation_spec003.py tests/contract/test_cli_n02.py tests/integration/test_n02_bundle_links.py tests/integration/test_n02_orchestration.py tests/contract/test_bundle_profile_spec003.py` | PASS; 42 passed in 14.00s. |
+| 2026-10-02 | T070/T072/T073 | ControlProof | `.\.venv\Scripts\python.exe -m pytest -q tests/integration/test_n02_orchestration.py tests/contract/test_cli_n02.py` | PASS; 8 passed in 5.75s after exception cleanup hardening. |
+| 2026-10-02 | T070/T072/T073 | ControlProof | `.\.venv\Scripts\python.exe -m ruff check .` | PASS; all checks passed. |
+| 2026-10-02 | T070/T072/T073 | ControlProof | `.\.venv\Scripts\python.exe -m pytest -q` | PASS; 407 passed in 179.22s. Phase 6 full regression executed once. |
+| 2026-10-02 | T070/T072/T073 | ControlProof | `git diff --check` | PASS; only LF→CRLF working-copy warnings. |
+| 2026-10-02 | T072 | ControlProof | `.\.venv\Scripts\python.exe -m pytest -q tests/integration/test_n02_orchestration.py tests/contract/test_cli_n02.py` | PASS; 8 passed in 6.21s after rechecking the restore block under the target lock. |
+| 2026-10-02 | T074/T075 | ControlProof | `.\.venv\Scripts\python.exe -m pytest -q tests/integration/test_n02_retest_lineage.py tests/contract/test_n02_retest_bundle.py --tb=short` | EXPECTED RED; 3 failed in 5.11s because `prepare_retest` still required one Spec 001/002 subject for an N-02 six-lane parent. No syntax or collection failure. |
+| 2026-10-02 | T074~T076 | ControlProof | `.\.venv\Scripts\python.exe -m pytest -q tests/integration/test_n02_retest_lineage.py tests/contract/test_n02_retest_bundle.py --tb=short` | PASS; 6 passed in 13.85s after N-02 child diff and CLI dispatch. |
+| 2026-10-02 | T074~T076 | ControlProof | `.\.venv\Scripts\python.exe -m pytest -q tests/unit/test_retest.py tests/integration/test_h03_retest_lineage.py tests/integration/test_h03_retest_parent_pass.py tests/integration/test_spec002_retest_lineage.py tests/contract/test_cli_retest.py tests/integration/test_n02_retest_lineage.py tests/contract/test_n02_retest_bundle.py tests/contract/test_bundle_profile_spec003.py tests/integration/test_n02_bundle_links.py --tb=short` | PASS; 35 passed in 48.79s. |
+| 2026-10-02 | T074~T076 | ControlProof | `.\.venv\Scripts\python.exe -m ruff check engine/retest.py engine/cli.py engine/executors/n02.py engine/evidence.py tests/integration/test_n02_retest_lineage.py tests/contract/test_n02_retest_bundle.py` | PASS. |
+| 2026-10-02 | T074~T076 | ControlProof | `git diff --check` | PASS; only LF→CRLF working-copy warnings. |
+| 2026-10-02 | T076 | ControlProof | `.\.venv\Scripts\python.exe -m pytest -q tests/integration/test_n02_retest_lineage.py tests/contract/test_n02_retest_bundle.py tests/integration/test_spec002_retest_lineage.py tests/contract/test_cli_retest.py --tb=short` | PASS; 9 passed in 21.41s after requiring the child environment snapshot to match the actual Run. |
+
+T070 uses the approved read-only preflight contract: protected path identities are shown before a Run, while actual path, policy and lane SHA-256 digests are captured only inside the Run and linked to the sealed bundle. Preflight creates no Run/subject/marker/event. The US4 deterministic fixture verifies six lanes seeded once, A1~A7 PASS, a direct Recording FAIL, and restore failure as RESTORE_FAILED/INCONCLUSIVE with a persistent block. A fixture PASS is not an actual WhyYou verdict; actual preflight and first Run remain `NOT_RUN`. No WhyYou source or product guard was changed in this phase.
+
+T074~T076 are a scoped synthetic child-Run gate. The child uses a fresh six-subject set, records target/path/policy/fixture differences in its own sealed bundle, and verifies the parent manifest and evidence bytes remain unchanged. An unresolved cleanup block or RESTORE_FAILED parent refuses retest. The approved implementation also needed N-02 dispatch and parent-link verification in CLI, executor and Evidence Bundle code. No actual WhyYou parent or child Run was executed; Phase 7 full regression remains pending.
 
 An additional pre-existing WhyYou integration collection issue remains outside this
 foundation gate: `tests/integration/test_production_runtime.py` imports the absent

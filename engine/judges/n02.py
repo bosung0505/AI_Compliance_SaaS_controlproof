@@ -8,9 +8,12 @@ zero scoped effect delta.  Any observed prohibited effect is a direct FAIL.
 from __future__ import annotations
 
 from dataclasses import dataclass
+from datetime import datetime
+from uuid import UUID
 
 from engine.adapters.base import AdapterResult
 from engine.models import (
+    SPEC003_UNVERIFIED_SCOPE,
     AssertionResult,
     AssertionStatus,
     CausalEdge,
@@ -22,6 +25,7 @@ from engine.models import (
     ConsentPurpose,
     ConsentStateSnapshot,
     InconclusiveReason,
+    Judgement,
     N02LaneId,
     Presence,
     ProcessingAttemptReceipt,
@@ -30,9 +34,85 @@ from engine.models import (
     ProtectedPathId,
     RecoveryRecord,
     RecoveryStatus,
+    RunState,
+    Verdict,
 )
 
 N02_ASSERTION_IDS = tuple(f"N02-A{index}" for index in range(1, 8))
+
+
+def judge_n02_run(
+    *,
+    run_id: UUID,
+    assertion_results: tuple[AssertionResult, ...],
+    run_state: RunState,
+    baseline_valid: bool,
+    bundle_verified: bool,
+    decided_at: datetime,
+) -> Judgement:
+    """Combine the seven independent facts without masking a direct violation."""
+    by_id = {item.assertion_id: item for item in assertion_results}
+    if len(by_id) != len(assertion_results) or set(by_id) - set(N02_ASSERTION_IDS):
+        raise ValueError("N-02 aggregate requires unique canonical assertions")
+    if not baseline_valid and "N02-A1" in by_id:
+        a1 = by_id["N02-A1"]
+        by_id["N02-A1"] = AssertionResult(
+            assertion_id="N02-A1",
+            subject_ref=a1.subject_ref,
+            status=AssertionStatus.INCONCLUSIVE,
+            expected=a1.expected,
+            actual=a1.actual,
+            reason_code=InconclusiveReason.INSUFFICIENT_EVIDENCE,
+            detail="pristine 기준선이 유효하지 않아 대상 통제를 판정하지 않았습니다.",
+            source_requirements=a1.source_requirements,
+        )
+    ordered = tuple(
+        by_id.get(assertion_id)
+        or AssertionResult(
+            assertion_id=assertion_id,
+            subject_ref="synthetic-unassessed",
+            status=AssertionStatus.INCONCLUSIVE,
+            expected={"evaluated": True},
+            actual={"evaluated": False},
+            reason_code=InconclusiveReason.INSUFFICIENT_EVIDENCE,
+            detail="이 assertion은 실행 또는 필수 증적이 없어 평가하지 못했습니다.",
+            source_requirements=("EV3-10",),
+        )
+        for assertion_id in N02_ASSERTION_IDS
+    )
+    direct_fail = any(item.status is AssertionStatus.FAIL for item in ordered)
+    inconclusive = [item for item in ordered if item.status is AssertionStatus.INCONCLUSIVE]
+    if run_state is RunState.RESTORE_FAILED or not baseline_valid:
+        verdict = Verdict.INCONCLUSIVE
+        reason = InconclusiveReason.INSUFFICIENT_EVIDENCE
+        summary = "복구 또는 시험 기준선을 확정하지 못해 제품 전체 결과를 판정하지 않았습니다."
+    elif direct_fail:
+        verdict = Verdict.FAIL
+        reason = None
+        summary = "동의 전 보호 대상 처리 또는 복구의 직접 위반이 관찰되었습니다."
+    elif inconclusive or not bundle_verified:
+        verdict = Verdict.INCONCLUSIVE
+        reason = (
+            InconclusiveReason.EVIDENCE_CONFLICT
+            if any(item.reason_code is InconclusiveReason.EVIDENCE_CONFLICT for item in inconclusive)
+            else InconclusiveReason.INSUFFICIENT_EVIDENCE
+        )
+        summary = "필수 증적이 부족하거나 충돌하여 전체 PASS를 확정하지 않았습니다."
+    else:
+        verdict = Verdict.PASS
+        reason = None
+        summary = "N02-A1~A7과 해당 실행 증적이 모두 확인되었습니다."
+    return Judgement(
+        run_id=run_id,
+        scenario_id="N-02",
+        verdict=verdict,
+        reason_code=reason,
+        assertion_results=ordered,
+        missing_evidence=tuple(item.assertion_id for item in inconclusive),
+        unverified_scope=tuple(sorted(SPEC003_UNVERIFIED_SCOPE)),
+        summary=summary,
+        decided_at=decided_at,
+    )
 
 _CASE_LANES = {
     ProtectedPathId.DOCUMENT_ANALYSIS: N02LaneId.DOCUMENT_BYPASS,

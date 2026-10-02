@@ -19,6 +19,15 @@ NO_CERTIFICATION_NOTICE = (
     "이 결과는 실행된 시나리오와 확보한 증적에 한정되며 "
     "법적 준수 전체를 인증하거나 보증하지 않습니다."
 )
+N02_SCOPE_NOTICE = (
+    "이 결과는 LOCAL_EMULATED에서 실행한 N-02 경로에 한정됩니다. "
+    "N-01·N-03과 실제 AWS는 NOT_RUN이며 법적 준수 전체를 인증하거나 보증하지 않습니다."
+)
+N02_PATH_ASSERTIONS = {
+    "DOCUMENT_ANALYSIS": "N02-A2",
+    "RECORDING": "N02-A3",
+    "AI_ASSESSMENT": "N02-A4",
+}
 
 
 def load_bundle_summary(bundle: Path) -> dict[str, Any]:
@@ -88,7 +97,12 @@ def load_bundle_summary(bundle: Path) -> dict[str, Any]:
         if isinstance(decision_a7, dict) and isinstance(decision_a7.get("actual"), dict)
         else {}
     )
-    return {
+    n02_review = (
+        _n02_review(directory, assertions)
+        if profile is ExecutionProfile.N02_CONSENT_ORDER_V1
+        else None
+    )
+    summary = {
         "schema_version": "controlproof.review.v1",
         "run_id": str(run.run_id),
         "verdict": judgement.verdict.value,
@@ -104,7 +118,9 @@ def load_bundle_summary(bundle: Path) -> dict[str, Any]:
         "execution_profile": profile.value,
         "fault_variant": run.fault_variant.value if run.fault_variant else None,
         "claim_scope": CLAIM_SCOPE,
-        "legal_scope_notice": NO_CERTIFICATION_NOTICE,
+        "legal_scope_notice": (
+            N02_SCOPE_NOTICE if n02_review is not None else NO_CERTIFICATION_NOTICE
+        ),
         "scenario_result": {
             "scenario_id": run.scenario_id,
             "execution_profile": profile.value,
@@ -138,19 +154,40 @@ def load_bundle_summary(bundle: Path) -> dict[str, Any]:
         "model_fixture_digest": run.model_fixture_digest,
         "missing_evidence": list(judgement.missing_evidence),
         "findings": [finding.model_dump(mode="json") for finding in judgement.findings],
-        "unverified_scope": list(judgement.unverified_scope),
+        "unverified_scope": (
+            list(run.unverified_scope)
+            if n02_review is not None else list(judgement.unverified_scope)
+        ),
         "parent_run_id": str(run.parent_run_id) if run.parent_run_id else None,
         "started_at": run.started_at.isoformat() if run.started_at else None,
         "ended_at": run.ended_at.isoformat() if run.ended_at else None,
     }
+    if n02_review is not None:
+        summary["n02_review"] = n02_review
+        summary["path_capability_digest"] = run.path_capability_digest
+        summary["policy_snapshot_digest"] = run.policy_snapshot_digest
+        summary["lane_manifest_digest"] = run.lane_manifest_digest
+        summary["consent_fault_triggered"] = (
+            n02_review["fault_recovery"]["trigger_receipt_count"] > 0
+        )
+        summary["environment_restore_status"] = n02_review["fault_recovery"].get(
+            "restore_status"
+        )
+        summary["path_results"] = {
+            path: next(
+                (item["status"] for item in assertions if item["assertion_id"] == assertion_id),
+                "INCONCLUSIVE",
+            )
+            for path, assertion_id in N02_PATH_ASSERTIONS.items()
+        }
+    return summary
 
 
 def render_human(summary: dict[str, Any]) -> str:
     """Concise Korean terminal view in the contractually fixed order."""
     failed = ", ".join(summary["failed_assertions"]) or "없음"
     inconclusive = ", ".join(summary["inconclusive_assertions"]) or "없음"
-    return "\n".join(
-        (
+    lines = [
             f"판정: {summary['verdict']}",
             f"핵심 이유: {summary['summary']}",
             f"실패 assertion: {failed}",
@@ -160,8 +197,89 @@ def render_human(summary: dict[str, Any]) -> str:
             f"증적 경로: {sum(len(value) for value in summary['evidence_links'].values())}개",
             f"주장 범위: {summary.get('claim_scope', CLAIM_SCOPE)}",
             summary.get("legal_scope_notice", NO_CERTIFICATION_NOTICE),
+    ]
+    review = summary.get("n02_review")
+    if isinstance(review, dict):
+        for path, facts in review["paths"].items():
+            request = facts.get("request") or {}
+            effect = facts.get("effect") or {}
+            source = effect.get("source_status")
+            source_label = "조회하지 못함" if source == "UNAVAILABLE" else source or "증적 없음"
+            lines.append(
+                f"{path}: 요청 {request.get('response_class') or '증적 없음'}, "
+                f"신규 효과 {len(effect.get('new_effect_ids') or [])}건, {source_label}"
+            )
+        policy = review["policy_order"]
+        lines.append(f"정책 버전: {policy.get('policy_version') or '조회하지 못함'}")
+        lines.append(f"인과 edge: {policy.get('causal_edge_count', 0)}건")
+        recovery = review["fault_recovery"]
+        lines.append(f"동의 장애 복구: {recovery.get('restore_status') or '조회하지 못함'}")
+        if recovery.get("manual_cleanup_required"):
+            lines.append("수동 정리 확인 필요")
+        lines.append("미검증 범위: " + ", ".join(summary.get("unverified_scope", [])))
+    return "\n".join(lines)
+
+
+def _n02_review(directory: Path, assertions: list[dict[str, Any]]) -> dict[str, Any]:
+    lanes_payload = _read_json(directory / "n02-lanes.json")
+    lanes = lanes_payload.get("lanes", []) if isinstance(lanes_payload, dict) else []
+    capabilities = _read_json(directory / "n02-capabilities.json")
+    cap_paths = capabilities.get("paths", []) if isinstance(capabilities, dict) else []
+    attempts = _read_jsonl(directory / "bypass-attempts.jsonl")
+    effects = _read_jsonl(directory / "protected-effects.jsonl")
+    causal_edges = _read_jsonl(directory / "causal-edges.jsonl")
+    fault_receipts = _read_jsonl(directory / "fault-receipts.jsonl")
+    policy = _read_json(directory / "policy-and-consent.json")
+    recovery = _read_json(directory / "recovery.json")
+    paths: dict[str, Any] = {}
+    unavailable: list[str] = []
+    for path, assertion_id in N02_PATH_ASSERTIONS.items():
+        capability = next(
+            (item for item in cap_paths if isinstance(item, dict) and item.get("path_id") == path),
+            {},
         )
-    )
+        attempt = next(
+            (item for item in attempts if isinstance(item, dict) and item.get("path_id") == path),
+            {},
+        )
+        effect = next(
+            (item for item in effects if isinstance(item, dict) and item.get("effect_group") == path),
+            {},
+        )
+        if effect.get("source_status") == "UNAVAILABLE":
+            unavailable.append(path)
+        paths[path] = {
+            "entry_boundary": capability.get("entry_boundary"),
+            "entry_kind": attempt.get("entry_kind") or capability.get("entry_kind"),
+            "independent_direct_route": capability.get("independent_direct_route"),
+            "operation_id": attempt.get("operation_id"),
+            "request": _select(attempt, "attempt_id", "request_id", "response_class", "source_status"),
+            "effect": _select(effect, "new_effect_ids", "fixture_effect_ids", "source_status", "source_error_code"),
+            "assertion_id": assertion_id,
+        }
+    policy_payload = policy.get("policy", policy) if isinstance(policy, dict) else {}
+    recovery_payload = recovery if isinstance(recovery, dict) else {}
+    return {
+        "lanes": [
+            _select(lane, "lane_id", "subject_ref", "baseline_kind", "fixture_kind", "fixture_digest")
+            for lane in lanes if isinstance(lane, dict)
+        ],
+        "paths": paths,
+        "policy_order": {
+            **_select(policy_payload, "policy_version", "content_digest", "required_purposes"),
+            "causal_edge_count": len(causal_edges),
+            "a5_status": next((item["status"] for item in assertions if item["assertion_id"] == "N02-A5"), None),
+        },
+        "fault_recovery": {
+            **_select(recovery_payload, "restore_status", "manual_cleanup_required", "logical_consent_count", "consent_completed_event_count"),
+            "trigger_receipt_count": len(fault_receipts),
+        },
+        "unavailable_paths": unavailable,
+    }
+
+
+def _select(value: dict[str, Any], *keys: str) -> dict[str, Any]:
+    return {key: value.get(key) for key in keys}
 
 
 def _remaining_variant_coverage(profile: ExecutionProfile) -> list[str]:

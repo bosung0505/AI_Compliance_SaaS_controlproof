@@ -8,17 +8,23 @@ from typing import Any
 from uuid import UUID
 
 from engine.evidence import verify_bundle
+from engine.lifecycle import RestoreBlockStore
 from engine.models import (
+    SPEC003_UNVERIFIED_SCOPE,
     TERMINAL_RUN_STATES,
     ExecutionProfile,
     FaultVariant,
+    N02LaneId,
     QueueTopologySnapshot,
     RetestLink,
     Run,
     RunState,
+    RunSubjectLane,
     TargetEnvironmentSnapshot,
     TargetSnapshot,
     TestSubject,
+    canonical_json_bytes,
+    sha256_bytes,
     utcnow,
 )
 
@@ -51,13 +57,6 @@ def prepare_retest(
     if parent_run.run_id == child_run_id:
         raise RetestError("retest child must use a new Run ID")
     parent_target = TargetSnapshot.model_validate(_read(directory / "target.snapshot.json"))
-    parent_subjects = _read(directory / "subjects.json")
-    if not isinstance(parent_subjects, list) or len(parent_subjects) != 1:
-        raise RetestError("retest parent must contain exactly one canonical subject")
-    try:
-        parent_subject = TestSubject.model_validate(parent_subjects[0])
-    except (TypeError, ValueError) as exc:
-        raise RetestError("retest parent subject contract is invalid") from exc
     parent_digest = _read(directory / "manifest.json")["bundle_digest"]
     parent_manifest = _read(directory / "manifest.json")
     parent_profile = parent_run.execution_profile or ExecutionProfile.H03_MINIMAL_V1
@@ -66,6 +65,27 @@ def prepare_retest(
         raise RetestError("retest child must inherit the parent execution profile")
     if child_fault_variant is not parent_run.fault_variant:
         raise RetestError("retest child must inherit the parent fault variant")
+    if parent_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
+        return _prepare_n02_retest(
+            directory=directory,
+            parent_run=parent_run,
+            parent_manifest=parent_manifest,
+            parent_digest=parent_digest,
+            parent_target=parent_target,
+            child_run_id=child_run_id,
+            child_target=child_target,
+            child_scenario_version=child_scenario_version,
+            child_scenario_digest=child_scenario_digest,
+            child_environment=child_environment,
+            child_queue=child_queue,
+        )
+    parent_subjects = _read(directory / "subjects.json")
+    if not isinstance(parent_subjects, list) or len(parent_subjects) != 1:
+        raise RetestError("retest parent must contain exactly one canonical subject")
+    try:
+        parent_subject = TestSubject.model_validate(parent_subjects[0])
+    except (TypeError, ValueError) as exc:
+        raise RetestError("retest parent subject contract is invalid") from exc
     changed_target = _diff(parent_target.identity(), child_target.identity())
     environment_diff: dict[str, Any] | None = None
     queue_diff: dict[str, Any] | None = None
@@ -217,6 +237,205 @@ def prepare_retest(
         parent_digest,
         records,
     )
+
+
+def _prepare_n02_retest(
+    *,
+    directory: Path,
+    parent_run: Run,
+    parent_manifest: dict[str, Any],
+    parent_digest: str,
+    parent_target: TargetSnapshot,
+    child_run_id: UUID,
+    child_target: TargetSnapshot,
+    child_scenario_version: str,
+    child_scenario_digest: str,
+    child_environment: TargetEnvironmentSnapshot | None,
+    child_queue: QueueTopologySnapshot | None,
+) -> tuple[Run, str, dict[str, Any]]:
+    if RestoreBlockStore(directory.parent).blocked(parent_run.target_id, "n02-consent-order"):
+        raise RetestError("N-02 retest refused: unresolved manual cleanup block")
+    if child_target.target_id != parent_run.target_id:
+        raise RetestError("N-02 retest must use the same target")
+    if (
+        child_scenario_version != parent_run.scenario_version
+        or child_scenario_digest != parent_run.scenario_digest
+    ):
+        raise RetestError("N-02 retest must inherit the parent scenario snapshot")
+    if child_queue is not None:
+        raise RetestError("N-02 retest has no Spec 002 queue topology")
+    if child_environment is None:
+        raise RetestError("N-02 retest requires a local environment snapshot")
+    if (
+        child_environment.target_id != child_target.target_id
+        or set(child_environment.unverified_scope) != SPEC003_UNVERIFIED_SCOPE
+    ):
+        raise RetestError("N-02 retest environment snapshot has the wrong target or scope")
+    try:
+        parent_environment = TargetEnvironmentSnapshot.model_validate(
+            _read(directory / "environment.snapshot.json")
+        )
+        parent_lanes = tuple(
+            RunSubjectLane.model_validate(row)
+            for row in _read(directory / "n02-lanes.json")["lanes"]
+        )
+        parent_paths = _read(directory / "n02-capabilities.json")
+        parent_policy = _read(directory / "policy-and-consent.json")["policy"]
+    except (OSError, KeyError, TypeError, ValueError) as exc:
+        raise RetestError("N-02 parent comparison facts are unreadable") from exc
+    if len(parent_lanes) != len(N02LaneId) or {lane.lane_id for lane in parent_lanes} != set(N02LaneId):
+        raise RetestError("N-02 parent must contain six canonical lanes")
+    target_changes = _diff(parent_target.identity(), child_target.identity())
+    environment_changes = _diff(
+        parent_environment.model_dump(mode="json", exclude={"captured_at", "snapshot_digest"}),
+        child_environment.model_dump(mode="json", exclude={"captured_at", "snapshot_digest"}),
+    )
+    diff = {
+        "schema_version": "controlproof.retest-diff.v1",
+        "parent_run_id": str(parent_run.run_id),
+        "child_run_id": str(child_run_id),
+        "scenario": {
+            "before": {"version": parent_run.scenario_version, "digest": parent_run.scenario_digest},
+            "after": {"version": child_scenario_version, "digest": child_scenario_digest},
+            "changed": False,
+        },
+        "target": {
+            "before_digest": parent_target.target_version,
+            "after_digest": child_target.target_version,
+            "changed_fields": target_changes,
+        },
+        "execution_profile": {
+            "before": ExecutionProfile.N02_CONSENT_ORDER_V1.value,
+            "after": ExecutionProfile.N02_CONSENT_ORDER_V1.value,
+            "changed": False,
+        },
+        "environment": {
+            "before_digest": parent_environment.snapshot_digest,
+            "after_digest": child_environment.snapshot_digest,
+            "changed": bool(environment_changes),
+            "changed_fields": environment_changes,
+        },
+        "queue_topology": None,
+        "n02": {
+            "path_capability": {"before_digest": parent_run.path_capability_digest, "after_digest": None, "changed": None, "changed_fields": []},
+            "policy": {"before": _policy_identity(parent_policy), "after": None, "changed": None, "changed_fields": []},
+            "lane_fixtures": {"lanes": [], "changed": None},
+        },
+        "created_at": utcnow().isoformat(),
+    }
+    link = RetestLink(
+        parent_run_id=parent_run.run_id,
+        child_run_id=child_run_id,
+        changed_dimensions={
+            "scenario": False,
+            "target_paths": [item["path"] for item in target_changes],
+            "environment": bool(environment_changes),
+            "path_capability": None,
+            "policy": None,
+            "lane_fixtures": None,
+        },
+        reason="WhyYou 수정 후 N-02 독립 Run 재시험",
+    )
+    origin = next(
+        (row for row in parent_manifest.get("files", []) if row.get("path") == "judgement.json"),
+        None,
+    )
+    if not isinstance(origin, dict) or not origin.get("sha256"):
+        raise RetestError("N-02 parent judgement origin file is missing")
+    link_payload = link.model_dump(mode="json") | {
+        "parent_bundle_digest": parent_digest,
+        "parent_judgement_sha256": origin["sha256"],
+    }
+    records = {
+        "link": link_payload,
+        "diff": diff,
+        "_n02_parent": {
+            "lanes": [item.model_dump(mode="json") for item in parent_lanes],
+            "paths": parent_paths,
+        },
+    }
+    return parent_run, parent_digest, records
+
+
+def finalize_n02_retest_records(
+    records: dict[str, Any],
+    *,
+    child_run_id: UUID,
+    child_lanes: tuple[RunSubjectLane, ...],
+    child_paths: dict[str, Any],
+    child_policy: dict[str, Any],
+) -> None:
+    """Fill policy, capability and fixture comparisons from the actual child Run."""
+    try:
+        parent = records["_n02_parent"]
+        parent_lanes = tuple(RunSubjectLane.model_validate(row) for row in parent["lanes"])
+        parent_paths = parent["paths"]
+        diff = records["diff"]["n02"]
+        changed = records["link"]["changed_dimensions"]
+    except (KeyError, TypeError, ValueError) as exc:
+        raise RetestError("N-02 retest comparison context is invalid") from exc
+    if (
+        len(child_lanes) != len(N02LaneId)
+        or {lane.lane_id for lane in child_lanes} != set(N02LaneId)
+        or any(lane.run_id != child_run_id for lane in child_lanes)
+    ):
+        raise RetestError("N-02 child must create six lanes for its own Run")
+    if (
+        {lane.invitation_id for lane in parent_lanes} & {lane.invitation_id for lane in child_lanes}
+        or {lane.applicant_id for lane in parent_lanes} & {lane.applicant_id for lane in child_lanes}
+    ):
+        raise RetestError("N-02 child reused parent subject identities")
+    path_changes = _diff(parent_paths, child_paths)
+    diff["path_capability"].update({
+        "after_digest": sha256_bytes(canonical_json_bytes(child_paths)),
+        "changed": bool(path_changes),
+        "changed_fields": path_changes,
+    })
+    before_policy = diff["policy"]["before"]
+    after_policy = _policy_identity(child_policy)
+    policy_changes = _diff(before_policy, after_policy)
+    diff["policy"].update({
+        "after": after_policy,
+        "changed": bool(policy_changes),
+        "changed_fields": policy_changes,
+    })
+    by_lane = {lane.lane_id: lane for lane in parent_lanes}
+    fixture_rows = []
+    for lane in child_lanes:
+        previous = by_lane[lane.lane_id]
+        before = _fixture_identity(previous)
+        after = _fixture_identity(lane)
+        fixture_rows.append({
+            "lane_id": lane.lane_id.value,
+            "before": before,
+            "after": after,
+            "changed": before != after,
+        })
+    diff["lane_fixtures"].update({
+        "lanes": fixture_rows,
+        "changed": any(row["changed"] for row in fixture_rows),
+    })
+    changed.update({
+        "path_capability": bool(path_changes),
+        "policy": bool(policy_changes),
+        "lane_fixtures": diff["lane_fixtures"]["changed"],
+    })
+
+
+def _policy_identity(value: dict[str, Any]) -> dict[str, Any]:
+    return {
+        key: value.get(key)
+        for key in ("policy_version", "content_digest", "required_purposes", "retention_days")
+    }
+
+
+def _fixture_identity(lane: RunSubjectLane) -> dict[str, Any]:
+    return {
+        "baseline_kind": lane.baseline_kind.value,
+        "fixture_kind": lane.fixture_kind,
+        "fixture_digest": lane.fixture_digest,
+        "allowed_preexisting_effects": lane.allowed_preexisting_effects,
+    }
 
 
 def finalize_retest_records(records: dict[str, Any], child_subject: TestSubject) -> None:

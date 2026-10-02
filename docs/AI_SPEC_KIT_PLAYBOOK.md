@@ -101,9 +101,9 @@ Spec 003을 이어서 진행할 때는 여기에 다음을 추가한다.
 
 ```text
 Spec 003은 specify·clarify·plan·tasks·analyze까지 완료됐고 재분석의 CRITICAL·HIGH·팀 해석 차이를
-만드는 MEDIUM은 0건이며 Implement T001~T064(US1~US3)까지 완료됐다.
+만드는 MEDIUM은 0건이며 Implement T001~T073(US1~US4 자동 fixture gate)까지 완료됐다.
 specs/003-n02-consent-order/의 spec.md, plan.md, tasks.md, research.md, data-model.md, contracts/와
-quickstart.md를 입력으로 다음 미완료 묶음인 US4 T065~T073만 진행하라. Tasks의 테스트 우선 순서를
+quickstart.md를 입력으로 다음 미완료 묶음인 US5 T074~T076부터 진행하라. Tasks의 테스트 우선 순서를
 지키고 심층 probe fixture와 실제 처리 effect를 섞지 마라. 자동 A1~A7 PASS를 실제 WhyYou verdict로
 쓰지 말고, 최초 actual FAIL 전에 WhyYou 보호조치를 미리 고치지 마라.
 ```

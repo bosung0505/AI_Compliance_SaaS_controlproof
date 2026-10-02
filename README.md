@@ -20,7 +20,7 @@ ControlProof는 합성 데이터를 이용해 AI 서비스의 절차적 보호�
 - 작성된 기능 명세: [Spec 003 — N-02 동의·AI 처리 순서 검증](./specs/003-n02-consent-order/spec.md)
 - Spec 003 기술 계획: [경계·lane·fault·인과관계·시험 설계](./specs/003-n02-consent-order/plan.md)
 - Spec 003 작업 목록: [테스트 우선 구현·최초 Run·조건부 보완 순서](./specs/003-n02-consent-order/tasks.md)
-- Spec 003 검증 기록: [US1~US3 자동 gate·미실행 actual Run·알려진 한계](./specs/003-n02-consent-order/validation.md)
+- Spec 003 검증 기록: [US1~US4 자동 gate·미실행 actual Run·알려진 한계](./specs/003-n02-consent-order/validation.md)
 - Spec 003 구현 계약: [데이터 모델](./specs/003-n02-consent-order/data-model.md),
   [계약](./specs/003-n02-consent-order/contracts/),
   [구현 후 재현 절차](./specs/003-n02-consent-order/quickstart.md)
@@ -61,7 +61,7 @@ ControlProof 웹 UI가 완성됐다는 뜻이 아니며, 현재 사용자 접점
 
 | 순서 | 상태 | 범위 |
 |---|---|---|
-| Spec 003 | Implement 진행 중 — US1~US3 완료 | T001~T064 완료. 6개 lane, 세 보호 경계, 정상 동의 인과 graph, 원자적 동의 실패 주입·복구, 비침습 observer와 A1~A7 자동 gate 구현; actual Run은 아직 `NOT_RUN` |
+| Spec 003 | Implement 진행 중 — US1~US4 자동 gate 완료 | T001~T073 완료. 6개 lane, A1~A7 통합 verdict, 경로별 CLI 검토와 EV3 봉인 bundle의 fixture gate PASS. ControlProof 전체 회귀 407개 PASS; 실제 WhyYou N-02 preflight/Run과 verdict는 아직 `NOT_RUN` |
 | Spec 004 | 계획 확정·미착수 | E-01·E-02 점수 근거·평가 기준 snapshot과 과거 결과 보존 |
 | Spec 005 | 계획 확정·미착수 | 웹 워크벤치·12개 시나리오 카탈로그·보고서와 웹 UX 검토 |
 

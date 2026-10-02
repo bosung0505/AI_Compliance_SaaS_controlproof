@@ -1,20 +1,16 @@
-"""N-02 consent-order profile executor foundation.
-
-The full journey is composed by later user-story tasks. This foundation deliberately
-performs read-only preflight only and refuses execution before any Run/subject/marker
-side effect can be created.
-"""
+"""N-02 consent-order profile executor and six-lane evidence journey."""
 
 from __future__ import annotations
 
 import time
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from datetime import timedelta
 from pathlib import Path
 from typing import Any
-from uuid import UUID, uuid5
+from uuid import UUID, uuid4, uuid5
 
 from engine.adapters.base import AdapterResult, AdapterSet, Clock
+from engine.evidence import SPEC003_REQUIRED_FILE_LINKS, EvidenceBundleWriter, verify_bundle
 from engine.judges.n02 import (
     N02BypassCase,
     N02FaultFailureCase,
@@ -22,17 +18,22 @@ from engine.judges.n02 import (
     judge_n02_bypass,
     judge_n02_fault_recovery,
     judge_n02_normal_order,
+    judge_n02_run,
     validate_n02_baseline,
 )
+from engine.lifecycle import RestoreBlockStore, TargetSubjectLock
 from engine.models import (
+    SPEC003_UNVERIFIED_SCOPE,
     AssertionResult,
     AssertionStatus,
+    AwsDeploymentStatus,
     CausalEdge,
     CausalEvent,
     ConsentFaultReceipt,
     ConsentPolicySnapshot,
     ConsentPurpose,
     ConsentStateSnapshot,
+    EnvironmentKind,
     ExecutionProfile,
     N02LaneId,
     Phase,
@@ -40,13 +41,20 @@ from engine.models import (
     ProcessingAttemptReceipt,
     ProtectedEffectSnapshot,
     ProtectedPathId,
+    ReadinessStatus,
     RecoveryRecord,
     RecoveryStatus,
+    Run,
+    RunState,
     RunSubjectLane,
     ScenarioReadiness,
+    TargetEnvironmentSnapshot,
+    canonical_json_bytes,
+    sha256_bytes,
     utcnow,
 )
 from engine.readiness import evaluate_readiness
+from engine.retest import RetestError, finalize_n02_retest_records
 from engine.scenario import ScenarioDefinition
 
 
@@ -101,6 +109,29 @@ class N02FaultRecoverySliceResult:
 
 
 _N02_REQUEST_NAMESPACE = UUID("7c5f737a-5d6f-5b9f-87ab-3de2b55c5514")
+_N02_BLOCK_SUBJECT = "n02-consent-order"
+
+
+class _SharedSeed:
+    """Give the three collectors one lane set and postpone their local teardowns."""
+
+    def __init__(self, delegate: Any) -> None:
+        self.delegate = delegate
+        self.lanes: tuple[RunSubjectLane, ...] | None = None
+
+    def seed_lanes(self, *, run_id: str):
+        if self.lanes is None:
+            result = self.delegate.seed_lanes(run_id=run_id)
+            if isinstance(result, AdapterResult):
+                return result
+            self.lanes = result
+        return self.lanes
+
+    def teardown_lanes(self, *, run_id: str, lanes: tuple[RunSubjectLane, ...]):
+        return AdapterResult(True, "N02_TEARDOWN_DEFERRED")
+
+    def __getattr__(self, name: str):
+        return getattr(self.delegate, name)
 
 
 class N02Executor:
@@ -140,10 +171,187 @@ class N02Executor:
             target_snapshot=target_snapshot,
         )
 
-    def execute(self, readiness: ScenarioReadiness, **_: Any):
-        raise RuntimeError(
-            "N-02 execution is fail-closed until the protected-processing journey is composed"
+    def execute(
+        self,
+        readiness: ScenarioReadiness,
+        *,
+        operator_id: str = "local-operator",
+        parent_run_id: UUID | None = None,
+        label: str | None = None,
+        retest_records: dict[str, Any] | None = None,
+        run_id: UUID | None = None,
+    ):
+        if readiness.status is not ReadinessStatus.READY or readiness.target_snapshot is None:
+            raise RuntimeError(f"Run refused: {readiness.status.value}")
+        if retest_records is not None:
+            link = retest_records.get("link", {})
+            if (
+                parent_run_id is None
+                or run_id is None
+                or link.get("parent_run_id") != str(parent_run_id)
+                or link.get("child_run_id") != str(run_id)
+            ):
+                raise RetestError("N-02 child Run requires matching parent and child identities")
+        if self.adapters.n02_seed is None or self.adapters.n02_processing is None:
+            raise RuntimeError("N-02 adapters are not composed")
+        blocks = RestoreBlockStore(self.run_root)
+        if blocks.blocked(readiness.target_id, _N02_BLOCK_SUBJECT):
+            raise RuntimeError("target is blocked after an N-02 restore failure")
+        active_run_id = run_id or uuid4()
+        started_at = self.clock.now()
+        shared_seed = _SharedSeed(self.adapters.n02_seed)
+        collector = N02Executor(
+            self.scenario,
+            replace(self.adapters, n02_seed=shared_seed),
+            self.run_root,
+            clock=self.clock,
         )
+        fault_stage_started = False
+        with TargetSubjectLock(self.run_root, readiness.target_id, _N02_BLOCK_SUBJECT):
+            if blocks.blocked(readiness.target_id, _N02_BLOCK_SUBJECT):
+                raise RuntimeError("target is blocked after an N-02 restore failure")
+            try:
+                us1 = collector.collect_us1(run_id=active_run_id)
+                us2 = collector.collect_us2(run_id=active_run_id)
+                fault_stage_started = True
+                us3 = collector.collect_us3(run_id=active_run_id)
+                recovered = us3.recovery.restore_status is RecoveryStatus.SUCCEEDED
+                teardown = (
+                    self.adapters.n02_seed.teardown_lanes(
+                        run_id=str(active_run_id), lanes=us1.lanes
+                    )
+                    if recovered
+                    else AdapterResult(False, "N02_TEARDOWN_HELD_FOR_MANUAL_CLEANUP")
+                )
+            except Exception:
+                # A collector may fail after creating lanes or applying the fault.
+                # Never silently discard the only cleanup obligation.
+                cleanup_ok = not fault_stage_started
+                if fault_stage_started and shared_seed.lanes and self.adapters.n02_fault:
+                    try:
+                        lane = next(
+                            item for item in shared_seed.lanes
+                            if item.lane_id is N02LaneId.CONSENT_FAULT_RECOVERY
+                        )
+                        subject = _subject(shared_seed, str(active_run_id), lane)
+                        cleanup_ok = self.adapters.n02_fault.restore_consent_fault(
+                            run_id=str(active_run_id), subject=subject
+                        ).ok
+                    except Exception:  # noqa: BLE001 - uncertain restore remains blocked
+                        cleanup_ok = False
+                if shared_seed.lanes and cleanup_ok:
+                    try:
+                        cleanup_ok = self.adapters.n02_seed.teardown_lanes(
+                            run_id=str(active_run_id), lanes=shared_seed.lanes
+                        ).ok
+                    except Exception:  # noqa: BLE001 - uncertain teardown remains blocked
+                        cleanup_ok = False
+                if not cleanup_ok:
+                    blocks.block_run_id(
+                        readiness.target_id, _N02_BLOCK_SUBJECT, active_run_id
+                    )
+                raise
+        ended_at = self.clock.now()
+        restore_ok = recovered and teardown.ok
+        state = RunState.COMPLETED if restore_ok else RunState.RESTORE_FAILED
+        environment_raw = self.adapters.environment.capture_environment()
+        environment = TargetEnvironmentSnapshot.model_validate(
+            environment_raw.model_dump(mode="json", exclude={"snapshot_digest"})
+            | {"unverified_scope": sorted(SPEC003_UNVERIFIED_SCOPE)}
+        )
+        if (
+            retest_records is not None
+            and retest_records["diff"]["environment"]["after_digest"]
+            != environment.snapshot_digest
+        ):
+            raise RetestError("N-02 child environment changed after retest preparation")
+        paths = {"paths": [item.model_dump(mode="json") for item in self.adapters.n02_processing.paths()]}
+        lanes = {"lanes": [item.model_dump(mode="json") for item in us1.lanes]}
+        policy = {
+            "policy": us2.policy.model_dump(mode="json"),
+            "consent": us2.consent_state.model_dump(mode="json"),
+            "failed_request_id": us3.failed_commit.data.get("request_id"),
+            "failed_state": us3.failed_state.model_dump(mode="json"),
+        }
+        if retest_records is not None:
+            finalize_n02_retest_records(
+                retest_records,
+                child_run_id=active_run_id,
+                child_lanes=us1.lanes,
+                child_paths=paths,
+                child_policy=policy["policy"],
+            )
+        target = readiness.target_snapshot
+        snapshot = self.scenario.snapshot()
+        run = Run(
+            run_id=active_run_id,
+            scenario_id=self.scenario.scenario_id,
+            scenario_version=self.scenario.version,
+            scenario_digest=snapshot.digest,
+            target_id=readiness.target_id,
+            target_version=str(target.target_version),
+            model_fixture_id=target.model_fixture_id,
+            model_fixture_digest=target.model_fixture_digest,
+            state=state,
+            started_at=started_at,
+            ended_at=ended_at,
+            seed_kind="n02_six_lane_v1",
+            fault_kind="consent_atomic_fault_v1",
+            parent_run_id=parent_run_id,
+            operator_id=operator_id,
+            label=label,
+            fault_ever_applied=us3.fault_apply.ok,
+            manual_cleanup_required=not restore_ok,
+            execution_profile=self.profile,
+            environment_kind=EnvironmentKind.LOCAL_EMULATED,
+            aws_deployment_status=AwsDeploymentStatus.NOT_RUN,
+            environment_snapshot_digest=environment.snapshot_digest,
+            lane_manifest_digest=sha256_bytes(canonical_json_bytes(lanes)),
+            path_capability_digest=sha256_bytes(canonical_json_bytes(paths)),
+            policy_snapshot_digest=sha256_bytes(canonical_json_bytes(policy)),
+            unverified_scope=tuple(sorted(SPEC003_UNVERIFIED_SCOPE)),
+        )
+        if not restore_ok:
+            blocks.block(readiness.target_id, _N02_BLOCK_SUBJECT, run)
+        assertions = (*us1.assertions, us2.assertion, *us3.assertions)
+        judgement = judge_n02_run(
+            run_id=active_run_id,
+            assertion_results=assertions,
+            run_state=state,
+            baseline_valid=True,
+            bundle_verified=True,
+            decided_at=ended_at,
+        )
+        writer = EvidenceBundleWriter(self.run_root, run)
+        for name, value in (
+            ("run.json", run.model_dump(mode="json")),
+            ("scenario.snapshot.yaml", snapshot.model_dump(mode="json")),
+            ("target.snapshot.json", target.model_dump(mode="json")),
+            ("environment.snapshot.json", environment.model_dump(mode="json")),
+            ("subjects.json", [item.model_dump(mode="json") for item in us1.lanes]),
+            ("assertions.json", [item.model_dump(mode="json") for item in judgement.assertion_results]),
+            ("judgement.json", judgement.model_dump(mode="json")),
+            ("n02-capabilities.json", paths),
+            ("n02-lanes.json", lanes),
+            ("policy-and-consent.json", policy),
+            ("recovery.json", us3.recovery.model_dump(mode="json")),
+        ):
+            writer.write_json(name, value, redact_first=False)
+        _write_n02_rows(writer, us1, us2, us3)
+        if retest_records is not None:
+            writer.write_json("retest-link.json", retest_records["link"], redact_first=False)
+            writer.write_json("retest-diff.json", retest_records["diff"], redact_first=False)
+            writer.link_file_evidence("EV3-10", "retest-link.json")
+            writer.link_file_evidence("EV3-10", "retest-diff.json")
+        for evidence_id, files in SPEC003_REQUIRED_FILE_LINKS.items():
+            for name in sorted(files):
+                writer.link_file_evidence(evidence_id, name)
+        writer.link_intrinsic_evidence("EV3-10", "sealed-manifest")
+        writer.seal()
+        verified = verify_bundle(writer.directory)
+        if verified["bundle_status"] != "VERIFIED":
+            raise N02ExecutionError("N-02 sealed bundle failed verification")
+        return run, judgement, writer.directory
 
     def collect_us1(self, *, run_id: UUID) -> N02BypassSliceResult:
         seed = self.adapters.n02_seed
@@ -587,6 +795,39 @@ class N02Executor:
             assertions=assertions,
             teardown=teardown,
         )
+
+
+def _write_n02_rows(
+    writer: EvidenceBundleWriter,
+    us1: N02BypassSliceResult,
+    us2: N02NormalOrderSliceResult,
+    us3: N02FaultRecoverySliceResult,
+) -> None:
+    """Write every canonical stream, including legitimately empty streams."""
+    streams = {
+        "faults.jsonl": [],
+        "observations.jsonl": [],
+        "baseline-effects.jsonl": list(us1.baseline),
+        "bypass-attempts.jsonl": [
+            *(case.attempt for case in us1.cases),
+            *us2.attempts,
+            *us3.failure_attempts,
+        ],
+        "protected-effects.jsonl": [
+            *(case.effects for case in us1.cases),
+            *us2.effects,
+            *us3.failure_effects,
+        ],
+        "causal-events.jsonl": list(us2.events),
+        "causal-edges.jsonl": list(us2.edges),
+        "fault-receipts.jsonl": [us3.fault_receipt] if us3.fault_receipt else [],
+    }
+    for name, rows in streams.items():
+        if not rows:
+            writer.write_bytes(name, b"", "application/x-ndjson")
+            continue
+        for row in rows:
+            writer.append_jsonl(name, row.model_dump(mode="json"))
 
 
 def _subject(seed: Any, run_id: str, lane: RunSubjectLane) -> dict[str, Any]:

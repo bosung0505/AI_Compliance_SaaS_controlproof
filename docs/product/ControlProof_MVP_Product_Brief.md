@@ -5,7 +5,7 @@
 - 문서 목적: 팀이 상세 기능 명세와 UI 프로토타입을 만들기 전에 제품의 사용자, 핵심 흐름, 상태, 결과물과 성공 기준을 같은 의미로 합의한다.
 - 기준 문서: [ControlProof × WhyYou 2주 MVP 기능 범위 V4](./ControlProof_WhyYou_2주_MVP_기능범위_v4.md)
 - 참고 자산: `controlproof-skeleton_1`의 문서·YAML·판정 엔진·상태 시드 코드
-- 작성 기준일: 2026-09-23, 현재 상태 갱신 2026-10-01
+- 작성 기준일: 2026-09-23, 현재 상태 갱신 2026-10-02
 - 결정 상태: 팀 동기화 전 제품 책임자의 위임에 따라 MVP 구현 기준을 임시 확정했다. 변경은 [MVP 결정 기록](./ControlProof_MVP_Decision_Log.md)에 이유와 영향을 남긴다.
 - 문서 성격: PRD-lite. 제품 관점의 결정 문서이며 상세 API, DB 스키마, 배포 구조와 구현 프레임워크는 후속 Spec과 Plan에서 정한다.
 - 현재 산출물: [Spec Kit Constitution](../../.specify/memory/constitution.md),
@@ -17,7 +17,7 @@
   [Spec 003 기술 Plan](../../specs/003-n02-consent-order/plan.md),
   [Spec 003 Tasks](../../specs/003-n02-consent-order/tasks.md),
   [팀 통합 인수인계](../TEAM_HANDOFF.md)
-- 다음 산출물: Spec 003 US4 구현·actual Run·converge. 이후 Spec 004 — E-01·E-02
+- 다음 산출물: Spec 003 US5 불변 retest 계약·actual Run·converge. 이후 Spec 004 — E-01·E-02
   점수 근거·평가 기준 보존, Spec 005 — 웹 워크벤치·보고서 순서로 진행한다.
 
 ### 0.1 기준 문서의 우선순위
@@ -739,7 +739,7 @@ Spec 001·002에 있고, 앞으로 필요한 연결·시드·관찰·주입·복
 
 ### 14.4 기능 Spec 003 — N-02 동의·AI 처리 순서 수직 흐름
 
-상태: Implement 진행 중. T001~T064와 US1~US3 A1~A7 자동 gate 완료, actual Run은 `NOT_RUN`
+상태: Implement 진행 중. T001~T073와 US1~US4 자동 fixture gate 완료, actual Run은 `NOT_RUN`
 
 - 동의를 거친 합성 지원자를 반복 생성하는 경로 시드
 - 동의 완료 전 자료 제출·분석 요청·녹화·평가 시작 우회 차단
@@ -767,9 +767,9 @@ MEDIUM 0건을 확인했다. Run deadline 540초와 bundle verify 60초를 분�
 처리 명령을 보내지 않고 `INCONCLUSIVE`로 남긴다. US3는 `save_consent()` 직후·상태/Outbox 전의
 local/test one-shot fault, 별도 연결의 부분 효과 0건, 세 미동의 경로 차단, marker/token·overlay 복구,
 동일 지원자의 정확히 한 번 정상 재시도를 검증한다. 복구가 불확실하면 `RESTORE_FAILED`로 후속 장애
-Run을 막는다. 자동 gate는 ControlProof 전체 366개와 WhyYou 관련 회귀 88개를 포함해 통과했다. 이는
-자동 구현 gate이며 WhyYou 제품 PASS가 아니다. 통합 bundle·CLI 검토와 최초 actual Run은 뒤 단계에
-남아 있다.
+Run을 막는다. US4는 A1~A7 통합 verdict, 경로별 CLI 검토와 EV3 봉인 bundle을 자동 fixture에서
+검증했다. ControlProof 전체 회귀 407개와 앞 단계 WhyYou 관련 회귀 88개가 통과했다. 이는 자동 구현
+gate이며 WhyYou 제품 PASS가 아니다. 실제 WhyYou N-02 preflight와 최초 actual Run은 뒤 단계에 남아 있다.
 
 Spec 003의 완료로 V4 비협상 대표 시나리오 N-02·H-03·E-03 세 개가 모두 실제 완주 상태가 된다.
 

@@ -23,13 +23,17 @@ python -m engine.cli preflight N-02 --profile N02_CONSENT_ORDER_V1 --target whyy
   "aws_deployment_status": "NOT_RUN",
   "readiness": "READY",
   "operator_action": null,
-  "path_capability_digest": "sha256-hex",
-  "policy_snapshot_digest": "sha256-hex",
-  "lane_fixture_digest": "sha256-hex",
+  "protected_paths": ["DOCUMENT_ANALYSIS", "RECORDING", "AI_ASSESSMENT"],
   "claim_scope": "EXECUTED_SCENARIO_AND_EVIDENCE_ONLY",
   "unverified_scope": ["AWS", "N-01", "N-03"]
 }
 ```
+
+Preflight는 읽기 전용 capability와 설정 준비만 표시한다. 지원자 credential이 필요한 실제 정책
+snapshot과 Run ID에 묶인 lane fixture digest는 subject를 시드한 Run에서만 확정한다. 이 두 값을
+preflight의 실제 관찰 digest처럼 출력하지 않는다. Run bundle의 `policy_snapshot_digest`,
+`lane_manifest_digest`, `path_capability_digest`가 실제 실행 증적이다. 정책 조회·lane 생성에
+실패하면 PASS를 만들지 않는다.
 
 preflight는 Run directory, subject row, marker 또는 event를 만들지 않는다.
 `readiness != READY`이면 `operator_action`은 비어 있지 않아야 하며, 막힌 capability/source와 실행
@@ -60,6 +64,9 @@ terminal projection:
   },
   "consent_fault_triggered": true,
   "environment_restore_status": "SUCCEEDED",
+  "path_capability_digest": "sha256-hex",
+  "policy_snapshot_digest": "sha256-hex",
+  "lane_manifest_digest": "sha256-hex",
   "bundle_path": ".controlproof/runs/...",
   "claim_scope": "EXECUTED_SCENARIO_AND_EVIDENCE_ONLY",
   "unverified_scope": ["AWS", "N-01", "N-03"]

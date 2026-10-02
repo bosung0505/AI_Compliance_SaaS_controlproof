@@ -6,6 +6,7 @@ import json
 import os
 from pathlib import Path
 from typing import Any, Self
+from uuid import UUID
 
 from engine.models import TERMINAL_RUN_STATES, Run, RunState, canonical_json_bytes, utcnow
 
@@ -131,11 +132,15 @@ class RestoreBlockStore:
         return self.path_for(target_id, subject_ref).exists()
 
     def block(self, target_id: str, subject_ref: str, run: Run) -> Path:
+        return self.block_run_id(target_id, subject_ref, run.run_id)
+
+    def block_run_id(self, target_id: str, subject_ref: str, run_id: UUID) -> Path:
+        """Persist a recovery block even if an exception prevented Run finalization."""
         payload = {
             "schema_version": "controlproof.restore-block.v1",
             "target_id": target_id,
             "subject_ref": subject_ref,
-            "run_id": str(run.run_id),
+            "run_id": str(run_id),
             "created_at": utcnow().isoformat(),
         }
         path = self.path_for(target_id, subject_ref)

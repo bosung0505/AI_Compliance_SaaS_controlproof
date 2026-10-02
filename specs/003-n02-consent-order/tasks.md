@@ -160,18 +160,22 @@ description: "Spec 003 N-02 동의·AI 처리 순서 검증의 구현 작업 목
 
 ### Tests for User Story 4 — write first
 
-- [ ] T065 [P] [US4] Add the combined A1~A7 verdict matrix and precedence cases for direct FAIL, insufficient evidence, evidence conflict, baseline abort and restore failure in `tests/integration/test_n02_verdict_matrix.py` [FR-034~036, N02-A1~A7]
-- [ ] T066 [P] [US4] Add presentation contracts for lane/path directness, request/effect delta, policy/causal order, fault/recovery, unavailable facts, AWS/N-01/N-03 limits and no-certification language in `tests/contract/test_presentation_spec003.py` [FR-040~041, SC-009, SC-012]
-- [ ] T067 [P] [US4] Add CLI contracts for N-02 preflight/run/show/verify projection, stable exit codes, all assertion lists, non-empty sanitized `operator_action` on non-READY preflight, zero preflight side effects and no automatic remediation/retest in `tests/contract/test_cli_n02.py` [FR-004~006, FR-034~041]
-- [ ] T068 [P] [US4] Add bundle verification integration tests for all EV3 mappings, lane/subject/attempt/effect/causal/fault references, unregistered files and redaction failures in `tests/integration/test_n02_bundle_links.py` [FR-037~039, EV3-01~EV3-10]
+- [X] T065 [P] [US4] Add the combined A1~A7 verdict matrix and precedence cases for direct FAIL, insufficient evidence, evidence conflict, baseline abort and restore failure in `tests/integration/test_n02_verdict_matrix.py` [FR-034~036, N02-A1~A7]
+- [X] T066 [P] [US4] Add presentation contracts for lane/path directness, request/effect delta, policy/causal order, fault/recovery, unavailable facts, AWS/N-01/N-03 limits and no-certification language in `tests/contract/test_presentation_spec003.py` [FR-040~041, SC-009, SC-012]
+- [X] T067 [P] [US4] Add CLI contracts for N-02 preflight/run/show/verify projection, stable exit codes, all assertion lists, non-empty sanitized `operator_action` on non-READY preflight, zero preflight side effects and no automatic remediation/retest in `tests/contract/test_cli_n02.py` [FR-004~006, FR-034~041]
+- [X] T068 [P] [US4] Add bundle verification integration tests for all EV3 mappings, lane/subject/attempt/effect/causal/fault references, unregistered files and redaction failures in `tests/integration/test_n02_bundle_links.py` [FR-037~039, EV3-01~EV3-10]
+
+T065~T068 테스트와 T072 여섯 lane 통합 gate는 자동 fixture에서 PASS다. 실제 WhyYou 판정은 T078을 기다린다.
 
 ### Implementation for User Story 4
 
-- [ ] T069 [P] [US4] Extend `engine/presentation.py` with N-02 path, order, recovery and limitation projections, including `claim_scope=EXECUTED_SCENARIO_AND_EVIDENCE_ONLY` and explicit no-certification wording [FR-040~041]
-- [ ] T070 [US4] Implement N-02 preflight/run/show/verify dispatch and additive machine output in `engine/cli.py`, preserving `controlproof.cli.v1` and existing exit meanings [FR-004~006, FR-034~041]
-- [ ] T071 [US4] Complete EV3 cross-reference and readable-fact validation in `engine/evidence.py`; a valid hash with unreadable required facts must not reconstruct PASS [FR-034~039, EV3-01~EV3-10]
-- [ ] T072 [US4] Add a deterministic complete six-lane orchestration test with sealed bundle and verified show projection in `tests/integration/test_n02_orchestration.py` [SC-001~SC-009]
-- [ ] T073 [US4] Run T065~T068 plus T072 and record the independently passing review/bundle gate in `specs/003-n02-consent-order/validation.md` [FR-034~041, N02-A1~A7, EV3-01~EV3-10, SC-001~005, SC-009, SC-012]
+- [X] T069 [P] [US4] Extend `engine/presentation.py` with N-02 path, order, recovery and limitation projections, including `claim_scope=EXECUTED_SCENARIO_AND_EVIDENCE_ONLY` and explicit no-certification wording [FR-040~041]
+- [X] T070 [US4] Implement N-02 preflight/run/show/verify dispatch and additive machine output in `engine/cli.py`, preserving `controlproof.cli.v1` and existing exit meanings [FR-004~006, FR-034~041]
+- [X] T071 [US4] Complete EV3 cross-reference and readable-fact validation in `engine/evidence.py`; a valid hash with unreadable required facts must not reconstruct PASS [FR-034~039, EV3-01~EV3-10]
+
+T070 preflight는 읽기 전용 보호 경로 목록만 출력한다. 실제 정책·lane·경로 digest는 Run에서 확정해 bundle에 기록한다.
+- [X] T072 [US4] Add a deterministic complete six-lane orchestration test with sealed bundle and verified show projection in `tests/integration/test_n02_orchestration.py` [SC-001~SC-009]
+- [X] T073 [US4] Run T065~T068 plus T072 and record the independently passing review/bundle gate in `specs/003-n02-consent-order/validation.md` [FR-034~041, N02-A1~A7, EV3-01~EV3-10, SC-001~005, SC-009, SC-012]
 
 **Checkpoint**: 자동 fixture에서 N-02 전체 결과와 근거 한계를 일관되게 검토할 수 있다. 아직 WhyYou 실제 판정은 아니다.
 
@@ -185,9 +189,11 @@ description: "Spec 003 N-02 동의·AI 처리 순서 검증의 구현 작업 목
 
 ### Tests and implementation for immutable retest
 
-- [ ] T074 [P] [US5] Add retest tests for inherited scenario/profile, fresh six-subject set, new Run ID, target/policy/capability/fixture diff, parent read-only digest and unresolved-cleanup refusal in `tests/integration/test_n02_retest_lineage.py` [FR-002, FR-032~033, SC-010]
-- [ ] T075 [P] [US5] Add parent/child bundle verification tests proving the parent manifest and evidence bytes remain unchanged before and after child creation in `tests/contract/test_n02_retest_bundle.py` [FR-002, FR-033, EV3-10]
-- [ ] T076 [US5] Extend `engine/retest.py` with N-02 profile inheritance, fresh lane seeding, target/policy/capability/fixture diffs and manual-cleanup refusal without modifying parent files [FR-002, FR-032~033]
+- [X] T074 [P] [US5] Add retest tests for inherited scenario/profile, fresh six-subject set, new Run ID, target/policy/capability/fixture diff, parent read-only digest and unresolved-cleanup refusal in `tests/integration/test_n02_retest_lineage.py` [FR-002, FR-032~033, SC-010]
+- [X] T075 [P] [US5] Add parent/child bundle verification tests proving the parent manifest and evidence bytes remain unchanged before and after child creation in `tests/contract/test_n02_retest_bundle.py` [FR-002, FR-033, EV3-10]
+- [X] T076 [US5] Extend `engine/retest.py` with N-02 profile inheritance, fresh lane seeding, target/policy/capability/fixture diffs and manual-cleanup refusal without modifying parent files [FR-002, FR-032~033]
+
+T076의 실제 child 경로에는 승인된 최소 확장으로 `engine/cli.py`, `engine/executors/n02.py`, `engine/evidence.py`의 N-02 분기와 parent-link 검증을 포함했다. 실제 WhyYou Run은 아직 실행하지 않았다.
 
 ### Actual-stack first truth gate
 
