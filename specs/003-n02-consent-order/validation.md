@@ -4,7 +4,7 @@
 
 - Workflow stage: `$speckit-implement` in progress
 - Automated implementation gates: US1~US4 T001~T073 `PASS`; US5 retest contract T074~T076 scoped gate `PASS` (35 relevant tests). The Phase 6 full ControlProof regression was 407 passed. These are fixture results, not a WhyYou verdict.
-- WhyYou actual N-02 preflight: `NOT_RUN`
+- WhyYou actual N-02 preflight: `INCOMPLETE_ENV_BLOCKED` (2026-10-02 attempt produced no readiness result)
 - Initial actual Run: `NOT_RUN`
 - Child retest: `NOT_REQUIRED` until the initial Run proves a direct FAIL
 - AWS: `NOT_RUN`
@@ -42,7 +42,7 @@ These are implementation checkpoint SHAs, not an actual-Run source claim.
 | US4 partial implementation | T069/T071 | N-02 presentation, CLI fixture projection and EV3 verifier selection | PASS; 33 passed | 10.40 seconds |
 | US4 review/bundle | T065~T073 | selected US4/EV3 pytest, scoped CLI/orchestration pytest, Ruff, full ControlProof pytest | PASS; 42 scoped and 407 full | 14.00 seconds scoped; 179.22 seconds full |
 | US5 immutable retest | T074~T076 | N-02 test-first RED, N-02 child/CLI scoped pytest and existing H-03/E-03 retest/EV3 contracts | PASS; 6 N-02 and 35 relevant tests | 13.85 seconds N-02; 48.79 seconds relevant |
-| Initial actual truth | T077~T079 | `NOT_RUN` | `NOT_RUN` | — |
+| Initial actual truth | T077~T079 | T077 CLI preflight attempted; Docker/local services unavailable | BLOCKED; no readiness result or actual Run | — |
 | Conditional remediation | T080~T084 | `PENDING_INITIAL_RUN` | `NOT_RUN` | — |
 | Closure | T085~T093 | `NOT_RUN` | `NOT_RUN` | — |
 
@@ -101,8 +101,12 @@ output. A test name in this table does not mean that an actual WhyYou Run occurr
 | 2026-10-02 | T074~T076 | ControlProof | `.\.venv\Scripts\python.exe -m ruff check engine/retest.py engine/cli.py engine/executors/n02.py engine/evidence.py tests/integration/test_n02_retest_lineage.py tests/contract/test_n02_retest_bundle.py` | PASS. |
 | 2026-10-02 | T074~T076 | ControlProof | `git diff --check` | PASS; only LF→CRLF working-copy warnings. |
 | 2026-10-02 | T076 | ControlProof | `.\.venv\Scripts\python.exe -m pytest -q tests/integration/test_n02_retest_lineage.py tests/contract/test_n02_retest_bundle.py tests/integration/test_spec002_retest_lineage.py tests/contract/test_cli_retest.py --tb=short` | PASS; 9 passed in 21.41s after requiring the child environment snapshot to match the actual Run. |
+| 2026-10-02 | T077 attempt | ControlProof/WhyYou | `git branch --show-current`, `git rev-parse HEAD`, `git status --short` | Both clean on personal branches: ControlProof `b2b1c5e553302f93552b8616ccf6c3374d1ae45c`; WhyYou `94ad7f2caa0083d3d029b4b7726ee9b34c48eb21`. These are preflight-attempt sources, not actual-Run sources. |
+| 2026-10-02 | T077 attempt | Local environment | `docker desktop status`; `docker version --format '{{.Server.Version}}'`; local TCP checks on 8080/5432/4566 | Docker Desktop status unavailable; Docker API access denied in sandbox, and host-permission query did not return. API, PostgreSQL and LocalStack ports were closed. |
+| 2026-10-02 | T077 attempt | ControlProof | `.\.venv\Scripts\python.exe -m engine.cli preflight N-02 --profile N02_CONSENT_ORDER_V1 --target whyou-local --json` with process-only local/test settings from WhyYou `.env` | No JSON or readiness result after about 6 minutes; interrupted while local services were unavailable. No new Run directory dated after the attempt; no actual Run was invoked. T077 remains unchecked. |
+| 2026-10-02 | T077 attempt | ControlProof | `.\.venv\Scripts\python.exe -m ruff check .`; `.\.venv\Scripts\python.exe -m ruff format --check .` | Ruff lint PASS; repository-wide format check FAIL on 76 files, including unchanged files. No broad reformat applied. |
 
-T070 uses the approved read-only preflight contract: protected path identities are shown before a Run, while actual path, policy and lane SHA-256 digests are captured only inside the Run and linked to the sealed bundle. Preflight creates no Run/subject/marker/event. The US4 deterministic fixture verifies six lanes seeded once, A1~A7 PASS, a direct Recording FAIL, and restore failure as RESTORE_FAILED/INCONCLUSIVE with a persistent block. A fixture PASS is not an actual WhyYou verdict; actual preflight and first Run remain `NOT_RUN`. No WhyYou source or product guard was changed in this phase.
+T070 uses the approved read-only preflight contract: protected path identities are shown before a Run, while actual path, policy and lane SHA-256 digests are captured only inside the Run and linked to the sealed bundle. Preflight creates no Run/subject/marker/event. The US4 deterministic fixture verifies six lanes seeded once, A1~A7 PASS, a direct Recording FAIL, and restore failure as RESTORE_FAILED/INCONCLUSIVE with a persistent block. A fixture PASS is not an actual WhyYou verdict; the 2026-10-02 actual preflight attempt has no readiness result and the first Run remains `NOT_RUN`. No WhyYou source or product guard was changed in this phase.
 
 T074~T076 are a scoped synthetic child-Run gate. The child uses a fresh six-subject set, records target/path/policy/fixture differences in its own sealed bundle, and verifies the parent manifest and evidence bytes remain unchanged. An unresolved cleanup block or RESTORE_FAILED parent refuses retest. The approved implementation also needed N-02 dispatch and parent-link verification in CLI, executor and Evidence Bundle code. No actual WhyYou parent or child Run was executed; Phase 7 full regression remains pending.
 
