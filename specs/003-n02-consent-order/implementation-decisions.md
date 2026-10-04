@@ -79,10 +79,10 @@ not by itself proof that a WhyYou product boundary accepted processing.
 
 | Task | Boundary | Parent artifact required | Status |
 |---|---|---|---|
-| T080 | A5~A7 or runner/restore ownership | Yes | `PENDING_CLASSIFICATION`; audit below |
-| T081 | document analysis | Yes | `PENDING_DECISION`; parent A2 PASS |
-| T082 | recording | Yes | `PENDING_DECISION`; parent A3 PASS |
-| T083 | AI assessment/reporting | Yes | `PENDING_CLASSIFICATION`; parent A4 FAIL |
+| T080 | A5~A7 or runner/restore ownership | Yes | `PROPOSED` `RUNNER_OR_OBSERVER_DEFECT`; ID-003-09, file-scope approval pending |
+| T081 | document analysis | Yes | `NOT_REQUIRED` proposed; parent A2 PASS (ID-003-09) |
+| T082 | recording | Yes | `NOT_REQUIRED` proposed; parent A3 PASS (ID-003-09) |
+| T083 | AI assessment/reporting | Yes | `NOT_REQUIRED` proposed; A4 effect was runner-created (ID-003-09) |
 | T084 | child retest or parent reverify | Yes | `NOT_RUN`; cleanup and retest gate confirmed, full preflight pending |
 
 ### ID-003-03 — First Run root-cause audit remains open
@@ -163,3 +163,53 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
 - Decision: Only the N-02 profile may prepare a child from a `RESTORE_FAILED` parent after a matching `cleanup-confirm` record. `prepare_retest` first verifies the immutable parent bundle, then requires the exact parent/target/subject maintenance record, original cleanup evidence bytes with a matching SHA-256 and N-02 fault-lane safe-state facts, a valid confirmation time, and no new restore block. The CLI accepts `--cleanup-evidence` for this case. A future child link carries the cleanup confirmation reference; the parent's historical state and bundle are never rewritten. H-03/E-03 retain the unconditional restore-failed refusal.
 - Evidence: seven intended RED cases before the new parameter existed; after implementation 23 scoped related tests plus one H-03 maintenance refusal test passed, changed-file Ruff and whitespace checks passed. A read-only call against parent `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` and its original maintenance/evidence returned a valid preparation record with unchanged parent manifest bytes and evidence SHA-256 `406a87bc88cf2f0ec0bcff1799f7ad4b8099937e507484d11ad9e3d801649eef`. No child Run or full regression was executed.
 - Limit: the original cleanup evidence is an ignored local artifact and must be retained for a later retest; a maintenance record alone cannot substitute for it. A later isolated full preflight started the API and four workers against a fresh DB/five queues, and 14/16 checks were READY. The two source/environment checks correctly remained `RUNNER_NOT_READY` because the WhyYou tracked checkout is dirty. The original DB's 325 pending outbox events were not processed; temporary infrastructure and processes were removed. The preflight transcript and separate interpretation are under ignored WhyYou `.controlproof/full-preflight-probes/48f0b3bf82a2/`. A clean-source full READY preflight and T080 root-cause classification remain open.
+
+### ID-003-09 — Parent A4~A7 root cause: seed defect and runner-created effect
+
+- Date: 2026-10-04
+- Task: T080 classification (+ T081~T083 branch decisions)
+- Requirement/assertion: FR-026~033, N02-A2~A7, SC-010
+- Status: `PROPOSED`. The classification is evidence-backed; the fix touches `seeds/n02_subjects.py`,
+  which is **outside T080's listed fix files**, so it needs team approval before T080 is checked off.
+- Source baseline: received ControlProof `9f61713`, WhyYou `c8e9970`; parent Run sources
+  ControlProof `b92b9ad`, WhyYou `94ad7f2`
+- Triggering parent Run: `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` (manifest SHA-256
+  `d2306f3cd6e2b15ce87d94e4844a2278c7ea3c0b3c052a2aac45e1bff8f2bc9b`, re-verified `VERIFIED`)
+- Exact evidence artifacts: sealed `policy-and-consent.json` (both NORMAL_ORDER and
+  CONSENT_FAULT_RECOVERY remain `identity_verified`, row_version 1, zero consent facts), empty
+  `faults.jsonl`/`fault-receipts.jsonl`/`causal-*.jsonl`, `recovery.json`, `protected-effects.jsonl`;
+  plus the isolated-DB diagnostic rows dated 2026-10-04 in `validation.md`.
+- Root-cause class: `RUNNER_OR_OBSERVER_DEFECT` for every direct FAIL, from two runner defects.
+
+| Defect | Cause | Affected | Status |
+|---|---|---|---|
+| R1 seed | `build_n02_seed_plan` wrote `submission_requirements=[]` on the position and all six invitations. WhyYou loads an invitation through `SubmissionRequirementSet`, which raises a `ValueError` subclass for an empty set; the consent route maps `ValueError` to 422. The request failed in `get_invitation`, before `save_consent()` and therefore before the consent fault hook. | A5 (normal consent never committed), A6 (fault never triggered; commit 422), A7 (`normal_retry_succeeded=false`) | Fixed on local branch `yeonwoo/003-t080-seed-requirements`; not pushed |
+| R2 probe input | `protected_processing.py` inserted `report.generation_requested` itself and the parent counted it as a protected effect. | A4, A6 (`leaked_effect_ids`), A7 (`failed_zero=false` via `failure_effects`) | Already corrected for future Runs by T080-E1 (ID-003-04) |
+
+- Isolated reproduction: WhyYou `94ad7f2` on a fresh PostgreSQL 16 + pgvector DB, production runtime
+  with every AI/storage/email/principal port stubbed and no queues, exact `b92b9ad` seed for the parent
+  Run ID. Both lanes' POST returned 422 with the `SubmissionRequirementSet` message. Replacing only the
+  NORMAL_ORDER invitation's requirements with WhyYou `DEFAULT_SUBMISSION_REQUIREMENTS` turned the same
+  POST into 201 with exactly one consent record, transition and `invitation.consent_completed` event.
+  On delivered WhyYou `c8e9970` (consent route, submission-material model and migrations unchanged
+  from `94ad7f2`) the corrected seed produced 201 for both lanes. This is a diagnostic in an isolated
+  DB, **not** an N-02 Run, bundle or verdict; it is not `whyyou-local`.
+- Decision: Seed position and invitation rows with an explicit copy of WhyYou's default requirement
+  set (resume and cover letter required, three optional materials, all enabled). No WhyYou product
+  file changes. The target's 422 on an invariant-violating invitation is not a consent-control
+  defect: the product API cannot create such an invitation.
+- Branch outcomes: T081 and T082 `NOT_REQUIRED` (parent A2/A3 PASS with 403 `CONSENT_REQUIRED` and no
+  new effect). T083 `NOT_REQUIRED` (the only A4 effect was runner-created; the parent proves no target
+  AI-assessment bypass). All three are re-observed by the T084 child.
+- Alternatives considered: (a) map the 422 message into the E1 reason allowlist only — rejected, it
+  would label the next Run without letting consent commit; (b) seed `NULL` — rejected, the column is
+  `NOT NULL`; (c) change WhyYou to tolerate empty sets — rejected, product semantics change.
+- Safety and compatibility impact: seed digest changes for new Runs only; the parent bundle and its
+  verdict are untouched. Without R1, the T084 child would hit the identical 422, because WhyYou
+  `c8e9970` did not change the consent path.
+- Regression command and result: `pytest -q tests/contract/test_n02_seed_adapter.py` EXPECTED RED 1
+  failed/3 passed, then 4 passed; Linux full regression 441 passed; Ruff PASS.
+- Open limits: the bypass lanes' 403 PASS was observed with invalid invitations; T084 must re-observe
+  A2/A3 with the corrected seed. Separately observed, not in N-02 scope: the consent POST discards
+  `Idempotency-Key`, so a resend after success returns 422 instead of replaying the 201.
+- Child Run / parent immutability result: no child. Parent re-verified `VERIFIED`, 19 files.

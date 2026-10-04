@@ -90,3 +90,20 @@ def test_teardown_is_allowlisted_to_the_current_run(settings) -> None:
     removed = adapter.teardown_lanes(run_id=str(run_id), lanes=lanes)
     assert removed.ok is True
     assert all(UUID(value) == run_id for value in transaction.deleted_run_ids)
+
+
+def test_seeded_positions_and_invitations_satisfy_whyyou_submission_invariant() -> None:
+    """T080/ID-003-09: parent 15cef078 consent POSTs returned 422 because the seed wrote
+    ``submission_requirements=[]``. WhyYou loads every invitation through
+    ``SubmissionRequirementSet``, which rejects a set with no required+enabled material, so
+    the consent route failed before ``save_consent()`` and before the fault hook.
+    """
+    plan = build_n02_seed_plan(uuid4(), company_id=uuid4(), reviewer_id=uuid4())
+    seeded = [row for row in plan.rows if row.table in {"positions", "invitations"}]
+    assert {row.table for row in seeded} == {"positions", "invitations"}
+    for row in seeded:
+        requirements = row.values["submission_requirements"]
+        assert isinstance(requirements, list) and requirements, row.table
+        assert any(item["required"] and item["enabled"] for item in requirements), row.table
+        material_types = [item["material_type"] for item in requirements]
+        assert len(material_types) == len(set(material_types)), row.table

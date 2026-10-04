@@ -27,6 +27,26 @@ def _id(run_id: UUID, name: str) -> UUID:
     return uuid5(_NAMESPACE, f"{run_id}:{name}")
 
 
+# WhyYou loads positions and invitations through ``SubmissionRequirementSet``, which rejects a
+# set with no required+enabled material. An empty list made every applicant route that loads
+# the invitation (including ``POST /v1/applicant/consents``) fail with 422 before the consent
+# transaction ran -- see Spec 003 ID-003-09. Mirrors WhyYou ``DEFAULT_SUBMISSION_REQUIREMENTS``.
+_DEFAULT_SUBMISSION_REQUIREMENTS: tuple[tuple[str, bool], ...] = (
+    ("resume", True),
+    ("cover_letter", True),
+    ("career_description", False),
+    ("projects", False),
+    ("portfolio", False),
+)
+
+
+def _submission_requirements() -> list[dict[str, Any]]:
+    return [
+        {"material_type": material, "required": required, "enabled": True, "instructions": None}
+        for material, required in _DEFAULT_SUBMISSION_REQUIREMENTS
+    ]
+
+
 @dataclass(frozen=True, slots=True)
 class SeedRow:
     table: str
@@ -246,7 +266,7 @@ def _seed_rows(
                 "position_id": position_id,
                 "title": f"ControlProof N02 {run_id}",
                 "description": "Synthetic local/test-only N-02 position",
-                "submission_requirements": [],
+                "submission_requirements": _submission_requirements(),
                 "created_by": reviewer_id,
                 "status": "open",
                 "row_version": 1,
@@ -312,7 +332,7 @@ def _seed_rows(
                         "applicant_id": lane.applicant_id,
                         "applicant_email_normalized": subject.synthetic_email,
                         "applicant_display_name": lane.subject_ref,
-                        "submission_requirements": [],
+                        "submission_requirements": _submission_requirements(),
                         "token_hash": sha256_bytes(
                             f"n02-token:{run_id}:{lane.lane_id.value}".encode()
                         ),
