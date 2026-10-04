@@ -119,3 +119,28 @@ def observation_factory():
         return Observation(**data)
 
     return create
+
+
+@pytest.fixture(autouse=True)
+def _virtual_n02_system_clock(monkeypatch):
+    """N-02 now polls per the scenario snapshot (2 s, 3 stable reads, >= 4 s).
+
+    Tests that build the executor without a fake clock would otherwise sleep for real.
+    Advance a virtual offset instead so the timing policy is exercised without wall time.
+    """
+    from datetime import timedelta
+
+    from engine.executors import n02
+
+    offset = {"seconds": 0.0}
+    real_now = n02._SystemClock.now
+    monkeypatch.setattr(
+        n02._SystemClock,
+        "now",
+        lambda self: real_now(self) + timedelta(seconds=offset["seconds"]),
+    )
+    monkeypatch.setattr(
+        n02._SystemClock,
+        "sleep",
+        lambda self, seconds: offset.__setitem__("seconds", offset["seconds"] + seconds),
+    )

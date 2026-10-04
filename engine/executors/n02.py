@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass, replace
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 from uuid import UUID, uuid4, uuid5
 
 from engine.adapters.base import AdapterResult, AdapterSet, Clock
@@ -134,6 +134,88 @@ class _SharedSeed:
         return getattr(self.delegate, name)
 
 
+class N02RunDeadlineExceeded(N02ExecutionError):
+    """The snapshot Run deadline expired before an observation became stable."""
+
+
+class _Stabilizer:
+    """Apply the scenario snapshot's polling policy to one N-02 observation.
+
+    A read is accepted only after ``stability_consecutive`` consecutive reads with the same
+    digest spanning at least ``stability_seconds``, sleeping ``poll_seconds`` between reads.
+    A single immediate read is never treated as proof that an asynchronous effect is absent.
+    """
+
+    def __init__(self, timing: Any, clock: Any, deadline: Any) -> None:
+        self.timing = timing
+        self.clock = clock
+        self.deadline = deadline
+
+    def read(self, fetch: Any, key: Any, label: str) -> Any:
+        value = fetch()
+        marker = key(value)
+        if marker is None:
+            return value
+        streak = 1
+        window_started = self.clock.now()
+        while True:
+            elapsed = (self.clock.now() - window_started).total_seconds()
+            if (
+                streak >= self.timing.stability_consecutive
+                and elapsed >= self.timing.stability_seconds
+            ):
+                return value
+            if self.deadline is not None and self.clock.now() >= self.deadline:
+                raise N02RunDeadlineExceeded(f"N02_RUN_DEADLINE_EXCEEDED:{label}")
+            self.clock.sleep(self.timing.poll_seconds)
+            current = fetch()
+            current_marker = key(current)
+            if current_marker is None:
+                return current
+            if current_marker == marker:
+                streak += 1
+            else:
+                streak = 1
+                window_started = self.clock.now()
+            value, marker = current, current_marker
+
+
+def _digest_key(value: Any) -> Any:
+    return None if isinstance(value, AdapterResult) else getattr(value, "state_digest", None)
+
+
+def _receipts_key(value: Any) -> Any:
+    if not isinstance(value, AdapterResult) or not value.ok:
+        return None
+    rows = value.data.get("receipts", ()) if isinstance(value.data, dict) else ()
+    return tuple(sorted(str(row.get("receipt_id")) for row in rows if isinstance(row, dict)))
+
+
+class _StableReads:
+    """Adapter proxy: snapshot-reading methods go through the stabilizer; others pass through."""
+
+    _KEYS: ClassVar[dict[str, Any]] = {
+        "read_effects": _digest_key,
+        "read_state": _digest_key,
+        "read_processing_receipts": _receipts_key,
+    }
+
+    def __init__(self, delegate: Any, stabilizer: _Stabilizer) -> None:
+        self._delegate = delegate
+        self._stabilizer = stabilizer
+
+    def __getattr__(self, name: str) -> Any:
+        attribute = getattr(self._delegate, name)
+        key = self._KEYS.get(name)
+        if key is None or not callable(attribute):
+            return attribute
+
+        def stable(*args: Any, **kwargs: Any) -> Any:
+            return self._stabilizer.read(lambda: attribute(*args, **kwargs), key, name)
+
+        return stable
+
+
 class N02Executor:
     """Own the additive N-02 profile without inheriting Spec 002 queue semantics."""
 
@@ -200,9 +282,25 @@ class N02Executor:
         active_run_id = run_id or uuid4()
         started_at = self.clock.now()
         shared_seed = _SharedSeed(self.adapters.n02_seed)
+        stabilizer = _Stabilizer(
+            self.scenario.timing_policy,
+            self.clock,
+            started_at
+            + timedelta(seconds=float(self.scenario.timing_policy.run_deadline_seconds or 0)),
+        )
         collector = N02Executor(
             self.scenario,
-            replace(self.adapters, n02_seed=shared_seed),
+            replace(
+                self.adapters,
+                n02_seed=shared_seed,
+                n02_processing=_StableReads(self.adapters.n02_processing, stabilizer),
+                n02_consent=_StableReads(self.adapters.n02_consent, stabilizer),
+                n02_observer=(
+                    None
+                    if self.adapters.n02_observer is None
+                    else _StableReads(self.adapters.n02_observer, stabilizer)
+                ),
+            ),
             self.run_root,
             clock=self.clock,
         )
@@ -571,7 +669,8 @@ class N02Executor:
             fault_apply = fault.apply_consent_fault(
                 run_id=str(run_id),
                 subject=subject,
-                expires_at=self.clock.now() + timedelta(minutes=5),
+                expires_at=self.clock.now()
+                + timedelta(seconds=float(self.scenario.timing_policy.fault_ttl_seconds or 0)),
             )
             if not fault_apply.ok:
                 raise N02ExecutionError(f"N-02 fault apply failed: {fault_apply.code}")

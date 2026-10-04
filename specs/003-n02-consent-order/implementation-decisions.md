@@ -213,3 +213,34 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
   A2/A3 with the corrected seed. Separately observed, not in N-02 scope: the consent POST discards
   `Idempotency-Key`, so a resend after success returns 422 instead of replaying the 201.
 - Child Run / parent immutability result: no child. Parent re-verified `VERIFIED`, 19 files.
+
+### ID-003-10 — N-02 executor did not apply the snapshot timing policy
+
+- Date: 2026-10-04
+- Task: T085 (partial); prerequisite for T084
+- Requirement/assertion: SC-006, SC-008; contract `scenario-profile-v3.md` Timing policy; N02-A1~A7
+- Status: `PROPOSED` (scoped tests pass; team review required before T084)
+- Finding: `scenarios/N-02.yaml` freezes poll 2 s, 3 consecutive stable reads over >= 4 s, fault TTL
+  600 s, restore 120 s, Run 540 s and verify 60 s, but `engine/executors/n02.py` read none of them.
+  Every effect, consent-state and observer-receipt read was a single immediate read (the parent Run
+  spans 0.45 s in `run.json`); the consent fault marker TTL was a hard-coded 5 minutes; the only wait
+  was a hard-coded 2.0 s/0.05 s loop for AI-assessment start receipts in `protected_processing.py`.
+  Consequence: "no effect" for A1~A3/A6 rested on one read taken before asynchronous workers could
+  act, and the normal-order chain (A5) could miss worker start receipts. This is a
+  `RUNNER_OR_OBSERVER_DEFECT` risk, not an observed target outcome; it did not cause the parent's
+  FAILs (ID-003-09), but the first child Run would be the first to exercise these paths.
+- Decision: `N02Executor.execute()` wraps `read_effects`, `read_state` and
+  `read_processing_receipts` in `_StableReads`; `_Stabilizer` accepts a value only after
+  `stability_consecutive` equal `state_digest`/receipt-id sets spanning `stability_seconds`, sleeping
+  `poll_seconds` between reads, and raises `N02RunDeadlineExceeded` at `started_at +
+  run_deadline_seconds`. The consent fault marker uses `fault_ttl_seconds`. Adapter failures pass
+  through unchanged. Direct `collect_us*` calls (unit tests) are not wrapped.
+- Not yet done (T085 stays open): `environment_restore_deadline_seconds` (120 s) and
+  `bundle_verify_deadline_seconds` (60 s) are still not enforced by the N-02 path; the hard-coded
+  2.0 s AI-assessment receipt loop remains. A deadline breach currently raises after the existing
+  cleanup path instead of sealing an `INCONCLUSIVE` bundle; whether to seal it is a team decision.
+- Tests: `tests/integration/test_spec003_timing.py` (6) — collection RED against the received engine
+  (missing stabilizer; TTL 300 s), GREEN after. `tests/conftest.py` gives the N-02 system clock a
+  virtual offset so existing tests do not sleep for real. Linux full regression 447 passed; Ruff PASS.
+- Operational impact: a real N-02 Run now takes at least several stable-read windows (~4 s each) and
+  stays inside the 540 s Run budget only if the local stack settles; T088 must measure it.
