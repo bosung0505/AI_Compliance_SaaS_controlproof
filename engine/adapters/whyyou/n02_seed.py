@@ -186,8 +186,10 @@ class WhyYouN02SeedAdapter:
                 for (active_run, _path), rows in tuple(self._overlays.items()):
                     if active_run == run_id:
                         for row in reversed(rows):
+                            _delete_dependents(connection, row.table, row.values)
                             _delete_row(connection, row)
                 for row in reversed(plan.rows):
+                    _delete_dependents(connection, row.table, row.values)
                     _delete_row(connection, row)
         except Exception as exc:  # noqa: BLE001 - cleanup result remains sanitized
             return AdapterResult(False, "N02_TEARDOWN_FAILED", detail=type(exc).__name__)
@@ -202,6 +204,63 @@ class WhyYouN02SeedAdapter:
             "N02_LANES_REMOVED",
             {"count": len(plan.lanes), "seed_digest": plan.digest},
         )
+
+
+_REFERENCING_FOREIGN_KEYS = """
+SELECT c.conrelid::regclass::text AS child_table,
+       ARRAY(SELECT a.attname FROM unnest(c.conkey) WITH ORDINALITY AS k(attnum, ord)
+             JOIN pg_attribute a ON a.attrelid = c.conrelid AND a.attnum = k.attnum
+             ORDER BY k.ord)::text[] AS child_columns,
+       ARRAY(SELECT a.attname FROM unnest(c.confkey) WITH ORDINALITY AS k(attnum, ord)
+             JOIN pg_attribute a ON a.attrelid = c.confrelid AND a.attnum = k.attnum
+             ORDER BY k.ord)::text[] AS parent_columns
+FROM pg_constraint c
+WHERE c.contype = 'f' AND c.confrelid = to_regclass(:parent)
+ORDER BY 1, c.conname
+"""
+
+_MAX_DEPENDENT_DEPTH = 12
+
+
+def _identifier(name: str) -> str:
+    bare = name.strip('"')
+    if not bare.replace("_", "").isalnum():
+        raise RuntimeError(f"unexpected catalog identifier: {name!r}")
+    return f'"{bare}"'
+
+
+def _delete_dependents(
+    connection: Any, table: str, values: dict[str, Any], *, depth: int = 0
+) -> None:
+    """Remove target-created rows that reference this run's seeded row (ID-003-12).
+
+    WhyYou foreign keys are ``NO ACTION``: once a Run commits consent, rows such as
+    ``invitation_state_history`` and ``consent_records`` reference the seeded invitation and
+    the seed delete fails. Only rows reachable through foreign keys from this Run's own seeded
+    rows are removed, children first; nothing shared (the company) is ever a starting point.
+    """
+    if depth > _MAX_DEPENDENT_DEPTH:
+        raise RuntimeError("N-02 dependent cleanup exceeded the depth limit")
+    references = connection.execute(
+        text(_REFERENCING_FOREIGN_KEYS), {"parent": table}
+    ).mappings().all()
+    for reference in references:
+        child = _identifier(str(reference["child_table"]))
+        child_columns = [str(item) for item in reference["child_columns"]]
+        parent_columns = [str(item) for item in reference["parent_columns"]]
+        if any(column not in values or values[column] is None for column in parent_columns):
+            continue
+        params = {f"k{index}": values[column] for index, column in enumerate(parent_columns)}
+        where = " AND ".join(
+            f"{_identifier(column)} = :k{index}" for index, column in enumerate(child_columns)
+        )
+        children = connection.execute(
+            text(f"SELECT * FROM {child} WHERE {where}"), params
+        ).mappings().all()
+        for row in children:
+            _delete_dependents(connection, child.strip('"'), dict(row), depth=depth + 1)
+        if children:
+            connection.execute(text(f"DELETE FROM {child} WHERE {where}"), params)
 
 
 def _insert_row(connection: Any, row: SeedRow) -> None:

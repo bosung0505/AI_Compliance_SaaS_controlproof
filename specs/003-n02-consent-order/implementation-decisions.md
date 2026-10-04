@@ -273,3 +273,33 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
 - Open limit: a failure-phase runner input left `pending` in the outbox may still be published and
   processed by the worker after consent is restored. If that produces a second recovered effect,
   A7 will show it; that is target behaviour to classify from the child evidence, not a runner fix.
+
+### ID-003-12 — Lane teardown could never succeed after consent was committed
+
+- Date: 2026-10-04
+- Task: T084 prerequisite (runner defect behind the block left by T084 attempt 1)
+- Requirement/assertion: SC-006, contract `whyyou-n02-adapter.md` teardown, N02-A7
+- Status: `PROPOSED` (extends the contract's "seed correlation allowlist" to rows that reference it)
+- Finding: `teardown_lanes` deleted only the seed and overlay rows. WhyYou foreign keys are
+  `NO ACTION`, so once a lane committed consent, `invitation_state_history`/`consent_records`
+  referenced the seeded invitation and the delete failed with `ForeignKeyViolation`. Reproduced on an
+  isolated PostgreSQL with the WhyYou `c8e9970` schema. Consequence: every Run that reaches a
+  consented lane ends `N02_TEARDOWN_FAILED` → `RESTORE_FAILED` → block, including a fully correct
+  child. This is why T084 attempt 1 left `whyyou-local--n02-consent-order.json`.
+- Root-cause class: `RUNNER_OR_OBSERVER_DEFECT`.
+- Decision: before deleting each seed/overlay row, `_delete_dependents` reads the PostgreSQL FK
+  catalog and removes, children first, only rows reachable by foreign key from that Run's own seeded
+  row. Shared rows (company, company user) are never a starting point. Rows without a foreign key
+  (e.g. outbox events) stay as synthetic residue.
+- Verification: isolated PostgreSQL, two seeded Runs; Run A had two consented lanes (2 consent
+  records, 2 state-history rows). New teardown for A committed without error and removed A's
+  invitations, consent records and history; Run B's six invitations, the company and company user
+  were untouched; two outbox events remained as residue. Contract test with a fake catalog
+  connection; existing fakes now return an empty catalog result. Linux full regression 451 passed
+  (three consecutive runs; one earlier run showed a single failure that did not recur and was not
+  captured); Ruff PASS.
+- Block handling: `cleanup-confirm` requires the blocked Run's sealed bundle, which an aborted Run
+  does not have, so the documented path cannot clear this block (tooling gap, recorded here). On the
+  teammate PC the local target is synthetic and disposable: the operator destroys and recreates the
+  WhyYou containers and volumes, archives the block file and the aborted Run's fault receipt outside
+  both checkouts, and records it in `validation.md`. This must never be done on a shared target.

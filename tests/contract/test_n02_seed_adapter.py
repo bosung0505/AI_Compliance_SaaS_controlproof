@@ -7,6 +7,16 @@ from engine.models import BaselineKind, N02LaneId
 from seeds.n02_subjects import build_n02_seed_plan
 
 
+class _EmptyResult:
+    """Real connections return rows; the FK catalog query has nothing to report here."""
+
+    def mappings(self):
+        return self
+
+    def all(self):
+        return []
+
+
 class _Transaction:
     def __init__(self, *, fail_at: int | None = None) -> None:
         self.fail_at = fail_at
@@ -29,6 +39,7 @@ class _Transaction:
             raise RuntimeError("synthetic seed failure")
         if params and "run_id" in params:
             self.deleted_run_ids.append(str(params["run_id"]))
+        return _EmptyResult()
 
 
 def test_seed_plan_has_stable_isolated_six_lane_contract() -> None:
@@ -107,3 +118,60 @@ def test_seeded_positions_and_invitations_satisfy_whyyou_submission_invariant() 
         assert any(item["required"] and item["enabled"] for item in requirements), row.table
         material_types = [item["material_type"] for item in requirements]
         assert len(material_types) == len(set(material_types)), row.table
+
+
+class _CatalogConnection:
+    """Fake connection: answers the FK catalog query and child selects, records deletes."""
+
+    def __init__(self, references, children):
+        self.references, self.children, self.statements = references, children, []
+
+    def execute(self, statement, params=None):
+        sql = str(statement)
+        self.statements.append((sql.split()[0], sql, dict(params or {})))
+        if "pg_constraint" in sql:
+            rows = self.references.get(params["parent"], [])
+        elif sql.startswith("SELECT * FROM"):
+            table = sql.split()[3].strip('"')
+            rows = [row for row in self.children.get(table, []) if params["k0"] in row.values()]
+        else:
+            rows = []
+
+        class _Result:
+            def mappings(self_inner):
+                return self_inner
+
+            def all(self_inner):
+                return rows
+
+        return _Result()
+
+
+def test_teardown_removes_target_rows_that_reference_this_runs_seed_first() -> None:
+    """ID-003-12: after consent commits, invitation_state_history references the seeded
+    invitation (NO ACTION FK), so deleting the seed alone failed and every complete Run would
+    end RESTORE_FAILED. Dependents reachable from this Run's seed rows go first; a foreign key
+    whose referenced columns are not in the seed row is skipped."""
+    from engine.adapters.whyyou.n02_seed import _delete_dependents
+
+    company, invitation = uuid4(), uuid4()
+    connection = _CatalogConnection(
+        references={
+            "invitations": [
+                {"child_table": "invitation_state_history",
+                 "child_columns": ["invitation_id", "company_id"],
+                 "parent_columns": ["invitation_id", "company_id"]},
+                {"child_table": "unrelated", "child_columns": ["x"], "parent_columns": ["not_seeded"]},
+            ],
+        },
+        children={"invitation_state_history": [{"invitation_id": invitation, "company_id": company}]},
+    )
+    _delete_dependents(
+        connection, "invitations", {"invitation_id": invitation, "company_id": company}
+    )
+
+    deletes = [sql for verb, sql, _ in connection.statements if verb == "DELETE"]
+    assert deletes == [
+        'DELETE FROM "invitation_state_history" WHERE "invitation_id" = :k0 AND "company_id" = :k1'
+    ]
+    assert not any('"unrelated"' in sql for _, sql, _ in connection.statements)
