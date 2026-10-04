@@ -244,3 +244,32 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
   virtual offset so existing tests do not sleep for real. Linux full regression 447 passed; Ruff PASS.
 - Operational impact: a real N-02 Run now takes at least several stable-read windows (~4 s each) and
   stays inside the 540 s Run budget only if the local stack settles; T088 must measure it.
+
+### ID-003-11 — Fault-lane recovery attempts reused the failure-phase identity
+
+- Date: 2026-10-04
+- Task: T084 prerequisite (runner defect found by the first T084 attempt)
+- Requirement/assertion: N02-A6, N02-A7, FR-033~037
+- Status: `PROPOSED`
+- Triggering event: first `retest 15cef078-…` on the teammate PC (preflight 16/16 `READY`,
+  ControlProof `2d1f66f`, WhyYou `c8e9970`) completed US1 and US2, then aborted in `collect_us3`
+  with `N02ExecutionError: N-02 processing attempt failed: N02_ASSESSMENT_EVENT_WRITE_FAILED`.
+  No bundle was sealed, so there is no verdict to preserve; the attempt and its cleanup state are
+  recorded in `validation.md`.
+- Root-cause class: `RUNNER_OR_OBSERVER_DEFECT`. `_attempt_id` derived request and outbox-event
+  identities from (run, lane, path) only. The CONSENT_FAULT_RECOVERY lane attempts every path twice
+  on the same subject (failure phase for A6, recovery for A7), so the recovery AI-assessment insert
+  reused the failure-phase `outbox_event_id` and hit the primary key. The same reuse sent identical
+  `Idempotency-Key` values for the document and recording paths, which WhyYou could treat as a
+  replay. The parent never reached recovery (ID-003-09) and the fakes did not enforce the key, so
+  this path had never executed.
+- Decision: the processing adapter keeps a per-(subject, path) attempt ordinal; the first attempt
+  keeps its original identity and later attempts append `attempt-N`. Runner-created AI-assessment
+  inputs accumulate per lane and all are excluded from target effects; the latest one drives
+  start-receipt matching. No WhyYou change.
+- Tests: three contract tests in `tests/contract/test_n02_processing_adapter.py` with a fake that
+  enforces the outbox primary key — EXPECTED RED 3 failed/6 passed, then 9 passed. Linux full
+  regression 450 passed; Ruff PASS.
+- Open limit: a failure-phase runner input left `pending` in the outbox may still be published and
+  processed by the worker after consent is restored. If that produces a second recovered effect,
+  A7 will show it; that is target behaviour to classify from the child evidence, not a runner fix.

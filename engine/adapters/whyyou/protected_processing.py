@@ -110,7 +110,11 @@ class WhyYouProtectedProcessingAdapter:
         self._transaction_factory = transaction_factory
         self._effect_reader = effect_reader or self._read_effect_projection
         self._baselines: dict[tuple[str, ProtectedPathId], tuple[str, ...]] = {}
-        self._probe_inputs: dict[tuple[str, ProtectedPathId], str] = {}
+        # A lane may attempt one path more than once (fault lane: failure phase, then
+        # recovery). Each attempt needs its own identity, and every runner-created input
+        # must stay excluded from target effects (ID-003-11).
+        self._probe_inputs: dict[tuple[str, ProtectedPathId], tuple[str, ...]] = {}
+        self._attempt_ordinals: dict[tuple[str, ProtectedPathId], int] = {}
 
     def paths(self) -> tuple[ProtectedProcessingPath, ...]:
         return _PATHS
@@ -119,13 +123,16 @@ class WhyYouProtectedProcessingAdapter:
         self, *, path_id: str, subject: Mapping[str, Any]
     ) -> ProcessingAttemptReceipt | AdapterResult:
         path = ProtectedPathId(path_id)
+        key = (str(subject["subject_ref"]), path)
+        ordinal = self._attempt_ordinals.get(key, 0)
+        self._attempt_ordinals[key] = ordinal + 1
         if path is ProtectedPathId.AI_ASSESSMENT:
-            return self._attempt_assessment(subject)
+            return self._attempt_assessment(subject, ordinal=ordinal)
         credential = self.credentials.get(str(subject["subject_ref"]))
         if credential is None:
             return AdapterResult(False, "N02_APPLICANT_CREDENTIAL_MISSING")
         sent_at = utcnow()
-        request_id = str(_attempt_id(subject, path, "request"))
+        request_id = str(_attempt_id(subject, path, "request", ordinal))
         trace_id = _trace_id(subject, path)
         try:
             if path is ProtectedPathId.DOCUMENT_ANALYSIS:
@@ -190,13 +197,13 @@ class WhyYouProtectedProcessingAdapter:
         )
 
     def _attempt_assessment(
-        self, subject: Mapping[str, Any]
+        self, subject: Mapping[str, Any], *, ordinal: int = 0
     ) -> ProcessingAttemptReceipt | AdapterResult:
         sent_at = utcnow()
         request_id = str(
-            _attempt_id(subject, ProtectedPathId.AI_ASSESSMENT, "request")
+            _attempt_id(subject, ProtectedPathId.AI_ASSESSMENT, "request", ordinal)
         )
-        event_id = _attempt_id(subject, ProtectedPathId.AI_ASSESSMENT, "event")
+        event_id = _attempt_id(subject, ProtectedPathId.AI_ASSESSMENT, "event", ordinal)
         trace_id = _trace_id(subject, ProtectedPathId.AI_ASSESSMENT)
         params = {
             "outbox_event_id": event_id,
@@ -234,9 +241,8 @@ class WhyYouProtectedProcessingAdapter:
                 False, "N02_ASSESSMENT_EVENT_WRITE_FAILED", detail=type(exc).__name__
             )
         probe_input_effect_id = f"event:{event_id}"
-        self._probe_inputs[(str(subject["subject_ref"]), ProtectedPathId.AI_ASSESSMENT)] = (
-            probe_input_effect_id
-        )
+        probe_key = (str(subject["subject_ref"]), ProtectedPathId.AI_ASSESSMENT)
+        self._probe_inputs[probe_key] = (*self._probe_inputs.get(probe_key, ()), probe_input_effect_id)
         return _attempt_receipt(
             path=ProtectedPathId.AI_ASSESSMENT,
             subject=subject,
@@ -292,10 +298,10 @@ class WhyYouProtectedProcessingAdapter:
         if Phase(phase) is Phase.BASELINE:
             self._baselines[key] = current
         baseline = self._baselines.get(key, ())
-        probe_input = self._probe_inputs.get(key)
-        probe_inputs = (
-            (probe_input,) if probe_input is not None and probe_input in current else ()
-        )
+        recorded_inputs = self._probe_inputs.get(key, ())
+        # The latest runner input drives start-receipt matching; all of them are excluded.
+        probe_input = recorded_inputs[-1] if recorded_inputs else None
+        probe_inputs = tuple(sorted(item for item in recorded_inputs if item in current))
         new = tuple(
             sorted(set(current) - set(baseline) - set(fixtures) - set(probe_inputs))
         )
@@ -485,19 +491,18 @@ def _trace_id(subject: Mapping[str, Any], path: ProtectedPathId) -> str:
 
 
 def _attempt_id(
-    subject: Mapping[str, Any], path: ProtectedPathId, identity_kind: str
+    subject: Mapping[str, Any], path: ProtectedPathId, identity_kind: str, ordinal: int = 0
 ) -> UUID:
-    return uuid5(
-        _ATTEMPT_NAMESPACE,
-        ":".join(
-            (
-                str(UUID(str(subject["run_id"]))),
-                N02LaneId(str(subject["lane_id"])).value,
-                path.value,
-                identity_kind,
-            )
-        ),
-    )
+    parts = [
+        str(UUID(str(subject["run_id"]))),
+        N02LaneId(str(subject["lane_id"])).value,
+        path.value,
+        identity_kind,
+    ]
+    if ordinal:
+        # First attempt keeps the original identity; later attempts in the same lane differ.
+        parts.append(f"attempt-{ordinal + 1}")
+    return uuid5(_ATTEMPT_NAMESPACE, ":".join(parts))
 
 
 def _attempt_receipt(

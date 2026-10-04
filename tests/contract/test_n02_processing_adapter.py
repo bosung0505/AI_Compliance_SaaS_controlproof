@@ -238,3 +238,84 @@ def test_effect_read_distinguishes_absent_unavailable_and_fixture_delta(settings
     assert current.new_effect_ids == ("session-new",)
     assert unavailable.source_status is Presence.UNAVAILABLE
     assert unavailable.source_error_code == "DB_TIMEOUT"
+
+
+class _UniqueOutboxTx:
+    """Fake transaction that enforces the real outbox primary key."""
+
+    def __init__(self, rows):
+        self.rows = rows
+
+    def __enter__(self):
+        return self
+
+    def __exit__(self, *_):
+        return False
+
+    def execute(self, _statement, params):
+        if any(row["outbox_event_id"] == params["outbox_event_id"] for row in self.rows):
+            raise RuntimeError("duplicate key value violates unique constraint")
+        self.rows.append(dict(params))
+
+
+def test_repeated_assessment_attempts_in_one_lane_use_distinct_identities(settings) -> None:
+    """ID-003-11: the fault lane attempts each path in the failure phase and again after
+    recovery. Child Run on 2026-10-04 crashed with N02_ASSESSMENT_EVENT_WRITE_FAILED because
+    both attempts derived the same outbox_event_id from (run, lane, path) only."""
+    rows = []
+    subject = _subject(N02LaneId.CONSENT_FAULT_RECOVERY)
+    adapter = WhyYouProtectedProcessingAdapter(
+        settings, transaction_factory=lambda: _UniqueOutboxTx(rows)
+    )
+    first = adapter.attempt(path_id="AI_ASSESSMENT", subject=subject)
+    second = adapter.attempt(path_id="AI_ASSESSMENT", subject=subject)
+
+    assert not hasattr(second, "code"), getattr(second, "code", None)
+    assert first.request_id != second.request_id
+    assert first.probe_input_effect_id != second.probe_input_effect_id
+    assert len({row["outbox_event_id"] for row in rows}) == 2
+
+
+def test_every_runner_probe_input_in_a_lane_is_excluded_from_target_effects(settings) -> None:
+    rows = []
+    subject = _subject(N02LaneId.CONSENT_FAULT_RECOVERY)
+    adapter = WhyYouProtectedProcessingAdapter(
+        settings,
+        transaction_factory=lambda: _UniqueOutboxTx(rows),
+        effect_reader=lambda _subject, _path: {
+            "source_status": "PRESENT",
+            "effect_ids": [f"event:{row['outbox_event_id']}" for row in rows],
+        },
+    )
+    first = adapter.attempt(path_id="AI_ASSESSMENT", subject=subject)
+    second = adapter.attempt(path_id="AI_ASSESSMENT", subject=subject)
+    effects = adapter.read_effects(
+        path_id="AI_ASSESSMENT",
+        subject=subject,
+        phase=Phase.RECOVERED.value,
+        step_id="recovered-ai_assessment-effects",
+    )
+
+    assert set(effects.probe_input_effect_ids) == {
+        first.probe_input_effect_id,
+        second.probe_input_effect_id,
+    }
+    assert effects.new_effect_ids == ()
+
+
+def test_repeated_http_attempts_in_one_lane_send_distinct_idempotency_keys(settings) -> None:
+    keys = []
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        keys.append(request.headers["Idempotency-Key"])
+        return httpx.Response(403, json={"detail": "consent required"})
+
+    credentials = N02CredentialStore()
+    subject = _subject(N02LaneId.CONSENT_FAULT_RECOVERY)
+    credentials.put(subject["subject_ref"], "raw-local-cookie")
+    client = httpx.Client(base_url=settings.whyyou_base_url, transport=httpx.MockTransport(handler))
+    adapter = WhyYouProtectedProcessingAdapter(settings, http_client=client, credentials=credentials)
+    for _ in range(2):
+        adapter.attempt(path_id="DOCUMENT_ANALYSIS", subject=subject)
+
+    assert len(keys) == 2 and keys[0] != keys[1]
