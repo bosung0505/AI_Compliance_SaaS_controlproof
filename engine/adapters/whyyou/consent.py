@@ -140,6 +140,8 @@ class WhyYouConsentAdapter:
                 json=payload,
                 headers={
                     "Idempotency-Key": request_id,
+                    # The target scopes request-bound receipts to X-Request-Id, else the session.
+                    "X-Request-Id": request_id,
                     "X-Trace-Id": trace_id,
                     "Cookie": f"iep_applicant_session={credential}",
                 },

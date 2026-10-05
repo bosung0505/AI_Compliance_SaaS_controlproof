@@ -1,6 +1,6 @@
 from __future__ import annotations
 
-from uuid import uuid4
+from uuid import UUID, uuid4
 
 import httpx
 
@@ -163,6 +163,41 @@ def test_unknown_rejection_does_not_seal_raw_response(settings) -> None:
     )
     assert result.data["target_reason_code"] == "UNRECOGNIZED_REJECTION"
     assert "applicant@example.com" not in str(result.data)
+
+
+def test_commit_carries_runner_request_identity_to_target_request_scope(settings) -> None:
+    """ID-003-13: the target keys request-scoped receipts to X-Request-Id or the session."""
+    subject = _subject()
+    credentials = N02CredentialStore()
+    credentials.put(subject["subject_ref"], "cookie")
+    session_id = str(uuid4())
+    request_id = str(uuid4())
+    target_request_ids: list[str] = []
+    from tests.fixtures.fake_adapters import FakeN02Adapters
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        # Same rule as the target's applicant scope: a UUID X-Request-Id, else the session id.
+        header = request.headers.get("x-request-id")
+        try:
+            target_request_ids.append(str(UUID(header)) if header else session_id)
+        except ValueError:
+            target_request_ids.append(session_id)
+        return httpx.Response(500, json={"detail": "Internal Server Error"})
+
+    adapter = WhyYouConsentAdapter(
+        settings,
+        http_client=_client(settings, handler),
+        credentials=credentials,
+    )
+    result = adapter.commit(
+        subject=subject,
+        policy=FakeN02Adapters().read_policy(subject=subject),
+        request_id=request_id,
+        trace_id=f"controlproof:{subject['run_id']}:NORMAL_ORDER:synthetic-normal-order",
+    )
+    assert not result.ok
+    assert result.data["request_id"] == request_id
+    assert target_request_ids == [request_id]
 
 
 def test_state_projection_distinguishes_successful_empty_from_unavailable(settings) -> None:

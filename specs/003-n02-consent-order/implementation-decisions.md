@@ -4,7 +4,9 @@
 
 - Implementation foundation: in progress
 - Initial actual N-02 Run: `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`, sealed and `VERIFIED`; overall `RESTORE_FAILED` / `INCONCLUSIVE`
-- Evidence-gated product remediation: `PENDING_T080_CLASSIFICATION`; no product change or child Run
+- Evidence-gated product remediation: `PENDING_T080_CLASSIFICATION`; no product change. No valid
+  child Run yet: T084 attempt 2 child `e2e8e71d-3ba0-402e-a914-6cf26268582b` sealed `INVALID`
+  (ID-003-13)
 
 This log records implementation choices that cannot be inferred from Tasks alone.
 The first actual Run is sealed. A direct assertion FAIL is a preserved observation,
@@ -83,7 +85,7 @@ not by itself proof that a WhyYou product boundary accepted processing.
 | T081 | document analysis | Yes | `NOT_REQUIRED` proposed; parent A2 PASS (ID-003-09) |
 | T082 | recording | Yes | `NOT_REQUIRED` proposed; parent A3 PASS (ID-003-09) |
 | T083 | AI assessment/reporting | Yes | `NOT_REQUIRED` proposed; A4 effect was runner-created (ID-003-09) |
-| T084 | child retest or parent reverify | Yes | `NOT_RUN`; cleanup and retest gate confirmed, full preflight pending |
+| T084 | child retest or parent reverify | Yes | No valid child yet: attempt 1 aborted before sealing (ID-003-11, ID-003-12); attempt 2 sealed `INVALID` (ID-003-13) |
 
 ### ID-003-03 — First Run root-cause audit remains open
 
@@ -303,3 +305,37 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
   teammate PC the local target is synthetic and disposable: the operator destroys and recreates the
   WhyYou containers and volumes, archives the block file and the aborted Run's fault receipt outside
   both checkouts, and records it in `validation.md`. This must never be done on a shared target.
+
+### ID-003-13 — Consent fault receipt could not be linked to the failed request
+
+- Date: 2026-10-05
+- Task: T084 prerequisite (runner defect found by T084 attempt 2)
+- Requirement/assertion: N02-A6, EV3-07 (trigger receipt tied to the failed consent request)
+- Status: `PROPOSED`
+- Triggering event: second `retest 15cef078-…` on the teammate PC (preflight 16/16 `READY` at
+  2026-10-05T02:28:14Z, ControlProof `c6e5619`, WhyYou `c8e9970`) ran to the end and sealed child
+  `e2e8e71d-3ba0-402e-a914-6cf26268582b`. The executor's post-seal `verify_bundle` returned `INVALID`
+  with the single mismatch `fault-receipts.jsonl:failed-request`, and the CLI raised
+  `N02ExecutionError: N-02 sealed bundle failed verification`. The INVALID bundle is preserved
+  unchanged as evidence of this defect; it is neither edited nor re-run.
+- Root-cause class: `RUNNER_OR_OBSERVER_DEFECT`. The consent commit sent the runner request identity
+  only as `Idempotency-Key`. WhyYou's applicant scope takes the request id from a UUID `X-Request-Id`
+  header and otherwise falls back to the applicant session id, and the consent fault guard writes
+  that context id into the receipt. The receipt therefore carried the session id, never the
+  executor's `failed_request_id`. The parent never triggered the fault (consent POST 422,
+  ID-003-09), attempt 1 aborted before sealing, and the fakes record the runner id directly, so this
+  link had never been checked against WhyYou.
+- Decision: the consent commit also sends `X-Request-Id` set to the runner request id (the uuid5 the
+  executor already records). Processing attempts are unchanged: their receipts are linked by path
+  and event id, not by request id. No WhyYou, verifier or judge change.
+- Alternatives considered: relaxing the verifier link (rejected: EV3-07 must tie the trigger to the
+  exact failed request); keying the WhyYou receipt to `Idempotency-Key` (rejected: a product-side
+  change without a product defect).
+- Open item for review (unchanged): the judge treats a receipt/request mismatch as A6
+  `INCONCLUSIVE`, while `_verify_spec003_facts` treats the same fact as an `INVALID` bundle in every
+  case. An honestly recorded mismatch therefore aborts after sealing instead of producing a
+  verified `INCONCLUSIVE` child.
+- Tests: a contract test in `tests/contract/test_n02_consent_adapter.py` whose fake applies the
+  target rule (UUID `X-Request-Id`, else session id) — EXPECTED RED 1 failed/6 passed (session id
+  recorded), then 7 passed. Linux full regression 452 passed; Ruff check PASS; format check
+  unchanged (78 pre-existing files).
