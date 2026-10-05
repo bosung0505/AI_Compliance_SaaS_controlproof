@@ -6,7 +6,8 @@
 - Initial actual N-02 Run: `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`, sealed and `VERIFIED`; overall `RESTORE_FAILED` / `INCONCLUSIVE`
 - Evidence-gated product remediation: `PENDING_T080_CLASSIFICATION`; no product change. No valid
   child Run yet: T084 attempt 2 child `e2e8e71d-3ba0-402e-a914-6cf26268582b` sealed `INVALID`
-  (ID-003-13)
+  and `RESTORE_FAILED` (ID-003-13~16); further T084 attempts wait for the ID-003-14 and ID-003-16
+  design decisions
 
 This log records implementation choices that cannot be inferred from Tasks alone.
 The first actual Run is sealed. A direct assertion FAIL is a preserved observation,
@@ -84,8 +85,8 @@ not by itself proof that a WhyYou product boundary accepted processing.
 | T080 | A5~A7 or runner/restore ownership | Yes | `PROPOSED` `RUNNER_OR_OBSERVER_DEFECT`; ID-003-09, file-scope approval pending |
 | T081 | document analysis | Yes | `NOT_REQUIRED` proposed; parent A2 PASS (ID-003-09) |
 | T082 | recording | Yes | `NOT_REQUIRED` proposed; parent A3 PASS (ID-003-09) |
-| T083 | AI assessment/reporting | Yes | `NOT_REQUIRED` proposed; A4 effect was runner-created (ID-003-09) |
-| T084 | child retest or parent reverify | Yes | No valid child yet: attempt 1 aborted before sealing (ID-003-11, ID-003-12); attempt 2 sealed `INVALID` (ID-003-13) |
+| T083 | AI assessment/reporting | Yes | Re-opened: T084 attempt 2 observed `REPORT_ASSESSMENT_STARTED` for unconsented subjects (A4, A6); `REQUIRED` proposed, pending review and a valid child (ID-003-16) |
+| T084 | child retest or parent reverify | Yes | No valid child yet: attempt 1 aborted before sealing (ID-003-11, ID-003-12); attempt 2 sealed `INVALID`/`RESTORE_FAILED` (ID-003-13~16); paused for review |
 
 ### ID-003-03 — First Run root-cause audit remains open
 
@@ -339,3 +340,97 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
   target rule (UUID `X-Request-Id`, else session id) — EXPECTED RED 1 failed/6 passed (session id
   recorded), then 7 passed. Linux full regression 452 passed; Ruff check PASS; format check
   unchanged (78 pre-existing files).
+
+### ID-003-14 — Recovery outcome is folded into restore safety
+
+- Date: 2026-10-05
+- Task: T084 (found by attempt 2)
+- Requirement/assertion: FR-032, US3 acceptance 6, `data-model.md` §11–12 rule 5, N02-A7
+- Status: `PROPOSED` — design decision; no code change
+- Evidence: child `e2e8e71d-…` `recovery.json` has marker removed, consumed token removed, hook
+  inactive, condition cleanup succeeded, safe state confirmed before retry, retry consent
+  `CONSENT_COMMIT_RESPONSE_RECEIVED`, one logical consent, one completed event and zero
+  failed-request effects; only `processing_order_proven` is `false`. Yet `restore_status` is
+  `FAILED`, the Run is `RESTORE_FAILED`, teardown was held (all six lanes' rows stayed in the local
+  DB), a block was written at 2026-10-05T06:45:57.551Z, and the verdict is `INCONCLUSIVE` although
+  A4~A7 were direct FAILs.
+- Finding: `RecoveryRecord.validate_recovery` and `collect_us3` define a successful recovery as the
+  safety facts plus the A6/A7 outcome facts (failed-request effects zero, retry success,
+  exactly-one consent set, processing order proven). FR-032 and US3 acceptance 6 limit
+  `RESTORE_FAILED` to failure to remove the condition or confirm the safe state. Under the current
+  definition any child whose recovered processing is not proven, including one the runner cannot
+  drive (ID-003-16), holds teardown, blocks the target and, through the `RESTORE_FAILED`
+  precedence, reports direct FAILs as `INCONCLUSIVE`.
+- Root-cause class: `RUNNER_OR_OBSERVER_DEFECT` relative to FR-032 (proposed).
+- Options: (A) separate restore safety (marker, token, hook, overlay cleanup, safe state) from the
+  recovery outcome, so `RESTORE_FAILED` means unsafe restore only and A7 carries the outcome; this
+  changes the model validator, `collect_us3` and the A7 judge with their tests. (B) keep the
+  fail-closed definition and amend FR-032/US3 acceptance 6 and the operator procedure, accepting a
+  block and manual cleanup after every unproven recovery.
+- Recommendation: (A). Not implemented pending review.
+- Block handling: attempt 2's bundle is `INVALID` (ID-003-13), so `cleanup-confirm` cannot clear
+  this block either; the disposable local target is recreated as in ID-003-12.
+
+### ID-003-15 — Seeded competency model version could not be loaded by WhyYou
+
+- Date: 2026-10-05
+- Task: T084 prerequisite (found by attempt 2)
+- Requirement/assertion: N02-A5, N02-A7 (processing after consent), N02-A4 report path
+- Status: `PROPOSED`
+- Evidence: after the NORMAL_ORDER consent and after the recovered consent (both 201), the API log
+  shows `POST /v1/applicant/submissions/upload-intents` → 403 and
+  `POST /v1/applicant/interview-sessions` → 403; the runner recorded both as
+  `DENIED`/`CONSENT_REQUIRED` and A5/A7 failed as a path still closed after consent. Every
+  runner-inserted report event reached `REPORT_HANDLER_ENTERED` and `REPORT_ASSESSMENT_STARTED` on
+  three deliveries without producing a report.
+- Root cause: WhyYou reads the competency model version during submission authorization (hiring
+  snapshot) and in the report handler. The seed stored `verification_guide={}` (six required
+  fields missing) and `interview_level="standard"` (allowed: entry, junior, senior). The resulting
+  `ValueError` becomes `SubmissionAuthorizationDenied` → 403 on the document path and a handler
+  exception after the start receipt on the report path. Confirmed by building the seeded rows
+  through WhyYou's own `EvaluationCriterion`/`CompetencyModelVersion` models (rejected before,
+  accepted after); not yet confirmed live. The recording 403 has a separate cause (ID-003-16).
+- Root-cause class: `RUNNER_OR_OBSERVER_DEFECT` (seed).
+- Decision: seed a synthetic verification guide that satisfies the target model and
+  `interview_level="junior"` (WhyYou's default). No WhyYou change.
+- Tests: `tests/contract/test_n02_seed_adapter.py` — EXPECTED RED 1 failed/5 passed for the guide;
+  extended for `interview_level`, RED again; then 6 passed. Linux full regression 453 passed apart
+  from a pre-existing flaky verifier test (see `validation.md`); Ruff check PASS.
+
+### ID-003-16 — Several N-02 assertions cannot be reached on the real target
+
+- Date: 2026-10-05
+- Task: T080, T083, T084 (found by attempt 2)
+- Requirement/assertion: N02-A4~A7, `data-model.md` §12
+- Status: `PROPOSED` — design decision; no code change
+- Finding 1 (A5/A7 chain): A5, reused by A7, requires REQUESTED→STARTED→RESULT_CREATED on all three
+  paths. The processing adapter performs only the first step of each: an upload intent (no upload,
+  confirmation or analysis), an interview-session create (no chunks or confirmation) and a runner
+  outbox insert. On WhyYou, document STARTED needs `ANALYSIS_HANDLER_ENTERED` after upload
+  confirmation and its RESULT needs analysis/strategy rows; recording RESULT needs chunk/asset rows
+  or `RECORDING_CONFIRMED`; the session create itself needs an equipment check and a ready interview
+  strategy with analysis status, which only the boundary-probe lanes receive as overlays; the
+  NORMAL_ORDER report input points at a session that does not exist. The fakes return complete
+  chains, so this never surfaced before. Even after ID-003-15, A5/A7 can only be FAIL or
+  `INCONCLUSIVE` against WhyYou.
+- Finding 2 (A4/A6 refusal): the AI-assessment attempt is a runner outbox input with no response,
+  and the judge has no rule that turns an observed refusal into `DENIED`. A4 can therefore only be
+  FAIL or `INCONCLUSIVE`, and A6 stays `INCONCLUSIVE` while that path is unresolved, even after a
+  WhyYou consent check exists. A guard that returns normally would also add a `processed:` row,
+  which the effect reader counts as a new effect.
+- Finding 3 (labels): every 401/403 is recorded as `DENIED`/`CONSENT_REQUIRED`, so a non-consent
+  rejection after consent (ID-003-15, recording strategy) reads as a consent denial.
+- Target evidence for T083: attempt 2 recorded `REPORT_HANDLER_ENTERED` and
+  `REPORT_ASSESSMENT_STARTED` for the unconsented ASSESSMENT_BOUNDARY_PROBE input (A4) and for the
+  failed-consent subject's input before its retried consent (A6). `ReportRequestedEventHandler`
+  records the start before any consent check and has none. Proposed `TARGET_CONTROL_DEFECT` → T083
+  `REQUIRED`, to be confirmed by review and a valid child (the attempt 2 bundle is `INVALID`; its
+  observer rows are byte-identical to the raw receipts).
+- Options for finding 1: (A) drive the product flows with synthetic fixtures (object-store upload
+  and confirmation; equipment check, ready strategy and analysis status; recording chunks and
+  confirmation; a completed session for the report); (B) narrow the A5/A7 claim to what the runner
+  observes (consent gate passed plus a target start per path) and amend the spec and plan; (C) keep
+  the claim and accept `INCONCLUSIVE` for steps the runner cannot reach. Findings 2 and 3 need a
+  refusal receipt contract (e.g. handler entered without start for the probe input) and a separate
+  non-consent rejection label.
+- Recommendation: no further T084 attempt until ID-003-14 and this decision are reviewed.

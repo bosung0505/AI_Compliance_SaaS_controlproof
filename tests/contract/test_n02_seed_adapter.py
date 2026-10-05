@@ -120,6 +120,36 @@ def test_seeded_positions_and_invitations_satisfy_whyyou_submission_invariant() 
         assert len(material_types) == len(set(material_types)), row.table
 
 
+def test_seeded_criterion_verification_guide_satisfies_whyyou_model() -> None:
+    """ID-003-15: T084 attempt 2 consented lanes got 403 on upload intents because WhyYou
+    could not load the seeded competency model version: ``CriterionVerificationGuide``
+    rejected ``{}`` and ``InterviewLevel`` rejected ``"standard"``. Submission authorization
+    maps that ValueError to 403 and the report worker failed after
+    ``REPORT_ASSESSMENT_STARTED``. Bounds and values mirror the target model.
+    """
+    plan = build_n02_seed_plan(uuid4(), company_id=uuid4(), reviewer_id=uuid4())
+    versions = [row for row in plan.rows if row.table == "competency_model_versions"]
+    assert versions
+    for row in versions:
+        assert row.values["interview_level"] in {"entry", "junior", "senior"}
+    criteria = [row for row in plan.rows if row.table == "evaluation_criteria"]
+    assert criteria
+    for row in criteria:
+        guide = row.values["verification_guide"]
+        for name, low, high in (
+            ("observable_dimensions", 1, 12),
+            ("strong_answer_signals", 1, 12),
+            ("weak_answer_signals", 1, 12),
+            ("follow_up_directions", 1, 8),
+        ):
+            values = guide.get(name)
+            assert isinstance(values, list) and low <= len(values) <= high, name
+            assert all(isinstance(item, str) and item.strip() for item in values), name
+        assert isinstance(guide.get("max_follow_ups"), int) and 0 <= guide["max_follow_ups"] <= 3
+        assert isinstance(guide.get("time_budget_seconds"), int)
+        assert 60 <= guide["time_budget_seconds"] <= 1800
+
+
 class _CatalogConnection:
     """Fake connection: answers the FK catalog query and child selects, records deletes."""
 
