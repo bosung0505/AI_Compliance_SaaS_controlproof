@@ -223,6 +223,7 @@ def _judge_bypass_case(assertion_id: str, case: N02BypassCase) -> AssertionResul
         "response_class": case.attempt.response_class.value,
         "new_effect_ids": case.effects.new_effect_ids,
         "start_receipt_ids": case.effects.start_receipt_ids,
+        "refusal_receipt_ids": case.effects.refusal_receipt_ids,
         "source_status": case.effects.source_status.value,
     }
     if case.effects.source_status is Presence.UNAVAILABLE:
@@ -242,6 +243,13 @@ def _judge_bypass_case(assertion_id: str, case: N02BypassCase) -> AssertionResul
     elif case.attempt.response_class is ProcessingResponseClass.DENIED:
         status = AssertionStatus.PASS
         detail = "동의 전 직접 시도가 거부되었고 신규 처리 효과도 없습니다."
+    elif (
+        case.attempt.response_class is ProcessingResponseClass.SUBMITTED
+        and case.effects.refusal_receipt_ids
+    ):
+        # ID-003-17: runner submission, target refusal and target start are separate facts.
+        status = AssertionStatus.PASS
+        detail = "실행기가 제출한 입력을 대상 작업자가 거부했고 신규 처리 효과도 없습니다."
     elif case.attempt.response_class is ProcessingResponseClass.SUBMITTED:
         return AssertionResult(
             assertion_id=assertion_id,
@@ -496,10 +504,21 @@ def judge_n02_fault_recovery(
         for item in failure.attempts
         if item.response_class is ProcessingResponseClass.ACCEPTED
     )
+    refused_paths = {
+        effect.path_id
+        for effect in failure.effects
+        if effect.refusal_receipt_ids
+        and not effect.start_receipt_ids
+        and not effect.new_effect_ids
+    }
     unresolved_paths = tuple(
         item.path_id.value
         for item in failure.attempts
-        if item.response_class in {
+        if not (
+            item.response_class is ProcessingResponseClass.SUBMITTED
+            and item.path_id in refused_paths
+        )
+        and item.response_class in {
             ProcessingResponseClass.SUBMITTED,
             ProcessingResponseClass.NO_RESPONSE,
             ProcessingResponseClass.ERROR,
@@ -520,6 +539,7 @@ def judge_n02_fault_recovery(
         "leaked_effect_ids": leaked_effects,
         "started_receipt_ids": started_receipts,
         "unresolved_paths": unresolved_paths,
+        "refused_paths": sorted(path.value for path in refused_paths),
         "overlay_cleanup_succeeded": failure.overlay_cleanup_succeeded,
     }
     if partial_consent or leaked_effects or started_receipts or accepted_paths or failure.failed_commit.ok:

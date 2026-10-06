@@ -171,3 +171,46 @@ def test_invalid_pristine_baseline_aborts_before_bypass_attempts() -> None:
             ),
             cases,
         )
+
+
+def _submitted_assessment(cases, **effect_updates):
+    changed = list(cases)
+    changed[2] = replace(
+        changed[2],
+        attempt=_attempt(
+            ProtectedPathId.AI_ASSESSMENT,
+            N02LaneId.ASSESSMENT_BOUNDARY_PROBE,
+            ProcessingResponseClass.SUBMITTED,
+        ),
+        effects=_effect(
+            ProtectedPathId.AI_ASSESSMENT,
+            N02LaneId.ASSESSMENT_BOUNDARY_PROBE,
+            new=effect_updates.pop("new", ()),
+        ).model_copy(update=effect_updates),
+    )
+    return tuple(changed)
+
+
+def test_target_refusal_of_submitted_assessment_with_zero_effects_passes() -> None:
+    """ID-003-17: runner submission, target refusal and target start are separate facts."""
+    baseline, cases = _inputs()
+    result = judge_n02_bypass(
+        baseline, _submitted_assessment(cases, refusal_receipt_ids=("refusal-1",))
+    )[3]
+    assert result.status is AssertionStatus.PASS
+    assert list(result.actual["refusal_receipt_ids"]) == ["refusal-1"]
+
+
+@pytest.mark.parametrize(
+    "updates",
+    [
+        {"refusal_receipt_ids": ("refusal-1",), "start_receipt_ids": ("start-1",)},
+        {"refusal_receipt_ids": ("refusal-1",), "new": ("report:1",)},
+    ],
+)
+def test_start_or_effect_outweighs_a_target_refusal(updates) -> None:
+    baseline, cases = _inputs()
+    assert (
+        judge_n02_bypass(baseline, _submitted_assessment(cases, **updates))[3].status
+        is AssertionStatus.FAIL
+    )

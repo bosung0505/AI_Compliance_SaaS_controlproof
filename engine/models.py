@@ -973,11 +973,15 @@ class ProtectedEffectSnapshot(FrozenModel):
     effect_group: N02EffectGroup
     request_ids: tuple[str, ...] = ()
     start_receipt_ids: tuple[str, ...] = ()
+    # ID-003-17: the target's refusal of a runner input, kept apart from its start.
+    refusal_receipt_ids: tuple[str, ...] = ()
     result_ids: tuple[str, ...] = ()
     status_projection: dict[str, Any] = Field(default_factory=dict)
     baseline_effect_ids: tuple[str, ...] = ()
     fixture_effect_ids: tuple[str, ...] = ()
     probe_input_effect_ids: tuple[str, ...] = ()
+    # The consumer's processed row for a runner input: bookkeeping, not a protected effect.
+    probe_bookkeeping_effect_ids: tuple[str, ...] = ()
     current_effect_ids: tuple[str, ...] = ()
     new_effect_ids: tuple[str, ...] = ()
     source_status: Presence
@@ -994,7 +998,15 @@ class ProtectedEffectSnapshot(FrozenModel):
         if self.source_status is Presence.UNAVAILABLE:
             if not self.source_error_code:
                 raise ValueError("UNAVAILABLE effect source requires error code")
-            if any((self.request_ids, self.start_receipt_ids, self.result_ids, self.new_effect_ids)):
+            if any(
+                (
+                    self.request_ids,
+                    self.start_receipt_ids,
+                    self.refusal_receipt_ids,
+                    self.result_ids,
+                    self.new_effect_ids,
+                )
+            ):
                 raise ValueError("UNAVAILABLE effect source cannot claim facts")
             return self
         if self.source_error_code is not None:
@@ -1004,6 +1016,7 @@ class ProtectedEffectSnapshot(FrozenModel):
             - set(self.baseline_effect_ids)
             - set(self.fixture_effect_ids)
             - set(self.probe_input_effect_ids)
+            - set(self.probe_bookkeeping_effect_ids)
         )
         if set(self.new_effect_ids) != expected:
             raise ValueError("new effect IDs must equal the canonical delta")
@@ -1011,6 +1024,14 @@ class ProtectedEffectSnapshot(FrozenModel):
             raise ValueError("fixture effects must remain present in current projection")
         if not set(self.probe_input_effect_ids) <= set(self.current_effect_ids):
             raise ValueError("probe inputs must remain present in current projection")
+        inputs = {item.removeprefix("event:") for item in self.probe_input_effect_ids}
+        if not set(self.probe_bookkeeping_effect_ids) <= set(self.current_effect_ids) or any(
+            not item.startswith("processed:") or item.removeprefix("processed:") not in inputs
+            for item in self.probe_bookkeeping_effect_ids
+        ):
+            raise ValueError("probe bookkeeping must be the consumer row of a present probe input")
+        if self.refusal_receipt_ids and self.path_id is not ProtectedPathId.AI_ASSESSMENT:
+            raise ValueError("refusal receipts belong to the assessment path")
         if self.source_status is Presence.ABSENT and any(
             (self.current_effect_ids, self.new_effect_ids)
         ):

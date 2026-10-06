@@ -302,12 +302,28 @@ class WhyYouProtectedProcessingAdapter:
         # The latest runner input drives start-receipt matching; all of them are excluded.
         probe_input = recorded_inputs[-1] if recorded_inputs else None
         probe_inputs = tuple(sorted(item for item in recorded_inputs if item in current))
+        # The consumer's processed row for a runner input records that the target handled
+        # the input (refused or started); it is not a protected effect (ID-003-17).
+        bookkeeping = tuple(
+            sorted(
+                f"processed:{item.removeprefix('event:')}"
+                for item in probe_inputs
+                if f"processed:{item.removeprefix('event:')}" in current
+            )
+        )
         new = tuple(
-            sorted(set(current) - set(baseline) - set(fixtures) - set(probe_inputs))
+            sorted(
+                set(current)
+                - set(baseline)
+                - set(fixtures)
+                - set(probe_inputs)
+                - set(bookkeeping)
+            )
         )
         status = Presence.PRESENT if current else Presence.ABSENT
         status_projection = dict(projection.get("status_projection", {}))
         start_receipt_ids: tuple[str, ...] = ()
+        refusal_receipt_ids: tuple[str, ...] = ()
         if (
             path is ProtectedPathId.AI_ASSESSMENT
             and probe_input is not None
@@ -324,18 +340,31 @@ class WhyYouProtectedProcessingAdapter:
                 if not observed.ok:
                     status_projection["observer_status"] = "UNAVAILABLE"
                     break
+                matched = [
+                    row
+                    for row in observed.data.get("receipts", ())
+                    if isinstance(row, dict)
+                    and row.get("path_id") == ProtectedPathId.AI_ASSESSMENT.value
+                    and row.get("request_or_event_id") == event_id
+                    and isinstance(row.get("receipt_id"), str)
+                ]
+                # Every delivery of the input leaves its own receipt; a start in any
+                # delivery outweighs a refusal in another (judged by the A4/A6 rules).
                 start_receipt_ids = tuple(
                     sorted(
                         str(row["receipt_id"])
-                        for row in observed.data.get("receipts", ())
-                        if isinstance(row, dict)
-                        and row.get("path_id") == ProtectedPathId.AI_ASSESSMENT.value
-                        and row.get("boundary") == "REPORT_ASSESSMENT_STARTED"
-                        and row.get("request_or_event_id") == event_id
-                        and isinstance(row.get("receipt_id"), str)
+                        for row in matched
+                        if row.get("boundary") == "REPORT_ASSESSMENT_STARTED"
                     )
                 )
-                if start_receipt_ids or time.monotonic() >= deadline:
+                refusal_receipt_ids = tuple(
+                    sorted(
+                        str(row["receipt_id"])
+                        for row in matched
+                        if row.get("boundary") == "REPORT_ASSESSMENT_REFUSED"
+                    )
+                )
+                if start_receipt_ids or refusal_receipt_ids or time.monotonic() >= deadline:
                     break
                 time.sleep(0.05)
         digest = sha256_bytes(
@@ -345,7 +374,9 @@ class WhyYouProtectedProcessingAdapter:
                     "current": current,
                     "fixture": fixtures,
                     "probe_input": probe_inputs,
+                    "probe_bookkeeping": bookkeeping,
                     "start_receipts": start_receipt_ids,
+                    "refusal_receipts": refusal_receipt_ids,
                     "status_projection": status_projection,
                 }
             )
@@ -382,10 +413,12 @@ class WhyYouProtectedProcessingAdapter:
                 )
             ),
             start_receipt_ids=start_receipt_ids,
+            refusal_receipt_ids=refusal_receipt_ids,
             status_projection=status_projection,
             baseline_effect_ids=baseline,
             fixture_effect_ids=fixtures,
             probe_input_effect_ids=probe_inputs,
+            probe_bookkeeping_effect_ids=bookkeeping,
             current_effect_ids=current,
             new_effect_ids=new,
             source_status=status,

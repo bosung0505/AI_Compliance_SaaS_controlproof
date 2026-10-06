@@ -1097,6 +1097,33 @@ def _verify_spec003_snapshot_links(
         result["mismatched_files"].append("run.json:n02-local-claim")
 
 
+def _submitted_and_refused(
+    attempts: list[dict[str, Any]], effects: list[dict[str, Any]], lane: str
+) -> bool:
+    """A runner-submitted assessment input the target refused, with no start or new effect."""
+    submitted = any(
+        row.get("lane_id") == lane
+        and row.get("path_id") == "AI_ASSESSMENT"
+        and row.get("response_class") == "SUBMITTED"
+        for row in attempts
+    )
+    refused = [
+        row
+        for row in effects
+        if row.get("lane_id") == lane and row.get("effect_group") == "AI_ASSESSMENT"
+    ]
+    return (
+        submitted
+        and bool(refused)
+        and all(
+            row.get("refusal_receipt_ids")
+            and not row.get("start_receipt_ids")
+            and row.get("new_effect_ids") == []
+            for row in refused
+        )
+    )
+
+
 def _verify_spec003_facts(directory: Path, result: dict[str, Any]) -> None:
     """Validate N-02 identities and readable PASS facts after the byte-level seal."""
     documents: dict[str, Any] = {}
@@ -1245,6 +1272,19 @@ def _verify_spec003_facts(directory: Path, result: dict[str, Any]) -> None:
                 or receipt.get("request_or_event_id") not in expected_event_ids
             ):
                 result["mismatched_files"].append("protected-effects.jsonl:start-receipt-link")
+        for receipt_id in effect.get("refusal_receipt_ids", []):
+            receipt = observer_receipts.get(receipt_id)
+            if (
+                not probe_inputs
+                or receipt is None
+                or receipt.get("lane_id") != effect.get("lane_id")
+                or receipt.get("subject_ref") != effect.get("subject_ref")
+                or receipt.get("path_id") != effect.get("path_id")
+                or receipt.get("boundary") != "REPORT_ASSESSMENT_REFUSED"
+                or receipt.get("request_or_event_id")
+                not in {item.removeprefix("event:") for item in probe_inputs if isinstance(item, str)}
+            ):
+                result["mismatched_files"].append("protected-effects.jsonl:refusal-receipt-link")
         if any(
             attempt.get("lane_id") != effect.get("lane_id")
             or attempt.get("subject_ref") != effect.get("subject_ref")
@@ -1426,7 +1466,10 @@ def _verify_spec003_pass_assertions(
             and row.get("new_effect_ids") == []
             for row in effects
         )
-        if not denied or not zero_delta:
+        # ID-003-17: for the runner-submitted assessment input, a linked target refusal with
+        # no start and no new effect stands in for an HTTP denial.
+        refused = path == "AI_ASSESSMENT" and _submitted_and_refused(attempts, effects, lane)
+        if not (denied or refused) or not zero_delta:
             result["mismatched_files"].append(f"{assertion_id}:denied-zero-delta-unreadable")
     if "N02-A5" in passed:
         policy_value = policy.get("policy", policy) if isinstance(policy, dict) else {}
@@ -1486,7 +1529,11 @@ def _verify_spec003_pass_assertions(
             row.get("path_id")
             for row in attempts if row.get("lane_id") == "CONSENT_FAULT_RECOVERY"
             and row.get("response_class") == "DENIED"
-        }
+        } | (
+            {"AI_ASSESSMENT"}
+            if _submitted_and_refused(attempts, effects, "CONSENT_FAULT_RECOVERY")
+            else set()
+        )
         zero_effect_paths = {
             row.get("effect_group")
             for row in effects

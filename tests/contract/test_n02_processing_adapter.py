@@ -319,3 +319,63 @@ def test_repeated_http_attempts_in_one_lane_send_distinct_idempotency_keys(setti
         adapter.attempt(path_id="DOCUMENT_ANALYSIS", subject=subject)
 
     assert len(keys) == 2 and keys[0] != keys[1]
+
+
+def test_assessment_refusal_and_consumer_bookkeeping_stay_apart_from_effects(
+    settings, tmp_path
+) -> None:
+    """ID-003-17: a target refusal of the runner's input is its own receipt, and the
+    consumer's processed row for that input is bookkeeping, not a protected effect."""
+    inserted = []
+
+    class _Tx:
+        def __enter__(self):
+            return self
+
+        def __exit__(self, *_):
+            return False
+
+        def execute(self, _statement, params):
+            inserted.append(dict(params))
+
+    subject = _subject(N02LaneId.ASSESSMENT_BOUNDARY_PROBE)
+    adapter = WhyYouProtectedProcessingAdapter(
+        replace(settings, observer_enabled=True, observer_root=tmp_path),
+        transaction_factory=lambda: _Tx(),
+        effect_reader=lambda _subject, _path: {
+            "source_status": "PRESENT",
+            "effect_ids": [
+                f"event:{inserted[0]['outbox_event_id']}",
+                f"processed:{inserted[0]['outbox_event_id']}",
+            ],
+        },
+    )
+    adapter.attempt(path_id="AI_ASSESSMENT", subject=subject)
+    event_id = str(inserted[0]["outbox_event_id"])
+    receipt_path = tmp_path / "receipts" / f"{subject['run_id']}.jsonl"
+    receipt_path.parent.mkdir()
+    receipt_path.write_text(
+        json.dumps(
+            {
+                "receipt_id": "target-refusal-1",
+                "run_id": subject["run_id"],
+                "lane_id": subject["lane_id"],
+                "subject_ref": subject["subject_ref"],
+                "path_id": "AI_ASSESSMENT",
+                "boundary": "REPORT_ASSESSMENT_REFUSED",
+                "request_or_event_id": event_id,
+            }
+        )
+        + "\n",
+        encoding="utf-8",
+    )
+    effects = adapter.read_effects(
+        path_id="AI_ASSESSMENT",
+        subject=subject,
+        phase=Phase.INJECTED.value,
+        step_id="capture-assessment-effects",
+    )
+    assert effects.refusal_receipt_ids == ("target-refusal-1",)
+    assert effects.start_receipt_ids == ()
+    assert effects.probe_bookkeeping_effect_ids == (f"processed:{event_id}",)
+    assert effects.new_effect_ids == ()

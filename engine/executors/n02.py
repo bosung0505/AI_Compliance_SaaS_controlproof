@@ -982,6 +982,7 @@ def _collect_n02_observer_rows(
                         "RECORDING_CONFIRMED",
                         "REPORT_HANDLER_ENTERED",
                         "REPORT_ASSESSMENT_STARTED",
+                        "REPORT_ASSESSMENT_REFUSED",
                     }
                 ):
                     continue
