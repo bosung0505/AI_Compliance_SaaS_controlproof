@@ -85,7 +85,7 @@ not by itself proof that a WhyYou product boundary accepted processing.
 | T080 | A5~A7 or runner/restore ownership | Yes | `PROPOSED` `RUNNER_OR_OBSERVER_DEFECT`; ID-003-09, file-scope approval pending |
 | T081 | document analysis | Yes | `NOT_REQUIRED` proposed; parent A2 PASS (ID-003-09) |
 | T082 | recording | Yes | `NOT_REQUIRED` proposed; parent A3 PASS (ID-003-09) |
-| T083 | AI assessment/reporting | Yes | Re-opened: T084 attempt 2 observed `REPORT_ASSESSMENT_STARTED` for unconsented subjects (A4, A6); `REQUIRED` proposed, pending review and a valid child (ID-003-16) |
+| T083 | AI assessment/reporting | Yes | `REQUIRED` (review relayed by the operator on 2026-10-05): attempt 2 start receipts for unconsented subjects; WhyYou patch on a personal branch (ID-003-17); child confirmation pending |
 | T084 | child retest or parent reverify | Yes | No valid child yet: attempt 1 aborted before sealing (ID-003-11, ID-003-12); attempt 2 sealed `INVALID`/`RESTORE_FAILED` (ID-003-13~16); paused for review |
 
 ### ID-003-03 — First Run root-cause audit remains open
@@ -172,7 +172,7 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
 - Date: 2026-10-04
 - Task: T080 classification (+ T081~T083 branch decisions)
 - Requirement/assertion: FR-026~033, N02-A2~A7, SC-010
-- Status: `PROPOSED`. The classification is evidence-backed; the fix touches `seeds/n02_subjects.py`,
+- Status: `CONFIRMED` (review relayed by the operator on 2026-10-05). The classification is evidence-backed; the fix touches `seeds/n02_subjects.py`,
   which is **outside T080's listed fix files**, so it needs team approval before T080 is checked off.
 - Source baseline: received ControlProof `9f61713`, WhyYou `c8e9970`; parent Run sources
   ControlProof `b92b9ad`, WhyYou `94ad7f2`
@@ -222,7 +222,7 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
 - Date: 2026-10-04
 - Task: T085 (partial); prerequisite for T084
 - Requirement/assertion: SC-006, SC-008; contract `scenario-profile-v3.md` Timing policy; N02-A1~A7
-- Status: `PROPOSED` (scoped tests pass; team review required before T084)
+- Status: `CONFIRMED` (review relayed by the operator on 2026-10-05); the remaining T085 budgets are still open
 - Finding: `scenarios/N-02.yaml` freezes poll 2 s, 3 consecutive stable reads over >= 4 s, fault TTL
   600 s, restore 120 s, Run 540 s and verify 60 s, but `engine/executors/n02.py` read none of them.
   Every effect, consent-state and observer-receipt read was a single immediate read (the parent Run
@@ -253,7 +253,7 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
 - Date: 2026-10-04
 - Task: T084 prerequisite (runner defect found by the first T084 attempt)
 - Requirement/assertion: N02-A6, N02-A7, FR-033~037
-- Status: `PROPOSED`
+- Status: `CONFIRMED` (review relayed by the operator on 2026-10-05)
 - Triggering event: first `retest 15cef078-…` on the teammate PC (preflight 16/16 `READY`,
   ControlProof `2d1f66f`, WhyYou `c8e9970`) completed US1 and US2, then aborted in `collect_us3`
   with `N02ExecutionError: N-02 processing attempt failed: N02_ASSESSMENT_EVENT_WRITE_FAILED`.
@@ -282,7 +282,7 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
 - Date: 2026-10-04
 - Task: T084 prerequisite (runner defect behind the block left by T084 attempt 1)
 - Requirement/assertion: SC-006, contract `whyyou-n02-adapter.md` teardown, N02-A7
-- Status: `PROPOSED` (extends the contract's "seed correlation allowlist" to rows that reference it)
+- Status: `CONFIRMED` (review relayed by the operator on 2026-10-05; rows outside the Run must stay untouched) (extends the contract's "seed correlation allowlist" to rows that reference it)
 - Finding: `teardown_lanes` deleted only the seed and overlay rows. WhyYou foreign keys are
   `NO ACTION`, so once a lane committed consent, `invitation_state_history`/`consent_records`
   referenced the seeded invitation and the delete failed with `ForeignKeyViolation`. Reproduced on an
@@ -312,7 +312,7 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
 - Date: 2026-10-05
 - Task: T084 prerequisite (runner defect found by T084 attempt 2)
 - Requirement/assertion: N02-A6, EV3-07 (trigger receipt tied to the failed consent request)
-- Status: `PROPOSED`
+- Status: `CONFIRMED` — the reviewer delegated this decision on 2026-10-05; kept as implemented
 - Triggering event: second `retest 15cef078-…` on the teammate PC (preflight 16/16 `READY` at
   2026-10-05T02:28:14Z, ControlProof `c6e5619`, WhyYou `c8e9970`) ran to the end and sealed child
   `e2e8e71d-3ba0-402e-a914-6cf26268582b`. The executor's post-seal `verify_bundle` returned `INVALID`
@@ -346,7 +346,8 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
 - Date: 2026-10-05
 - Task: T084 (found by attempt 2)
 - Requirement/assertion: FR-032, US3 acceptance 6, `data-model.md` §11–12 rule 5, N02-A7
-- Status: `PROPOSED` — design decision; no code change
+- Status: `CONFIRMED` — option (A) chosen (review relayed by the operator on 2026-10-05); implemented. The block for an unsafe
+  or uncertain restore is unchanged
 - Evidence: child `e2e8e71d-…` `recovery.json` has marker removed, consumed token removed, hook
   inactive, condition cleanup succeeded, safe state confirmed before retry, retry consent
   `CONSENT_COMMIT_RESPONSE_RECEIVED`, one logical consent, one completed event and zero
@@ -367,7 +368,11 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
   changes the model validator, `collect_us3` and the A7 judge with their tests. (B) keep the
   fail-closed definition and amend FR-032/US3 acceptance 6 and the operator procedure, accepting a
   block and manual cleanup after every unproven recovery.
-- Recommendation: (A). Not implemented pending review.
+- Implementation: `RecoveryRecord` SUCCEEDED now requires only the safety facts (marker, token,
+  hook, condition cleanup, safe state); `collect_us3` derives `restore_status` from them; A7 keeps
+  judging the retry outcome. Tests: integration RED (restored target, recording blocked after
+  consent → `RESTORE_FAILED`), then GREEN (`COMPLETED`, teardown, A7 FAIL, verdict FAIL, no block,
+  `VERIFIED`); two unit tests updated for the contract; Linux full regression 454 passed.
 - Block handling: attempt 2's bundle is `INVALID` (ID-003-13), so `cleanup-confirm` cannot clear
   this block either; the disposable local target is recreated as in ID-003-12.
 
@@ -376,7 +381,7 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
 - Date: 2026-10-05
 - Task: T084 prerequisite (found by attempt 2)
 - Requirement/assertion: N02-A5, N02-A7 (processing after consent), N02-A4 report path
-- Status: `PROPOSED`
+- Status: `CONFIRMED` under the A5/A7 direction (review relayed by the operator on 2026-10-05)
 - Evidence: after the NORMAL_ORDER consent and after the recovered consent (both 201), the API log
   shows `POST /v1/applicant/submissions/upload-intents` → 403 and
   `POST /v1/applicant/interview-sessions` → 403; the runner recorded both as
@@ -402,7 +407,9 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
 - Date: 2026-10-05
 - Task: T080, T083, T084 (found by attempt 2)
 - Requirement/assertion: N02-A4~A7, `data-model.md` §12
-- Status: `PROPOSED` — design decision; no code change
+- Status: review direction set (review relayed by the operator on 2026-10-05): finding 1 → prove the full product flow the
+  spec requires, recording `INCONCLUSIVE` where evidence stays insufficient (in progress);
+  finding 2 → ID-003-17; finding 3 → part of the finding 1 work (pending)
 - Finding 1 (A5/A7 chain): A5, reused by A7, requires REQUESTED→STARTED→RESULT_CREATED on all three
   paths. The processing adapter performs only the first step of each: an upload intent (no upload,
   confirmation or analysis), an interview-session create (no chunks or confirmation) and a runner
@@ -434,3 +441,42 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
   refusal receipt contract (e.g. handler entered without start for the probe input) and a separate
   non-consent rejection label.
 - Recommendation: no further T084 attempt until ID-003-14 and this decision are reviewed.
+
+### ID-003-17 — Assessment probe evidence: submission, refusal and start are separate
+
+- Date: 2026-10-05
+- Task: T083, T080 (resolves ID-003-16 finding 2)
+- Requirement/assertion: N02-A4, N02-A6, EV3-04, EV3-05
+- Status: `CONFIRMED` direction (review relayed by the operator on 2026-10-05); implemented in ControlProof and as a
+  WhyYou patch on a personal branch based on `c8e9970`
+- Evidence for T083: in child `e2e8e71d-…` the worker recorded `REPORT_HANDLER_ENTERED` and
+  `REPORT_ASSESSMENT_STARTED` for the unconsented ASSESSMENT_BOUNDARY_PROBE input `8e8ab884…`
+  (2026-10-05T06:44:19.162Z/.172Z, three deliveries) and for the failed-consent subject's input
+  `602f88f1…` (06:45:14.58Z, before its retried consent). No protected report effect followed,
+  because the handler failed on the seed defect (ID-003-15). The bundle is `INVALID` (ID-003-13);
+  its observer rows are byte-identical to the raw receipt file.
+- Decision: the runner's submission (attempt `SUBMITTED` with the probe input id), the target's
+  refusal (`REPORT_ASSESSMENT_REFUSED`) and the target's start (`REPORT_ASSESSMENT_STARTED`) are
+  separate evidence. Refusal with zero new effects → PASS (A4) and a resolved assessment path (A6);
+  any start or protected effect → FAIL; neither → `INCONCLUSIVE`.
+- Refusal receipt: issued by WhyYou's `ReportRequestedEventHandler` after `REPORT_HANDLER_ENTERED`
+  and the existing H-03 fault guard, once the session snapshot is read and the `ai_assessment`
+  consent authorization is not active; then the handler acknowledges the message without any
+  report read, write or model call. The receipt exists only where the local/test observer is on.
+- Redelivery: every delivery leaves its own receipt and all are read; a start in any delivery
+  outweighs a refusal in another. Acknowledging a refusal ends redelivery. The consumer's
+  `processed:` row for a runner input is bookkeeping, recorded apart from protected effects.
+- ControlProof changes: `ProtectedEffectSnapshot.refusal_receipt_ids` and
+  `probe_bookkeeping_effect_ids`; the effect reader, the A4/A6 judge, the observer-row allow-list,
+  and the verifier (refusal receipts must link to observer rows; the A4/A6 PASS facts accept a
+  linked refusal in place of an HTTP denial).
+- WhyYou change (T083): the minimal consent check above plus the `REPORT_ASSESSMENT_REFUSED`
+  boundary in the observer; product behaviour without consent is now refusal.
+- Tests: ControlProof judge, adapter contract and integration tests EXPECTED RED, then GREEN; a
+  negative integration case proves an unlinked refusal cannot be sealed; Linux full regression 460
+  passed; Ruff PASS. WhyYou: new handler test EXPECTED RED, then the reporting and runtime unit
+  tests 135 passed; the unit suite has 450 passed and 1 failure that also fails at `c8e9970`
+  (`test_no_module_imports_another_lanes_private_package`); Ruff PASS on the changed files.
+- Open item: the H-03 pending-report seed creates no consent record, so on a target with this
+  WhyYou change an H-03 report request is refused. Before any further H-03 run on that target, the
+  H-03 seed needs an active consent that includes `ai_assessment` (not changed here).
