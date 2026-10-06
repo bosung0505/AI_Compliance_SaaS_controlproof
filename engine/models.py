@@ -1199,6 +1199,8 @@ class RecoveryRecord(FrozenModel):
     def validate_recovery(self) -> RecoveryRecord:
         if self.lane_id is not N02LaneId.CONSENT_FAULT_RECOVERY:
             raise ValueError("recovery belongs to the consent fault lane")
+        # restore_status covers restore safety only (FR-032, ID-003-14); the retry outcome
+        # (failed-request effects, retried consent, processing order) is judged by A6/A7.
         if self.restore_status is RecoveryStatus.SUCCEEDED:
             if self.manual_cleanup_required:
                 raise ValueError("successful recovery cannot require manual cleanup")
@@ -1207,14 +1209,11 @@ class RecoveryRecord(FrozenModel):
                     self.marker_removed,
                     self.consumed_token_removed,
                     self.hook_inactive,
-                    self.failed_request_effects_zero,
-                    self.normal_retry_succeeded,
-                    self.processing_order_proven,
+                    self.condition_cleanup_succeeded is True,
+                    self.safe_state_confirmed is True,
                 )
             ):
                 raise ValueError("successful recovery requires every safety proof")
-            if (self.logical_consent_count, self.consent_completed_event_count) != (1, 1):
-                raise ValueError("successful recovery requires exactly one logical consent set")
         elif not self.manual_cleanup_required:
             raise ValueError("failed or unverified recovery requires manual cleanup")
         return self

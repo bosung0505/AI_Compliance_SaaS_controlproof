@@ -182,3 +182,26 @@ def test_restore_failure_keeps_direct_facts_and_blocks_next_fault_run(tmp_path) 
     with pytest.raises(RuntimeError, match="blocked"):
         runner.execute(runner.preflight("whyyou-local"))
     assert fake.seed_count == 1
+
+
+def test_unproven_recovered_processing_is_an_a7_result_not_a_restore_failure(tmp_path) -> None:
+    """ID-003-14: T084 attempt 2 removed the fault and confirmed the safe state, but a path
+    stayed closed after the retried consent; the Run became RESTORE_FAILED, held teardown and
+    blocked the target. Restore safety and the retry outcome are separate facts."""
+    from engine.lifecycle import RestoreBlockStore
+
+    fake = CountingN02(blocked_paths=frozenset({ProtectedPathId.RECORDING}))
+    runner = _runner(tmp_path, fake)
+    run, judgement, bundle = runner.execute(runner.preflight("whyyou-local"))
+    recovery = json.loads((bundle / "recovery.json").read_text(encoding="utf-8"))
+    statuses = {item.assertion_id: item.status.value for item in judgement.assertion_results}
+
+    assert recovery["restore_status"] == "SUCCEEDED"
+    assert recovery["manual_cleanup_required"] is False
+    assert recovery["processing_order_proven"] is False
+    assert run.state is RunState.COMPLETED
+    assert fake.teardown_count == 1
+    assert statuses["N02-A7"] == "FAIL"
+    assert judgement.verdict is Verdict.FAIL
+    assert not RestoreBlockStore(tmp_path).blocked("whyyou-local", "n02-consent-order")
+    assert verify_bundle(bundle)["bundle_status"] == "VERIFIED"

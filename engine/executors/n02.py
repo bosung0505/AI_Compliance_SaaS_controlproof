@@ -827,17 +827,16 @@ class N02Executor:
                 else recovered_order.status is AssertionStatus.PASS
             )
             restore_data = restore.data
-            recovered_exactly_once = (
-                recovered_state.active_consent_count == 1
-                and len(recovered_state.consent_completed_event_ids) == 1
-            )
-            recovery_succeeded = (
+            # Restore safety alone decides RESTORE_FAILED and the block (FR-032, ID-003-14);
+            # an unproven or failed retry is an A7 result, not an unsafe target.
+            restore_safe = (
                 restore.ok
                 and overlay_cleanup_succeeded
-                and failed_zero
-                and retry_commit.ok
-                and recovered_exactly_once
-                and order_proven is True
+                and safe_state_confirmed is True
+                and all(
+                    bool(restore_data.get(name))
+                    for name in ("marker_removed", "consumed_token_removed", "hook_inactive")
+                )
             )
             recovery = RecoveryRecord(
                 run_id=run_id,
@@ -868,11 +867,9 @@ class N02Executor:
                 ),
                 processing_order_proven=order_proven,
                 restore_status=(
-                    RecoveryStatus.SUCCEEDED
-                    if recovery_succeeded
-                    else RecoveryStatus.FAILED
+                    RecoveryStatus.SUCCEEDED if restore_safe else RecoveryStatus.FAILED
                 ),
-                manual_cleanup_required=not recovery_succeeded,
+                manual_cleanup_required=not restore_safe,
             )
             failure_case = N02FaultFailureCase(
                 failed_commit=failed_commit,
