@@ -76,7 +76,7 @@ description: "Spec 004 E-01·E-02 점수 근거·평가 기준 보존 검증의 
 
 **Independent Test**: WhyYou 단위 시험만으로 다섯 모드, 표식 없음 = `h03-report-v1`, 세션 경계 기억, receipt를 검증한다.
 
-- [ ] T022 [WY] Create `yeonwoo/controlproof-e01-e02-model-fixture` from `eec8f70` in `../gbsa_aws`, confirm clean state and record branch/HEAD in `specs/004-e01-e02-score-evidence/validation.md` [FR-001]
+- [ ] T022 [WY] Create `yeonwoo/controlproof-e01-e02-fixture` from `eec8f70` in `../gbsa_aws`, confirm clean state and record branch/HEAD in `specs/004-e01-e02-score-evidence/validation.md` [FR-001]
 T023~T025 edit the same WhyYou test file, so run them in order (not in parallel). They can run alongside Phase 2.
 
 - [ ] T023 [WY] Add failing tests for marker parsing, the five modes, `score=`, no marker = `h03-report-v1` output, empty answers, `MARKER_INVALID`, unknown fixture ID startup rejection and unchanged `h03-report-v1` digest in `../gbsa_aws/backend/tests/unit/runtime/test_controlproof_model_substitute.py` [FR-010, FR-012, SC-007]

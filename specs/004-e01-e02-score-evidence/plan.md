@@ -214,7 +214,7 @@ E02 또는 다른 E01 assertion의 FAIL도 같은 순서를 따른다.
   receipt. 다른 지원자 Evidence ID는 fixture가 기억하지 않고 실행기가 표식 인자로 넣는다.
 - 표식이 없으면 `h03-report-v1`과 같은 출력(첫 Evidence, 72)을 낸다.
 - 유지: local/test 밖 기동 거부, 외부 AI 차단 digest, `h03-report-v1` 동작·digest 불변. 제품 코드는 바꾸지 않는다.
-- 분기: `eec8f70`에서 `yeonwoo/controlproof-e01-e02-model-fixture`, remote `fork` push, PR base
+- 분기: `eec8f70`에서 `yeonwoo/controlproof-e01-e02-fixture`, remote `fork` push, PR base
   `bosung/controlproof-n02-integration`. origin·main push 금지.
 - 시험: 모드별 단위 시험 RED → 구현 → GREEN, 기존 `h03-report-v1` 시험 불변, `ruff check`.
 

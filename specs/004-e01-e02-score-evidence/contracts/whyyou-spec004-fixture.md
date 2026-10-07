@@ -4,7 +4,7 @@
 
 - 저장소: WhyYou. 파일: `backend/src/interview_evidence/runtime/controlproof_model_substitute.py`와
   `backend/tests/unit/runtime/test_controlproof_model_substitute.py`만.
-- 브랜치: `eec8f70`에서 분기한 개인 브랜치 `yeonwoo/controlproof-e01-e02-model-fixture`, remote `fork` push, PR base
+- 브랜치: `eec8f70`에서 분기한 개인 브랜치 `yeonwoo/controlproof-e01-e02-fixture`, remote `fork` push, PR base
   `bosung/controlproof-n02-integration`. origin·`main` push 금지.
 - 성격: local/test 시험 대체물. 제품 코드(`reporting/`, `runtime/worker.py` 등)는 바꾸지 않는다. 최초 FAIL 전에 추가해도
   되는 instrumentation이다(Spec 003 R-013과 같은 구분).
@@ -71,8 +71,10 @@ E-02 기준 표식은 `mode=VALID score=NN`이다. 값은 plan §Plan Decisions�
 
 ## Emission receipt
 
-`CONTROLPROOF_OBSERVER_ROOT`가 설정돼 있으면 응답마다 `{root}/model/{receipt_id}.json`을 원자적으로 쓴다(임시 파일 →
-fsync → rename). 쓰기 실패는 응답을 막지 않는다(observer 원칙).
+`CONTROLPROOF_OBSERVER_ROOT`가 설정돼 있으면 **기준 평가 응답(`assess_interview_criterion`)마다**
+`{root}/model/{receipt_id}.json`을 원자적으로 쓴다(임시 파일 → fsync → rename). 직무 요건 평가(`assess_job_requirement`)
+응답은 기준 ID가 없고 E-01 범위 밖이므로 receipt를 쓰지 않는다. 쓰기 실패는 응답을 막지 않는다(observer 원칙).
+구현: WhyYou `yeonwoo/controlproof-e01-e02-fixture` `3dfa10c`(PR jhkim0602/gbsa_aws#6).
 
 ```json
 {

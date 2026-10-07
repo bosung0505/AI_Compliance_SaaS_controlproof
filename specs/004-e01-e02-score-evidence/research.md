@@ -57,7 +57,7 @@ WhyYou 경로는 `backend/src/interview_evidence/` 기준이다. 기준선에서
 
 ## R-003. fixture 원래 출력의 증거
 
-**Decision**: `spec004-report-v1`은 local/test observer root가 설정돼 있으면 응답마다 비민감 emission receipt
+**Decision**: `spec004-report-v1`은 local/test observer root가 설정돼 있으면 기준 평가 응답마다 비민감 emission receipt
 (`controlproof.spec004-model-emission.v1`: criterion_id, mode, emitted quoted ids, emitted score, emitted_at)를 쓴다.
 ControlProof는 이를 저장 레코드와 비교해 "모델이 의도한 잘못된 인용을 실제로 냈는가"를 독립 확인한다.
 
@@ -65,6 +65,25 @@ ControlProof는 이를 저장 레코드와 비교해 "모델이 의도한 잘못
 Spec 003 ID-003-17이 제출·거부·시작을 별도 증거로 나눈 것과 같은 이유다.
 
 **Alternatives rejected**: 모델 입력에서 기대 출력을 계산만 하기(대체물 결함을 탐지하지 못함), 작업자 로그 수집(과수집).
+
+## R-015. 직무 요건 평가는 E-01 범위 밖
+
+**Decision**: `reports.requirement_assessments`(직무 요건 평가)의 판정과 인용은 E-01·E-02 판정 대상에서 뺀다
+(spec Excluded). 인용 모드 fixture도 요건 평가에는 h03과 같은 출력을 내고 receipt를 쓰지 않는다.
+
+**Rationale** (WhyYou `eec8f70`, `backend/src/interview_evidence/` 기준):
+
+- 요건 평가는 0~100 점수가 없다. `RequirementAssessment`는 `status`(met/partially_met/not_met/unknown), `rationale`,
+  `confidence`(0~1), `evidence`를 가진다(`reporting/domain/report.py` 159~180).
+- 인용은 있다. `RequirementEvidence.evidence_id`가 제출 자료 또는 면접 Evidence를 가리키고(`report.py` 140~157), 결정된
+  평가는 근거가 필수다(`report.py` 177~180).
+- 모델 신호의 인용은 후보 집합으로 걸러진다(`reporting/application/requirement_assessment.py` 100~104,
+  `if signal.evidence_id in available`). `confidence`는 모델 점수가 아니라 상태와 신호 수에서 계산된다(같은 파일
+  167~183).
+- 총점(`Report.criterion_aggregate`)과 `scoring_inputs`는 기준 항목만 집계하고 요건 평가를 넣지 않는다
+  (`report.py` 329~380, `reporting/repositories/postgres.py` 78~133).
+
+**Consequence**: 요건 평가의 잘못된 인용 처리는 별도 시나리오가 필요하면 후속 Spec에서 정한다.
 
 ## R-004. 보조 deep probe
 

@@ -40,7 +40,7 @@ git status --short
 git -C ..\gbsa_aws branch --show-current
 ```
 
-예상: `main`이 아닌 브랜치. fixture PR 병합 전이면 `yeonwoo/controlproof-e01-e02-model-fixture`, 병합 뒤면
+예상: `main`이 아닌 브랜치. fixture PR 병합 전이면 `yeonwoo/controlproof-e01-e02-fixture`, 병합 뒤면
 `bosung/controlproof-n02-integration`
 
 ```powershell
@@ -79,8 +79,26 @@ CONTROLPROOF_MODEL_FIXTURE_ID=spec004-report-v1
 CONTROLPROOF_TEST_HOOKS_ENABLED=true
 ```
 
-H-03·N-02를 다시 돌릴 때는 `CONTROLPROOF_MODEL_FIXTURE_ID=h03-report-v1`로 바꾸고 API·작업자를 재기동한다. fixture는
-프로세스마다 하나다.
+### 고정 모델 fixture 전환
+
+fixture는 프로세스마다 하나이고 기동 시 정해진다. 시나리오에 맞는 fixture로 **두 저장소의 `.env`를 같이** 바꾸고 API와
+작업자 4개를 모두 재기동한다. digest는 `sha256("controlproof:" + fixture_id)`이며 WhyYou health의 `fixture_digest`와
+ControlProof `.env`의 값이 정확히 같아야 preflight가 READY다.
+
+| 실행할 시나리오 | `CONTROLPROOF_MODEL_FIXTURE_ID` | `CONTROLPROOF_MODEL_FIXTURE_DIGEST` (ControlProof `.env`) |
+|---|---|---|
+| E-01, E-02 | `spec004-report-v1` | `e15ec3790b64b2fba10e0caa9372f08c917edbbaa99ce308076952b838668b3f` |
+| N-02, H-03 | `h03-report-v1` | `ce09b95403b34e1390502c90f5c5edc518ddf65d38c8ce881617a37cac6d16b1` |
+
+1. WhyYou `.env`의 `CONTROLPROOF_MODEL_FIXTURE_ID`를 위 표 값으로 바꾼다.
+2. ControlProof `.env`의 `CONTROLPROOF_MODEL_FIXTURE_ID`와 `CONTROLPROOF_MODEL_FIXTURE_DIGEST`를 위 표 값으로 바꾼다.
+3. 터미널 A의 API와 터미널 B의 작업자 4개를 멈췄다가 아래 기동 순서대로 다시 띄운다(각 터미널에서 `.env`를 다시 로드).
+4. ControlProof 터미널에서 `.env`를 다시 로드하고 해당 시나리오의 preflight로 `model_fixture_id`를 확인한다.
+
+AI 격리 digest(`ai_isolation_digest`)는 활성 fixture ID·digest를 포함하므로 fixture를 바꾸면 값이 바뀌고, 작업자
+attestation도 새 값으로 다시 써진다. 이전 fixture로 기동한 작업자가 하나라도 남아 있으면 attestation이 맞지 않아
+preflight가 READY가 되지 않는다. E-01·E-02 Run을 끝낸 뒤 N-02·H-03을 돌릴 때는 `h03-report-v1`로 되돌리고 같은 절차로
+재기동한다.
 
 ### 기동 순서
 

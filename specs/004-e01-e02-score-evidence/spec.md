@@ -263,7 +263,8 @@ E-01 작업자 경로의 잘못된 인용 4종과 기준 사례, 보조 deep pro
 사람 검토 기록의 점수 변경, 웹 화면 노출(Spec 005), 실제 AWS, N-01·N-03, 외부 AI 모델 품질,
 문서 분석 결과 생성(격리 환경 한계, Spec 003 ID-003-18), 제품 삭제 요청 경로를 근거 제거 수단으로 쓰는 것(보고서까지
 삭제되고 복원이 없음), 재전사(`TranscriptService.correct`)를 근거 교체 수단으로 쓰는 것(호출 경로 없음), 발행 버전의
-저장소 직접 수정.
+저장소 직접 수정, 직무 요건 평가(`reports.requirement_assessments`)의 점수·인용(E-01 범위 밖: 0~100 축 점수가 아니라
+상태와 파생 신뢰도이며 총점·`scoring_inputs`에 들어가지 않는다. 근거는 research R-015).
 
 ## Success Criteria *(mandatory)*
 

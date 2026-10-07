@@ -6,6 +6,9 @@
 경로 약어: `tests/u` = `tests/unit`, `tests/c` = `tests/contract`, `tests/i` = `tests/integration`, `adp` =
 `engine/adapters/whyyou`, `WY` = `../gbsa_aws/backend`.
 
+범위 밖(추적 대상 아님): 직무 요건 평가(`reports.requirement_assessments`)의 판정·인용 — spec Excluded, research R-015.
+projection은 `report-records.jsonl`에 넣지 않으며 fixture는 요건 평가 receipt를 쓰지 않는다.
+
 ## Functional Requirements
 
 | ID | 요약 | Task | Test | 구현 | 실제 산출물 |
