@@ -2,7 +2,7 @@
 
 ## Current status
 
-- Workflow stage: T001~T084 done; T087 NOT_REQUIRED (ID-004-34). First official LOCAL_EMULATED E-01 FAIL (A3 only) and E-02 PASS sealed/VERIFIED, both restores SUCCEEDED. D1 runner correction verified in child `ec0c895d-4617-457a-94ce-7d0198e1c6a5`; child A3 still FAIL. T088 partial for D1 only. Next T085/T086 separate A3 product proposal/approval/remedy. Spec 004 remains incomplete.
+- Workflow stage: T001~T087 done (T087 NOT_REQUIRED). T085 six-file remedy approved; T086 implemented/pushed in WhyYou PR #8 (OPEN, not merged). First official E-01 FAIL and E-02 PASS, plus D1 child A3 FAIL, remain sealed/VERIFIED. T088 partial for D1 only; next PR review/integration, fresh READY and approved product-remedy child. Spec 004 remains incomplete.
 - WhyYou local/test fixture (Phase 3, T022~T029): PR jhkim0602/gbsa_aws#6 reviewed, fixed and merged into `bosung/controlproof-n02-integration` at `42aaaba206ced4288c8ee477b73f5f1ccf078bf3`; main unchanged.
 - Latest WhyYou integration head: `ce8d8620d2b2fec7f448ae312cf13334b408c01a` (PR #7, ID-004-29 report-embedder wiring); live E-02 diagnostic report generation and cleanup confirmed (see Phase 8 continuation below).
 - Sandbox diagnostics: complete, separate from official results. Official initial E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` FAIL; E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` PASS (see T080~T082 entry). Parent D1 OTHER_CRITERION NOT_OBSERVED stays unchanged; ID-004-34 supersedes ID-004-17 for new Runs while retaining FR-013 four-mode coverage.
@@ -674,3 +674,70 @@ actual change; immutable source snapshots and retest-diff prove WhyYou unchanged
 and report this limited wording issue for follow-up in T088; no additional retest implementation was added
 to this D1 scope. D1 completion is coverage, not a target-control PASS. T088 remains incomplete for the
 separate A3 remedy, T085/T086 remain pending, AWS NOT_RUN and Spec 004 not Complete.
+
+## 2026-10-08 — T085 concrete P1 remedy review (approval pending)
+
+Both source checkpoints inspected: ControlProof yeonwoo/004-e01-e02-score-evidence 9dd6194 (clean);
+WhyYou bosung/controlproof-n02-integration ce8d862 (tracked clean, historical untracked probes preserved).
+ID-004-30 continuation defines the recommended response-only transcript_available boolean, tenant/session/
+answer/segment lookup, exact restore behavior and RED/verification gates. Official parent P1 FAIL and D1
+child FAIL remain unchanged; no new actual Run or WhyYou implementation occurred.
+
+Unexpected scope discovered: EvidenceView additionalProperties=false forbids the proposed field.
+The published OpenAPI schema and consumed TypeScript type must be updated in addition to the two product
+code files. The original generator and npm contract commands no longer exist; generated/README documents
+manual updates, while generated Python is stale/unused. A six-file WhyYou allowlist (two code, two contract,
+two tests) is recorded in ID-004-30. ControlProof judge/adapter already support the exact H-4 field, so no
+scenario/engine change is proposed. Product scores and frozen inputs retain their meaning; UI rendering
+is outside this API-path remedy.
+
+T085 remains unchecked until approval of this concrete plan and file expansion. T086 not started. This
+pause follows FR-051 / plan §8's product-owner approval and the user's unexpected-scope stop/report rule.
+No pytest/ruff repeated for this documentation-only review. Global status docs unchanged; Spec 004 not
+Complete; AWS NOT_RUN. Next action after confirmation: branch, failing tests, implementation and scoped
+WhyYou gates, then a PR to the integration branch.
+
+## 2026-10-08 — T085 approval and T086 WhyYou remedy PR
+
+Approval: after the concrete recommended six-file plan and scope question, user "바로 진행시켜봐".
+T085 is CONFIRMED; prior PROPOSED/pending entries describe their checkpoints. T086 implemented from
+WhyYou integration ce8d862 on yeonwoo/controlproof-e01-e02-report-evidence, fork bosung0505/gbsa_aws,
+commit b15ba8a88be1f31b354638e42a9b828b34c06875. PR #8:
+https://github.com/jhkim0602/gbsa_aws/pull/8 (base bosung/controlproof-n02-integration), OPEN/unmerged,
+head b15ba8a, six changed files. Main remains unchanged. Original untracked .controlproof probes retained.
+
+Response-only transcript_available checks current tenant/session/segment/answer presence. One batch query,
+no transcript body/media lookup, no query with no Evidence; foreign report rejected before SQL. Query
+failure propagates; no invented availability for unchecked views. Removal changes only the affected Evidence
+availability, exact restoration restores the whole response. Original scores, stored report/item/Evidence
+columns and frozen scoring inputs remain equal. Schema/TypeScript field optional; no UI or engine change.
+
+| Gate | Command / scope | Result |
+|---|---|---|
+| RED availability | pytest backend/tests/unit/reporting/test_report_evidence_availability.py -q | 8 failed / 1 passed, 2.92 s; missing repository method / HTTP field |
+| RED API contract | pytest backend/tests/unit/reporting/test_report_view_contract.py -q | 3 failed / 3 passed, 2.91 s; missing schema property |
+| GREEN focused | pytest both files above -q | 15 passed, 2.42 s |
+| Related regression | pytest backend/tests/unit/reporting backend/tests/unit/runtime -q | 184 passed, 12.08 s; includes focused cases |
+| Static | scoped ruff check on 4 Python files; ruff format --check on 2 tests; git diff --check | PASS |
+| Consumer types | npm run typecheck --workspace @iep/company-console | PASS |
+
+Tests cover real SQLAlchemy reads and HTTP company route wiring: deletion, reinsertion, unaffected item,
+immutable stored/frozen data, foreign company/session/answer, tenant rejection before query, DB failure,
+batch count/no query without Evidence, true/false and legacy omitted-field contract. Initial lint length/
+format findings were fixed inside the allowlist; no unexpected test failure remains. Library deprecation
+warnings are not suppressed. WhyYou full unit suite and ControlProof full pytest were not rerun in this
+scoped bundle; T091 remains the final full gate.
+
+Publication: fork push succeeded. Connector create_pull_request returned 403 (integration lacks write scope);
+existing Git-authenticated user API fallback created PR #8. No secrets printed/saved; scratch PR body and
+metadata are outside Git at .pr-review/20261008/t086/. PR attached to this chat and base/head re-read.
+No review request/messages sent, no PR merge, no diagnostic or official Run, no service restart.
+
+Changed WhyYou files: reporting/repositories/postgres.py, reporting/api/company_routes.py, new unit
+reporting/test_report_evidence_availability.py, unit reporting/test_report_view_contract.py,
+packages/contracts/openapi/root.yaml, packages/contracts/generated/typescript/openapi.d.ts.
+ControlProof changes are only Spec tasks/validation/decisions/traceability records. README/TEAM_HANDOFF/
+Product Brief sync waits for phase closure. First official E-01 and D1 child remain FAIL; E-02 remains PASS.
+T088 partial for D1 only; actual product-remedy child requires PR integration and fresh READY/approval.
+AWS NOT_RUN; Spec 004 not Complete. Next: review/integrate PR #8 into integration, then T088 A3/A4 child
+verification preserving all existing parents. Generic retest-reason wording caveat remains a follow-up.

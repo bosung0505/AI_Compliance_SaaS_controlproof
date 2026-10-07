@@ -264,8 +264,8 @@ delete block files.
 
 - [X] T083 [US5] For every FAIL and INCONCLUSIVE in T080/T081, record the assertion, exact artifacts and root-cause class `TARGET_CONTROL_DEFECT|RUNNER_OR_OBSERVER_DEFECT|RESTORE_OPERATOR_DEFECT` in `implementation-decisions.md` (plan §8 step 3) [FR-050, SC-005]
 - [X] T084 [US5] Only for `RUNNER_OR_OBSERVER_DEFECT`: add the failing test, apply the minimal ControlProof fix in the owning file listed in this tasks file, run the full regression and record it; changes outside the listed files or product meaning stay `PROPOSED` until approved; otherwise `NOT_REQUIRED` [FR-050]
-- [ ] T085 [US5] Only if T083 classifies E01-A3 as `TARGET_CONTROL_DEFECT` (P1 observed): record the WhyYou minimal-fix proposal as `PROPOSED` (report read path exposing missing transcript segments through an H-4 indicator, candidate files `../gbsa_aws/backend/src/interview_evidence/reporting/repositories/postgres.py` and `../gbsa_aws/backend/src/interview_evidence/reporting/api/company_routes.py`) and obtain approval; otherwise `NOT_REQUIRED` [FR-051]
-- [ ] T086 [US5] Only after T085 approval: create `yeonwoo/controlproof-e01-e02-report-evidence` from the current WhyYou base, add the failing regression in `../gbsa_aws/backend/tests/unit/reporting/test_report_view_contract.py` (or a new `test_report_evidence_availability.py`), apply the approved minimal fix, run reporting/runtime unit suites and `ruff`, push to `fork` and open a PR; keep it separate from the T029 fixture PR [FR-051]
+- [X] T085 [US5] Only if T083 classifies E01-A3 as `TARGET_CONTROL_DEFECT` (P1 observed): record the WhyYou minimal-fix proposal as `PROPOSED` (report read path exposing missing transcript segments through an H-4 indicator, candidate files `../gbsa_aws/backend/src/interview_evidence/reporting/repositories/postgres.py` and `../gbsa_aws/backend/src/interview_evidence/reporting/api/company_routes.py`) and obtain approval; otherwise `NOT_REQUIRED` [FR-051]
+- [X] T086 [US5] Only after T085 approval: create `yeonwoo/controlproof-e01-e02-report-evidence` from the current WhyYou base, add the failing regression in `../gbsa_aws/backend/tests/unit/reporting/test_report_view_contract.py` (or a new `test_report_evidence_availability.py`), apply the approved minimal fix, run reporting/runtime unit suites and `ruff`, push to `fork` and open a PR; keep it separate from the T029 fixture PR [FR-051]
 - [X] T087 [US5] Only if T083 classifies an E01-A1/A2 or E02 assertion as `TARGET_CONTROL_DEFECT`: record the proposal, obtain approval, then follow the T086 pattern on its own branch and PR with failing tests first; otherwise `NOT_REQUIRED` [FR-050, FR-051]
 - [ ] T088 [US5] If any T080/T081 FAIL was remediated, run a parent-linked child retest for that profile with approval, verify parent and child bundles, confirm the parent manifest is unchanged, and record SHAs and result differences; if no remediation was needed, re-verify the parents and record that no child was required, in `validation.md` [FR-052, SC-005]
 
@@ -370,3 +370,10 @@ D1 T084 child validation: `ec0c895d-4617-457a-94ce-7d0198e1c6a5`, parent
 modes observed on clean ControlProof `69d3c00`, WhyYou `ce8d862` unchanged. Parents' registered files
 and manifests unchanged. A3 still FAIL, A1/A2/A4 PASS. T088 partial only; A3 proposal/approval/remedy
 T085/T086 and its child remain pending. Generic retest reason wording caveat is recorded in validation.
+
+T085/T086 complete (2026-10-08): six-file recommended availability plan approved by user; WhyYou
+b15ba8a on yeonwoo/controlproof-e01-e02-report-evidence pushed to fork bosung0505/gbsa_aws. PR #8
+https://github.com/jhkim0602/gbsa_aws/pull/8 is OPEN, base bosung/controlproof-n02-integration, not merged.
+Intended RED 11 failed / 4 passed across two invocations; focused GREEN 15 and related reporting/runtime
+184 passed; ruff/format/diff and company console typecheck PASS. No new actual Run. Original A3 FAIL
+remains; T088 product child and closure gates pending. See latest validation / ID-004-30 continuation.

@@ -425,3 +425,89 @@ T088 partial, not complete. The existing generic retest reason text wrongly impl
 source snapshots and retest-diff show the actual ControlProof-only change. Preserve the sealed text and
 review its wording separately; no retest implementation scope was added here. See validation for commands,
 manifest, timings and the full-command failure / scoped correction record.
+
+### ID-004-30 — T085 review: transcript availability read projection (PROPOSED, 2026-10-08)
+
+The first official P1 FAIL is sealed and classified by ID-004-34. The next-step request authorizes this
+review; the concrete product change and discovered contract-file expansion require confirmation before
+T086 implementation (FR-051, plan §8 step 4, and the user's stop/report rule for unexpected scope).
+
+Recommended H-4 indicator: EvidenceView.transcript_available, a boolean describing the currently matching
+transcript row at report-read time. Present owned row → true; missing/mismatched row → false; reinserting
+the same row → true again. This does not assert recording playback, citation sufficiency, external AI
+accuracy or hiring suitability. It is response metadata, not a frozen scoring input. Axis/average/overall
+scores, original Evidence, stored report rows and scoring inputs are not rewritten or recomputed.
+The alternative axis score=null is allowed by H-4, but would also require resolving how item averages,
+aggregate breakdown and frozen score presentation relate to that hidden score; it is not recommended for
+this minimal correction. No scenario version or ControlProof judge/adapter change is needed: both already
+accept transcript_available=false as the agreed H-4 availability indicator.
+
+Implementation design:
+- Add transcript_availability_for_report(context, report) to the ReportingRepository protocol and
+  SQLAlchemyReportingRepository in postgres.py. Reject a report outside the tenant; use a single bounded
+  query selecting referenced segment/turn IDs with company_id, interview_session_id and segment IDs.
+  Map each report Evidence ID to whether its own segment and answer_turn_id match. No transcript text or
+  media locator is selected; no per-item queries. No Evidence → empty map without querying. A database
+  error propagates as an error, not a fabricated false or true.
+- get_report fetches the owned report, obtains this availability map and passes it into _report_view.
+  Only a checked Evidence gets transcript_available. Existing pure view callers without a map omit the
+  optional field, rather than inventing availability. Report-not-ready/failure branches and existing audit
+  behavior retain their contracts. The company report API is the observed path; no console UI work is
+  included in this proposal.
+
+Required concrete T086 file allowlist (WhyYou, relative paths):
+1. backend/src/interview_evidence/reporting/repositories/postgres.py
+2. backend/src/interview_evidence/reporting/api/company_routes.py
+3. packages/contracts/openapi/root.yaml (EvidenceView optional boolean property)
+4. packages/contracts/generated/typescript/openapi.d.ts (same optional field)
+5. backend/tests/unit/reporting/test_report_evidence_availability.py (new)
+6. backend/tests/unit/reporting/test_report_view_contract.py (EvidenceView schema coverage)
+
+Files 3/4 expand the original two product-code candidates. EvidenceView currently sets
+additionalProperties=false and lacks this field; returning it without updating the API contract would be
+incorrect. The consumed TypeScript contract also needs the additive optional property. The generator was
+removed in 7d977f7: package.json has no contracts:generate/check; generated/README.md explicitly requires
+manual OpenAPI/TypeScript edits. The Python generated contract is documented as stale and has no consumer,
+so it is outside this allowlist. No generator reinstall or broad regenerated-file changes are proposed.
+
+Tests before implementation (intended RED): genuine report Evidence has true with an owned segment;
+deleting that segment yields false only on the affected Evidence; exact reinsertion restores the entire
+report view; stored report/items/Evidence and frozen weights/scoring remain unchanged. Negative tests cover
+wrong company/session/answer turn, missing segment, tenant rejection and DB query failure. Empty Evidence
+performs no lookup and a multi-item report uses one lookup. A company-report route wiring test verifies
+that the HTTP path supplies the map; the schema test validates EvidenceView properties for true/false and
+legacy omitted-field responses. Existing unquoted/unaffected items remain identical.
+
+Gates after approval: personal branch yeonwoo/controlproof-e01-e02-report-evidence from integration ce8d862;
+RED → minimum implementation → reporting/runtime unit suites + focused repository/schema/wiring tests;
+ruff on changed Python and TypeScript contract typecheck. Record existing unrelated failures separately,
+never call them PASS. Push to fork and open a PR with base bosung/controlproof-n02-integration (never main).
+T086 ends with a reviewable PR; merging and T088 official product-remedy child are separate actions.
+All original parent/D1-child bundles remain immutable. Approval pending; no WhyYou code/contract/test was
+changed, no branch/PR/Run was created during this T085 review.
+
+### ID-004-30 — T085 approved / T086 implemented (CONFIRMED, 2026-10-08)
+
+After the explicit six-file approval question, the user said "바로 진행시켜봐". This confirms the recommended
+response-only transcript_available indicator and all six files in the preceding proposal. T085 complete.
+Personal WhyYou branch yeonwoo/controlproof-e01-e02-report-evidence started from integration ce8d862;
+commit b15ba8a88be1f31b354638e42a9b828b34c06875 contains exactly that allowlist. Repository lookup selects only
+segment/turn IDs in the tenant/session and compares each Evidence's segment/answer pair; one batch, no
+lookup without Evidence, foreign report rejection before SQL, DB errors propagated. Company report GET
+passes the map to the view. Checked fields are true/false; unchecked pure-view calls omit them. OpenAPI
+and consumed TypeScript declare an optional boolean. Stored report/items/Evidence and frozen scoring are
+unchanged; restoration restores the original response. No ControlProof judge/scenario change or UI work.
+
+Intended RED: availability 8 failed / 1 passed; schema 3 failed / 3 passed (only missing implementation /
+contract). GREEN focused 15 passed; reporting/runtime 184 passed; scoped ruff, test format, diff and company
+console typecheck PASS. Existing dependency deprecation warnings remain. Initial lint formatting issues
+were corrected within the approved files; no unexpected test failure remains.
+
+Fork bosung0505/gbsa_aws created/reused for T086, branch pushed at b15ba8a. PR
+https://github.com/jhkim0602/gbsa_aws/pull/8 targets bosung/controlproof-n02-integration (ce8d862);
+OPEN/unmerged, six files. T086 complete as a reviewable PR, separate from fixture PR #6 and wiring PR #7.
+GitHub connector PR creation returned integration-permission 403; existing authorized user Git credentials
+created the PR through GitHub API, with credentials only in process memory. PR metadata re-read confirms
+correct base/head; no merge or actual Run performed. Parent/D1-child evidence and both mains unchanged.
+T088 product-remedy validation and T089~T097 remain; automatic gate is not actual A3 PASS. Existing generic
+retest-reason wording caveat remains separate from this six-file change.

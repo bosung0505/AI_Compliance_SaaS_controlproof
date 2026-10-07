@@ -123,3 +123,16 @@ Phase 8 진단 ID와 구분한다. 두 Run 모두 수정 전 최초 결과, pare
   Generic retest reason wording caveat and exact timing/full-suite records are in validation.
 - A3 TARGET_CONTROL_DEFECT remains. T085/T086, A3 lineage portion of T088 and T089~T097 incomplete.
   No claim of four-mode target PASS, AWS validation or Spec completion.
+
+## T085/T086 approved WhyYou remedy PR (2026-10-08)
+
+FR-051 / E01-A3: ID-004-30 six-file availability plan approved; implementation WhyYou b15ba8a on
+yeonwoo/controlproof-e01-e02-report-evidence (base ce8d862). Repository scoped transcript lookup + company
+report view wiring expose the existing H-4 transcript_available boolean without modifying stored scoring.
+OpenAPI/TypeScript optional-field contracts synchronized. Tests: new test_report_evidence_availability and
+expanded test_report_view_contract; focused 15 and reporting/runtime 184 PASS; consumer typecheck and
+scoped ruff PASS. PR https://github.com/jhkim0602/gbsa_aws/pull/8 OPEN, targeting integration, not merged.
+
+This is implementation/automatic evidence, not a new actual A3 verdict. Original E-01 parent and D1 child
+remain sealed FAIL; E-02 parent remains PASS. No new EV4 actual manifest exists for this product fix.
+T088 product-remedy child and full FR/SC mapping/closure T089~T097 remain pending.
