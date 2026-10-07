@@ -159,3 +159,20 @@ PR #6 merged into `bosung/controlproof-n02-integration` at
 `cc8bf556b75f563f01cbf0487e28c555125077e7`. Use this merged integration HEAD for the later
 sandbox/official Run source snapshot, not the superseded `3dfa10c` fixture head. Fetch/pull both
 repositories before continuing; read this review entry with the corrected fixture contract.
+
+## 세션 인계 (2026-10-07, 자율 진행 세션)
+
+- 마지막 완료: Phase 2 foundation T012~T021 (`d5a99a3`, 보성 `0cc6481` 위로 rebase). 결정 ID-004-04~10.
+- WhyYou: PR #6 병합 확인(`42aaaba`, 보성 검토 보완 `3423f16` 포함). 로컬 `bosung/controlproof-n02-integration`을
+  `42aaaba`로 fast-forward하고 checkout. scoring.py/report.py blob이 고정값과 같음(재계산 사본 유효).
+- 진행 중: Phase 4 US1 (T030~T043). 설계 메모:
+  - Spec 004 seed는 기준마다 면접관 질문 turn(target_criterion_id) + 지원자 최종 turn + 자막 구간을 넣는다
+    (WhyYou `_criterion_answers_by_criterion`은 질문 turn 뒤의 지원자 turn만 답변으로 묶는다; N-02 probe에는 질문
+    turn이 없어 보고서가 `partial`이었다). SD-4에서 실측 확인.
+  - WhyYou observer는 N-02 lane만 receipt로 남긴다(`runtime/controlproof_consent.py` `LANES`). Spec 004 판정은 receipt에
+    의존하지 않고 DB의 보고서 존재로 판단하며, 보고서가 없으면 INCONCLUSIVE(`PRECONDITION_NOT_MET`). WhyYou observer에
+    Spec 004 lane을 추가하는 것은 PROPOSED(판정에 불필요, WhyYou local/test 변경).
+  - 재사용: `engine/adapters/whyyou/n02_seed.py`의 `_insert_row`, `_delete_dependents`, `_delete_row`,
+    `N02CredentialStore`; `protected_processing.py`의 outbox INSERT 형식과 trace_id 형식.
+- 건너뛴 PROPOSED: 없음(위 observer 확장은 의존 작업 없음).
+- 다음 작업: T030(실패 시험) → T035 → T036 …
