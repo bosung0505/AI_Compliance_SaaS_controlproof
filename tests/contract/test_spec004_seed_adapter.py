@@ -141,6 +141,8 @@ def test_lane_rows_seed_question_answer_segment_and_video_but_no_consent_or_repo
         assert criteria[criterion.criterion_id]["code"] == criterion.code
     assets = [row.values for row in rows if row.table == "recording_assets"]
     assert assets[0]["asset_type"] == "final_video" and assets[0]["missing_ranges"] == []
+    assert assets[0]["object_key"].startswith(f"companies/{COMPANY}/")
+    assert all(segment["source_audio_key"] == assets[0]["object_key"] for segment in segments)
     emails = [
         row.values["applicant_email_normalized"] for row in rows if row.table == "invitations"
     ]
