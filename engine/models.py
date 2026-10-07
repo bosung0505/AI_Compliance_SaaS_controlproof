@@ -8,7 +8,7 @@ import re
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
@@ -962,6 +962,7 @@ class ConsentStateSnapshot(FrozenModel):
 
 
 class ProtectedEffectSnapshot(FrozenModel):
+    recovery_stage: Literal["BEFORE_RETRY", "AFTER_RETRY"] | None = None
     schema_version: str = "controlproof.n02-protected-effect.v1"
     run_id: UUID
     lane_id: N02LaneId
@@ -1040,6 +1041,7 @@ class ProtectedEffectSnapshot(FrozenModel):
 
 
 class ProcessingAttemptReceipt(FrozenModel):
+    recovery_stage: Literal["BEFORE_RETRY", "AFTER_RETRY"] | None = None
     schema_version: str = "controlproof.n02-processing-attempt.v1"
     attempt_id: UUID = Field(default_factory=uuid4)
     run_id: UUID

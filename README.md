@@ -62,7 +62,7 @@ ControlProof 웹 UI가 완성됐다는 뜻이 아니며, 현재 사용자 접점
 
 | 순서 | 상태 | 범위 |
 |---|---|---|
-| Spec 003 | Implement 진행 중 — US1~US4 자동 gate 완료 | T001~T073 완료. 6개 lane, A1~A7 통합 verdict, 경로별 CLI 검토와 EV3 봉인 bundle의 fixture gate PASS. ControlProof 전체 회귀 407개 PASS; 실제 WhyYou N-02 preflight/Run과 verdict는 아직 `NOT_RUN` |
+| Spec 003 | 구현·actual validation 기록 완료, PR 검토 보완 | T001~T093 기록 완료. 실제 child `7b59237e…`는 A1~A4·A6 PASS, A5·A7 INCONCLUSIVE. 2026-10-07 검토에서 복구 시간·A7 원본 증거·H-03 동의 seed 보완; 최신 회귀는 validation 참조. 최종 converge 전이며 Spec 전체 Complete 또는 실제 N-02 PASS로 선언하지 않는다. |
 | Spec 004 | 계획 확정·미착수 | E-01·E-02 점수 근거·평가 기준 snapshot과 과거 결과 보존 |
 | Spec 005 | 계획 확정·미착수 | 웹 워크벤치·12개 시나리오 카탈로그·보고서와 웹 UX 검토 |
 

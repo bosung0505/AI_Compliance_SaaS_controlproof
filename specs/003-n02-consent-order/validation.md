@@ -2,11 +2,11 @@
 
 ## Current status
 
-- Workflow stage: `$speckit-implement` in progress
+- Workflow stage: implementation and recorded actual validation complete; 2026-10-07 PR review closure below. Spec-wide Complete is not newly declared by this review.
 - Automated implementation gates: US1~US4 T001~T073 `PASS`; US5 retest contract T074~T076 scoped gate `PASS` (35 relevant tests). The Phase 6 full ControlProof regression was 407 passed. These are fixture results, not a WhyYou verdict.
 - WhyYou actual N-02 preflight: `READY` on 2026-10-02 after Docker restart and process-local Git trust configuration
 - Initial actual Run: `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`; `RESTORE_FAILED` / `INCONCLUSIVE`; sealed bundle `VERIFIED`
-- Child retest: `NOT_RUN`; N-02 cleanup confirmation and evidence-backed `prepare_retest` gate pass. Latest isolated full preflight was `RUNNER_NOT_READY` solely because the WhyYou checkout is dirty (14/16 capability checks READY); a clean-source actual preflight remains pending.
+- Child retest: teammate-recorded attempt 3 `7b59237e-0a96-403a-9add-28b91011e950`, `COMPLETED` / `VERIFIED`, verdict `INCONCLUSIVE`: A1~A4 and A6 PASS; A5/A7 INCONCLUSIVE. The source mapping and manifest are preserved in the actual Run ledger. No new actual Run was executed for the PR review fixes.
 - AWS: `NOT_RUN`
 - Claim scope: `EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`
 
@@ -43,8 +43,8 @@ These are implementation checkpoint SHAs, not an actual-Run source claim.
 | US4 review/bundle | T065~T073 | selected US4/EV3 pytest, scoped CLI/orchestration pytest, Ruff, full ControlProof pytest | PASS; 42 scoped and 407 full | 14.00 seconds scoped; 179.22 seconds full |
 | US5 immutable retest | T074~T076 | N-02 test-first RED, N-02 child/CLI scoped pytest and existing H-03/E-03 retest/EV3 contracts | PASS; 6 N-02 and 35 relevant tests | 13.85 seconds N-02; 48.79 seconds relevant |
 | Initial actual truth | T077~T079 | clean-source preflight, one initial actual Run, show/verify, source/result mapping | READY preflight; Run `RESTORE_FAILED` / `INCONCLUSIVE`; bundle VERIFIED | Run 5.70 seconds; show/verify command 6.87 seconds |
-| Conditional remediation | T080-E1~E4/T080~T084 | parent artifact `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` | E1/E2 scoped PASS; E3 N-02 cleanup confirmed; E4 evidence-backed retest gate scoped PASS; T080 classification pending, no valid child (T084 attempt 2 sealed `INVALID`/`RESTORE_FAILED`, ID-003-13~16) | — |
-| Closure | T085~T093 | `NOT_RUN` | `NOT_RUN` | — |
+| Conditional remediation | T080-E1~E4/T080~T084 | parent/child ledger below | T080~T084 recorded complete; attempt 3 COMPLETED/VERIFIED/INCONCLUSIVE; earlier aborted/invalid attempts preserved | See command log |
+| Closure | T085~T093 | teammate command and reproduction records below | 484 ControlProof / 138 scoped WhyYou PASS at the recorded sources; review-fix results recorded separately below | See command log |
 
 ## Implementation command log
 
@@ -166,7 +166,7 @@ output. A test name in this table does not mean that an actual WhyYou Run occurr
 
 T070 uses the approved read-only preflight contract: protected path identities are shown before a Run, while actual path, policy and lane SHA-256 digests are captured only inside the Run and linked to the sealed bundle. Preflight creates no Run/subject/marker/event. The US4 deterministic fixture verifies six lanes seeded once, A1~A7 PASS, a direct Recording FAIL, and restore failure as RESTORE_FAILED/INCONCLUSIVE with a persistent block. Those fixture results remain separate from the actual WhyYou result below. No WhyYou source or product guard was changed before the first actual Run.
 
-T074~T076 are a scoped synthetic child-Run gate. The child uses a fresh six-subject set, records target/path/policy/fixture differences in its own sealed bundle, and verifies the parent manifest and evidence bytes remain unchanged. An unresolved cleanup block refuses retest. T080-E4 later added the evidence-backed exception for an N-02 RESTORE_FAILED parent whose cleanup was confirmed; H-03/E-03 restore-failed parents still refuse. The actual parent now exists, but no actual child Run was executed; Phase 7 full regression remains pending.
+T074~T076 are a scoped synthetic child-Run gate. The child uses a fresh six-subject set, records target/path/policy/fixture differences in its own sealed bundle, and verifies the parent manifest and evidence bytes remain unchanged. An unresolved cleanup block refuses retest. T080-E4 later added the evidence-backed exception for an N-02 RESTORE_FAILED parent whose cleanup was confirmed; H-03/E-03 restore-failed parents still refuse. At this earlier US5 checkpoint no actual child Run had been executed; the later T084 attempt 3 and T087 entries supersede this checkpoint status without changing its test results.
 
 An additional pre-existing WhyYou integration collection issue remains outside this
 foundation gate: `tests/integration/test_production_runtime.py` imports the absent
@@ -229,6 +229,8 @@ The worker console reported repeated delivery-cycle exceptions, including a miss
 
 ## Conditional remediation ledger
 
+The early E1/E2 and proposed-classification rows retain their checkpoint status. Current outcomes are in the latest conditional table in implementation-decisions.md and the T084 attempt 3 row.
+
 Do not fill this table from source review alone. Each decision requires an initial
 Run artifact and one root-cause class:
 `TARGET_CONTROL_DEFECT`, `RUNNER_OR_OBSERVER_DEFECT`, or
@@ -242,7 +244,7 @@ Run artifact and one root-cause class:
 | T081 | A2/document | `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` | — | `NOT_REQUIRED` (proposed): parent A2 PASS, 403 `CONSENT_REQUIRED`, no new effect | — | Re-observed by T084 child |
 | T082 | A3/recording | sandbox Runs `f0309ee5-…`, `6b53b1b1-…` (diagnostic) | `TARGET_CONTROL_DEFECT` | `REQUIRED`: the parent's A3 403 came from an invalid strategy fixture, not consent; with a valid fixture the target created sessions for unconsented applicants; consent check added at `authorize_start` on a WhyYou personal branch (ID-003-18) | T082 regression row | Needs a valid child |
 | T083 | A4/assessment | `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`; T084 attempt 2 `e2e8e71d-…` | `TARGET_CONTROL_DEFECT` | `REQUIRED` (review 2026-10-05): attempt 2 recorded `REPORT_ASSESSMENT_STARTED` for unconsented subjects; minimal `ai_assessment` check and refusal receipt added on a WhyYou personal branch (ID-003-17) | T083 regression row | Needs a valid child |
-| T084 | child/reverify | `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` | `RUNNER_OR_OBSERVER_DEFECT` (attempts) | No valid child yet: attempt 1 aborted before sealing (ID-003-11, ID-003-12); attempt 2 child `e2e8e71d-3ba0-402e-a914-6cf26268582b` sealed `INVALID`/`RESTORE_FAILED` (ID-003-13~16); attempt 3 child `7b59237e-0a96-403a-9add-28b91011e950` `COMPLETED`/`VERIFIED`, verdict `INCONCLUSIVE` (A1~A4, A6 PASS; A5/A7 `INCONCLUSIVE`) | ID-003-11/12/13/15/17/18 regression rows; T084 attempt 3 row | Done: attempts 1~2 preserved, attempt 3 is the evidence-backed child |
+| T084 | child/reverify | `15cef078-ee24-4f0e-91ef-381e0f7a1cc2` | `RUNNER_OR_OBSERVER_DEFECT` (attempts) | Attempts preserved: attempt 1 aborted before sealing (ID-003-11, ID-003-12); attempt 2 child `e2e8e71d-3ba0-402e-a914-6cf26268582b` sealed `INVALID`/`RESTORE_FAILED` (ID-003-13~16); attempt 3 child `7b59237e-0a96-403a-9add-28b91011e950` `COMPLETED`/`VERIFIED`, verdict `INCONCLUSIVE` (A1~A4, A6 PASS; A5/A7 `INCONCLUSIVE`) | ID-003-11/12/13/15/17/18 regression rows; T084 attempt 3 row | Done: attempts 1~2 preserved, attempt 3 is the evidence-backed child |
 
 ## Portability and limitations
 
@@ -258,3 +260,33 @@ Run artifact and one root-cause class:
 - A local result does not establish AWS or production behavior.
 - N-01 and N-03 remain outside Spec 003.
 - A passing automated fixture is not an actual WhyYou N-02 verdict.
+
+## PR review closure — 2026-10-07 (ID-003-19)
+
+Review source: ControlProof PR #1 head `12e389b1235f025b6bd5f809e1ea30eb6c9b3e71`,
+WhyYou PR #5 head `be81ebccc6d4921ce7bc6610be9b0e7d0277c8a2`. User authorized fixes,
+commit/push and merges only into `003-n02-consent-order` and
+`bosung/controlproof-n02-integration`. Both PR bases were retargeted; main is forbidden.
+
+| Command / check | Result | Meaning |
+|---|---|---|
+| `python -m pytest -q tests/integration/test_n02_review_closure.py tests/unit/test_h03_pending_report_seed.py` before implementation | EXPECTED RED: 6 failed, 3 passed in 6.25 s | Slow normal retry caused a false restore block; recovered A7 facts were absent/not independently required; H-03 had no active consent prerequisite |
+| Same test files after implementation | 9 passed in 10.80 s before the additional missing-consent invariant case; all 10 cases included in the final suite | False timing boundary corrected; missing consent/causal/effects rejected even when remaining bytes are sealed |
+| `rg --files tests` selection matching `n02`, `spec003`, `h03`, `state_seed`, `bundle_verify`, `evidence_conflicts`, `test_retest.py`, then `python -m pytest -q <selected test files> --tb=short` | Exit 0; 250 passed in 166.70 s | N-02 and H-03 regression, old bundle/retest compatibility, real slow-cleanup blocking |
+| `python -m ruff check .` | Exit 0; all checks passed | Whole-repository lint |
+| `python -m pytest -q --tb=short` | Exit 0; 491 passed in 228.40 s | One complete ControlProof regression after the review fixes; automated fixture results only |
+| WhyYou PR source: `python -m pytest -q backend/tests/unit/integration/test_submission_interview_consent.py backend/tests/unit/reporting backend/tests/unit/runtime --tb=short` | Exit 0; 138 passed in 5.68 s; one dependency deprecation warning | Recording/report consent guards and runtime/reporting compatibility at `be81ebc`; source extracted from the PR without moving the local integration checkout |
+| H-03 cross-repository model probe (in memory) | PASS | Synthetic consent parses as the real WhyYou ConsentRecord, uses real ORM columns, authorizes assessment through CompanyManagementPublic; missing consent is denied. Initial probe context setup errors were corrected; no API/DB/AI call |
+| Parent manifest SHA-256 assertion and `verify_bundle` | `d2306f3cd6e2b15ce87d94e4844a2278c7ea3c0b3c052a2aac45e1bff8f2bc9b`; VERIFIED; no mismatches | Original parent bytes/verdict preserved |
+| `git diff --check` | Exit 0 | No whitespace errors |
+
+Changes: accumulate only actual restore operations; seal retry policy/safe state/commit/state,
+AFTER_RETRY attempts/effects and recovered causal rows; independently recompute order and
+require target start/result effects for A7 PASS; keep A6 failure-stage observations separate.
+H-03 receives one owned active consent as a synthetic precondition with FK-safe teardown and
+pre-apply invariant validation. The target guards are retained; no new WhyYou patch was needed.
+
+No new actual Run, target product verdict, AWS result or raw evidence publication occurred.
+The recorded child remains INCONCLUSIVE (A5/A7 document results unproven). These code fixes
+are covered by automated tests; their actual-stack execution remains NOT_RUN. Old history is
+retained, current-state documents synchronized, and Spec-wide Complete awaits final converge.

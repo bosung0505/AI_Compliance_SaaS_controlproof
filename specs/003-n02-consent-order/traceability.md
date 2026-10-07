@@ -70,3 +70,11 @@ Child `7b59237e-0a96-403a-9add-28b91011e950` at `.controlproof/runs/7b59237e-0a9
 - The first actual source mapping is frozen above by T077~T079.
 - Conditional product changes T080~T083 require a cited parent artifact.
 - A child Run never rewrites its parent bundle or this table's parent references.
+
+## PR review regressions — 2026-10-07
+
+| Requirement / task | Test | Implementation | Actual evidence boundary |
+|---|---|---|---|
+| SC-006/SC-008, T072/T085 | `test_n02_review_closure.py::test_slow_normal_retry_does_not_consume_the_restore_budget`; existing `test_spec003_timing.py` slow-teardown cases | `N02Executor._restore_operation` and cumulative restore timing | Fake-clock timing only; no new actual Run |
+| N02-A7, EV3-02/05/06/09, T071/T072 | `test_a7_pass_seals_retry_consent_effects_and_causal_proof`; `test_a7_pass_cannot_be_sealed_from_summary_flags_alone` (consent/causal/effects) | `N02FaultRecoverySliceResult`, `_write_n02_rows`, `_recovered_n02_proof_readable` | Future PASS bundles require raw recovered proof; historical parent/child unchanged |
+| H-03 compatibility with T083 | `test_pending_report_has_active_consent_for_the_new_target_guard`; `test_pending_report_without_consent_is_rejected_before_apply` | H-03 fixture, seed apply/teardown and invariant check | Synthetic consent prerequisite; no claim that a user completed N-02 |

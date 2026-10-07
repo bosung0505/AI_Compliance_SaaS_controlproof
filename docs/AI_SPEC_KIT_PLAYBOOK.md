@@ -106,12 +106,13 @@ WhyYou main에는 변경을 만들지 말고, actual Run을 하지 않았다면 
 Spec 003을 이어서 진행할 때는 여기에 다음을 추가한다.
 
 ```text
-Spec 003은 specify·clarify·plan·tasks·analyze까지 완료됐고 재분석의 CRITICAL·HIGH·팀 해석 차이를
-만드는 MEDIUM은 0건이며 Implement T001~T073(US1~US4 자동 fixture gate)까지 완료됐다.
+Spec 003은 T001~T093 구현·검증 기록과 PR 검토 보완(ID-003-19)이 있다. 현재 상태는
+TEAM_HANDOFF와 validation의 Current status / PR review closure를 먼저 확인하라.
 specs/003-n02-consent-order/의 spec.md, plan.md, tasks.md, research.md, data-model.md, contracts/와
-quickstart.md를 입력으로 다음 미완료 묶음인 US5 T074~T076부터 진행하라. Tasks의 테스트 우선 순서를
-지키고 심층 probe fixture와 실제 처리 effect를 섞지 마라. 자동 A1~A7 PASS를 실제 WhyYou verdict로
-쓰지 말고, 최초 actual FAIL 전에 WhyYou 보호조치를 미리 고치지 마라.
+quickstart.md를 입력으로 작업 브랜치 통합 후 최종 converge의 종료 범위를 검토하라.
+현재 실제 child는 A1~A4·A6 PASS, A5·A7 INCONCLUSIVE이며 검토 보완 후 실제 Run은 NOT_RUN이다.
+자동 A1~A7 PASS를 실제 WhyYou verdict로 쓰지 말고, 부모 증거를 수정하지 마라.
+main 병합은 사용자가 금지했으므로 별도 승인 전 진행하지 마라.
 ```
 
 2026-10-05~07 이어받기 결과(연우): T080~T093 완료. 최초 Run의 FAIL은 실행기 결함 10건과 WhyYou 보호조치

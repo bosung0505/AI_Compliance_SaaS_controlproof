@@ -2,7 +2,7 @@
 
 ## Status
 
-- Implementation foundation: in progress
+- Implementation and PR review fixes: implemented; feature-branch integration authorized on 2026-10-07. No main integration authorized.
 - Initial actual N-02 Run: `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`, sealed and `VERIFIED`; overall `RESTORE_FAILED` / `INCONCLUSIVE`
 - Evidence-gated product remediation: T083 and T082 `REQUIRED` and implemented as WhyYou patches on
   a personal branch (PR #5). T084 attempt 3 child `7b59237e-0a96-403a-9add-28b91011e950` is the
@@ -84,11 +84,11 @@ not by itself proof that a WhyYou product boundary accepted processing.
 
 | Task | Boundary | Parent artifact required | Status |
 |---|---|---|---|
-| T080 | A5~A7 or runner/restore ownership | Yes | `PROPOSED` `RUNNER_OR_OBSERVER_DEFECT`; ID-003-09, file-scope approval pending |
-| T081 | document analysis | Yes | `NOT_REQUIRED` proposed; parent A2 PASS (ID-003-09) |
+| T080 | A5~A7 or runner/restore ownership | Yes | Implemented; ID-003-09~18 confirmed directions and review closure ID-003-19 |
+| T081 | document analysis | Yes | `NOT_REQUIRED`; parent A2 PASS (ID-003-09); no new guard added |
 | T082 | recording | Yes | `REQUIRED` (implementer judgment, delegated 2026-10-07): sandbox Runs created sessions for unconsented applicants once the strategy fixture was valid; `authorize_start` never checked consent. WhyYou patch on the personal branch (ID-003-18) |
-| T083 | AI assessment/reporting | Yes | `REQUIRED` (review relayed by the operator on 2026-10-05): attempt 2 start receipts for unconsented subjects; WhyYou patch on a personal branch (ID-003-17); child confirmation pending |
-| T084 | child retest or parent reverify | Yes | No valid child yet: attempt 1 aborted before sealing (ID-003-11, ID-003-12); attempt 2 sealed `INVALID`/`RESTORE_FAILED`; attempt 3 child `7b59237e-…` `COMPLETED`/`VERIFIED`, `INCONCLUSIVE` (A1~A4, A6 PASS; A5/A7 `INCONCLUSIVE`) |
+| T083 | AI assessment/reporting | Yes | `REQUIRED` and implemented (ID-003-17); attempt 3 A4/A6 PASS, not a blanket N-02 PASS |
+| T084 | child retest or parent reverify | Yes | Attempt 3 child `7b59237e-…` `COMPLETED`/`VERIFIED`, `INCONCLUSIVE` (A1~A4, A6 PASS; A5/A7 `INCONCLUSIVE`); earlier aborted/invalid attempts preserved |
 
 ### ID-003-03 — First Run root-cause audit remains open
 
@@ -546,3 +546,34 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
 | T084 | Done: child `7b59237e-0a96-403a-9add-28b91011e950` COMPLETED/VERIFIED | Run ledger |
 
 Implementation verdict: the N-02 runner, judge, verifier and bundle contract are complete for this profile; every known runner defect found by actual Runs is fixed and regression-tested (484 tests). Target verdict for WhyYou at `be81ebc`: consent gates hold on all three protected boundaries after T082/T083, failed consent is atomic and recoverable; the consented processing order is proven for recording and assessment and remains `INCONCLUSIVE` for document analysis because the isolated target cannot complete LLM analysis. Nothing here certifies N-01, N-03, AWS or legal compliance.
+
+### ID-003-19 — PR review: restore timing, recovered proof and H-03 compatibility
+
+- Date: 2026-10-07
+- Task: T071/T072/T085/T087/T092 review closure; H-03 compatibility with T083
+- Requirement/assertion: SC-006/008, N02-A6/A7, EV3-02/05/06/09
+- Status: `CONFIRMED`; operator authorized fixes and feature-branch merges; main forbidden
+- Source baseline: PR #1 `12e389b1235f025b6bd5f809e1ea30eb6c9b3e71`, WhyYou PR #5
+  `be81ebccc6d4921ce7bc6610be9b0e7d0277c8a2`
+- Triggering test: 130-second fake normal retry incorrectly caused RESTORE_FAILED/block;
+  fixture A7 PASS sealed no recovered causal graph; pending H-03 fixture had no consent row
+- Root-cause class: `RUNNER_OR_OBSERVER_DEFECT`; not a new actual target violation
+- Decision: accumulate only owned cleanup/safe-state/teardown time under the restore budget.
+  Preserve the 120-second fail-closed cleanup limit and the independent Run budget.
+  Seal pre-retry safe state, retry commit/state, staged attempts/effects and the recovered
+  causal graph; recompute the normal-order judge during A7 PASS verification. A6 reads
+  failure-stage facts only. Add exactly one owned active assessment consent to H-03's
+  synthetic seed, validate it before apply and delete it before the invitation at teardown.
+- Alternatives considered: increasing the restore budget hides a false timing boundary;
+  trusting A7 summary booleans leaves PASS unverifiable; removing the new target guard
+  would undo the approved protection. All rejected.
+- Safety and compatibility: no new WhyYou patch, external AI call, actual Run, credentials,
+  raw evidence publication or schema migration. Stage fields are optional on old rows;
+  historical FAIL/INCONCLUSIVE bundles are not required to invent PASS proof.
+- Regression: EXPECTED RED 6 failed / 3 passed, then scoped 250 PASS; final regression and
+  lint results are recorded in `validation.md` under PR review closure.
+- Parent immutability: original manifest SHA-256 `d2306f3cd6e2b15ce87d94e4844a2278c7ea3c0b3c052a2aac45e1bff8f2bc9b`
+  unchanged, bundle VERIFIED with no mismatches. Child `7b59237e…` remains the recorded
+  INCONCLUSIVE result; no replacement child exists for these fixes.
+- Earlier per-decision pending notes are chronological checkpoint statements. The latest
+  conditional table and this entry govern the review closure; they do not rewrite past Runs.

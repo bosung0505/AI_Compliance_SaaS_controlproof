@@ -5,6 +5,7 @@ from __future__ import annotations
 import json
 from copy import deepcopy
 from dataclasses import dataclass
+from hashlib import sha256
 from typing import Any
 from uuid import UUID
 
@@ -74,6 +75,21 @@ def build_pending_report_fixture(
     )
     fixture.correlation[f"invitation_id:{subject_ref}"] = str(invitation["invitation_id"])
     fixture.correlation["seed_correlation_id"] = f"cp-{label}"
+    # H-03 tests reporting failure, with consent already established as a synthetic
+    # precondition. This row is not proof that the N-02 consent journey was executed.
+    fixture.rows["consent"] = [
+        {
+            "company_id": invitation["company_id"],
+            "consent_record_id": sid(label, f"consent/{subject_ref}"),
+            "invitation_id": invitation["invitation_id"],
+            "policy_version": "controlproof-h03-fixture-v1",
+            "purposes": ["document_analysis", "recording", "ai_assessment"],
+            "retention_days": 180,
+            "accepted_at": invitation["identity_verified_at"],
+            "withdrawn_at": None,
+            "evidence_digest": sha256(f"h03-consent:{label}:{subject_ref}".encode()).hexdigest(),
+        }
+    ]
     for asset in fixture.rows["recording_asset"]:
         asset["asset_type"] = "final_video"
     return PendingReportSeed(fixture=fixture, subject_ref=subject_ref)
@@ -99,6 +115,17 @@ def check_pending_invariants(seed: PendingReportSeed) -> list[str]:
         problems.append("all interview turns must be final")
     if "report_generation_event_id" in fixture.correlation:
         problems.append("report event must not exist before trigger")
+    consents = fixture.of("consent")
+    invitations = fixture.of("invitation")
+    if (
+        len(consents) != 1
+        or len(invitations) != 1
+        or consents[0]["invitation_id"] != invitations[0]["invitation_id"]
+        or consents[0]["company_id"] != invitations[0]["company_id"]
+        or consents[0]["withdrawn_at"] is not None
+        or "ai_assessment" not in consents[0]["purposes"]
+    ):
+        problems.append("pending-report seed requires one active assessment consent")
     stage_names = {str(row["name"]) for row in fixture.of("recruiting_stage")}
     if not {"최종합격", "불합격"}.issubset(stage_names):
         problems.append("pending-report seed requires both canonical final stages")

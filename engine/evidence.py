@@ -110,7 +110,13 @@ SPEC003_CANONICAL_FILES = CANONICAL_FILES | {
     "recovery.json",
 }
 SPEC003_REQUIRED_FILE_LINKS = {
-    "EV3-01": {"n02-capabilities.json", "n02-lanes.json", "environment.snapshot.json", "scenario.snapshot.yaml", "target.snapshot.json"},
+    "EV3-01": {
+        "n02-capabilities.json",
+        "n02-lanes.json",
+        "environment.snapshot.json",
+        "scenario.snapshot.yaml",
+        "target.snapshot.json",
+    },
     "EV3-02": {"policy-and-consent.json"},
     "EV3-03": {"baseline-effects.jsonl", "n02-lanes.json"},
     "EV3-04": {"bypass-attempts.jsonl"},
@@ -1103,6 +1109,7 @@ def _submitted_and_refused(
     """A runner-submitted assessment input the target refused, with no start or new effect."""
     submitted = any(
         row.get("lane_id") == lane
+        and row.get("recovery_stage") != "AFTER_RETRY"
         and row.get("path_id") == "AI_ASSESSMENT"
         and row.get("response_class") == "SUBMITTED"
         for row in attempts
@@ -1110,7 +1117,9 @@ def _submitted_and_refused(
     refused = [
         row
         for row in effects
-        if row.get("lane_id") == lane and row.get("effect_group") == "AI_ASSESSMENT"
+        if row.get("lane_id") == lane
+        and row.get("recovery_stage") != "AFTER_RETRY"
+        and row.get("effect_group") == "AI_ASSESSMENT"
     ]
     return (
         submitted
@@ -1306,15 +1315,17 @@ def _verify_spec003_facts(directory: Path, result: dict[str, Any]) -> None:
     for edge in edges:
         before = event_by_id.get(edge.get("from_event_id"))
         after = event_by_id.get(edge.get("to_event_id"))
-        if before is None or after is None or any(
-            before.get(key) != after.get(key) for key in ("run_id", "lane_id", "subject_ref")
+        if (
+            before is None
+            or after is None
+            or any(
+                before.get(key) != after.get(key) for key in ("run_id", "lane_id", "subject_ref")
+            )
         ):
             result["mismatched_files"].append("causal-edges.jsonl:event-link")
 
     policy = documents.get("policy-and-consent.json")
-    failed_request_id = (
-        policy.get("failed_request_id") if isinstance(policy, dict) else None
-    )
+    failed_request_id = policy.get("failed_request_id") if isinstance(policy, dict) else None
     receipts = documents.get("fault-receipts.jsonl", [])
     if not isinstance(receipts, list):
         return
@@ -1527,7 +1538,9 @@ def _verify_spec003_pass_assertions(
         failed_state = policy.get("failed_state") if isinstance(policy, dict) else None
         fault_attempt_paths = {
             row.get("path_id")
-            for row in attempts if row.get("lane_id") == "CONSENT_FAULT_RECOVERY"
+            for row in attempts
+            if row.get("lane_id") == "CONSENT_FAULT_RECOVERY"
+            and row.get("recovery_stage") != "AFTER_RETRY"
             and row.get("response_class") == "DENIED"
         } | (
             {"AI_ASSESSMENT"}
@@ -1538,6 +1551,7 @@ def _verify_spec003_pass_assertions(
             row.get("effect_group")
             for row in effects
             if row.get("lane_id") == "CONSENT_FAULT_RECOVERY"
+            and row.get("recovery_stage") != "AFTER_RETRY"
             and row.get("source_status") in {"ABSENT", "PRESENT"}
             and row.get("new_effect_ids") == []
         }
@@ -1570,3 +1584,86 @@ def _verify_spec003_pass_assertions(
         or recovery.get("manual_cleanup_required") is not False
     ):
         result["mismatched_files"].append("N02-A7:recovery-facts-unreadable")
+    if "N02-A7" in passed and not _recovered_n02_proof_readable(
+        policy, recovery, attempts, effects, events, edges
+    ):
+        result["mismatched_files"].append("N02-A7:recovered-proof-unreadable")
+
+
+def _recovered_n02_proof_readable(policy, recovery, attempts, effects, events, edges) -> bool:
+    """Recompute recovered order from sealed facts, rather than summary booleans."""
+    from engine.judges.n02 import N02NormalOrderCase, judge_n02_normal_order
+    from engine.models import (
+        CausalEdge,
+        CausalEvent,
+        ConsentPolicySnapshot,
+        ConsentStateSnapshot,
+        ProcessingAttemptReceipt,
+        ProtectedEffectSnapshot,
+    )
+
+    lane = "CONSENT_FAULT_RECOVERY"
+    try:
+        state = ConsentStateSnapshot.model_validate(policy["recovered_state"])
+        safe = ConsentStateSnapshot.model_validate(policy["safe_state"])
+        recovered_policy = ConsentPolicySnapshot.model_validate(policy["recovered_policy"])
+        commit = policy["recovered_commit"]
+        if (
+            commit.get("ok") is not True
+            or not commit.get("request_id")
+            or safe.source_status.value != "ABSENT"
+            or safe.invitation_status != "identity_verified"
+            or safe.active_consent_count != 0
+            or safe.consent_record_ids
+            or safe.consented_state_change_ids
+            or safe.consent_completed_event_ids
+            or len(state.consent_record_ids) != 1
+        ):
+            return False
+        retry_attempts = tuple(
+            ProcessingAttemptReceipt.model_validate(row)
+            for row in attempts
+            if row.get("lane_id") == lane and row.get("recovery_stage") == "AFTER_RETRY"
+        )
+        retry_effects = tuple(
+            ProtectedEffectSnapshot.model_validate(row)
+            for row in effects
+            if row.get("lane_id") == lane and row.get("recovery_stage") == "AFTER_RETRY"
+        )
+        retry_events = tuple(
+            CausalEvent.model_validate(row) for row in events if row.get("lane_id") == lane
+        )
+        retry_edges = tuple(
+            CausalEdge.model_validate(row) for row in edges if row.get("lane_id") == lane
+        )
+        paths = {"DOCUMENT_ANALYSIS", "RECORDING", "AI_ASSESSMENT"}
+        if (
+            len(retry_attempts) != 3
+            or len(retry_effects) != 3
+            or {row.path_id.value for row in retry_attempts} != paths
+            or {row.path_id.value for row in retry_effects} != paths
+            or any(not row.new_effect_ids or not row.start_receipt_ids for row in retry_effects)
+        ):
+            return False
+        for row in (state, safe, *retry_attempts, *retry_effects, *retry_events, *retry_edges):
+            if (
+                str(row.run_id) != recovery.get("run_id")
+                or row.lane_id.value != lane
+                or row.subject_ref != recovery.get("subject_ref")
+            ):
+                return False
+        return (
+            judge_n02_normal_order(
+                N02NormalOrderCase(
+                    recovered_policy,
+                    state,
+                    retry_attempts,
+                    retry_effects,
+                    retry_events,
+                    retry_edges,
+                )
+            ).status.value
+            == "PASS"
+        )
+    except (KeyError, TypeError, ValueError, AttributeError):
+        return False

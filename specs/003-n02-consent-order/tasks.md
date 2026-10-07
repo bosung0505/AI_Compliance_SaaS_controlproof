@@ -360,3 +360,15 @@ after tests: T069 presentation can proceed beside T070 CLI and T071 bundle verif
 - Do not store actual applicants, raw policy/document/answer/report text, credentials, full logs or database dumps.
 - ControlProof implementation completion and the observed WhyYou N-02 verdict remain separate facts.
 - Every task is complete only when linked tests pass and the relevant source path is committed in the correct repository.
+
+## PR review closure — 2026-10-07
+
+- User authorized review fixes, commit/push and PR merges into `003-n02-consent-order` and
+  `bosung/controlproof-n02-integration`; main integration is forbidden.
+- T071/T072/T085: separate actual restore work from normal retry duration; seal recovered
+  consent, attempts/effects and causal graph; independently reject incomplete A7 PASS evidence.
+- T087/T092: regression and current-state synchronization recorded under `validation.md`.
+- H-03 compatibility: add one owned active consent as a synthetic pending-report precondition;
+  keep target guards and the distinction from actual N-02 consent evidence.
+- Test-first gate: 6 EXPECTED RED / 3 PASS, followed by implementation and scoped GREEN.
+  Existing actual Run results remain unchanged; no new actual Run in this review closure.

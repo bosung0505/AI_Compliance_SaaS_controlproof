@@ -5,7 +5,7 @@
 - 문서 목적: 팀이 상세 기능 명세와 UI 프로토타입을 만들기 전에 제품의 사용자, 핵심 흐름, 상태, 결과물과 성공 기준을 같은 의미로 합의한다.
 - 기준 문서: [ControlProof × WhyYou 2주 MVP 기능 범위 V4](./ControlProof_WhyYou_2주_MVP_기능범위_v4.md)
 - 참고 자산: `controlproof-skeleton_1`의 문서·YAML·판정 엔진·상태 시드 코드
-- 작성 기준일: 2026-09-23, 현재 상태 갱신 2026-10-02
+- 작성 기준일: 2026-09-23, 현재 상태 갱신 2026-10-07
 - 결정 상태: 팀 동기화 전 제품 책임자의 위임에 따라 MVP 구현 기준을 임시 확정했다. 변경은 [MVP 결정 기록](./ControlProof_MVP_Decision_Log.md)에 이유와 영향을 남긴다.
 - 문서 성격: PRD-lite. 제품 관점의 결정 문서이며 상세 API, DB 스키마, 배포 구조와 구현 프레임워크는 후속 Spec과 Plan에서 정한다.
 - 현재 산출물: [Spec Kit Constitution](../../.specify/memory/constitution.md),
@@ -20,7 +20,10 @@
 - 현재 산출물: Spec 003 N-02 actual Run 완료(부모 `15cef078…` → child `7b59237e…`, A1~A4·A6 PASS, A5·A7
   `INCONCLUSIVE`). 동의 전 세 경계 차단과 동의 저장 실패의 원자성·복구를 실제 WhyYou에서 입증했고, 녹화·AI 평가
   동의 확인 2건을 WhyYou에 추가했다. 문서 분석 결과는 격리 환경의 외부 AI 차단으로 미입증이다.
-- 다음 산출물: Spec 003 PR·검토·converge. 이후 Spec 004 — E-01·E-02
+- PR 검토 보완: 복구 시간 계산, A7 재시도 증거 봉인·검증, H-03 합성 동의 전제조건을 보완했다.
+  자동 회귀는 실제 Run 판정을 바꾸지 않으며, 보완 후 실제 Run은 `NOT_RUN`이다. PR 병합 대상은 두
+  Spec 003 작업 브랜치이고 main 통합은 금지돼 있다.
+- 다음 산출물: Spec 003 작업 브랜치 통합 뒤 최종 converge(Complete 아직 미선언). 이후 Spec 004 — E-01·E-02
   점수 근거·평가 기준 보존, Spec 005 — 웹 워크벤치·보고서 순서로 진행한다.
 
 ### 0.1 기준 문서의 우선순위
