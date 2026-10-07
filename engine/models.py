@@ -8,7 +8,7 @@ import re
 from datetime import UTC, datetime
 from enum import StrEnum
 from pathlib import PurePosixPath
-from typing import Any
+from typing import Any, Literal
 from urllib.parse import urlparse
 from uuid import UUID, uuid4
 
@@ -962,6 +962,7 @@ class ConsentStateSnapshot(FrozenModel):
 
 
 class ProtectedEffectSnapshot(FrozenModel):
+    recovery_stage: Literal["BEFORE_RETRY", "AFTER_RETRY"] | None = None
     schema_version: str = "controlproof.n02-protected-effect.v1"
     run_id: UUID
     lane_id: N02LaneId
@@ -973,11 +974,15 @@ class ProtectedEffectSnapshot(FrozenModel):
     effect_group: N02EffectGroup
     request_ids: tuple[str, ...] = ()
     start_receipt_ids: tuple[str, ...] = ()
+    # ID-003-17: the target's refusal of a runner input, kept apart from its start.
+    refusal_receipt_ids: tuple[str, ...] = ()
     result_ids: tuple[str, ...] = ()
     status_projection: dict[str, Any] = Field(default_factory=dict)
     baseline_effect_ids: tuple[str, ...] = ()
     fixture_effect_ids: tuple[str, ...] = ()
     probe_input_effect_ids: tuple[str, ...] = ()
+    # The consumer's processed row for a runner input: bookkeeping, not a protected effect.
+    probe_bookkeeping_effect_ids: tuple[str, ...] = ()
     current_effect_ids: tuple[str, ...] = ()
     new_effect_ids: tuple[str, ...] = ()
     source_status: Presence
@@ -994,7 +999,15 @@ class ProtectedEffectSnapshot(FrozenModel):
         if self.source_status is Presence.UNAVAILABLE:
             if not self.source_error_code:
                 raise ValueError("UNAVAILABLE effect source requires error code")
-            if any((self.request_ids, self.start_receipt_ids, self.result_ids, self.new_effect_ids)):
+            if any(
+                (
+                    self.request_ids,
+                    self.start_receipt_ids,
+                    self.refusal_receipt_ids,
+                    self.result_ids,
+                    self.new_effect_ids,
+                )
+            ):
                 raise ValueError("UNAVAILABLE effect source cannot claim facts")
             return self
         if self.source_error_code is not None:
@@ -1004,6 +1017,7 @@ class ProtectedEffectSnapshot(FrozenModel):
             - set(self.baseline_effect_ids)
             - set(self.fixture_effect_ids)
             - set(self.probe_input_effect_ids)
+            - set(self.probe_bookkeeping_effect_ids)
         )
         if set(self.new_effect_ids) != expected:
             raise ValueError("new effect IDs must equal the canonical delta")
@@ -1011,6 +1025,14 @@ class ProtectedEffectSnapshot(FrozenModel):
             raise ValueError("fixture effects must remain present in current projection")
         if not set(self.probe_input_effect_ids) <= set(self.current_effect_ids):
             raise ValueError("probe inputs must remain present in current projection")
+        inputs = {item.removeprefix("event:") for item in self.probe_input_effect_ids}
+        if not set(self.probe_bookkeeping_effect_ids) <= set(self.current_effect_ids) or any(
+            not item.startswith("processed:") or item.removeprefix("processed:") not in inputs
+            for item in self.probe_bookkeeping_effect_ids
+        ):
+            raise ValueError("probe bookkeeping must be the consumer row of a present probe input")
+        if self.refusal_receipt_ids and self.path_id is not ProtectedPathId.AI_ASSESSMENT:
+            raise ValueError("refusal receipts belong to the assessment path")
         if self.source_status is Presence.ABSENT and any(
             (self.current_effect_ids, self.new_effect_ids)
         ):
@@ -1019,6 +1041,7 @@ class ProtectedEffectSnapshot(FrozenModel):
 
 
 class ProcessingAttemptReceipt(FrozenModel):
+    recovery_stage: Literal["BEFORE_RETRY", "AFTER_RETRY"] | None = None
     schema_version: str = "controlproof.n02-processing-attempt.v1"
     attempt_id: UUID = Field(default_factory=uuid4)
     run_id: UUID
@@ -1035,6 +1058,10 @@ class ProcessingAttemptReceipt(FrozenModel):
     status_code: int | None = None
     sanitized_reason_code: str | None = None
     probe_input_effect_id: str | None = None
+    # ID-003-18: when the runner drives a consented path to its result, the session it
+    # created and the sanitized outcome of each step ("equipment-check:201", ...).
+    created_session_id: str | None = None
+    drive_steps: tuple[str, ...] = ()
     source_ref: str
 
     @model_validator(mode="after")
@@ -1199,6 +1226,8 @@ class RecoveryRecord(FrozenModel):
     def validate_recovery(self) -> RecoveryRecord:
         if self.lane_id is not N02LaneId.CONSENT_FAULT_RECOVERY:
             raise ValueError("recovery belongs to the consent fault lane")
+        # restore_status covers restore safety only (FR-032, ID-003-14); the retry outcome
+        # (failed-request effects, retried consent, processing order) is judged by A6/A7.
         if self.restore_status is RecoveryStatus.SUCCEEDED:
             if self.manual_cleanup_required:
                 raise ValueError("successful recovery cannot require manual cleanup")
@@ -1207,14 +1236,11 @@ class RecoveryRecord(FrozenModel):
                     self.marker_removed,
                     self.consumed_token_removed,
                     self.hook_inactive,
-                    self.failed_request_effects_zero,
-                    self.normal_retry_succeeded,
-                    self.processing_order_proven,
+                    self.condition_cleanup_succeeded is True,
+                    self.safe_state_confirmed is True,
                 )
             ):
                 raise ValueError("successful recovery requires every safety proof")
-            if (self.logical_consent_count, self.consent_completed_event_count) != (1, 1):
-                raise ValueError("successful recovery requires exactly one logical consent set")
         elif not self.manual_cleanup_required:
             raise ValueError("failed or unverified recovery requires manual cleanup")
         return self

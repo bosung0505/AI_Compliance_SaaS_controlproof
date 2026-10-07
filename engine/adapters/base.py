@@ -229,6 +229,12 @@ class N02SeedAdapter(Protocol):
         self, *, subject: Mapping[str, Any], path_id: str
     ) -> AdapterResult: ...
 
+    def apply_processing_prerequisites(
+        self, *, subject: Mapping[str, Any], path_id: str, interview_session_id: str | None = None
+    ) -> AdapterResult: ...
+
+    def target_session_for(self, *, subject: Mapping[str, Any]) -> AdapterResult: ...
+
     def teardown_lanes(self, *, run_id: str, lanes: tuple[RunSubjectLane, ...]) -> AdapterResult: ...
 
 
@@ -236,7 +242,7 @@ class ProtectedProcessingAdapter(Protocol):
     def paths(self) -> tuple[ProtectedProcessingPath, ...]: ...
 
     def attempt(
-        self, *, path_id: str, subject: Mapping[str, Any]
+        self, *, path_id: str, subject: Mapping[str, Any], drive: bool = False
     ) -> ProcessingAttemptReceipt | AdapterResult: ...
 
     def read_effects(

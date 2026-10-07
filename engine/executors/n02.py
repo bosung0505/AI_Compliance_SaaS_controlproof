@@ -6,7 +6,7 @@ import time
 from dataclasses import dataclass, replace
 from datetime import timedelta
 from pathlib import Path
-from typing import Any
+from typing import Any, ClassVar
 from uuid import UUID, uuid4, uuid5
 
 from engine.adapters.base import AdapterResult, AdapterSet, Clock
@@ -102,6 +102,14 @@ class N02FaultRecoverySliceResult:
     failed_state: ConsentStateSnapshot
     failure_attempts: tuple[ProcessingAttemptReceipt, ...]
     failure_effects: tuple[ProtectedEffectSnapshot, ...]
+    policy: ConsentPolicySnapshot
+    safe_state: ConsentStateSnapshot | None
+    retry_commit: AdapterResult
+    recovered_state: ConsentStateSnapshot
+    recovered_attempts: tuple[ProcessingAttemptReceipt, ...]
+    recovered_effects: tuple[ProtectedEffectSnapshot, ...]
+    recovered_events: tuple[CausalEvent, ...]
+    recovered_edges: tuple[CausalEdge, ...]
     recovery: RecoveryRecord
     recovered_order: AssertionResult | None
     assertions: tuple[AssertionResult, AssertionResult]
@@ -134,6 +142,91 @@ class _SharedSeed:
         return getattr(self.delegate, name)
 
 
+class N02RunDeadlineExceeded(N02ExecutionError):
+    """The snapshot Run deadline expired before an observation became stable."""
+
+
+class _Stabilizer:
+    """Apply the scenario snapshot's polling policy to one N-02 observation.
+
+    A read is accepted only after ``stability_consecutive`` consecutive reads with the same
+    digest spanning at least ``stability_seconds``, sleeping ``poll_seconds`` between reads.
+    A single immediate read is never treated as proof that an asynchronous effect is absent.
+    """
+
+    def __init__(self, timing: Any, clock: Any, deadline: Any) -> None:
+        self.timing = timing
+        self.clock = clock
+        self.deadline = deadline
+
+    def read(self, fetch: Any, key: Any, label: str) -> Any:
+        value = fetch()
+        marker = key(value)
+        if marker is None:
+            return value
+        streak = 1
+        window_started = self.clock.now()
+        while True:
+            elapsed = (self.clock.now() - window_started).total_seconds()
+            if (
+                streak >= self.timing.stability_consecutive
+                and elapsed >= self.timing.stability_seconds
+            ):
+                return value
+            if self.deadline is not None and self.clock.now() >= self.deadline:
+                raise N02RunDeadlineExceeded(f"N02_RUN_DEADLINE_EXCEEDED:{label}")
+            self.clock.sleep(self.timing.poll_seconds)
+            current = fetch()
+            current_marker = key(current)
+            if current_marker is None:
+                return current
+            if current_marker == marker:
+                streak += 1
+            else:
+                streak = 1
+                window_started = self.clock.now()
+            value, marker = current, current_marker
+
+
+def _digest_key(value: Any) -> Any:
+    return None if isinstance(value, AdapterResult) else getattr(value, "state_digest", None)
+
+
+def _receipts_key(value: Any) -> Any:
+    if not isinstance(value, AdapterResult) or not value.ok:
+        return None
+    rows = value.data.get("receipts", ()) if isinstance(value.data, dict) else ()
+    return tuple(sorted(str(row.get("receipt_id")) for row in rows if isinstance(row, dict)))
+
+
+class _StableReads:
+    """Adapter proxy: snapshot-reading methods go through the stabilizer; others pass through."""
+
+    _KEYS: ClassVar[dict[str, Any]] = {
+        "read_effects": _digest_key,
+        "read_state": _digest_key,
+        "read_processing_receipts": _receipts_key,
+    }
+
+    def __init__(self, delegate: Any, stabilizer: _Stabilizer) -> None:
+        self._delegate = delegate
+        self._stabilizer = stabilizer
+        if hasattr(delegate, "receipt_wait_seconds"):
+            # T085: the adapter's receipt pre-wait is the scenario poll interval, never a constant.
+            delegate.receipt_wait_seconds = float(stabilizer.timing.poll_seconds)
+
+    def __getattr__(self, name: str) -> Any:
+        attribute = getattr(self._delegate, name)
+        key = self._KEYS.get(name)
+        if key is None or not callable(attribute):
+            return attribute
+
+        def stable(*args: Any, **kwargs: Any) -> Any:
+            return self._stabilizer.read(lambda: attribute(*args, **kwargs), key, name)
+
+        return stable
+
+
 class N02Executor:
     """Own the additive N-02 profile without inheriting Spec 002 queue semantics."""
 
@@ -151,6 +244,16 @@ class N02Executor:
         self.adapters = adapters
         self.run_root = run_root.resolve()
         self.clock = clock or _SystemClock()
+        self._restore_seconds = 0.0
+        self._timing: dict[str, Any] = {}
+
+    def _restore_operation(self, action, **kwargs):
+        """Count only cleanup and safe-state work, excluding normal processing/retry."""
+        started = self.clock.now()
+        try:
+            return action(**kwargs)
+        finally:
+            self._restore_seconds += (self.clock.now() - started).total_seconds()
 
     def preflight(self, target_id: str) -> ScenarioReadiness:
         target_snapshot = None
@@ -198,11 +301,28 @@ class N02Executor:
         if blocks.blocked(readiness.target_id, _N02_BLOCK_SUBJECT):
             raise RuntimeError("target is blocked after an N-02 restore failure")
         active_run_id = run_id or uuid4()
+        self._restore_seconds = 0.0
         started_at = self.clock.now()
         shared_seed = _SharedSeed(self.adapters.n02_seed)
+        stabilizer = _Stabilizer(
+            self.scenario.timing_policy,
+            self.clock,
+            started_at
+            + timedelta(seconds=float(self.scenario.timing_policy.run_deadline_seconds or 0)),
+        )
         collector = N02Executor(
             self.scenario,
-            replace(self.adapters, n02_seed=shared_seed),
+            replace(
+                self.adapters,
+                n02_seed=shared_seed,
+                n02_processing=_StableReads(self.adapters.n02_processing, stabilizer),
+                n02_consent=_StableReads(self.adapters.n02_consent, stabilizer),
+                n02_observer=(
+                    None
+                    if self.adapters.n02_observer is None
+                    else _StableReads(self.adapters.n02_observer, stabilizer)
+                ),
+            ),
             self.run_root,
             clock=self.clock,
         )
@@ -217,8 +337,10 @@ class N02Executor:
                 us3 = collector.collect_us3(run_id=active_run_id)
                 recovered = us3.recovery.restore_status is RecoveryStatus.SUCCEEDED
                 teardown = (
-                    self.adapters.n02_seed.teardown_lanes(
-                        run_id=str(active_run_id), lanes=us1.lanes
+                    self._restore_operation(
+                        self.adapters.n02_seed.teardown_lanes,
+                        run_id=str(active_run_id),
+                        lanes=us1.lanes,
                     )
                     if recovered
                     else AdapterResult(False, "N02_TEARDOWN_HELD_FOR_MANUAL_CLEANUP")
@@ -252,6 +374,22 @@ class N02Executor:
                     )
                 raise
         ended_at = self.clock.now()
+        restore_deadline = float(self.scenario.timing_policy.environment_restore_deadline_seconds)
+        restore_elapsed = collector._restore_seconds + self._restore_seconds
+        if teardown.ok and restore_elapsed is not None and restore_elapsed > restore_deadline:
+            # T085/SC-006: a restore that outlives the scenario budget is not a confirmed restore.
+            teardown = AdapterResult(
+                False,
+                "N02_RESTORE_DEADLINE_EXCEEDED",
+                {"elapsed_seconds": restore_elapsed, "deadline_seconds": restore_deadline},
+            )
+        self._timing = {
+            "environment_restore_deadline_seconds": restore_deadline,
+            "environment_restore_seconds": restore_elapsed,
+            "environment_restore_within_deadline": (
+                None if restore_elapsed is None else restore_elapsed <= restore_deadline
+            ),
+        }
         restore_ok = recovered and teardown.ok
         state = RunState.COMPLETED if restore_ok else RunState.RESTORE_FAILED
         environment_raw = self.adapters.environment.capture_environment()
@@ -274,6 +412,13 @@ class N02Executor:
             "failed_request_id": us3.failed_commit.data.get("request_id"),
             "failed_commit": _commit_evidence(us3.failed_commit),
             "failed_state": us3.failed_state.model_dump(mode="json"),
+            "recovered_policy": us3.policy.model_dump(mode="json"),
+            "safe_state": None
+            if us3.safe_state is None
+            else us3.safe_state.model_dump(mode="json"),
+            "recovered_commit": _commit_evidence(us3.retry_commit),
+            "recovered_state": us3.recovered_state.model_dump(mode="json"),
+            "restore_timing": dict(self._timing),
         }
         observer_rows = _collect_n02_observer_rows(
             self.adapters.n02_observer, active_run_id, us1.lanes
@@ -334,7 +479,10 @@ class N02Executor:
             ("target.snapshot.json", target.model_dump(mode="json")),
             ("environment.snapshot.json", environment.model_dump(mode="json")),
             ("subjects.json", [item.model_dump(mode="json") for item in us1.lanes]),
-            ("assertions.json", [item.model_dump(mode="json") for item in judgement.assertion_results]),
+            (
+                "assertions.json",
+                [item.model_dump(mode="json") for item in judgement.assertion_results],
+            ),
             ("judgement.json", judgement.model_dump(mode="json")),
             ("n02-capabilities.json", paths),
             ("n02-lanes.json", lanes),
@@ -355,10 +503,26 @@ class N02Executor:
                 writer.link_file_evidence(evidence_id, name)
         writer.link_intrinsic_evidence("EV3-10", "sealed-manifest")
         writer.seal()
+        verify_started = self.clock.now()
         verified = verify_bundle(writer.directory)
+        verify_seconds = (self.clock.now() - verify_started).total_seconds()
+        verify_budget = self.scenario.timing_policy.bundle_verify_deadline_seconds
+        self._timing.update(
+            {
+                "bundle_verify_seconds": verify_seconds,
+                "bundle_verify_deadline_seconds": verify_budget,
+                "bundle_verify_within_budget": (
+                    None if verify_budget is None else verify_seconds <= float(verify_budget)
+                ),
+            }
+        )
         if verified["bundle_status"] != "VERIFIED":
             raise N02ExecutionError("N-02 sealed bundle failed verification")
         return run, judgement, writer.directory
+
+    def timing_report(self) -> dict[str, Any]:
+        """Scenario timing budgets and what the last execute() actually took (T085)."""
+        return dict(self._timing)
 
     def collect_us1(self, *, run_id: UUID) -> N02BypassSliceResult:
         seed = self.adapters.n02_seed
@@ -471,28 +635,13 @@ class N02Executor:
             if isinstance(state, AdapterResult):
                 raise N02ExecutionError(f"N-02 consent state read failed: {state.code}")
             if _durable_consent_matches(policy, state):
-                attempt_rows = []
-                effect_rows = []
-                for path in ProtectedPathId:
-                    attempt = processing.attempt(path_id=path.value, subject=subject)
-                    if isinstance(attempt, AdapterResult):
-                        raise N02ExecutionError(
-                            f"N-02 normal processing attempt failed: {attempt.code}"
-                        )
-                    attempt_rows.append(attempt)
-                    effect = processing.read_effects(
-                        path_id=path.value,
-                        subject=subject,
-                        phase=Phase.INJECTED.value,
-                        step_id=f"capture-normal-{path.value.casefold()}-effects",
-                    )
-                    if isinstance(effect, AdapterResult):
-                        raise N02ExecutionError(
-                            f"N-02 normal effect read failed: {effect.code}"
-                        )
-                    effect_rows.append(effect)
-                attempts = tuple(attempt_rows)
-                effects = tuple(effect_rows)
+                attempts, effects, subject = _collect_processing(
+                    processing,
+                    subject,
+                    phase=Phase.INJECTED,
+                    step_prefix="capture-normal",
+                    seed=seed,
+                )
                 receipts: tuple[dict[str, Any], ...] = ()
                 if self.adapters.n02_observer is not None:
                     observed = self.adapters.n02_observer.read_processing_receipts(
@@ -571,7 +720,8 @@ class N02Executor:
             fault_apply = fault.apply_consent_fault(
                 run_id=str(run_id),
                 subject=subject,
-                expires_at=self.clock.now() + timedelta(minutes=5),
+                expires_at=self.clock.now()
+                + timedelta(seconds=float(self.scenario.timing_policy.fault_ttl_seconds or 0)),
             )
             if not fault_apply.ok:
                 raise N02ExecutionError(f"N-02 fault apply failed: {fault_apply.code}")
@@ -581,12 +731,8 @@ class N02Executor:
                 request_id=str(uuid5(_N02_REQUEST_NAMESPACE, f"{run_id}:faulted-consent")),
                 trace_id=f"controlproof:{run_id}:{lane.lane_id.value}:{lane.subject_ref}",
             )
-            receipt_value = fault.read_consent_fault_receipt(
-                run_id=str(run_id), subject=subject
-            )
-            fault_receipt = (
-                None if isinstance(receipt_value, AdapterResult) else receipt_value
-            )
+            receipt_value = fault.read_consent_fault_receipt(run_id=str(run_id), subject=subject)
+            fault_receipt = None if isinstance(receipt_value, AdapterResult) else receipt_value
             failed_state_value = consent.read_state(
                 subject=subject,
                 phase=Phase.INJECTED.value,
@@ -598,9 +744,16 @@ class N02Executor:
                 )
             failed_state = failed_state_value
 
-            restore = fault.restore_consent_fault(run_id=str(run_id), subject=subject)
+            restore = self._restore_operation(
+                fault.restore_consent_fault, run_id=str(run_id), subject=subject
+            )
             failure_attempts: tuple[ProcessingAttemptReceipt, ...] = ()
             failure_effects: tuple[ProtectedEffectSnapshot, ...] = ()
+            recovered_attempts: tuple[ProcessingAttemptReceipt, ...] = ()
+            recovered_effects: tuple[ProtectedEffectSnapshot, ...] = ()
+            recovered_events: tuple[CausalEvent, ...] = ()
+            recovered_edges: tuple[CausalEdge, ...] = ()
+            safe_state = None
             recovered_order: AssertionResult | None = None
             recovered_state = failed_state
             retry_commit = AdapterResult(False, "RECOVERY_RETRY_NOT_ATTEMPTED")
@@ -617,16 +770,24 @@ class N02Executor:
                             f"N-02 overlay apply failed: {overlay.code}"
                         )
                     active_overlays.add(path)
+                    path_subject = subject
+                    if overlay.data.get("interview_session_id"):
+                        path_subject = {
+                            **subject,
+                            "interview_session_id": overlay.data["interview_session_id"],
+                        }
                     try:
-                        attempt = processing.attempt(path_id=path.value, subject=subject)
+                        attempt = processing.attempt(path_id=path.value, subject=path_subject)
                         if isinstance(attempt, AdapterResult):
                             raise N02ExecutionError(
                                 f"N-02 failed-consent attempt failed: {attempt.code}"
                             )
-                        attempt_rows.append(attempt)
+                        attempt_rows.append(
+                            attempt.model_copy(update={"recovery_stage": "BEFORE_RETRY"})
+                        )
                         effect = processing.read_effects(
                             path_id=path.value,
-                            subject=subject,
+                            subject=path_subject,
                             phase=Phase.RECOVERED.value,
                             step_id=f"capture-failed-{path.value.casefold()}-effects",
                         )
@@ -634,17 +795,20 @@ class N02Executor:
                             raise N02ExecutionError(
                                 f"N-02 failed-consent effect read failed: {effect.code}"
                             )
-                        effect_rows.append(effect)
+                        effect_rows.append(
+                            effect.model_copy(update={"recovery_stage": "BEFORE_RETRY"})
+                        )
                     finally:
-                        removed = seed.remove_probe_overlay(
-                            subject=subject, path_id=path.value
+                        removed = self._restore_operation(
+                            seed.remove_probe_overlay, subject=subject, path_id=path.value
                         )
                         overlay_cleanup_succeeded &= removed.ok
                         if removed.ok:
                             active_overlays.discard(path)
                 failure_attempts = tuple(attempt_rows)
                 failure_effects = tuple(effect_rows)
-                safe_state = consent.read_state(
+                safe_state = self._restore_operation(
+                    consent.read_state,
                     subject=subject,
                     phase=Phase.RECOVERED.value,
                     step_id="verify-pristine-before-retry",
@@ -685,11 +849,20 @@ class N02Executor:
                     )
                 recovered_state = recovered_state_value
                 if _durable_consent_matches(policy, recovered_state):
-                    recovered_attempts, recovered_effects = _collect_processing(
+                    recovered_attempts, recovered_effects, subject = _collect_processing(
                         processing,
                         subject,
                         phase=Phase.RECOVERED,
                         step_prefix="capture-recovered",
+                        seed=seed,
+                    )
+                    recovered_attempts = tuple(
+                        row.model_copy(update={"recovery_stage": "AFTER_RETRY"})
+                        for row in recovered_attempts
+                    )
+                    recovered_effects = tuple(
+                        row.model_copy(update={"recovery_stage": "AFTER_RETRY"})
+                        for row in recovered_effects
                     )
                     receipts = _read_receipts(self.adapters, run_id, lane)
                     if hasattr(causality, "capture_normal_order"):
@@ -702,15 +875,17 @@ class N02Executor:
                             receipts=receipts,
                         )
                     graph = causality.read_graph(subject=subject)
-                    events, edges = ((), ()) if isinstance(graph, AdapterResult) else graph
+                    recovered_events, recovered_edges = (
+                        ((), ()) if isinstance(graph, AdapterResult) else graph
+                    )
                     recovered_order = judge_n02_normal_order(
                         N02NormalOrderCase(
                             policy=policy,
                             consent_state=recovered_state,
                             attempts=recovered_attempts,
                             effects=recovered_effects,
-                            events=events,
-                            edges=edges,
+                            events=recovered_events,
+                            edges=recovered_edges,
                         )
                     )
 
@@ -728,17 +903,16 @@ class N02Executor:
                 else recovered_order.status is AssertionStatus.PASS
             )
             restore_data = restore.data
-            recovered_exactly_once = (
-                recovered_state.active_consent_count == 1
-                and len(recovered_state.consent_completed_event_ids) == 1
-            )
-            recovery_succeeded = (
+            # Restore safety alone decides RESTORE_FAILED and the block (FR-032, ID-003-14);
+            # an unproven or failed retry is an A7 result, not an unsafe target.
+            restore_safe = (
                 restore.ok
                 and overlay_cleanup_succeeded
-                and failed_zero
-                and retry_commit.ok
-                and recovered_exactly_once
-                and order_proven is True
+                and safe_state_confirmed is True
+                and all(
+                    bool(restore_data.get(name))
+                    for name in ("marker_removed", "consumed_token_removed", "hook_inactive")
+                )
             )
             recovery = RecoveryRecord(
                 run_id=run_id,
@@ -769,11 +943,9 @@ class N02Executor:
                 ),
                 processing_order_proven=order_proven,
                 restore_status=(
-                    RecoveryStatus.SUCCEEDED
-                    if recovery_succeeded
-                    else RecoveryStatus.FAILED
+                    RecoveryStatus.SUCCEEDED if restore_safe else RecoveryStatus.FAILED
                 ),
-                manual_cleanup_required=not recovery_succeeded,
+                manual_cleanup_required=not restore_safe,
             )
             failure_case = N02FaultFailureCase(
                 failed_commit=failed_commit,
@@ -788,11 +960,15 @@ class N02Executor:
             )
         finally:
             for path in tuple(active_overlays):
-                removed = seed.remove_probe_overlay(subject=subject, path_id=path.value)
+                removed = self._restore_operation(
+                    seed.remove_probe_overlay, subject=subject, path_id=path.value
+                )
                 overlay_cleanup_succeeded &= removed.ok
             if fault_apply.ok and not restore.ok:
-                restore = fault.restore_consent_fault(run_id=str(run_id), subject=subject)
-            teardown = seed.teardown_lanes(run_id=str(run_id), lanes=lanes)
+                restore = self._restore_operation(
+                    fault.restore_consent_fault, run_id=str(run_id), subject=subject
+                )
+            teardown = self._restore_operation(seed.teardown_lanes, run_id=str(run_id), lanes=lanes)
         if not teardown.ok:
             raise N02ExecutionError(f"N-02 teardown failed: {teardown.code}")
         return N02FaultRecoverySliceResult(
@@ -803,6 +979,14 @@ class N02Executor:
             failed_state=failed_state,
             failure_attempts=failure_attempts,
             failure_effects=failure_effects,
+            policy=policy,
+            safe_state=safe_state,
+            retry_commit=retry_commit,
+            recovered_state=recovered_state,
+            recovered_attempts=recovered_attempts,
+            recovered_effects=recovered_effects,
+            recovered_events=recovered_events,
+            recovered_edges=recovered_edges,
             recovery=recovery,
             recovered_order=recovered_order,
             assertions=assertions,
@@ -826,14 +1010,16 @@ def _write_n02_rows(
             *(case.attempt for case in us1.cases),
             *us2.attempts,
             *us3.failure_attempts,
+            *us3.recovered_attempts,
         ],
         "protected-effects.jsonl": [
             *(case.effects for case in us1.cases),
             *us2.effects,
             *us3.failure_effects,
+            *us3.recovered_effects,
         ],
-        "causal-events.jsonl": list(us2.events),
-        "causal-edges.jsonl": list(us2.edges),
+        "causal-events.jsonl": [*us2.events, *us3.recovered_events],
+        "causal-edges.jsonl": [*us2.edges, *us3.recovered_edges],
         "fault-receipts.jsonl": [us3.fault_receipt] if us3.fault_receipt else [],
     }
     for name, rows in streams.items():
@@ -886,6 +1072,7 @@ def _collect_n02_observer_rows(
                         "RECORDING_CONFIRMED",
                         "REPORT_HANDLER_ENTERED",
                         "REPORT_ASSESSMENT_STARTED",
+                        "REPORT_ASSESSMENT_REFUSED",
                     }
                 ):
                     continue
@@ -934,13 +1121,52 @@ def _durable_consent_matches(
     )
 
 
-def _collect_processing(processing, subject, *, phase: Phase, step_prefix: str):
+# ID-003-18: a consented lane is driven through the product flow. Recording comes first
+# because a registered submission makes the target demand a finished AI analysis before
+# any session starts, the assessment reuses the one session per invitation, and the
+# document path is last so its registration cannot block the others.
+_CONSENTED_PATH_ORDER = (
+    ProtectedPathId.RECORDING,
+    ProtectedPathId.AI_ASSESSMENT,
+    ProtectedPathId.DOCUMENT_ANALYSIS,
+)
+
+
+def _collect_processing(processing, subject, *, phase: Phase, step_prefix: str, seed=None):
     attempts = []
     effects = []
-    for path in ProtectedPathId:
-        attempt = processing.attempt(path_id=path.value, subject=subject)
+    driven = seed is not None
+    subject = dict(subject)
+    fixtures = [str(item) for item in subject.get("allowed_fixture_effect_ids", ())]
+    for path in _CONSENTED_PATH_ORDER if driven else tuple(ProtectedPathId):
+        if driven:
+            prerequisites = seed.apply_processing_prerequisites(
+                subject=subject,
+                path_id=path.value,
+                interview_session_id=(
+                    subject.get("interview_session_id")
+                    if path is ProtectedPathId.AI_ASSESSMENT
+                    else None
+                ),
+            )
+            if not prerequisites.ok:
+                raise N02ExecutionError(
+                    f"N-02 processing prerequisites failed: {prerequisites.code}"
+                )
+            fixtures.extend(str(item) for item in prerequisites.data.get("fixture_effect_ids", ()))
+            subject["allowed_fixture_effect_ids"] = tuple(sorted(set(fixtures)))
+        attempt = processing.attempt(path_id=path.value, subject=subject, drive=driven)
         if isinstance(attempt, AdapterResult):
             raise N02ExecutionError(f"N-02 processing attempt failed: {attempt.code}")
+        if driven and path is ProtectedPathId.RECORDING:
+            if attempt.created_session_id:
+                subject["interview_session_id"] = attempt.created_session_id
+            else:
+                # The target may already hold this invitation's one session (for example a
+                # session it accepted before consent); the assessment then targets that one.
+                existing = seed.target_session_for(subject=subject)
+                if existing.ok and existing.data.get("interview_session_id"):
+                    subject["interview_session_id"] = str(existing.data["interview_session_id"])
         attempts.append(attempt)
         effect = processing.read_effects(
             path_id=path.value,
@@ -951,7 +1177,7 @@ def _collect_processing(processing, subject, *, phase: Phase, step_prefix: str):
         if isinstance(effect, AdapterResult):
             raise N02ExecutionError(f"N-02 effect read failed: {effect.code}")
         effects.append(effect)
-    return tuple(attempts), tuple(effects)
+    return tuple(attempts), tuple(effects), subject
 
 
 def _read_receipts(adapters: AdapterSet, run_id: UUID, lane: RunSubjectLane):

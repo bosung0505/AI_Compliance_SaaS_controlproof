@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-01
 
-**Status**: Implementing — Phase 4 / US1 A1~A4 and US2 A5 automated gates complete; actual Run not started
+**Status**: Implemented and actually validated — parent Run `15cef078…` (INCONCLUSIVE, RESTORE_FAILED) and evidence-backed child `7b59237e…` (INCONCLUSIVE: A1~A4, A6 PASS; A5/A7 INCONCLUSIVE); PR review fixes implemented (ID-003-19), no new actual Run for those fixes; final converge pending
 
 **Input**: WhyYou 지원자의 유효한 동의가 서버에 확정되기 전에 자료 분석, 면접 녹화 또는 AI 평가가
 시작되지 않는지를 정상·우회·동의 저장 실패 조건에서 실행하고 증적으로 판정한다.

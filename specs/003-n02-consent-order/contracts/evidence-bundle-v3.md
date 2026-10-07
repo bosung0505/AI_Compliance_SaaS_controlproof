@@ -72,6 +72,27 @@ request ID; recovery evidence distinguishes cleanup, safe state and retry.
   overlay cleanup 증거가 있어야 한다.
 - A7 PASS에는 restore safe-state, exactly-one consent set과 recovered order가 있어야 한다.
 
+### Review closure: independently readable A7 proof (2026-10-07)
+
+Future A7 PASS bundles seal `recovered_policy`, `safe_state`, `recovered_commit` and
+`recovered_state` in `policy-and-consent.json`. The safe state is captured before retry;
+the recovered state contains exactly one durable consent record, state transition and
+completion event matching the recovered policy. Retry attempts/effects are tagged
+`recovery_stage=AFTER_RETRY`; fault-phase attempts/effects use `BEFORE_RETRY` and remain
+the only inputs to A6's denial/zero-effect check. The field is optional for historical rows.
+
+The recovered lane's events and edges are sealed in the existing causal streams. Verification
+recomputes the normal-order judge from these facts, checks Run/lane/subject identity, and
+requires all three retry paths and target start/result effects. A7 summary flags alone are
+insufficient. Missing consent, effects or causal proof fails verification even when the
+manifest correctly seals the remaining bytes. Historical A7 FAIL/INCONCLUSIVE bundles do
+not require new PASS evidence and are not rewritten.
+
+`restore_timing` records the scenario's restore budget and the cumulative time spent removing
+owned faults/overlays, checking the pre-retry safe state and performing final teardown.
+Normal retry and processing time belongs to the Run budget, not the restore budget.
+Cleanup exceeding the restore budget still fails closed and blocks the target.
+
 ## Integrity
 
 모든 artifact는 상대 경로, SHA-256, byte size, MIME type, capture time, redaction profile을 가진다. manifest

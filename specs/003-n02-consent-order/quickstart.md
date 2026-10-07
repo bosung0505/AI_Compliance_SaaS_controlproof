@@ -163,9 +163,11 @@ Run 시작 직전부터 아래 `verify` 완료까지 경과시간을 측정한�
 상태에 도달하고 bundle verify까지 전체 600초 안에 끝나야 한다.
 
 ```powershell
-.\.venv\Scripts\python.exe -m engine.cli show <run-id> --json
-.\.venv\Scripts\python.exe -m engine.cli verify <run-id> --json
+.\.venv\Scripts\python.exe -m engine.cli show 15cef078-ee24-4f0e-91ef-381e0f7a1cc2 --json
+.\.venv\Scripts\python.exe -m engine.cli verify 15cef078-ee24-4f0e-91ef-381e0f7a1cc2 --json
 ```
+
+(`15cef078-ee24-4f0e-91ef-381e0f7a1cc2`는 T078 부모 Run의 실제 ID다. 새 Run은 출력의 `run_id`로 바꾼다.)
 
 확인 항목:
 
@@ -190,16 +192,18 @@ Run 시작 직전부터 아래 `verify` 완료까지 경과시간을 측정한�
 5. parent를 지정해 child retest를 만든다.
 
 ```powershell
-.\.venv\Scripts\python.exe -m engine.cli retest <parent-run-id> `
+.\.venv\Scripts\python.exe -m engine.cli retest 15cef078-ee24-4f0e-91ef-381e0f7a1cc2 `
   --target whyyou-local `
-  --cleanup-evidence <n02-cleanup-evidence.json> `
+  --cleanup-evidence ..\gbsa_aws\.controlproof\n02-cleanup-evidence-375c2f2bfcaf.json `
   --label n02-after-fix `
   --json
 ```
 
+이 명령은 T084에서 그대로 실행됐고(라벨 `n02-attempt3`), child `7b59237e-0a96-403a-9add-28b91011e950`를 만들었다.
+
 ```powershell
-.\.venv\Scripts\python.exe -m engine.cli verify <parent-run-id> --json
-.\.venv\Scripts\python.exe -m engine.cli verify <child-run-id> --json
+.\.venv\Scripts\python.exe -m engine.cli verify 15cef078-ee24-4f0e-91ef-381e0f7a1cc2 --json
+.\.venv\Scripts\python.exe -m engine.cli verify 7b59237e-0a96-403a-9add-28b91011e950 --json
 ```
 
 parent manifest digest는 수정 전과 같아야 한다. child의 target snapshot 차이가 WhyYou 수정 commit을
@@ -212,6 +216,11 @@ marker/subject와 operator action을 확인한다. N-02 대상의 marker/token �
 읽기 전용으로 확인하고, 해당 부모 Run·lane과 일치하는 증거로 `cleanup-confirm`을 실행한다. 이후
 자식 retest에는 같은 증거 파일을 `--cleanup-evidence`로 전달한다. 파일 내용의 SHA-256이 정비 기록과
 다르거나 새 차단 파일이 있으면 retest가 거부된다.
+
+차단된 Run이 봉인 전에 중단됐거나 번들이 INVALID면 `cleanup-confirm`을 쓸 수 없다. 로컬 대상은
+합성 데이터뿐이므로 WhyYou 컨테이너와 볼륨을 다시 만들고, 차단 파일과 그 Run의 receipt를 두
+checkout 밖에 보관한 뒤 `validation.md`에 기록한다(ID-003-12, ID-003-14). 공유 대상에서는 절대
+하지 않는다.
 
 ```powershell
 .\.venv\Scripts\python.exe -m engine.cli cleanup-confirm `

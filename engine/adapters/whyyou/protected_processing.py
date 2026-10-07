@@ -16,6 +16,11 @@ from sqlalchemy import create_engine, text
 
 from engine.adapters.base import AdapterResult
 from engine.adapters.whyyou.n02_seed import N02CredentialStore
+from engine.adapters.whyyou.synthetic_media import (
+    sha256_hex,
+    synthetic_recording_chunk,
+    synthetic_resume_pdf,
+)
 from engine.config import Settings
 from engine.models import (
     ConsentPurpose,
@@ -91,6 +96,7 @@ class WhyYouProtectedProcessingAdapter:
         settings: Settings,
         *,
         http_client: httpx.Client | None = None,
+        upload_client: httpx.Client | None = None,
         credentials: N02CredentialStore | None = None,
         effect_reader: Callable[[Mapping[str, Any], ProtectedPathId], Mapping[str, Any]]
         | None = None,
@@ -98,6 +104,8 @@ class WhyYouProtectedProcessingAdapter:
     ) -> None:
         self.settings = settings
         self.credentials = credentials or N02CredentialStore()
+        self.upload_client = upload_client or httpx.Client(timeout=30)
+        self.receipt_wait_seconds: float = 0.0
         self.http = http_client or httpx.Client(
             base_url=settings.whyyou_base_url,
             timeout=10,
@@ -110,59 +118,79 @@ class WhyYouProtectedProcessingAdapter:
         self._transaction_factory = transaction_factory
         self._effect_reader = effect_reader or self._read_effect_projection
         self._baselines: dict[tuple[str, ProtectedPathId], tuple[str, ...]] = {}
-        self._probe_inputs: dict[tuple[str, ProtectedPathId], str] = {}
+        # A lane may attempt one path more than once (fault lane: failure phase, then
+        # recovery). Each attempt needs its own identity, and every runner-created input
+        # must stay excluded from target effects (ID-003-11).
+        self._probe_inputs: dict[tuple[str, ProtectedPathId], tuple[str, ...]] = {}
+        self._attempt_ordinals: dict[tuple[str, ProtectedPathId], int] = {}
 
     def paths(self) -> tuple[ProtectedProcessingPath, ...]:
         return _PATHS
 
     def attempt(
-        self, *, path_id: str, subject: Mapping[str, Any]
+        self, *, path_id: str, subject: Mapping[str, Any], drive: bool = False
     ) -> ProcessingAttemptReceipt | AdapterResult:
         path = ProtectedPathId(path_id)
+        key = (str(subject["subject_ref"]), path)
+        ordinal = self._attempt_ordinals.get(key, 0)
+        self._attempt_ordinals[key] = ordinal + 1
         if path is ProtectedPathId.AI_ASSESSMENT:
-            return self._attempt_assessment(subject)
+            return self._attempt_assessment(subject, ordinal=ordinal)
         credential = self.credentials.get(str(subject["subject_ref"]))
         if credential is None:
             return AdapterResult(False, "N02_APPLICANT_CREDENTIAL_MISSING")
         sent_at = utcnow()
-        request_id = str(_attempt_id(subject, path, "request"))
+        request_id = str(_attempt_id(subject, path, "request", ordinal))
         trace_id = _trace_id(subject, path)
-        try:
-            if path is ProtectedPathId.DOCUMENT_ANALYSIS:
-                route = "/v1/applicant/submissions/upload-intents"
-                payload = {
-                    "source_type": "resume",
-                    "filename": "controlproof-synthetic-resume.pdf",
-                    "media_type": "application/pdf",
-                    "byte_size": 1,
-                    "sha256": "0" * 64,
-                }
-            else:
-                route = "/v1/applicant/interview-sessions"
-                payload = {
-                    "equipment_check_id": str(subject["equipment_check_id"]),
-                    "strategy_id": str(subject["strategy_id"]),
-                    "acknowledged_partial_analysis": True,
-                }
-            response = self.http.post(
-                route,
-                json=payload,
-                headers={
-                    "Idempotency-Key": request_id,
-                    "X-Trace-Id": trace_id,
-                    "Cookie": f"iep_applicant_session={credential}",
+        headers = {
+            "X-Trace-Id": trace_id,
+            "Cookie": f"iep_applicant_session={credential}",
+        }
+        steps: list[str] = []
+        equipment_check_id = str(subject["equipment_check_id"])
+        if drive and path is ProtectedPathId.RECORDING:
+            # The product flow starts with the applicant's own equipment check (ID-003-18).
+            equipment = self._post(
+                "/v1/applicant/equipment-checks",
+                {
+                    "camera": {"status": "ready", "sanitized_code": None},
+                    "microphone": {"status": "ready", "sanitized_code": None},
+                    "network": {"status": "ready", "sanitized_code": None},
                 },
+                headers | {"Idempotency-Key": str(_attempt_id(subject, path, "equipment", ordinal))},
             )
-        except httpx.HTTPError:
+            steps.append(f"equipment-check:{_status(equipment)}")
+            if equipment is None or not 200 <= equipment.status_code < 300:
+                return _attempt_receipt(
+                    path=path, subject=subject, request_id=request_id, trace_id=trace_id,
+                    sent_at=sent_at, response_class=ProcessingResponseClass.ERROR,
+                    status_code=None if equipment is None else equipment.status_code,
+                    reason="EQUIPMENT_CHECK_FAILED", drive_steps=tuple(steps),
+                )
+            equipment_check_id = str(equipment.json()["equipment_check_id"])
+        document_bytes = synthetic_resume_pdf()
+        if path is ProtectedPathId.DOCUMENT_ANALYSIS:
+            route = "/v1/applicant/submissions/upload-intents"
+            payload = {
+                "source_type": "resume",
+                "filename": "controlproof-synthetic-resume.pdf",
+                "media_type": "application/pdf",
+                "byte_size": len(document_bytes) if drive else 1,
+                "sha256": sha256_hex(document_bytes) if drive else "0" * 64,
+            }
+        else:
+            route = "/v1/applicant/interview-sessions"
+            payload = {
+                "equipment_check_id": equipment_check_id,
+                "strategy_id": str(subject["strategy_id"]),
+                "acknowledged_partial_analysis": True,
+            }
+        response = self._post(route, payload, headers | {"Idempotency-Key": request_id})
+        if response is None:
             return _attempt_receipt(
-                path=path,
-                subject=subject,
-                request_id=request_id,
-                trace_id=trace_id,
-                sent_at=sent_at,
-                response_class=ProcessingResponseClass.NO_RESPONSE,
-                status_code=None,
-                reason="TRANSPORT_UNAVAILABLE",
+                path=path, subject=subject, request_id=request_id, trace_id=trace_id,
+                sent_at=sent_at, response_class=ProcessingResponseClass.NO_RESPONSE,
+                status_code=None, reason="TRANSPORT_UNAVAILABLE", drive_steps=tuple(steps),
             )
         response_class = (
             ProcessingResponseClass.ACCEPTED
@@ -178,25 +206,84 @@ class WhyYouProtectedProcessingAdapter:
             if response_class is ProcessingResponseClass.DENIED
             else response_class.value
         )
+        created_session_id: str | None = None
+        if drive and response_class is ProcessingResponseClass.ACCEPTED:
+            steps.append(f"request:{response.status_code}")
+            if path is ProtectedPathId.RECORDING:
+                created_session_id = str(response.json()["interview_session_id"])
+                steps.extend(self._drive_recording(subject, created_session_id, headers, ordinal))
+            else:
+                steps.extend(
+                    self._drive_document(subject, response.json(), document_bytes, headers, ordinal)
+                )
         return _attempt_receipt(
-            path=path,
-            subject=subject,
-            request_id=request_id,
-            trace_id=trace_id,
-            sent_at=sent_at,
-            response_class=response_class,
-            status_code=response.status_code,
-            reason=reason,
+            path=path, subject=subject, request_id=request_id, trace_id=trace_id,
+            sent_at=sent_at, response_class=response_class, status_code=response.status_code,
+            reason=reason, created_session_id=created_session_id, drive_steps=tuple(steps),
         )
 
+    def _post(self, route: str, payload: Mapping[str, Any], headers: Mapping[str, str]):
+        try:
+            return self.http.post(route, json=payload, headers=dict(headers))
+        except httpx.HTTPError:
+            return None
+
+    def _upload(self, intent: Mapping[str, Any], data: bytes) -> str:
+        """PUT the bytes to the presigned URL the target issued; returns the step outcome."""
+        try:
+            response = self.upload_client.request(
+                str(intent.get("method", "PUT")),
+                str(intent["url"]),
+                content=data,
+                headers=dict(intent.get("required_headers") or {}),
+            )
+        except (httpx.HTTPError, KeyError):
+            return "upload:none"
+        return f"upload:{response.status_code}"
+
+    def _drive_recording(self, subject, session_id: str, headers, ordinal: int) -> list[str]:
+        chunk = synthetic_recording_chunk()
+        body = {
+            "chunk_sequence": 0,
+            "byte_size": len(chunk),
+            "sha256": sha256_hex(chunk),
+            "session_start_ms": 0,
+            "session_end_ms": 2000,
+        }
+        key = str(_attempt_id(subject, ProtectedPathId.RECORDING, "media", ordinal))
+        base = f"/v1/applicant/interview-sessions/{session_id}"
+        intent = self._post(f"{base}/media-upload-intents", body, headers | {"Idempotency-Key": key})
+        steps = [f"media-intent:{_status(intent)}"]
+        if intent is None or not 200 <= intent.status_code < 300:
+            return steps
+        steps.append(self._upload(intent.json(), chunk))
+        if not steps[-1].endswith(("200", "201", "204")):
+            return steps
+        # The confirmation reuses the intent's idempotency key and body (target contract).
+        confirm = self._post(f"{base}/media-uploads", body, headers | {"Idempotency-Key": key})
+        steps.append(f"confirm:{_status(confirm)}")
+        return steps
+
+    def _drive_document(self, subject, intent, data: bytes, headers, ordinal: int) -> list[str]:
+        steps = [self._upload(intent, data)]
+        if not steps[-1].endswith(("200", "201", "204")):
+            return steps
+        register = self._post(
+            "/v1/applicant/submissions",
+            {"material_type": "resume", "source_type": "resume", "upload_id": str(intent["upload_id"])},
+            headers | {"Idempotency-Key": str(_attempt_id(subject, ProtectedPathId.DOCUMENT_ANALYSIS, "register", ordinal))},
+        )
+        steps.append(f"register:{_status(register)}")
+        return steps
+
     def _attempt_assessment(
-        self, subject: Mapping[str, Any]
+        self, subject: Mapping[str, Any], *, ordinal: int = 0
     ) -> ProcessingAttemptReceipt | AdapterResult:
         sent_at = utcnow()
         request_id = str(
-            _attempt_id(subject, ProtectedPathId.AI_ASSESSMENT, "request")
+            _attempt_id(subject, ProtectedPathId.AI_ASSESSMENT, "request", ordinal)
         )
-        event_id = _attempt_id(subject, ProtectedPathId.AI_ASSESSMENT, "event")
+        event_id = _attempt_id(subject, ProtectedPathId.AI_ASSESSMENT, "event", ordinal)
         trace_id = _trace_id(subject, ProtectedPathId.AI_ASSESSMENT)
         params = {
             "outbox_event_id": event_id,
@@ -234,9 +321,8 @@ class WhyYouProtectedProcessingAdapter:
                 False, "N02_ASSESSMENT_EVENT_WRITE_FAILED", detail=type(exc).__name__
             )
         probe_input_effect_id = f"event:{event_id}"
-        self._probe_inputs[(str(subject["subject_ref"]), ProtectedPathId.AI_ASSESSMENT)] = (
-            probe_input_effect_id
-        )
+        probe_key = (str(subject["subject_ref"]), ProtectedPathId.AI_ASSESSMENT)
+        self._probe_inputs[probe_key] = (*self._probe_inputs.get(probe_key, ()), probe_input_effect_id)
         return _attempt_receipt(
             path=ProtectedPathId.AI_ASSESSMENT,
             subject=subject,
@@ -292,23 +378,41 @@ class WhyYouProtectedProcessingAdapter:
         if Phase(phase) is Phase.BASELINE:
             self._baselines[key] = current
         baseline = self._baselines.get(key, ())
-        probe_input = self._probe_inputs.get(key)
-        probe_inputs = (
-            (probe_input,) if probe_input is not None and probe_input in current else ()
+        recorded_inputs = self._probe_inputs.get(key, ())
+        # The latest runner input drives start-receipt matching; all of them are excluded.
+        probe_input = recorded_inputs[-1] if recorded_inputs else None
+        probe_inputs = tuple(sorted(item for item in recorded_inputs if item in current))
+        # The consumer's processed row for a runner input records that the target handled
+        # the input (refused or started); it is not a protected effect (ID-003-17).
+        bookkeeping = tuple(
+            sorted(
+                f"processed:{item.removeprefix('event:')}"
+                for item in probe_inputs
+                if f"processed:{item.removeprefix('event:')}" in current
+            )
         )
         new = tuple(
-            sorted(set(current) - set(baseline) - set(fixtures) - set(probe_inputs))
+            sorted(
+                set(current)
+                - set(baseline)
+                - set(fixtures)
+                - set(probe_inputs)
+                - set(bookkeeping)
+            )
         )
         status = Presence.PRESENT if current else Presence.ABSENT
         status_projection = dict(projection.get("status_projection", {}))
         start_receipt_ids: tuple[str, ...] = ()
+        refusal_receipt_ids: tuple[str, ...] = ()
         if (
             path is ProtectedPathId.AI_ASSESSMENT
             and probe_input is not None
             and self.settings.observer_enabled
         ):
             event_id = probe_input.removeprefix("event:")
-            deadline = time.monotonic() + 2.0
+            # The wait budget comes from the scenario poll interval via the executor's
+            # stabilizer (ID-003-10/T085); without it there is no pre-wait at all.
+            deadline = time.monotonic() + float(self.receipt_wait_seconds)
             while True:
                 observed = self.read_processing_receipts(
                     run_id=str(subject["run_id"]),
@@ -318,20 +422,33 @@ class WhyYouProtectedProcessingAdapter:
                 if not observed.ok:
                     status_projection["observer_status"] = "UNAVAILABLE"
                     break
+                matched = [
+                    row
+                    for row in observed.data.get("receipts", ())
+                    if isinstance(row, dict)
+                    and row.get("path_id") == ProtectedPathId.AI_ASSESSMENT.value
+                    and row.get("request_or_event_id") == event_id
+                    and isinstance(row.get("receipt_id"), str)
+                ]
+                # Every delivery of the input leaves its own receipt; a start in any
+                # delivery outweighs a refusal in another (judged by the A4/A6 rules).
                 start_receipt_ids = tuple(
                     sorted(
                         str(row["receipt_id"])
-                        for row in observed.data.get("receipts", ())
-                        if isinstance(row, dict)
-                        and row.get("path_id") == ProtectedPathId.AI_ASSESSMENT.value
-                        and row.get("boundary") == "REPORT_ASSESSMENT_STARTED"
-                        and row.get("request_or_event_id") == event_id
-                        and isinstance(row.get("receipt_id"), str)
+                        for row in matched
+                        if row.get("boundary") == "REPORT_ASSESSMENT_STARTED"
                     )
                 )
-                if start_receipt_ids or time.monotonic() >= deadline:
+                refusal_receipt_ids = tuple(
+                    sorted(
+                        str(row["receipt_id"])
+                        for row in matched
+                        if row.get("boundary") == "REPORT_ASSESSMENT_REFUSED"
+                    )
+                )
+                if start_receipt_ids or refusal_receipt_ids or time.monotonic() >= deadline:
                     break
-                time.sleep(0.05)
+                time.sleep(min(_RECEIPT_POLL_GRANULARITY, float(self.receipt_wait_seconds)))
         digest = sha256_bytes(
             canonical_json_bytes(
                 {
@@ -339,7 +456,9 @@ class WhyYouProtectedProcessingAdapter:
                     "current": current,
                     "fixture": fixtures,
                     "probe_input": probe_inputs,
+                    "probe_bookkeeping": bookkeeping,
                     "start_receipts": start_receipt_ids,
+                    "refusal_receipts": refusal_receipt_ids,
                     "status_projection": status_projection,
                 }
             )
@@ -364,9 +483,11 @@ class WhyYouProtectedProcessingAdapter:
                     }[path]
                 )
             ),
+            # Results are what this attempt newly produced: a fixture strategy, a baseline row
+            # or the runner's own input is never a result (ID-003-18).
             result_ids=tuple(
                 item
-                for item in current
+                for item in new
                 if item.startswith(
                     {
                         ProtectedPathId.DOCUMENT_ANALYSIS: ("analysis:", "strategy:"),
@@ -376,10 +497,12 @@ class WhyYouProtectedProcessingAdapter:
                 )
             ),
             start_receipt_ids=start_receipt_ids,
+            refusal_receipt_ids=refusal_receipt_ids,
             status_projection=status_projection,
             baseline_effect_ids=baseline,
             fixture_effect_ids=fixtures,
             probe_input_effect_ids=probe_inputs,
+            probe_bookkeeping_effect_ids=bookkeeping,
             current_effect_ids=current,
             new_effect_ids=new,
             source_status=status,
@@ -417,7 +540,8 @@ class WhyYouProtectedProcessingAdapter:
                 "AND applicant_id=:applicant_id UNION ALL "
                 "SELECT 'submission:' || submission_id::text FROM submissions "
                 "WHERE company_id=:company_id AND applicant_id=:applicant_id UNION ALL "
-                "SELECT 'analysis:' || a.analysis_id::text "
+                "SELECT CASE WHEN a.status IN ('ready', 'partial') THEN 'analysis:' "
+                "ELSE 'analysis-' || a.status || ':' END || a.analysis_id::text "
                 "FROM submission_analyses a JOIN submissions s "
                 "ON s.company_id=a.company_id AND s.submission_id=a.submission_id "
                 "WHERE s.company_id=:company_id AND s.applicant_id=:applicant_id UNION ALL "
@@ -485,19 +609,18 @@ def _trace_id(subject: Mapping[str, Any], path: ProtectedPathId) -> str:
 
 
 def _attempt_id(
-    subject: Mapping[str, Any], path: ProtectedPathId, identity_kind: str
+    subject: Mapping[str, Any], path: ProtectedPathId, identity_kind: str, ordinal: int = 0
 ) -> UUID:
-    return uuid5(
-        _ATTEMPT_NAMESPACE,
-        ":".join(
-            (
-                str(UUID(str(subject["run_id"]))),
-                N02LaneId(str(subject["lane_id"])).value,
-                path.value,
-                identity_kind,
-            )
-        ),
-    )
+    parts = [
+        str(UUID(str(subject["run_id"]))),
+        N02LaneId(str(subject["lane_id"])).value,
+        path.value,
+        identity_kind,
+    ]
+    if ordinal:
+        # First attempt keeps the original identity; later attempts in the same lane differ.
+        parts.append(f"attempt-{ordinal + 1}")
+    return uuid5(_ATTEMPT_NAMESPACE, ":".join(parts))
 
 
 def _attempt_receipt(
@@ -511,6 +634,8 @@ def _attempt_receipt(
     status_code: int | None,
     reason: str,
     probe_input_effect_id: str | None = None,
+    created_session_id: str | None = None,
+    drive_steps: tuple[str, ...] = (),
 ) -> ProcessingAttemptReceipt:
     entry = (
         ProcessingEntryKind.DOMAIN_EVENT
@@ -532,5 +657,14 @@ def _attempt_receipt(
         status_code=status_code,
         sanitized_reason_code=reason,
         probe_input_effect_id=probe_input_effect_id,
+        created_session_id=created_session_id,
+        drive_steps=drive_steps,
         source_ref=f"whyyou:{path.value.casefold()}:v1",
     )
+
+
+_RECEIPT_POLL_GRANULARITY = 0.05
+
+
+def _status(response) -> str:
+    return "none" if response is None else str(response.status_code)

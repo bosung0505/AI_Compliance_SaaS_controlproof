@@ -6,9 +6,11 @@
 한곳에서 이해하기 위한 단일 진입점이다. 과거의 `TEAM_HANDOFF_SPEC_001.md`를 대체하며, 프로젝트 상태를
 확인할 때는 이 문서를 먼저 읽는다.
 
-- 상태 기준일: 2026-10-02
-- ControlProof 현재 작업 브랜치: `003-n02-consent-order`
-- 이 문서가 설명하는 완료 범위: Spec 001·002 전체, Spec 003 T001~T079와 T080-E1~E4의 확인된 결과
+- 상태 기준일: 2026-10-07
+- 전달 기준 브랜치: ControlProof `003-n02-consent-order`, WhyYou `bosung/controlproof-n02-integration`.
+  PR #1과 WhyYou PR #5의 base를 각각 이 브랜치로 변경했으며, main 병합은 사용자가 명시적으로 금지했다.
+  PR 병합 뒤 두 전달 브랜치를 pull한다. 실제 Run의 source SHA는 검증 원장의 당시 값으로 유지한다.
+- 이 문서가 설명하는 범위: Spec 001·002 전체, Spec 003 T001~T093 기록과 2026-10-07 PR 검토 보완
 - 현재 사용자 접점: 고객용 웹 화면이 아니라 개발·검증용 `controlproof` CLI
 
 이 문서는 상세 요구사항, 기술 계약 또는 실행 원본을 복제하지 않는다. 각 사실의 상세 근거는 아래에
@@ -22,9 +24,9 @@
 | Constitution | Complete | 모든 기능 Spec과 구현이 따라야 할 개발·검증 원칙이 확정됐다. |
 | Spec 001 | Complete | 실행·증적 기본 모델과 H-03 최소 수직 흐름을 구현하고 실제 WhyYou 로컬 스택에서 검증했다. |
 | Spec 002 | Complete | H-03 DLQ 확장과 E-03 저장 전/후 장애·재시도·멱등성을 구현하고 `LOCAL_EMULATED`에서 검증했다. |
-| Spec 003 | Implement·actual validation 진행 중 | T001~T079와 T080-E1~E4 완료. US1~US4 자동 fixture gate와 US5 재시험 계약의 scoped gate가 통과했다. 최초 WhyYou N-02 Run은 아래처럼 `RESTORE_FAILED` / `INCONCLUSIVE`이며 child는 `NOT_RUN`이다. Phase 6 당시 ControlProof 전체 회귀 407개 PASS는 이후 변경의 전체 회귀 결과가 아니다. |
+| Spec 003 | 구현·actual validation 기록 완료, PR 검토 보완 | T001~T093 기록 완료. child `7b59237e…`는 INCONCLUSIVE. PR 검토에서 복구 시간 오판, A7 재시도 증거 누락, H-03 동의 전제조건을 추가 보완했다(ID-003-19). 최신 자동 회귀 결과는 validation의 PR review closure 참조. Spec 전체 Complete는 아직 선언하지 않는다. |
 | N-02 최초 actual Run | 봉인·검증 완료, 제품 판정 미종결 | 부모 `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`: A1~A3 PASS, A4~A7 개별 FAIL, 전체 `INCONCLUSIVE` (`RESTORE_FAILED` 우선). 19개 파일 bundle `VERIFIED`는 무결성 확인이며 빠진 관찰 사실의 증명은 아니다. 원본 verdict와 bundle은 변경하지 않는다. |
-| N-02 복구·재시험 준비 | 정비 확인 완료, child 미실행 | 대상 안전 상태를 읽기 전용으로 확인하고 N-02 `cleanup-confirm` 및 증거 기반 `prepare_retest`를 통과했다. 최근 격리된 전체 preflight는 14/16 `READY`; 나머지 2개는 WhyYou 추적 소스가 dirty라 `RUNNER_NOT_READY`였다. 두 저장소를 clean하게 고정한 새 전체 `READY` preflight와 증거 기반 원인 분류가 필요하다. |
+| N-02 child Run (T084 attempt 3) | 봉인·검증 완료, 제품 판정 `INCONCLUSIVE` | child `7b59237e-0a96-403a-9add-28b91011e950`: A1~A4·A6 PASS, A5·A7 `INCONCLUSIVE`, 복구 `SUCCEEDED`, 차단 없음, 21개 파일 bundle `VERIFIED`, 부모 manifest 불변. 동의 전 세 경계 차단과 장애 원자성·복구는 입증됐고, 동의 뒤 처리 순서는 녹화·AI 평가만 입증됐다. 문서 분석 결과는 격리 대상이 LLM 분석을 못 해서 미입증이다. attempt 1·2(중단·INVALID/RESTORE_FAILED)는 보존된 실행기 결함 증거다. |
 | Spec 004 | 계획 확정·미착수 | E-01·E-02 점수 근거·평가 기준 보존을 구현·검증한다. |
 | Spec 005 | 계획 확정·미착수 | 웹 워크벤치·12개 시나리오 카탈로그·보고서와 웹 UX 검토를 구현·검증한다. |
 | 실제 AWS | `NOT_RUN` | AWS SQS·ECS·IAM·CloudWatch·운영 네트워크는 검증하지 않았다. |
@@ -35,9 +37,11 @@
 | 독립 PC 재현 | `PENDING_EXTERNAL_REPRODUCTION` | Spec 001·002 actual Run은 한 PC에서만 수행됐다. 다른 팀원의 H03_DLQ_V2 재현 전에는 독립 재현 완료로 주장하지 않는다. |
 | main 통합 | 보류 | 독립 재현 gate 뒤 Spec 001·002를 포함한 현재 브랜치를 검토 가능한 PR로 통합한다. |
 
-따라서 저장소의 공식 상태는 **Spec 001·002 Complete, Spec 003 진행 중**이다. Spec 003에는 최초
-actual Run이 있지만 직접 FAIL의 원인 분류, 필요한 보완과 child Run, Phase 7 검증·독립 재현이 남아
-있으므로 Complete나 WhyYou N-02 PASS로 부르지 않는다.
+따라서 저장소의 공식 상태는 **Spec 001·002 Complete, Spec 003 actual validation 완료·converge 전**이다.
+child 판정이 `INCONCLUSIVE`(A5·A7 문서 분석 결과 미입증)이므로 WhyYou N-02 PASS로 부르지 않는다.
+T092 문서는 이번 검토 결과로 다시 동기화했다. 전달 브랜치 통합 뒤 최종 converge에서 이 한계와
+검토 보완 후 실제 Run `NOT_RUN`을 명시하고 종료 범위를 확정한다. 추가 실제 시험을 하면 새 child로
+봉인한다. main 통합은 별도 승인 전까지 금지한다.
 
 ## 3. 절대로 바꾸어 해석하면 안 되는 제품 원칙
 
@@ -164,32 +168,32 @@ source queue와 DLQ의 visible, in-flight, delayed 수도 모두 0이었다.
 
 ### Spec 003의 현재 사실과 남은 작업
 
-US1~US4의 A1~A7 자동 PASS는 합성 fixture 결과다. 실제 WhyYou 최초 Run의 source는 ControlProof
-`b92b9ada48e82c5290d5b6eb99883e5dcc50f0ee`, WhyYou
-`94ad7f2caa0083d3d029b4b7726ee9b34c48eb21`이며, 부모 Run의 manifest SHA-256은
-`d2306f3cd6e2b15ce87d94e4844a2278c7ea3c0b3c052a2aac45e1bff8f2bc9b`다.
-[Spec 003 Validation](../specs/003-n02-consent-order/validation.md)의 actual Run·assertion ledger가
-각 A1~A7 판정과 증적의 기준이다.
+최초 Run(부모 `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`, ControlProof `b92b9ada…`, WhyYou `94ad7f2c…`, manifest
+`d2306f3c…`)은 불변이다. 그 FAIL은 전부 원인별로 분류됐고 결과는
+[Implementation Decisions](../specs/003-n02-consent-order/implementation-decisions.md) ID-003-09~18과
+[Validation](../specs/003-n02-consent-order/validation.md)의 Run·assertion ledger에 있다.
 
-- A4의 관찰된 outbox event는 실행기가 직접 넣은 입력이다. 그것만으로 WhyYou의 AI 평가 시작이나
-  제품 보호조치 결함을 증명하지 않는다. A5·A6의 422 사유와 A7의 합성 복구 실패는 아직 원인별로
-  확정되지 않았다. 새 증적 없이는 WhyYou 제품 동의 guard를 수정하지 않는다.
-- T080-E1의 증적 계약 보정, E2의 외부 AI 격리·작업자별 증명, E3의 N-02 안전 상태·정비 확인,
-  E4의 증거 기반 재시험 준비 gate는 scoped 검증을 마쳤다. 부모 bundle은 그대로이고 child Run은 없다.
-- 격리된 API·작업자 4개로 수행한 최근 전체 preflight는 14/16만 `READY`였다. 두 source/environment
-  항목은 추적 중인 WhyYou 소스 변경 때문에 `RUNNER_NOT_READY`였다. 이는 회사 토큰 거부나 WhyYou
-  제품 FAIL의 증거가 아니다. 임시 DB·큐와 프로세스는 종료·정리했다.
+- 실행기 결함(ID-003-09~15, 17, 18): seed 값(제출 요건, 직무 상태, 평가 기준 가이드, 면접 수준, 전략 시간 예산),
+  시간 정책 미적용, 장애 lane 시도 식별자 재사용, teardown FK, 요청 ID 미전달, 복구 안전과 재시도 결과의 혼합,
+  AI 평가 거부 증거 계약, 동의 lane의 제품 흐름 구동. 각각 실패 시험 → 최소 수정 → 전체 회귀로 처리했다.
+- WhyYou 보호조치(증거 기반): T083 보고서 작업자의 `ai_assessment` 동의 확인과 거부 receipt, T082 세션 시작의
+  `recording` 동의 확인. 둘 다 동의 없는 처리 시작이 실제 Run에서 관찰된 뒤에만 추가했다. T081은 `NOT_REQUIRED`.
+- child `7b59237e-0a96-403a-9add-28b91011e950`(ControlProof `14f9868`, WhyYou `be81ebc`): A1~A4·A6 PASS, A5·A7 `INCONCLUSIVE`,
+  복구 `SUCCEEDED`, manifest `2a0e7862…`. 녹화 경로는 장비 점검→세션→업로드→확정, AI 평가는 보고서 생성까지
+  실제로 돌렸고, 문서 경로는 분석 작업자 진입까지만 도달했다(격리 대상은 외부 AI 차단).
+- 알려진 한계: 문서 분석 결과는 격리 환경에서 만들 수 없다(고정 모델이 보고서 작업만 지원); 401/403은 전부
+  `CONSENT_REQUIRED`로 기록된다(대상이 사유를 응답하지 않음); 복구 lane의 인과 사건은 파일로 봉인되지 않는다;
+  녹화 업로드가 로컬 object store에 객체를 남긴다; H-03 pending-report seed에는 동의 행이 없어 T083이 적용된
+  대상에서 H-03 보고서 요청은 거부된다(H-03 재실행 전 seed 보완 필요).
 
-| 단계 | 열린 Task | 끝내야 할 일 |
+| 단계 | Task | 상태 |
 |---|---|---|
-| 증거 기반 분류·조건부 보완 | T080~T083 | A4~A7의 원인 소유자를 원본·새 증거로 분류한다. A2/A3는 부모 PASS를 근거로 T081/T082의 `NOT_REQUIRED` 여부를 공식 기록한다. A4의 실제 target 시작 증거가 있을 때만 T083의 제품 guard를 검토한다. A5~A7은 새 진단 증거와 실패 회귀에 맞는 최소 수정만 한다. |
-| 부모 연결 재시험 | T084 | 소스 clean, 격리된 동일 설정의 API·모든 작업자, 안전 상태와 전체 preflight `READY`를 확인한다. 필요한 보완 후 원본 부모를 가리키는 child를 한 번 실행하고 두 bundle·source SHA·판정 차이를 검증한다. |
-| 종료 품질 gate | T085~T091 | 타이밍·보안 시험, 전체 ControlProof 회귀 1회와 관련 WhyYou 시험, quickstart 실습, FR/SC/Assertion/EV3 추적성, 조건부 분기 종료, 비밀·경로 검사 결과를 기록한다. |
-| 상태 수렴·독립 재현 | T092~T093 | README·인수인계·Product Brief·범위표 등 상태 문서를 일치시키고, 두 번째 clean checkout 또는 팀원 PC에서 preflight와 새 N-02 Run을 독립 재현한다. 이후 `$speckit-converge`로 종료 여부를 판정한다. |
+| 증거 기반 분류·조건부 보완 | T080~T083 | 완료 (T081 `NOT_REQUIRED`, T082·T083 `REQUIRED`·구현) |
+| 부모 연결 재시험 | T084 | 완료 (attempt 3 child 봉인·검증) |
+| 종료 품질 gate | T085~T091 | 완료 (시간 정책·보안 corpus·회귀 기록·quickstart 실제 ID·추적성·조건부 요약·스캔) |
+| 상태 수렴·독립 재현 | T092~T093 | T092 이 문서 묶음으로 완료, T093은 팀원 PC(연우)에서 preflight 16/16과 child Run으로 기록 |
 
-열린 Task는 T080~T093 총 14개다. T081~T083은 증적에 따라 `NOT_REQUIRED`가 될 수 있으나,
-T084는 부모에 직접 FAIL이 있어 현재 필요한 분기다. Phase 7의 전체 회귀와 독립 PC 재현은 아직
-수행되지 않았다.
+남은 것은 PR(base `003-n02-consent-order`)과 검토, WhyYou PR #5 병합, 그리고 `$speckit-converge`의 종료 기준 확인이다.
 
 후속 개발 순서는 다음과 같이 확정했다.
 
@@ -401,10 +405,11 @@ HEAD, clean 상태와 대상 격리를 확인한다. `preflight N-02 --profile N
 외부 AI 격리, 원본 DB와 분리된 큐·DB, N-02 안전 상태를 함께 확인한다. N-02 최초 부모 Run은 이미
 있으므로 같은 ID를 재실행하거나 bundle을 고치지 않는다.
 
-T080~T083의 증거 기반 분류·보완이 끝나면 T084에서 원본 부모 ID를 지정하고 원본 정비 증거를
-`--cleanup-evidence`로 제공해 child를 실행한다. 부모와 child 모두 `show`·`verify`하고 SHA,
-manifest, assertion과 restore 차이를 Validation에 남긴다. 팀원 독립 재현 T093은 **새로운** clean
-checkout과 새 Run ID로 수행한다. 현재 어느 경로도 N-02 최종 PASS로 기록되지 않았다.
+T084는 완료됐다. 팀원 PC에서 전체 16/16 `READY` preflight 뒤 부모 `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`를 지정하고 원본
+정비 증거를 `--cleanup-evidence`로 제공해 child `7b59237e-0a96-403a-9add-28b91011e950`를 실행·봉인·검증했다(명령과 실제 ID는
+quickstart 7~8절). 같은 절차를 다시 밟으면 새 child가 생기며 기존 부모·child bundle은 바뀌지 않는다.
+팀원 PC 특유의 환경 조정(5433 포트, `.env` 수동 로드, `/v1/me`로 회사 생성, 가짜 GCP 키, `Set-ExecutionPolicy`,
+앱 제어 정책이 막은 SQLAlchemy `.pyd` 우회)은 Validation의 T093 행과 ID-003-15 기록에 있다.
 
 ## 10. 결과를 읽는 법
 
@@ -448,34 +453,17 @@ PASS로 바꾸지 않는다. 자동 fixture PASS, API/작업자 readiness, bundl
 
 ## 12. 다음 작업 순서
 
-Spec 003의 Specify·Clarify·Plan·Tasks·Analyze, Implement T001~T079와 T080-E1~E4가 완료됐다.
-최초 사실 Run은 이미 봉인됐다. 이 순서로 다음 작업을 이어간다.
+Spec 003 Implement와 actual validation(T001~T093)은 끝났다. 이 순서로 이어간다.
 
-1. **전달 source·증거 확인:** 두 작업 브랜치의 게시된 HEAD를 fetch하고 전달받은 SHA·clean 상태를
-   대조한다. WhyYou `main`은 수정하지 않는다. 위 일회성 부모 bundle·정비·cleanup 증거의 원본
-   SHA와 `verify`를 확인한다. 다른 `.controlproof/` 실행 생성물은 전달 대상이 아니다.
-2. **T080~T083:** [Spec 003 Implementation Decisions](../specs/003-n02-consent-order/implementation-decisions.md)의
-   미분류 A4~A7을 확인할 새 증거 계획을 확정한다. 필요한 진단은 격리 DB·큐에서 수행한다. A2/A3
-   `NOT_REQUIRED` 여부를 부모 PASS로 기록하고, A4 target 경계 증거가 없으면 제품 guard 수정을
-   시작하지 않는다. 예상 밖의 파일 범위·제품 의미 변경은 먼저 보고한다.
-3. **T084:** 증거가 지지하는 최소 수정과 회귀 시험을 마친 뒤 clean source, 실제 대상·작업자 증명,
-   fresh full preflight `READY`를 확보한다. 기존 정비 기록과 원본 증거로 parent-linked child를
-   실행·봉인·검증하고 부모와 결과를 비교한다.
-4. **T085~T091:** 타이밍·보안, 관련 WhyYou 시험과 ControlProof 전체 회귀를 완료하고 quickstart
-   실행·추적성·조건부 분기·비밀/경로 검사를 기록한다. Phase 7 전체 회귀는 최종 변경을 모아 한 번
-   실행한다.
-5. **T092~T093 및 converge:** README, 이 문서, 플레이북, Product Brief, 시나리오 범위표와 Spec
-   상태를 일치시킨다. 다른 clean checkout/팀원 PC에서 새 N-02 Run으로 독립 재현한 뒤
-   `$speckit-converge`의 종료 기준을 확인한다. 독립 재현 전에는 그 gate를 완료로 표시하지 않는다.
-
-현재 README, 시나리오 범위표, `spec.md` 상단과 플레이북 일부에는 아직 “N-02 actual Run 미실행”이라는
-과거 문구가 있다. 이는 최초 Run을 취소하는 뜻이 아니라 T092에서 해소할 **문서 동기화 잔여 작업**이다.
-지금의 상세 사실은 최신 [Tasks](../specs/003-n02-consent-order/tasks.md),
-[Validation](../specs/003-n02-consent-order/validation.md), 위 Decisions와 이 인수인계를 우선한다.
-
-Spec 003~005 문서를 모두 먼저 작성한 뒤 개발을 시작하는 것이 아니다. 각 Spec은 명세·구현·실제
-검증을 포함하는 독립 수직 흐름이며, 하나를 완료한 뒤 다음으로 진행한다. Spec 005까지 완료되면
-V4 체크리스트를 다시 대조해 2주 MVP 최종 완료 여부를 판정한다.
+1. **PR과 검토:** `yeonwoo/003-t080-t085` → `003-n02-consent-order` PR을 만든다. 보성은 ID-003-13~18의
+   `PROPOSED`/위임 판단 항목을 최종 확정하고, WhyYou PR jhkim0602/gbsa_aws#5(T083·T082)를 병합 또는 재배치한다.
+   그 PR은 base 브랜치 특성상 CI가 돌지 않으므로 관리자 병합이 필요하다.
+2. **converge:** README, 이 문서, 플레이북, Product Brief, 범위표와 Spec 003 상태가 일치하는지
+   `$speckit-converge` 기준으로 확인한다. child 판정은 `INCONCLUSIVE`이며 PASS로 올려 적지 않는다.
+3. **후속 한계 처리(선택):** 문서 분석 결과까지 입증하려면 WhyYou 고정 모델을 문서 분석·전략 생성 작업까지
+   확장해야 한다(제품 코드 변경, 미승인). H-03 seed에 동의 행을 넣기 전에는 T083이 적용된 대상에서 H-03을
+   재실행하지 않는다.
+4. **Spec 004:** E-01·E-02 점수 근거·평가 기준 보존으로 넘어간다.
 
 ## 13. 문서 유지 규칙
 

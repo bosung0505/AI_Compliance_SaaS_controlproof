@@ -577,6 +577,7 @@ class FakeN02Adapters:
         causal_missing_path: ProtectedPathId | None = None,
         causal_conflict: bool = False,
     ) -> None:
+        self.prerequisite_calls: list[tuple[str, str, str | None]] = []
         self.responses = responses or {
             path: ProcessingResponseClass.DENIED for path in ProtectedPathId
         }
@@ -637,6 +638,13 @@ class FakeN02Adapters:
     def teardown_lanes(self, *, run_id: str, lanes):
         return AdapterResult(True, "N02_LANES_REMOVED", {"count": len(lanes)})
 
+    def target_session_for(self, *, subject):
+        return AdapterResult(True, "N02_TARGET_SESSION_READ", {"interview_session_id": None})
+
+    def apply_processing_prerequisites(self, *, subject, path_id: str, interview_session_id=None):
+        self.prerequisite_calls.append((str(subject["lane_id"]), path_id, interview_session_id))
+        return AdapterResult(True, "N02_PREREQUISITES_APPLIED", {"fixture_effect_ids": ()})
+
     def apply_probe_overlay(self, *, subject, path_id: str):
         path = ProtectedPathId(path_id)
         self._overlay_paths.add(path)
@@ -680,7 +688,7 @@ class FakeN02Adapters:
             )
         return tuple(values)
 
-    def attempt(self, *, path_id: str, subject):
+    def attempt(self, *, path_id: str, subject, drive: bool = False):
         path = ProtectedPathId(path_id)
         self.attempted_paths.append(path)
         normal = (

@@ -217,6 +217,8 @@ def test_attempt_causality_fault_and_recovery_cardinality() -> None:
         marker_removed=True,
         consumed_token_removed=True,
         hook_inactive=True,
+        condition_cleanup_succeeded=True,
+        safe_state_confirmed=True,
         failed_request_effects_zero=True,
         normal_retry_succeeded=True,
         logical_consent_count=1,
@@ -226,7 +228,10 @@ def test_attempt_causality_fault_and_recovery_cardinality() -> None:
         manual_cleanup_required=False,
     )
     assert recovery.logical_consent_count == recovery.consent_completed_event_count == 1
-    with pytest.raises(ValidationError, match="exactly one"):
-        RecoveryRecord.model_validate(
-            recovery.model_dump() | {"logical_consent_count": 2}
-        )
+    # ID-003-14: SUCCEEDED means restore safety; the retry outcome is A7's to judge.
+    with pytest.raises(ValidationError, match="every safety proof"):
+        RecoveryRecord.model_validate(recovery.model_dump() | {"safe_state_confirmed": None})
+    duplicate = RecoveryRecord.model_validate(
+        recovery.model_dump() | {"logical_consent_count": 2, "processing_order_proven": False}
+    )
+    assert duplicate.restore_status is RecoveryStatus.SUCCEEDED

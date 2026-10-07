@@ -27,6 +27,26 @@ def _id(run_id: UUID, name: str) -> UUID:
     return uuid5(_NAMESPACE, f"{run_id}:{name}")
 
 
+# WhyYou loads positions and invitations through ``SubmissionRequirementSet``, which rejects a
+# set with no required+enabled material. An empty list made every applicant route that loads
+# the invitation (including ``POST /v1/applicant/consents``) fail with 422 before the consent
+# transaction ran -- see Spec 003 ID-003-09. Mirrors WhyYou ``DEFAULT_SUBMISSION_REQUIREMENTS``.
+_DEFAULT_SUBMISSION_REQUIREMENTS: tuple[tuple[str, bool], ...] = (
+    ("resume", True),
+    ("cover_letter", True),
+    ("career_description", False),
+    ("projects", False),
+    ("portfolio", False),
+)
+
+
+def _submission_requirements() -> list[dict[str, Any]]:
+    return [
+        {"material_type": material, "required": required, "enabled": True, "instructions": None}
+        for material, required in _DEFAULT_SUBMISSION_REQUIREMENTS
+    ]
+
+
 @dataclass(frozen=True, slots=True)
 class SeedRow:
     table: str
@@ -246,9 +266,9 @@ def _seed_rows(
                 "position_id": position_id,
                 "title": f"ControlProof N02 {run_id}",
                 "description": "Synthetic local/test-only N-02 position",
-                "submission_requirements": [],
+                "submission_requirements": _submission_requirements(),
                 "created_by": reviewer_id,
-                "status": "open",
+                "status": "active",
                 "row_version": 1,
                 "created_at": _FIXED_TIME,
             },
@@ -262,7 +282,7 @@ def _seed_rows(
                 "version_number": 1,
                 "prohibited_topics": [],
                 "interview_duration_minutes": 30,
-                "interview_level": "standard",
+                "interview_level": "junior",
                 "axis_weights": {},
                 "persona_definition": {},
                 "status": "published",
@@ -280,7 +300,15 @@ def _seed_rows(
                 "name": "N-02 synthetic criterion",
                 "description": "Synthetic criterion",
                 "weight": 1.0,
-                "verification_guide": {},
+                # WhyYou validates this on every criterion read (ID-003-15).
+                "verification_guide": {
+                    "observable_dimensions": ["Synthetic situation", "Synthetic action"],
+                    "strong_answer_signals": ["Synthetic specific action"],
+                    "weak_answer_signals": ["Synthetic team-only answer"],
+                    "follow_up_directions": ["Synthetic own action"],
+                    "max_follow_ups": 1,
+                    "time_budget_seconds": 300,
+                },
                 "abstain_guidance": "Abstain without evidence",
                 "common_questions": [],
                 "required": True,
@@ -312,7 +340,7 @@ def _seed_rows(
                         "applicant_id": lane.applicant_id,
                         "applicant_email_normalized": subject.synthetic_email,
                         "applicant_display_name": lane.subject_ref,
-                        "submission_requirements": [],
+                        "submission_requirements": _submission_requirements(),
                         "token_hash": sha256_bytes(
                             f"n02-token:{run_id}:{lane.lane_id.value}".encode()
                         ),
@@ -402,7 +430,8 @@ def build_probe_overlay_rows(
                 "common_topics": [],
                 "verification_points": [],
                 "follow_up_directions": {},
-                "time_budget": {},
+                # WhyYou validates total_seconds > 0 on every strategy read.
+                "time_budget": {"total_seconds": 600},
                 "required_evidence_plan": {},
                 "source_reference_candidates": [],
                 "model_config_version": "controlproof-fixed-v1",

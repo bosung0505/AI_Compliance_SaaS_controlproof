@@ -20,6 +20,15 @@ from engine.models import (
 from tests.unit.test_execution_session import RecordingWriter
 
 
+class _EmptyResult:
+    """Real connections return rows; the FK catalog query has nothing to report here."""
+
+    def mappings(self):
+        return self
+
+    def all(self):
+        return []
+
 class _Transaction:
     def __enter__(self):
         return self
@@ -28,7 +37,7 @@ class _Transaction:
         return False
 
     def execute(self, _statement, _params=None):
-        return None
+        return _EmptyResult()
 
 
 class _AbsentConsent:

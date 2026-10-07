@@ -54,6 +54,8 @@ def _recovery(run_id: UUID, **updates) -> RecoveryRecord:
         "marker_removed": True,
         "consumed_token_removed": True,
         "hook_inactive": True,
+        "condition_cleanup_succeeded": True,
+        "safe_state_confirmed": True,
         "failed_request_effects_zero": True,
         "normal_retry_succeeded": True,
         "logical_consent_count": 1,
