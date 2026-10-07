@@ -289,12 +289,12 @@ T085/T086 and Spec closure are incomplete; first official parent FAIL remains un
 - [X] T089 [P] Add deterministic timing tests proving poll/stability/restore/Run/verify budgets come only from the v4 scenario snapshots and the restore budget counts only restore work in `tests/integration/test_spec004_timing.py` [SC-003, SC-002]
 - [X] T090 [P] Extend the security corpus to every Spec 004 bundle file, emission receipts and CLI output in `tests/unit/test_redaction_security.py` [FR-042, SC-004]
 - [X] T091 Run `ruff check .`, the full `pytest -q` and the scoped WhyYou tests; record commands, counts, durations, target FAILs, restore statuses and source SHAs in `validation.md` [FR-001~FR-052, SC-001~SC-007]
-- [ ] T092 Execute every unconditional `quickstart.md` command from a clean local environment, replace `<…>` placeholders with actual IDs, record skipped conditionals with reasons, and confirm each Run+verify ≤ 600 seconds [SC-003, SC-006]
-- [ ] T093 Complete the FR/SC/assertion/EV4 → task → test → implementation → actual artifact matrix in `traceability.md` [FR-001~FR-052, SC-001~SC-007, E01-A1~A4, E02-A1~A3, Constitution VII]
-- [ ] T094 Verify each conditional branch T084~T088 is completed or evidence-backed `NOT_REQUIRED`, and summarize the implementation versus target verdict distinction in `implementation-decisions.md` [FR-050~FR-052]
-- [ ] T095 [P] Scan tracked files and bundle metadata for absolute user paths, raw credentials and real applicant identifiers; record the command and clean result in `validation.md` [FR-042, SC-004]
-- [ ] T096 Update Spec 004 status, source SHAs, verdicts and next step consistently in `README.md`, `docs/TEAM_HANDOFF.md`, `docs/AI_SPEC_KIT_PLAYBOOK.md`, `docs/product/ControlProof_MVP_Product_Brief.md`, `docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md` and, for any product-meaning change, `docs/product/ControlProof_MVP_Decision_Log.md` [SC-006]
-- [ ] T097 Have a second clean checkout or teammate follow only `README.md`, `docs/TEAM_HANDOFF.md` and `quickstart.md` through preflight and one Run per scenario; record SHAs, manifest digests and portability defects in `validation.md` [SC-006]
+- [X] T092 Execute every unconditional `quickstart.md` command from a clean local environment, replace `<…>` placeholders with actual IDs, record skipped conditionals with reasons, and confirm each Run+verify ≤ 600 seconds [SC-003, SC-006]
+- [X] T093 Complete the FR/SC/assertion/EV4 → task → test → implementation → actual artifact matrix in `traceability.md` [FR-001~FR-052, SC-001~SC-007, E01-A1~A4, E02-A1~A3, Constitution VII]
+- [X] T094 Verify each conditional branch T084~T088 is completed or evidence-backed `NOT_REQUIRED`, and summarize the implementation versus target verdict distinction in `implementation-decisions.md` [FR-050~FR-052]
+- [X] T095 [P] Scan tracked files and bundle metadata for absolute user paths, raw credentials and real applicant identifiers; record the command and clean result in `validation.md` [FR-042, SC-004]
+- [X] T096 Update Spec 004 status, source SHAs, verdicts and next step consistently in `README.md`, `docs/TEAM_HANDOFF.md`, `docs/AI_SPEC_KIT_PLAYBOOK.md`, `docs/product/ControlProof_MVP_Product_Brief.md`, `docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md` and, for any product-meaning change, `docs/product/ControlProof_MVP_Decision_Log.md` [SC-006]
+- [X] T097 Have a second clean checkout or teammate follow only `README.md`, `docs/TEAM_HANDOFF.md` and `quickstart.md` through preflight and one Run per scenario; record SHAs, manifest digests and portability defects in `validation.md` [SC-006]
 
 ---
 
@@ -400,3 +400,13 @@ T090/T091 complete (2026-10-08): user approved the scanner correction and reques
 Related gate 192 PASS; final full ControlProof 939 PASS (294.66 s), ruff PASS; WhyYou scoped 188 PASS
 (7.79 s). Scanner includes all registered JSON/YAML, manifest and child lineage with path containment.
 Portable synthetic setup/quickstart prepared for T092/T097; final status sync and closure still pending.
+
+
+T092~T097 closure (2026-10-08): second clean checkout, one E-01/Q1 and one E-02/Q2 actual Run,
+both COMPLETED/PASS/SUCCEEDED/VERIFIED; 7 critical tables empty. Q1 first show/verify path failure
+corrected and the same evidence verified without a new Run. Run→successful verify including repair
+343.613371 s; Q2 total 38.4084182 s. Windows startup inventory and bundle-root portability defects
+fixed with scoped setup 12 PASS. Full ControlProof 939 PASS was run once; WhyYou scoped 188 PASS.
+Six bundles/112 files reverified/redaction clean, 366 tracked files security scan clean. Traceability and
+conditional review closed. Owner explicitly approved ID-004-36 reason wording and second-checkout criterion.
+Final status documents synchronized in this closure change; other-PC gate and AWS remain unverified.

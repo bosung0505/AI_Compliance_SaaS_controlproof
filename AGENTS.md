@@ -47,11 +47,12 @@ without actual validation or an explicit truthful non-execution status. Update V
 
 ## Current next feature
 
-Spec 004 is E-01·E-02: scores require valid evidence and reports freeze scoring inputs. Active ControlProof
-branch is `yeonwoo/004-e01-e02-score-evidence`; WhyYou is `bosung/controlproof-n02-integration` (`374b122`, PR #8
-merged). T001~T088 complete (T087 NOT_REQUIRED). First official E-01 FAIL is preserved; approved P1 fix has
-official child `a5ad4676-333b-44d0-8657-95ab434f3b3d` A1~A4 PASS, restore SUCCEEDED and bundle VERIFIED.
-D1 all four modes observed; it remains diagnostic-only. E-02 initial official PASS is on `ce8d862`; latest
-`374b122` E-02 preflight READY is not a new actual PASS. Next T089~T097 timing/security/full regression,
-quickstart and independent reproduction/closure. Read latest T088 validation. Spec 004 is not Complete;
-AWS NOT_RUN. Preserve every first factual FAIL and verify later corrections in separate child Runs.
+Spec 004 E-01·E-02 is Complete: T001~T097 and converge, T087 NOT_REQUIRED. ControlProof branch
+yeonwoo/004-e01-e02-score-evidence; code checkpoint f75ada7, WhyYou integration 374b122 (PR #8).
+Original E-01 FAIL preserved; official remedy child a5ad4676… PASS. Second clean-checkout actual Q1
+4030503c… E-01 and Q2 970108fe… E-02 PASS/SUCCEEDED/VERIFIED, residue 0. Full CP 939 PASS once,
+WhyYou scoped 188 PASS; subsequent wrapper portability fixes scoped setup 12 PASS. See final Spec004
+validation/traceability, ID-004-36 and product Decision Log D-017 for approved completion criteria.
+Another-PC reproduction/main integration remain pending; AWS NOT_RUN. Spec003 remains INCONCLUSIVE
+with final converge pending. Next feature is Spec005 workbench/report UX; begin its own Spec Kit cycle.
+For Spec004 reproduction use its quickstart and scripts/spec004_local.py, not historical N-02 setup.

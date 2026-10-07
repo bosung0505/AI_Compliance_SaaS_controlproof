@@ -2,7 +2,7 @@
 
 ## Current status
 
-- Workflow stage: T001~T089 done (T087 NOT_REQUIRED). WhyYou PR #8 merged into integration at 374b122. Official product-remedy child a5ad4676-333b-44d0-8657-95ab434f3b3d E01-A1~A4 PASS, restore SUCCEEDED, bundle VERIFIED; first E-01 FAIL and D1-only child FAIL preserved. Initial E-02 PASS remains on ce8d862; fresh E-02 preflight READY on 374b122, no E-02 Run on that head yet. T089 deterministic timing gate 58 related tests PASS. Next T090~T097 security/reproduction/closure. Spec 004 remains incomplete.
+- Workflow stage: Spec 004 closure T001~T097 complete (T087 NOT_REQUIRED), final converge recorded below. First E-01 FAIL and D1-only child FAIL preserved; approved P1 child PASS. New clean-checkout E-01/E-02 PASS/SUCCEEDED/VERIFIED on WhyYou 374b122. Full CP 939 PASS once, WhyYou scoped 188 PASS, later setup scoped 12 PASS. Owner approved ID-004-36; another PC and AWS remain unverified.
 - WhyYou local/test fixture (Phase 3, T022~T029): PR jhkim0602/gbsa_aws#6 reviewed, fixed and merged into `bosung/controlproof-n02-integration` at `42aaaba206ced4288c8ee477b73f5f1ccf078bf3`; main unchanged.
 - Latest WhyYou integration head: `374b122e1296c0159ccd88ed4763d358973c59cb` (PR #8, approved ID-004-30 response-only transcript availability); T088 live E-01 product-remedy child PASS. PR #7 wiring and Phase 8 E-02 evidence remain historical checkpoints.
 - Sandbox diagnostics: complete, separate from official results. Official initial E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` FAIL; E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` PASS (see T080~T082 entry). Parent D1 OTHER_CRITERION NOT_OBSERVED stays unchanged; ID-004-34 supersedes ID-004-17 for new Runs while retaining FR-013 four-mode coverage.
@@ -941,3 +941,118 @@ Two command-routing regression cases added: setup scoped gate 12 passed in 0.54 
 verdict and sealed evidence unchanged; full 939 gate not repeated. Verify the same existing Run after
 this correction; do not rerun E-01 to hide this failure. Repair delay is separate from scenario execution
 and the original successful official child timing. E-02 reproduction remains pending at this checkpoint.
+
+
+## 2026-10-08 — T092~T097 closure, owner confirmation and actual reproduction
+
+Owner confirmed ID-004-36: PASS/FAIL factual reasons, INCONCLUSIVE reason_code; SC-006 second clean
+checkout or teammate. This resolves two text contradictions explicitly, with no retroactive evidence edit.
+
+### Source and environment
+
+Two local clones, not worktrees, on feature branches: ControlProof yeonwoo/004-e01-e02-score-evidence,
+WhyYou bosung/controlproof-n02-integration. CP Q1 ca3df77f9377a346575e10818bf9f389d8bc470e;
+CP Q2 f75ada7172fc48802e231d24e08886de4292c276; WhyYou both
+374b122e1296c0159ccd88ed4763d358973c59cb. Each Run's environment.snapshot.json records these exact
+clean sources. Existing dependency environments reused (CP Python 3.12.12, WhyYou 3.14.3), not copied source.
+Dedicated Docker project controlproof-spec004-repro, loopback ports PG15734/Moto14767/API18085,
+fresh synthetic DB/queues/observer/fault boot roots; pinned compose image digests. No .env or real keys.
+LOCAL_EMULATED, spec004-report-v1 digest e15ec3790b64b2fba10e0caa9372f08c917edbbaa99ce308076952b838668b3f,
+external_ai_allowed=false; AWS NOT_RUN. A new checkout on the same PC is not another-PC proof.
+
+### Quickstart commands and results
+
+All unconditional commands followed through source/branch/status/version/Docker checks, up, status,
+both preflights, exactly one Run per scenario, show, verify, stop and status. Original argv/stdout/stderr,
+exit and wall durations are retained in workspace .pr-review/20261008/closure/reproduction/cp-local/
+spec004-local/repro/commands/. Native Windows ANOMALY text was kept in journals; JSON Run IDs were
+extracted with the documented line filter. Startup inventory and bundle-location defects are recorded
+above, fixed and covered by scoped tests. Q1 was not rerun to fix show/verify.
+
+| Gate / command | Result |
+|---|---|
+| git clone --no-hardlinks --branch <documented branch> <local committed source> <new directory>; branch/HEAD/status on both | separate clean feature clones, same source bytes as recorded; no main change |
+| Python --version; docker info | 3.12.12 / 3.14.3, Docker available |
+| python scripts/spec004_local.py up --whyyou-python <installed dependency interpreter> | STARTED; fresh owned API/workers and local resources, no Run created |
+| python scripts/spec004_local.py status | ready=true, stopped=false |
+| python scripts/spec004_local.py cli -- preflight E-01 --profile E01_CITATION_EVIDENCE_V1 --target whyyou-local --json | READY 18/18, exit 0 |
+| python scripts/spec004_local.py cli -- preflight E-02 --profile E02_SCORING_FREEZE_V1 --target whyyou-local --json | READY 16/16, scoring source MATCH, exit 0; checked again before Q2 |
+| python scripts/spec004_local.py cli -- run E-01 --profile E01_CITATION_EVIDENCE_V1 --target whyyou-local --label spec004-reproduction-e01 --json | Q1 COMPLETED/PASS, exit 0 |
+| python scripts/spec004_local.py cli -- show 4030503c-a24c-42f9-b926-7aba49b4c467 --json; ... verify same ID --json | first exit 1 path defect; after f75ada7 both exit 0, VERIFIED, no Run repetition |
+| python scripts/spec004_local.py cli -- run E-02 --profile E02_SCORING_FREEZE_V1 --target whyyou-local --label spec004-reproduction-e02 --json | Q2 COMPLETED/PASS, exit 0 |
+| python scripts/spec004_local.py cli -- show 970108fe-8eae-4ce0-b230-400887ba3e24 --json; ... verify same ID --json | exit 0/0, VERIFIED |
+| Read-only psql SELECT counts for 7 critical tables | reports/report_items/evidence/positions/competency_model_versions/transcript_segments/interview_sessions all 0 |
+| python scripts/spec004_local.py stop; ... status | STOPPED, evidence_and_volumes_retained=true, stopped=true; only owned reproduction services stopped |
+
+Conditional skips: fresh uv dependency installation unnecessary because existing installed interpreter
+paths were explicitly supplied. Ruff/full regression commands not duplicated in the clone: T091 already
+proves the identical engine source; subsequent helper changes got scoped setup 12 PASS. Target-remedy
+retest/cleanup-confirm not triggered in this new environment: both actual verdicts PASS, restores succeed,
+no block exists. Historical R3/R4 child remediation already proves FR-052. No AWS provision or main merge.
+
+### Actual results and timing
+
+| Scenario / Run | Assertions | Restore / verify | Manifest SHA-256 | Timing seconds |
+|---|---|---|---|---|
+| Q1 E-01 4030503c-a24c-42f9-b926-7aba49b4c467 | A1~A4 PASS; D1 four observations | SUCCEEDED / VERIFIED, 17 registered files | 3c35ba8e682ac47b62e50dd981611cde37ec28a31ab14effd3074617d8a530ec | Run journey 33.161404; run command 38.891; successful verify 2.297; submission→successful verify 343.613371 including wrapper repair |
+| Q2 E-02 970108fe-8eae-4ce0-b230-400887ba3e24 | A1~A3 PASS | SUCCEEDED / VERIFIED, 17 registered files | 1053a9396e788740af970f1c7e466d6bed8f2e32919347cc5b9f0dc9cdb0253a | Run journey 23.089785; run command 29.609; verify 2.406; full run/show/verify stopwatch 38.4084182 |
+
+Q1 submission journal 2026-10-07T16:54:14.778948Z → successful verify command completion
+2026-10-07T16:59:58.392319Z (343.613371 s), including the initial 47.1497238 s failed-location attempt
+and repair delay. This is measured wall time, not the earlier failed verification relabelled success.
+Q1 environment restore 0.319454 s; Q2 0.182834 s; within 120. All Run journeys <540, verify <60, totals <600.
+
+Q1 four invalid citations EMPTIED, VALID STORED_VALID, reference unchanged; actual one-row removal
+confirmed, affected Evidence availability true→false→true, other items unchanged; read/record equal
+after exact restoration. D1 EMPTY AXIS_DROPPED and three bad-ID modes SHOWN_AS_WRITTEN are diagnostics.
+Q2 published v1/v2 through product APIs, frozen inputs and first-report digests unchanged, 72.5→72 and
+73.5→74 recomputation; all five comparison targets agree and verify re-executes the independent copy.
+Q2 other-position digest unchanged. Both teardown receipts successful, manual_cleanup_required=false.
+
+### T093/T094/T095/T096
+
+Traceability fills every 23 FR/7 SC row and 13 explicit story acceptance cases, assertion/EV4/task/test/
+implementation/actual mapping; initial facts retained under R1~R4, current reproduction under Q1/Q2.
+Conditional T084/T085/T086/T088 complete; T087 NOT_REQUIRED because initial A1/A2/E02 all PASS.
+ID-004-14(b) optional refusal observer and R3 generic retest wording stay documented limitations.
+
+Security audit command: python workspace .pr-review/20261008/closure/closure_audit.py, from CP root.
+It enumerates git ls-files -z, scans bytes for the actual current-user absolute path, live AWS access keys
+and private-key headers without echoing matches, re-verifies all six bundles and checks every bundle file
+with assert_redacted. Result: 366 tracked files, 0 real credential/user-path findings; 112 bundle files,
+0 redaction violations, all six VERIFIED. All four prior manifest SHAs equal their recorded values and
+registered file hash checks succeed. Synthetic negative-case examples are test data, not real applicants.
+All subject data uses Spec004 synthetic seed policies and redacted projections; no actual applicant input
+or unredacted free text was introduced. Raw argv/logs may contain local paths and remain outside Git.
+
+Final status synchronization includes README, AGENTS, TEAM_HANDOFF, AI_SPEC_KIT_PLAYBOOK, Product Brief,
+Coverage Matrix and Decision Log D-017. Latest source code checkpoint f75ada7 differs from the later
+documentation closure commit; original Run snapshots are authoritative. Main SHAs remain CP71a2c25 /
+WhyYou cc8bf55, and Spec003 INCONCLUSIVE/converge-pending status is unchanged.
+
+### Final converge — converged (2026-10-08)
+
+Applied repository speckit-converge skill after implementation and closure evidence. Initial prerequisite
+resolution still selected the old Spec003 local context; reran with explicit
+SPECIFY_FEATURE_DIRECTORY=specs/004-e01-e02-score-evidence and obtained the correct required artifacts.
+No before/after_converge hooks registered. Assessment uses current Spec/Plan/Tasks and constitution;
+initial baseline descriptions are read together with the approved conditional corrective chain.
+
+Checked: 23 FR, 7 SC, 5 stories with 13 explicit acceptance scenarios plus US4/US5 prose obligations,
+8 execution-design sections, H-1~H-4 decisions, all 97 tasks and 7 constitution principles. Scope includes
+canonical scenarios/models/profile dispatch; synthetic lanes/consent/model receipts; citation/removal/
+restore/probe; independent frozen scoring; presentation/CLI/bundle/redaction/lineage; WhyYou fixed-model
+isolation and approved availability lookup; final regression/traceability/security/setup reproduction.
+Automatic negative paths are assessed from their current tests/code; successful target behavior is assessed
+from R4/Q1/Q2 artifacts, not inferred from automatic fixture gates.
+
+Findings: missing 0 / partial 0 / contradicts 0 / unrequested 0; CRITICAL/HIGH/MEDIUM/LOW all 0.
+No new tasks appended. tasks.md remained byte-for-byte unchanged during assessment (SHA256
+df0a0c3e51864204a7d0e2c23a58b599ed38726f805222440f5949831fbb82f9 before and after).
+Known historical R3 wording and optional refusal observer do not leave an unmet v1 requirement; their
+facts and future review triggers remain explicit. Owner-approved reason/checkout criteria are used, not
+an assumed other-PC success. Constitution closure check PASS, no exception.
+
+Converged — the implementation satisfies the spec, plan, and tasks. Spec004 Complete. Next feature:
+Spec005's own specification/implementation cycle, followed by review on feature branches. Main integration
+and the external-PC gate remain separate. This does not complete Spec003 or the whole MVP.

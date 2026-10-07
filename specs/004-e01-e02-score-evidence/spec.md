@@ -1,13 +1,14 @@
 # Feature Specification: E-01·E-02 점수 근거·평가 기준 보존 검증
 
-**Feature Branch**: `004-e01-e02-score-evidence`
+**Feature Branch**: `yeonwoo/004-e01-e02-score-evidence`
 
 **Created**: 2026-10-07
 
-**Status**: Clarified — Clarify 6개 질문이 모두 닫혔다(2026-10-07, 3·5번은 코드로, 1·2·4·6번은 보성 승인). Plan(H-1~H-4
-결정 포함)·Tasks·Analyze 완료(2026-10-07). 다음 단계는 Implement다. 구현·실제 Run 없음.
+**Status**: Complete (2026-10-08) — Clarify·Plan·Tasks·Analyze·T001~T097·actual validation·converge 완료.
+최초 E-01 FAIL 보존 후 승인된 수정 child PASS, 두 번째 clean checkout E-01/E-02 PASS/SUCCEEDED/VERIFIED.
+FR-040/SC-001·006은 owner 승인 ID-004-36을 따른다. 다른 PC/AWS/main 통합은 별도이며 전체 MVP는 미완료다.
 
-**Input**: V4 §10.10 E-01, §10.11 E-02, Decision Log D-013(Spec 004 범위), Spec 003 완료 상태,
+**Input**: V4 §10.10 E-01, §10.11 E-02, Decision Log D-013(Spec 004 범위), Spec 003 구현·actual 검증 기반,
 [Spec 004 소스 기준선](../../docs/research/Spec004_E01_E02_WhyYou_Source_Baseline.md)
 
 ## Clarifications
@@ -205,8 +206,9 @@ Spec 003 US5와 같다. 최초 FAIL은 보존하고 원인 분류 뒤 parent-lin
 
 #### 판정·증적·복구
 
-- **FR-040**: assertion(§E01/E02 Assertion Contract)별 PASS/FAIL/INCONCLUSIVE와 사유 코드를 Spec 003과 같은 판정
-  모델로 낸다. 판정은 시나리오별 Run 단위다. E-01 Run의 전체 PASS는 E01-A1~A4, E-02 Run의 전체 PASS는
+- **FR-040**: assertion(§E01/E02 Assertion Contract)별 PASS/FAIL/INCONCLUSIVE를 Spec 003과 같은 판정
+  모델로 낸다. PASS·FAIL은 detail/expected/actual로 사유를 제시하고, INCONCLUSIVE에는 reason_code를 요구한다
+  (ID-004-36, 제품 책임자 승인). 판정은 시나리오별 Run 단위다. E-01 Run의 전체 PASS는 E01-A1~A4, E-02 Run의 전체 PASS는
   E02-A1~A3이 모두 PASS일 때만.
 - **FR-041**: 변경 주입(근거 제거, deep probe 쓰기, 기준 변경)은 Run 종료 전 원상 복구하거나 Run 소유 teardown으로
   제거하고 안전 상태를 확인한다. 미확인이면 `RESTORE_FAILED`와 차단.
@@ -235,7 +237,7 @@ E01-A* 는 E-01 Run, E02-A* 는 E-02 Run에서만 판정한다.
 | E01-A4 | 근거 복원 뒤 조회가 원상 복구된다 | 복원 receipt·행 digest, 복원 후 조회와 제거 전 조회 비교 |
 | E02-A1 | 리포트가 동결 입력 집합을 자체 보존한다 | 첫 리포트 저장 레코드 |
 | E02-A2 | 새 버전 발행 뒤 과거 리포트가 변하지 않는다 | 변경 전·후 첫 리포트 비교, 두 리포트의 버전 ID·가중치 |
-| E02-A3 | 저장 입력으로 재계산한 총점이 저장값·조회값과 같다 | 독립 재계산 결과와 세 비교 대상 |
+| E02-A3 | 저장 입력으로 재계산한 총점이 저장값·조회값과 같다 | 독립 재계산 결과와 계약의 다섯 비교 대상(ID-004-23) |
 
 보조 deep probe(FR-013)는 assertion이 아니라 진단 관찰 `E01-D1`로 봉인한다.
 
@@ -270,14 +272,15 @@ E-01 작업자 경로의 잘못된 인용 4종과 기준 사례, 보조 deep pro
 
 ### Measurable Outcomes
 
-- **SC-001**: E-01 Run의 E01-A1~A4와 E-02 Run의 E02-A1~A3이 전부 PASS/FAIL/INCONCLUSIVE 중 하나로 판정되고 사유
-  코드가 있다.
+- **SC-001**: E-01 Run의 E01-A1~A4와 E-02 Run의 E02-A1~A3이 전부 PASS/FAIL/INCONCLUSIVE 중 하나로 판정된다.
+  PASS·FAIL은 detail/expected/actual로 사유를 제시하고 INCONCLUSIVE에는 reason_code가 있다(ID-004-36).
 - **SC-002**: 근거 제거·deep probe 쓰기·기준 변경은 Run 종료 전 복구 또는 Run 소유 teardown으로 제거되고 안전 상태가
   확인된다. 미확인 시 차단된다.
 - **SC-003**: E-01·E-02 각 Run은 540초, 봉인·검증까지 600초 안에 끝난다(Spec 003 시간 정책 재사용).
 - **SC-004**: 봉인 bundle이 VERIFIED이고 모든 파일이 redaction 계약을 통과한다.
 - **SC-005**: 최초 Run의 FAIL은 원인 분류(TARGET/RUNNER/RESTORE_OPERATOR) 뒤 child로만 재시험된다.
-- **SC-006**: 팀원 PC에서 preflight와 시나리오별 Run 1건(E-01, E-02)이 재현되고 이식성 결함이 기록된다.
+- **SC-006**: 두 번째 깨끗한 checkout 또는 팀원 PC에서 preflight와 시나리오별 Run 1건(E-01, E-02)이 재현되고
+  이식성 결함이 기록된다(T097, ID-004-36). 같은 PC의 새 checkout 재현을 다른 PC 검증으로 표기하지 않는다.
 - **SC-007**: 모든 E-01·E-02 결과는 fixture 입력·외부 AI 차단·사용한 고정 모델 fixture ID를 한계로 표시한다.
 
 ## Assumptions

@@ -6,11 +6,14 @@
 적용하도록 하는 실행 가이드다. 현재 상태를 파악할 때는 `docs/TEAM_HANDOFF.md`, 작업 방법을 파악할
 때는 이 문서를 따른다.
 
-현재 checkpoint(2026-10-08): Spec 004 T001~T088 완료(T087 NOT_REQUIRED), 다음 T089~T097.
-E-01 최초 FAIL 보존 후 WhyYou PR #8 병합 `374b122`에서 공식 child A1~A4 PASS·복구 성공·VERIFIED.
-E-02 최초 공식 PASS는 `ce8d862`에서의 결과이며 `374b122`은 preflight READY만 확인했다.
-세부 실행 source·manifest·한계는 [Spec 004 validation](../specs/004-e01-e02-score-evidence/validation.md)의
-최신 T088 기록을 따른다. Spec 전체 미완료, AWS NOT_RUN.
+현재 checkpoint(2026-10-08): Spec 004 T001~T097 및 converge 완료(T087 NOT_REQUIRED), Complete.
+E-01 최초 FAIL·D1-only FAIL을 보존한 공식 수정 child PASS; 새 checkout E-01 4030503c…와 E-02
+970108fe…가 WhyYou 374b122에서 실제 PASS/SUCCEEDED/VERIFIED, 잔여행 0이다.
+최종 CP full 939 PASS 한 번, WhyYou scoped 188 PASS; 이후 wrapper 이식성 수정 setup scoped 12 PASS.
+상세 source·manifest·시간·명령은 [Spec 004 validation](../specs/004-e01-e02-score-evidence/validation.md)
+마지막 closure를 따른다. 재현은 해당 quickstart/spec004_local.py를 사용한다. 다음 기능은 Spec 005다.
+승인된 SC-006은 두 번째 clean checkout을 허용한다(ID-004-36/D-017). 다른 PC와 AWS는 미검증이며,
+아래 main 통합용 독립 PC gate는 별도다. Spec 003의 INCONCLUSIVE/최종 converge 대기는 유지한다.
 
 ## 2. 새 세션의 필수 입력 순서
 

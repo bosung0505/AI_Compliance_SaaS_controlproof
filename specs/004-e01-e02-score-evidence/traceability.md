@@ -1,7 +1,7 @@
 # Traceability: E-01·E-02 점수 근거·평가 기준 보존 검증
 
-**Status**: 최초 공식 Run source/result/manifest 매핑 고정(T082). 전체 FR/SC 산출물 매핑 마감은 T093에 남아 있다.
-아래 초기 결과와 assertion/EV4 열이 실제 기록이며, 아직 비어 있는 마감 열을 PASS로 해석하지 않는다.
+**Status**: T093 FR/SC/US/assertion/EV4 매핑 마감. 아래 초기 결과 표는 변경하지 않은 역사 기록이다.
+현재 근거는 마지막 closure 별칭 표를 따른다. SC-001·006은 제품 책임자가 승인한 ID-004-36 기준을 따른다.
 
 경로 약어: `tests/u` = `tests/unit`, `tests/c` = `tests/contract`, `tests/i` = `tests/integration`, `adp` =
 `engine/adapters/whyyou`, `WY` = `../gbsa_aws/backend`.
@@ -13,41 +13,41 @@ projection은 `report-records.jsonl`에 넣지 않으며 fixture는 요건 평�
 
 | ID | 요약 | Task | Test | 구현 | 실제 산출물 |
 |---|---|---|---|---|---|
-| FR-001 | LOCAL_EMULATED 격리 대상, preflight 계약 | T001, T015, T042, T047, T059, T066, T079 | tests/c/test_cli_spec004_profile.py, tests/c/test_cli_spec004.py | engine/config.py, adp/adapter.py, engine/cli.py | |
-| FR-002 | Run 소유 합성 데이터, Run 소유 행만 제거 | T012, T030, T036 | tests/u/test_models_spec004.py, tests/c/test_spec004_seed_adapter.py | adp/spec004_seed.py, seeds/spec004_subjects.py | |
-| FR-003 | fixture 위 실제 보고서, 한계 표시 | T030, T037, T062, T065, T072 | tests/c/test_spec004_seed_adapter.py, tests/c/test_presentation_spec004.py | adp/spec004_seed.py, adp/report_records.py, engine/presentation.py | |
-| FR-004 | 보고서 요청 전 제품 API 동의 | T034, T040 | tests/i/test_e01_citation_orchestration.py, tests/i/test_e02_orchestration.py | engine/executors/report_lanes.py | |
-| FR-010 | 인용 모드 fixture로 다섯 입력, 원래 출력·저장 수집 | T023, T025~T027, T032, T037, T038, T040, T073 | WY/tests/unit/runtime/test_controlproof_model_substitute.py, tests/c/test_spec004_model_emission_adapter.py | WY/src/interview_evidence/runtime/controlproof_model_substitute.py, adp/model_emission.py, engine/executors/e01.py | |
-| FR-011 | 저장 레코드로 판정, 출력 불일치는 INCONCLUSIVE | T033, T041 | tests/u/test_judge_e01_citation.py | engine/judges/e01.py | |
-| FR-012 | 타 지원자 ID는 참조 lane 실제 ID, 타 기준 ID는 같은 호출 기억 | T024, T030, T035, T036 | WY/tests/unit/runtime/test_controlproof_model_substitute.py, tests/c/test_spec004_seed_adapter.py | WY/.../controlproof_model_substitute.py, seeds/spec004_subjects.py | |
-| FR-013 | deep probe는 진단 E01-D1, 원복 | T044, T045, T047~T049, T077 | tests/c/test_spec004_evidence_mutation_adapter.py, tests/u/test_judge_e01_removal.py | adp/evidence_mutation.py, engine/judges/e01.py | |
-| FR-020 | 자막 구간 직접 삭제, 세 번 조회 | T044, T047, T048, T076 | tests/c/test_spec004_evidence_mutation_adapter.py | adp/evidence_mutation.py, engine/executors/e01.py | |
-| FR-021 | 근거 부족 미노출·다른 항목 변화 FAIL | T045, T049 | tests/u/test_judge_e01_removal.py | engine/judges/e01.py | |
-| FR-022 | 같은 값 재삽입, 실패는 RESTORE_FAILED·차단 | T044~T046, T050 | tests/i/test_e01_removal_restore.py | adp/evidence_mutation.py, engine/execution.py | |
-| FR-030 | 첫 보고서 동결 입력 수집 | T053, T058 | tests/u/test_judge_e02.py | engine/judges/e02.py | |
-| FR-031 | 제품 API 버전 생성·발행, 최신 발행 버전 묶음 | T052, T054~T056, T075 | tests/c/test_spec004_criteria_version_adapter.py, tests/i/test_e02_orchestration.py | adp/criteria_versions.py, scenarios/E-02.yaml | |
-| FR-032 | 첫 보고서 불변, 두 번째 전제 | T053, T054, T057 | tests/u/test_judge_e02.py | engine/executors/e02.py | |
-| FR-033 | 독립 재계산, 세 비교 대상 | T003, T009, T017, T053, T058, T074 | tests/u/test_e02_scoring_copy.py, tests/u/test_judge_e02.py | engine/judges/e02_scoring.py, engine/judges/e02.py | |
-| FR-034 | 원본 blob 고정, drift는 RUNNER_NOT_READY | T009, T015, T017, T052, T055, T059 | tests/u/test_e02_scoring_copy.py, tests/c/test_spec004_criteria_version_adapter.py | engine/judges/e02_scoring.py, adp/criteria_versions.py | |
-| FR-040 | assertion별 판정, 시나리오별 전체 PASS | T006, T013, T061, T066 | tests/c/test_scenario_profile_v4.py, tests/i/test_spec004_verdict_matrix.py | engine/scenario.py, engine/judges/e01.py, engine/judges/e02.py | |
-| FR-041 | 변경 주입 복구·안전 상태 | T046, T048, T050, T054 | tests/i/test_e01_removal_restore.py, tests/i/test_e02_orchestration.py | engine/executors/e01.py, engine/executors/e02.py, engine/execution.py | |
-| FR-042 | 봉인·검증·redaction, 텍스트는 해시만 | T007, T010, T018, T064, T067, T090, T095 | tests/c/test_bundle_profile_spec004.py, tests/u/test_redaction_security.py, tests/i/test_spec004_bundle_links.py | engine/evidence.py | |
-| FR-043 | profile·Run·bundle·계보 분리 | T006, T008, T011, T013, T020 | tests/c/test_cli_spec004_profile.py, tests/i/test_spec003_v3_regression.py | engine/cli.py, engine/runner.py | |
-| FR-050 | 최초 결과 봉인·원인 분류 | T004, T078, T080~T084 | — (actual Run) | specs/004-e01-e02-score-evidence/implementation-decisions.md | |
-| FR-051 | P1 대상 결함 시 승인된 최소 수정 | T076, T085~T087 | WY/tests/unit/reporting/test_report_view_contract.py (조건부) | WY/src/interview_evidence/reporting/… (조건부) | |
-| FR-052 | 보완 뒤 child만 | T070, T071, T088 | tests/i/test_spec004_retest_lineage.py | engine/retest.py | |
+| FR-001 | LOCAL_EMULATED 격리 대상, preflight 계약 | T001, T015, T042, T047, T059, T066, T079 | tests/c/test_cli_spec004_profile.py, tests/c/test_cli_spec004.py | engine/config.py, adp/adapter.py, engine/cli.py | Q1/Q2 preflight READY 18/18·16/16/MATCH; spec004-capabilities.json, environment.snapshot.json, target.snapshot.json |
+| FR-002 | Run 소유 합성 데이터, Run 소유 행만 제거 | T012, T030, T036 | tests/u/test_models_spec004.py, tests/c/test_spec004_seed_adapter.py | adp/spec004_seed.py, seeds/spec004_subjects.py | Q1/Q2 spec004-lanes.json, subjects.json, recovery.json; 재현 DB 7개 핵심 테이블 잔여행 모두 0 |
+| FR-003 | fixture 위 실제 보고서, 한계 표시 | T030, T037, T062, T065, T072 | tests/c/test_spec004_seed_adapter.py, tests/c/test_presentation_spec004.py | adp/spec004_seed.py, adp/report_records.py, engine/presentation.py | Q1/Q2 report-records.jsonl, model-emissions.jsonl(E-01); run/show의 fixture·고정 모델·외부 AI 차단 한계 |
+| FR-004 | 보고서 요청 전 제품 API 동의 | T034, T040 | tests/i/test_e01_citation_orchestration.py, tests/i/test_e02_orchestration.py | engine/executors/report_lanes.py | Q1/Q2 observations.jsonl, recovery.json의 CONSENT_COMMIT_RESPONSE_RECEIVED → REPORT_REQUESTED 단계 |
+| FR-010 | 인용 모드 fixture로 다섯 입력, 원래 출력·저장 수집 | T023, T025~T027, T032, T037, T038, T040, T073 | WY/tests/unit/runtime/test_controlproof_model_substitute.py, tests/c/test_spec004_model_emission_adapter.py | WY/src/interview_evidence/runtime/controlproof_model_substitute.py, adp/model_emission.py, engine/executors/e01.py | Q1 citation-cases.jsonl, model-emissions.jsonl, report-records.jsonl: 다섯 모드, 네 무효 모드 EMPTIED/VALID STORED_VALID |
+| FR-011 | 저장 레코드로 판정, 출력 불일치는 INCONCLUSIVE | T033, T041 | tests/u/test_judge_e01_citation.py | engine/judges/e01.py | Q1 E01-A1/A2 PASS; assertions.json의 expected/actual/detail와 원본 출력·저장 연결; 충돌 분기는 판정 단위시험 |
+| FR-012 | 타 지원자 ID는 참조 lane 실제 ID, 타 기준 ID는 같은 호출 기억 | T024, T030, T035, T036 | WY/tests/unit/runtime/test_controlproof_model_substitute.py, tests/c/test_spec004_seed_adapter.py | WY/.../controlproof_model_substitute.py, seeds/spec004_subjects.py | Q1 spec004-lanes.json, citation-cases.jsonl, report-records.jsonl의 참조 불변/타 기준 ID 소유권 |
+| FR-013 | deep probe는 진단 E01-D1, 원복 | T044, T045, T047~T049, T077 | tests/c/test_spec004_evidence_mutation_adapter.py, tests/u/test_judge_e01_removal.py | adp/evidence_mutation.py, engine/judges/e01.py | R3/R4/Q1 storage-probe.json, report-reads.jsonl, change-injections.jsonl: 네 모드 관찰·원복; 최초 R1 미관찰은 보존 |
+| FR-020 | 자막 구간 직접 삭제, 세 번 조회 | T044, T047, T048, T076 | tests/c/test_spec004_evidence_mutation_adapter.py | adp/evidence_mutation.py, engine/executors/e01.py | R1/R4/Q1 change-injections.jsonl, report-reads.jsonl: 자막 구간 1행 실제 제거·세 단계 조회 |
+| FR-021 | 근거 부족 미노출·다른 항목 변화 FAIL | T045, T049 | tests/u/test_judge_e01_removal.py | engine/judges/e01.py | R1 A3 FAIL → R4/Q1 A3 PASS; report-reads.jsonl의 affected Evidence true→false→true·다른 항목 불변 |
+| FR-022 | 같은 값 재삽입, 실패는 RESTORE_FAILED·차단 | T044~T046, T050 | tests/i/test_e01_removal_restore.py | adp/evidence_mutation.py, engine/execution.py | R4/Q1 E01-A4 PASS; change-injections.jsonl 전후 행 digest·report-records/read 동일; 복구 실패 차단은 restore 시험 |
+| FR-030 | 첫 보고서 동결 입력 수집 | T053, T058 | tests/u/test_judge_e02.py | engine/judges/e02.py | Q2 frozen-inputs.json, report-records.jsonl, assertions.json E02-A1 PASS |
+| FR-031 | 제품 API 버전 생성·발행, 최신 발행 버전 묶음 | T052, T054~T056, T075 | tests/c/test_spec004_criteria_version_adapter.py, tests/i/test_e02_orchestration.py | adp/criteria_versions.py, scenarios/E-02.yaml | Q2 criteria-versions.json, recovery.json VERSION_CREATED/PUBLISHED; 두 번째 보고서 v2 ID/가중치 |
+| FR-032 | 첫 보고서 불변, 두 번째 전제 | T053, T054, T057 | tests/u/test_judge_e02.py | engine/executors/e02.py | Q2 E02-A2 PASS; report-records.jsonl PRE_CHANGE/POST_CHANGE와 report-reads.jsonl 불변 |
+| FR-033 | 독립 재계산, 다섯 비교 대상 | T003, T009, T017, T053, T058, T074 | tests/u/test_e02_scoring_copy.py, tests/u/test_judge_e02.py | engine/judges/e02_scoring.py, engine/judges/e02.py | Q2 recompute.json: 두 보고서 72.5→72/73.5→74, 5개 비교 대상 모두 equal; 독립 사본으로 verify 재계산 |
+| FR-034 | 원본 blob 고정, drift는 RUNNER_NOT_READY | T009, T015, T017, T052, T055, T059 | tests/u/test_e02_scoring_copy.py, tests/c/test_spec004_criteria_version_adapter.py | engine/judges/e02_scoring.py, adp/criteria_versions.py | Q2 recompute.json·spec004-capabilities.json의 pinned source blob 2개/MATCH; drift 거부는 copy/CLI 계약시험 |
+| FR-040 | assertion별 판정, 시나리오별 전체 PASS | T006, T013, T061, T066 | tests/c/test_scenario_profile_v4.py, tests/i/test_spec004_verdict_matrix.py | engine/scenario.py, engine/judges/e01.py, engine/judges/e02.py | Q1 E01-A1~A4/Q2 E02-A1~A3 PASS, assertions/judgement/show; ID-004-36 승인된 공통 사유 계약 |
+| FR-041 | 변경 주입 복구·안전 상태 | T046, T048, T050, T054 | tests/i/test_e01_removal_restore.py, tests/i/test_e02_orchestration.py | engine/executors/e01.py, engine/executors/e02.py, engine/execution.py | Q1/Q2 recovery.json·change-injections.jsonl SUCCEEDED, 잔여행 0; 실패 시 차단은 scoped restore/timing 시험 |
+| FR-042 | 봉인·검증·redaction, 텍스트는 해시만 | T007, T010, T018, T064, T067, T090, T095 | tests/c/test_bundle_profile_spec004.py, tests/u/test_redaction_security.py, tests/i/test_spec004_bundle_links.py | engine/evidence.py | R1~R4/Q1/Q2 VERIFIED, 112개 bundle 파일 redaction 통과; T090 192/T091 939 PASS·T095 추적파일 366개 스캔 |
+| FR-043 | profile·Run·bundle·계보 분리 | T006, T008, T011, T013, T020 | tests/c/test_cli_spec004_profile.py, tests/i/test_spec003_v3_regression.py | engine/cli.py, engine/runner.py | Q1/Q2 별도 Run·profile·YAML·manifest; R3/R4 retest-link.json, retest-diff.json; N-02 회귀 포함 full 939 |
+| FR-050 | 최초 결과 봉인·원인 분류 | T004, T078, T080~T084 | — (actual Run) | specs/004-e01-e02-score-evidence/implementation-decisions.md | R1 A3 TARGET_CONTROL_DEFECT·D1 RUNNER_OR_OBSERVER_DEFECT 봉인; R2 PASS; ID-004-30/34와 T083 분류 |
+| FR-051 | P1 대상 결함 시 승인된 최소 수정 | T076, T085~T087 | WY/tests/unit/reporting/test_report_view_contract.py (조건부) | WY/src/interview_evidence/reporting/… (조건부) | R1 A3 실제 FAIL 후 승인 ID-004-30, WhyYou PR #8 6파일 b15ba8a→374b122; R4 A3 PASS |
+| FR-052 | 보완 뒤 child만 | T070, T071, T088 | tests/i/test_spec004_retest_lineage.py | engine/retest.py | R1→R3/R4 retest-link.json/retest-diff.json, fresh identity; R1~R4 해시/등록 파일 불변 재검증 |
 
 ## Success Criteria
 
 | ID | 요약 | Task | Test | 실제 산출물 |
 |---|---|---|---|---|
-| SC-001 | 모든 assertion 판정·사유 코드 | T061, T068, T080, T081 | tests/i/test_spec004_verdict_matrix.py | |
-| SC-002 | 변경 주입 복구·차단 | T046, T050, T054, T089 | tests/i/test_e01_removal_restore.py, tests/i/test_spec004_timing.py | |
-| SC-003 | Run 540초, verify 포함 600초 | T006, T073, T075, T089, T092 | tests/i/test_spec004_timing.py | |
-| SC-004 | bundle VERIFIED, redaction | T007, T010, T064, T090, T095 | tests/i/test_spec004_bundle_links.py | |
-| SC-005 | FAIL은 분류 뒤 child | T070, T078, T083, T088 | tests/i/test_spec004_retest_lineage.py | |
-| SC-006 | 팀원 PC 재현 | T079, T092, T096, T097 | — (actual) | |
-| SC-007 | 한계 표시 | T023, T062, T065 | tests/c/test_presentation_spec004.py | |
+| SC-001 | 모든 assertion 판정·사유/INCONCLUSIVE 코드 | T061, T068, T080, T081 | tests/i/test_spec004_verdict_matrix.py | Q1 4개/Q2 3개 assertion PASS·expected/actual/detail; INCONCLUSIVE만 reason_code인 승인된 공통 계약(ID-004-36) |
+| SC-002 | 변경 주입 복구·차단 | T046, T050, T054, T089 | tests/i/test_e01_removal_restore.py, tests/i/test_spec004_timing.py | Q1/Q2 restore SUCCEEDED, 복구 0.319454/0.182834초, teardown 성공·7테이블 0; 실패 차단은 timing/restore 시험 |
+| SC-003 | Run 540초, verify 포함 600초 | T006, T073, T075, T089, T092 | tests/i/test_spec004_timing.py | Q1 Run 33.161404초·수정/재검증 포함 343.613371초; Q2 Run 23.089785초·전체 38.4084182초; verify 2.297/2.406초 |
+| SC-004 | bundle VERIFIED, redaction | T007, T010, T064, T090, T095 | tests/i/test_spec004_bundle_links.py | R1~R4/Q1/Q2 VERIFIED/112파일 redaction 통과; 366 tracked 파일 실키/사용자 절대경로/개인키 검사 clean |
+| SC-005 | FAIL은 분류 뒤 child | T070, T078, T083, T088 | tests/i/test_spec004_retest_lineage.py | R1 A3 FAIL·R3 A3 FAIL 유지, 승인된 R4 A3 PASS; 별도 checkpoint 재현 Q1/Q2는 최초 결과 대체 아님 |
+| SC-006 | 두 번째 checkout 또는 팀원 PC 재현 | T079, T092, T096, T097 | — (actual) | T097 두 번째 clean checkout Q1/Q2 actual 재현 완료·이식성 결함 2건 기록; ID-004-36 승인, 다른 PC 미검증 |
+| SC-007 | 한계 표시 | T023, T062, T065 | tests/c/test_presentation_spec004.py | Q1/Q2 run/show environment=LOCAL_EMULATED, spec004-report-v1/digest·fixture 입력·EXTERNAL_AI_BLOCKED·AWS NOT_RUN |
 
 ## Assertions and diagnostic
 
@@ -157,3 +157,39 @@ Live API/worker result is separate from T086 automatic gates. Raw child and comm
 remain in workspace cp-local/spec004-official/runs/ and commands/t088-p1-child/, outside Git. Earlier
 tables remain original checkpoint facts. E-02 has no new actual Run at 374b122; its ce8d862 PASS remains.
 Full FR/SC mapping and quality/reproduction/closure T089~T097 still pending; Spec 004 not Complete.
+
+
+## T093 — closure artifact aliases and acceptance mapping (2026-10-08)
+
+| Alias | Run ID / kind | CP / WhyYou source | Manifest SHA-256 |
+|---|---|---|---|
+| R1 | 09c9d9bb-82a3-4485-9c9d-e9721f2452e4 / first E-01 FAIL | 8c266f5 / ce8d862 | 7f622a3381e6c03dac907f55604f1f82c03e5101e33736b4f22bde50cc8475b2 |
+| R2 | e39e62ae-be73-4e52-8cab-1f878637a0c6 / first E-02 PASS | 8c266f5 / ce8d862 | e6b74b7e78fa40a77d0c3c99315592e2e7713e9891d43f68b8d4b437d2d28364 |
+| R3 | ec0c895d-4617-457a-94ce-7d0198e1c6a5 / D1-only child FAIL | 69d3c00 / ce8d862 | 606cf7a0d70bc1a8cfef3743fca2c7b95334e88dcd1a0e58acd65cd975f3250f |
+| R4 | a5ad4676-333b-44d0-8657-95ab434f3b3d / approved P1 child PASS | 8bbf36c / 374b122 | 3d49961f865cfe6a3917d8d5c6f51e8f82b4c32d26922d825b2331e833a895bf |
+| Q1 | 4030503c-a24c-42f9-b926-7aba49b4c467 / clean-checkout E-01 PASS | ca3df77 / 374b122 | 3c35ba8e682ac47b62e50dd981611cde37ec28a31ab14effd3074617d8a530ec |
+| Q2 | 970108fe-8eae-4ce0-b230-400887ba3e24 / clean-checkout E-02 PASS | f75ada7 / 374b122 | 1053a9396e788740af970f1c7e466d6bed8f2e32919347cc5b9f0dc9cdb0253a |
+
+R1~R4 source SHAs are expanded in their historical tables. Q1 CP source
+ca3df77f9377a346575e10818bf9f389d8bc470e; Q2 f75ada7172fc48802e231d24e08886de4292c276;
+both WhyYou 374b122e1296c0159ccd88ed4763d358973c59cb. Q1 show/verify were repaired at f75ada7
+without rerunning or rewriting Q1. All six VERIFIED/SUCCEEDED, initial FAILs unchanged.
+
+Raw R1~R4: workspace cp-local/spec004-official/runs/. Q1/Q2: workspace
+.pr-review/20261008/closure/reproduction/cp-local/spec004-local/repro/runs/.
+These paths are local evidence inventories, not committed bundles or guarantees that a pull contains them.
+Closure inspection journal: .pr-review/20261008/closure/closure-audit.json.
+
+| Story / acceptance | Actual artifacts | Tests / implementation |
+|---|---|---|
+| US1 AC1~4 invalid/valid citations and reference invariance | Q1 EV4-02/03/04; E01-A1/A2 PASS | T023~041; model fixture, seed/model emission adapters, e01 citation judge |
+| US1 AC5 diagnostic separate from verdict | Q1 storage-probe.json/EV4-05/09; D1 four modes, no assertion | T044~049/T084; e01 executor/removal judge/presentation |
+| US2 AC1~4 insufficiency, bounded change, exact restore, safety | R1 A3 FAIL then R4/Q1 A3/A4 PASS; EV4-04/05/09 | T044~050/T085~088; mutation adapter, WhyYou availability, e01 judge |
+| US3 AC1~4 frozen inputs, versions, invariance, independent calculation, sealing | Q2 E02-A1~A3 PASS; EV4-04/06/07/08/09/10 | T052~060/T067; criteria version adapter, scoring copy, e02 judge/executor |
+| US4 projections/limits | Q1/Q2 run/show/verify; EV4-01/10 | T061~069/T090; CLI/presentation/evidence |
+| US5 first truth/classification/approved remedy/child | R1→R3/R4 with unchanged original manifest | T070~071/T080~088; retest and decision log |
+
+All 23 FR and 7 SC rows have task/test/implementation or an explicit manual gate plus actual artifact
+references. Automatic negative-path gates do not claim an actual WhyYou failure. Full gate 939 PASS;
+WhyYou scoped 188 PASS; observed wrapper fixes have separate scoped setup 12 PASS. AWS and another PC
+remain unverified. Owner explicitly approved both criterion clarifications (ID-004-36); no sealed result was changed.

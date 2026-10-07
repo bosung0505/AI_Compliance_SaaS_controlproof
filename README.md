@@ -63,12 +63,12 @@ ControlProof 웹 UI가 완성됐다는 뜻이 아니며, 현재 사용자 접점
 | 순서 | 상태 | 범위 |
 |---|---|---|
 | Spec 003 | 구현·actual validation 기록 완료, PR 검토 보완 | T001~T093 기록 완료. 실제 child `7b59237e…`는 A1~A4·A6 PASS, A5·A7 INCONCLUSIVE. 2026-10-07 검토에서 복구 시간·A7 원본 증거·H-03 동의 seed 보완; 최신 회귀는 validation 참조. 최종 converge 전이며 Spec 전체 Complete 또는 실제 N-02 PASS로 선언하지 않는다. |
-| Spec 004 | T001~T088 완료, 종료 gate 대기 | 최초 공식 E-01 FAIL 보존 → PR #8 수정 후 child `a5ad4676…` A1~A4 PASS·복구 성공·VERIFIED. E-02 최초 공식 PASS(`ce8d862`); 최신 WhyYou `374b122`에서는 preflight READY만 확인. 다음 T089~T097 품질·독립 재현·converge, Spec 전체 미완료. |
+| Spec 004 | Complete | T001~T097 및 converge 완료(T087 NOT_REQUIRED). 최초 E-01 FAIL 보존 → 승인 수정 child PASS; WhyYou 374b122에서 새 checkout E-01 4030503c…·E-02 970108fe… 실제 PASS/SUCCEEDED/VERIFIED, 잔여행 0. 전체 CP 939 PASS·WhyYou scoped 188 PASS. 다른 PC·AWS는 미검증. |
 | Spec 005 | 계획 확정·미착수 | 웹 워크벤치·12개 시나리오 카탈로그·보고서와 웹 UX 검토 |
 
 WhyYou 연결 기반을 별도 Spec으로 먼저 만들지 않는다. 각 시나리오에 필요한 capability를 해당 Spec의
 수직 흐름 안에서 구현한다. 또한 세 Spec 문서만 먼저 완성한 뒤 개발하는 방식이 아니라, Spec 003의
-명세→구현→실제 검증을 닫은 뒤 Spec 004, Spec 005 순으로 같은 사이클을 반복한다.
+Spec 004는 명세→구현→실제 검증→converge를 닫았다. 다음 기능은 Spec 005 웹 워크벤치·보고서이며, 별도 사이클로 시작한다.
 
 Spec 001·002의 actual Run은 현재 한 PC에서만 수행됐다. main 통합 전 다른 팀원이 새 checkout에서
 `H03_DLQ_V2` 한 건을 재현해 source SHA·manifest SHA-256·restore 결과를 Validation에 추가해야 한다.
@@ -216,3 +216,20 @@ CLI 결과 검토 정책과 웹 UX 이관 결정은
 - `scenarios/H-03.yaml`: Spec 001 버전 고정 시나리오
 - `scenarios/H-03-DLQ.yaml`, `E-03-BEFORE.yaml`, `E-03-AFTER.yaml`: Spec 002 profile snapshot
 - `tests/`: 단위, 계약, 통합 및 합성 bundle case
+
+
+## Spec 004 완료 checkpoint (2026-10-08)
+
+ControlProof 전달 브랜치 `yeonwoo/004-e01-e02-score-evidence`; 실행 코드 checkpoint
+`f75ada7172fc48802e231d24e08886de4292c276` (Q1 실제 실행은 ca3df77, Q2는 f75ada7).
+WhyYou `bosung/controlproof-n02-integration`:
+`374b122e1296c0159ccd88ed4763d358973c59cb`. 이후 문서 마감 commit을 Run source로 바꿔 적지 않는다.
+
+재현은 [Spec 004 Quickstart](specs/004-e01-e02-score-evidence/quickstart.md) 하나를 따른다.
+`scripts/spec004_local.py`가 별도 합성 DB·큐·고정 모델 API/작업자를 기동한다. 실제 AI 키와 `.env`는 필요 없다.
+원본 bundle은 Git에 포함되지 않는다. 두 브랜치를 pull하고 새 Run을 만들어 확인하며, 상세 Run ID·manifest·시간·
+명령·이식성 수정·한계는 [Validation](specs/004-e01-e02-score-evidence/validation.md) 마지막 closure 기록에 있다.
+
+같은 PC의 두 번째 clean checkout 재현은 승인된 SC-006 기준을 충족한다(ID-004-36/D-017).
+다른 PC 재현과 main 통합 승인은 별도이며 아직 완료되지 않았다. AWS NOT_RUN, 전체 MVP 미완료,
+Spec 003의 INCONCLUSIVE·최종 converge 대기도 그대로다.

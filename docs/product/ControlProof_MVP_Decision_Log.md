@@ -272,3 +272,16 @@
 - 변경 이유와 근거
 - V4, Product Brief, Constitution, 기능 Spec, 코드와 시험에 미치는 영향
 - 변경 승인자와 날짜
+
+
+## D-017. Spec 004 마감 기준 명확화와 검증 범위
+
+- 상태: 확정, 2026-10-08. 제품 책임자가 두 구체적 선택에 "두 문구를 위 방향으로 확정하고 완료"로 승인했다.
+- 결정: FR-040/SC-001은 기존 공통 판정 계약을 따른다. PASS·FAIL은 detail/expected/actual로 사유를 제시하며,
+  INCONCLUSIVE에만 reason_code를 요구한다. 기존 봉인 증적에 코드를 추가하거나 verdict를 바꾸지 않는다.
+- 결정: SC-006은 T097에 이미 허용된 두 번째 깨끗한 checkout 또는 팀원 PC 재현으로 명확화한다.
+  이번 E-01/E-02 재현은 같은 PC의 별도 source checkout·합성 DB/큐/프로세스에서 수행했다. 다른 PC는 미검증이다.
+- 영향: Spec 004의 완료 판정에는 해당 재현을 인정한다. main 병합 전 다른 팀원의 독립 PC gate와 별도 승인,
+  AWS NOT_RUN, 외부 AI 차단·고정 모델의 주장 한계는 그대로 유지한다. 전체 MVP·Spec 003 완료로 확대하지 않는다.
+- 증거: Q1 4030503c…·Q2 970108fe… 실제 PASS/SUCCEEDED/VERIFIED, 잔여행 0; 원본 FAIL과 parent-child 계보 보존.
+- 재검토 조건: 별도 배포 환경, 다른 PC 또는 실모델 품질까지 주장할 때 그 환경의 새 actual validation을 요구한다.

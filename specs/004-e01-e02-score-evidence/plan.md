@@ -1,10 +1,10 @@
 # Implementation Plan: E-01·E-02 점수 근거·평가 기준 보존 검증
 
-**Branch**: `004-e01-e02-score-evidence`
+**Branch**: `yeonwoo/004-e01-e02-score-evidence`
 **Date**: 2026-10-07
 **Spec**: [spec.md](./spec.md)
-**Status**: Plan 완료. 판단 보류 H-1~H-4는 2026-10-07 보성 결정으로 닫혔다(§Plan Decisions). 다음은 Tasks·Analyze.
-구현·실제 Run 없음.
+**Status**: Complete (2026-10-08). H-1~H-4 결정과 승인된 조건부 보완을 구현·actual 검증·converge까지 마쳤다.
+T001~T097 완료, 실제 E-01/E-02 PASS·복구·VERIFIED. 다른 PC/AWS/main 통합은 별도다.
 
 ## Summary
 
@@ -96,7 +96,7 @@ lane enum(`E01LaneId`, `E02LaneId`)을 받도록 넓히고 profile이 허용하�
 | `E01_REFERENCE` | Run seed(직접) | 1개, `VALID` | 보고서 생성, 이후 불변 확인 | A1(참조 불변), 다른 지원자 ID 공급 |
 | `E01_CITATION_MATRIX` | Run seed(참조 보고서 뒤) | 5개: `VALID`, `EMPTY`, `NONEXISTENT`, `OTHER_APPLICANT`, `OTHER_CRITERION`→`VALID` | 보고서 생성 | A1, A2 |
 | `E01_EVIDENCE_REMOVAL` | Run seed(직접) | 2개, 둘 다 `VALID` | 보고서 생성 → 기준 1 근거 자막 구간 제거 → 조회 → 복원 → 조회 | A3, A4 |
-| `E01_STORAGE_PROBE` | Run seed(직접) | 1개, `VALID` | 보고서 생성 → 축 JSON 직접 쓰기 4종 → 조회 → 원복 | D1(진단) |
+| `E01_STORAGE_PROBE` | Run seed(직접) | 2개, 둘 다 `VALID` (T084, ID-004-34) | 두 번째 항목 Evidence로 타 기준 모드 포함 축 JSON 쓰기 4종 → 조회 → 원복 | D1(진단) |
 | `E02_FIRST_APPLICANT` | 제품 API v1(생성·발행) | 2개, 가중치 v1, 축 가중치 v1 | 보고서 생성 → 변경 전 수집 → (v2 발행·두 번째 처리 뒤) 재수집 | A1, A2, A3 |
 | `E02_SECOND_APPLICANT` | 제품 API v2(생성·발행 뒤 최신 발행 버전) | 2개, 가중치 v2, 축 가중치 v2 | 보고서 생성 | A2(전제), A3 |
 
@@ -128,7 +128,7 @@ E-01 lane은 서로 다른 Run 소유 직무·버전을 가져 기준 표식이 
 5. 제품 API로 v2 생성·발행 → 변경 전·후 버전 스냅샷 수집. 이 단계가 변경 주입이며 복구는 teardown이다.
 6. 최신 발행 버전을 다시 조회해 `E02_SECOND_APPLICANT`를 묶어 seed → 동의 → 보고서.
 7. 첫 보고서 재수집(저장 기록·조회 응답) → 변경 전 projection과 비교, 두 번째 보고서의 버전·가중치 확인.
-8. 두 보고서 각각 독립 재계산 → 세 비교 대상과 대조.
+8. 두 보고서 각각 독립 재계산 → 계약의 다섯 비교 대상과 대조(ID-004-23).
 9. 판정·봉인·verify → teardown(always-run). Run 소유 직무에서 FK로 닿는 버전·기준·직무 요건·초대·세션·보고서만 제거하고
    같은 회사의 다른 직무 버전 digest가 Run 전과 같은지 확인한다.
 
@@ -181,7 +181,8 @@ preflight는 대상 checkout의 두 blob SHA를 읽어 다르면 `RUNNER_NOT_REA
 - E02-A1: 첫 보고서에 동결 입력 집합이 모두 있고 항목 가중치가 v1 값과 같으면 PASS.
 - E02-A2: 두 번째 보고서가 v2 버전 ID·가중치이고(전제), 첫 보고서의 저장·조회 projection이 변경 전과 같으면 PASS.
   전제가 깨지면 INCONCLUSIVE.
-- E02-A3: 두 보고서 모두 재계산이 세 비교 대상과 같으면 PASS.
+- E02-A3: 두 보고서 모두 재계산이 다섯 비교 대상과 같으면 PASS(STORED_OVERALL_SCORE, SCORING_INPUTS,
+  API_OVERALL_SCORE, API_SCORING_BREAKDOWN, API_ITEM_AVERAGE_SCORE; 계약 §E02-A3/ID-004-23).
 
 ### 8. P1(E01-A3 FAIL) 처리 순서
 
@@ -399,7 +400,8 @@ backend/tests/unit/runtime/test_controlproof_model_substitute.py
 
 ## Compatibility and Migration
 
-- WhyYou DB migration·제품 코드 변경 없음. ControlProof는 기존 행을 allowlist projection으로 읽는다.
+- 초기 실행기 구현은 WhyYou DB migration·제품 코드 변경 없이 기존 행을 allowlist projection으로 읽는다.
+  §8의 실제 P1 FAIL 뒤 승인된 조건부 제품 보완은 별도다(T085/T086, ID-004-30, PR #8).
 - scenario v1/v2/v3, bundle profile Spec 001/002/003, 기존 봉인 bundle은 그대로 읽고 검증한다.
 - `.env.example`에 Spec 004 설정(fixture ID 등)을 additive하게 추가하고 실제 secret은 넣지 않는다.
 - WhyYou `h03-report-v1` 동작과 digest를 바꾸지 않는다.
@@ -409,9 +411,16 @@ backend/tests/unit/runtime/test_controlproof_model_substitute.py
 Constitution 위반 예외는 없다. E-01 lane이 4개인 이유는 참조 지원자(타 지원자 ID 공급과 불변 확인), 인용 모드
 matrix, 근거 제거, 진단 쓰기가 서로의 보고서를 오염시키지 않게 하기 위해서다.
 
-## Phase Gate
+## Phase Gate — planning checkpoint (2026-10-07)
 
 Plan 산출물(plan, research, data-model, contracts, quickstart)을 작성했고 H-1~H-4 결정을 반영했다. Tasks(`tasks.md`,
 T001~T097)와 Analyze(`checklists/analysis.md`: CRITICAL 0, HIGH 4·MEDIUM 5 모두 수정)를 2026-10-07에 마쳤다. 다음 단계는
 `$speckit-implement`이며 Phase 1(T001)부터 시작한다. Tasks에서 WhyYou fixture 작업을 ControlProof 작업과 분리한다. Analyze에서 CRITICAL·HIGH와
 해석 차이를 만드는 MEDIUM이 0건일 때만 구현한다.
+
+### Closure checkpoint (2026-10-08)
+
+T001~T097, actual validation와 최종 converge 완료. 초기 Phase Gate 위 문단은 계획 당시 기록이다.
+현재 결과/시간/명령/source/한계는 validation 마지막 closure와 traceability를 따른다.
+SC-001/FR-040 공통 사유 계약 및 SC-006 두 번째 clean checkout 기준은 owner 승인 ID-004-36에 따른다.
+최초 FAIL을 유지하고 수정 child 및 별도 clean-checkout 재현을 구분했다. 다른 PC/AWS/main 통합은 별도다.

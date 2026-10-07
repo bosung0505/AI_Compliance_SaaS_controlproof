@@ -11,7 +11,7 @@
   Spec 003 기반은 `003-n02-consent-order`에 보존되며 현재 기능은 Spec 004다.
   Spec 003 PR #1·WhyYou PR #5는 해당 Spec 통합 브랜치에 병합됐고, Spec 004 WhyYou PR #8도 integration에 병합됐다.
   main 병합은 사용자가 명시적으로 금지했다. 두 현재 전달 브랜치를 pull하며, 실제 Run의 source SHA는 검증 원장의 당시 값으로 유지한다.
-- 이 문서가 설명하는 범위: Spec 001·002 전체, Spec 003 기록·PR 검토 보완, Spec 004 T001~T088 actual 검증
+- 이 문서가 설명하는 범위: Spec 001·002 전체, Spec 003 기록·PR 검토 보완, Spec 004 T001~T097·actual 재현·converge 마감
 - 현재 사용자 접점: 고객용 웹 화면이 아니라 개발·검증용 `controlproof` CLI
 
 이 문서는 상세 요구사항, 기술 계약 또는 실행 원본을 복제하지 않는다. 각 사실의 상세 근거는 아래에
@@ -28,7 +28,7 @@
 | Spec 003 | 구현·actual validation 기록 완료, PR 검토 보완 | T001~T093 기록 완료. child `7b59237e…`는 INCONCLUSIVE. PR 검토에서 복구 시간 오판, A7 재시도 증거 누락, H-03 동의 전제조건을 추가 보완했다(ID-003-19). 최신 자동 회귀 결과는 validation의 PR review closure 참조. Spec 전체 Complete는 아직 선언하지 않는다. |
 | N-02 최초 actual Run | 봉인·검증 완료, 제품 판정 미종결 | 부모 `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`: A1~A3 PASS, A4~A7 개별 FAIL, 전체 `INCONCLUSIVE` (`RESTORE_FAILED` 우선). 19개 파일 bundle `VERIFIED`는 무결성 확인이며 빠진 관찰 사실의 증명은 아니다. 원본 verdict와 bundle은 변경하지 않는다. |
 | N-02 child Run (T084 attempt 3) | 봉인·검증 완료, 제품 판정 `INCONCLUSIVE` | child `7b59237e-0a96-403a-9add-28b91011e950`: A1~A4·A6 PASS, A5·A7 `INCONCLUSIVE`, 복구 `SUCCEEDED`, 차단 없음, 21개 파일 bundle `VERIFIED`, 부모 manifest 불변. 동의 전 세 경계 차단과 장애 원자성·복구는 입증됐고, 동의 뒤 처리 순서는 녹화·AI 평가만 입증됐다. 문서 분석 결과는 격리 대상이 LLM 분석을 못 해서 미입증이다. attempt 1·2(중단·INVALID/RESTORE_FAILED)는 보존된 실행기 결함 증거다. |
-| Spec 004 | T001~T088 완료, 종료 gate 대기 | 최초 E-01 FAIL 봉인 → PR #8 수정 후 child `a5ad4676…` A1~A4 PASS·복구 성공·VERIFIED, D1 네 모드 관찰. E-02 최초 공식 PASS(`ce8d862`); 최신 WhyYou `374b122`은 E-02 preflight READY만 확인. 다음 T089~T097. Spec 전체 미완료. |
+| Spec 004 | Complete | T001~T097 및 converge 완료(T087 NOT_REQUIRED). 최초 E-01 FAIL 보존 → 승인 수정 child PASS; WhyYou 374b122에서 새 checkout E-01 4030503c…·E-02 970108fe… 실제 PASS/SUCCEEDED/VERIFIED, 잔여행 0. 전체 CP 939 PASS·WhyYou scoped 188 PASS. 다른 PC·AWS는 미검증. |
 | Spec 005 | 계획 확정·미착수 | 웹 워크벤치·12개 시나리오 카탈로그·보고서와 웹 UX 검토를 구현·검증한다. |
 | 실제 AWS | `NOT_RUN` | AWS SQS·ECS·IAM·CloudWatch·운영 네트워크는 검증하지 않았다. |
 | ControlProof 웹 워크벤치 | 미구현 | 현재 결과 확인과 재현은 CLI·JSON·봉인 bundle을 사용한다. |
@@ -39,7 +39,7 @@
 | main 통합 | 보류 | 독립 재현 gate 뒤 Spec 001·002를 포함한 현재 브랜치를 검토 가능한 PR로 통합한다. |
 
 따라서 저장소의 공식 상태는 **Spec 001·002 Complete, Spec 003 actual validation 완료·converge 전,
-Spec 004 T001~T088 완료·최종 품질/재현/converge 전**이다.
+Spec 004 Complete(승인된 같은 PC의 두 번째 checkout 재현 포함)**이다.
 child 판정이 `INCONCLUSIVE`(A5·A7 문서 분석 결과 미입증)이므로 WhyYou N-02 PASS로 부르지 않는다.
 T092 문서는 이번 검토 결과로 다시 동기화했다. 전달 브랜치 통합 뒤 최종 converge에서 이 한계와
 검토 보완 후 실제 Run `NOT_RUN`을 명시하고 종료 범위를 확정한다. 추가 실제 시험을 하면 새 child로
@@ -459,31 +459,34 @@ PASS로 바꾸지 않는다. 자동 fixture PASS, API/작업자 readiness, bundl
 ## 12. 다음 작업 순서
 
 Spec 003 Implement와 actual validation(T001~T093)은 끝났고 PR #1(`d0c0e5b`)과 WhyYou PR #5(`eec8f70`)는 병합됐다.
-현재 기능은 Spec 004(`yeonwoo/004-e01-e02-score-evidence`, WhyYou `bosung/controlproof-n02-integration` `374b122`)이며 아래 4번이
-진행 중이다. 1~3번은 Spec 003에 남은 항목이다.
+Spec 004는 현재 작업 브랜치에서 Complete다. 다음 기능은 Spec 005이며, Spec 003 잔여 항목과
+독립 PC/main 통합 gate는 별도로 남는다.
 
-1. **PR과 검토:** `yeonwoo/003-t080-t085` → `003-n02-consent-order` PR을 만든다. 보성은 ID-003-13~18의
-   `PROPOSED`/위임 판단 항목을 최종 확정하고, WhyYou PR jhkim0602/gbsa_aws#5(T083·T082)를 병합 또는 재배치한다.
-   그 PR은 base 브랜치 특성상 CI가 돌지 않으므로 관리자 병합이 필요하다.
-2. **converge:** README, 이 문서, 플레이북, Product Brief, 범위표와 Spec 003 상태가 일치하는지
-   `$speckit-converge` 기준으로 확인한다. child 판정은 `INCONCLUSIVE`이며 PASS로 올려 적지 않는다.
-3. **후속 한계 처리(선택):** 문서 분석 결과까지 입증하려면 WhyYou 고정 모델을 문서 분석·전략 생성 작업까지
-   확장해야 한다(제품 코드 변경, 미승인). H-03 seed에 동의 행을 넣기 전에는 T083이 적용된 대상에서 H-03을
-   재실행하지 않는다.
-4. **Spec 004 (현재):** T001~T088 완료(T087 NOT_REQUIRED). WhyYou PR #8 병합 `374b122` 기준.
-   - 최초 공식 E-01 `09c9d9bb…` FAIL과 D1-only child `ec0c895d…` FAIL은 보존됐다. D1 네 모드는 진단 관찰이다.
-   - 수정 후 공식 child `a5ad4676-333b-44d0-8657-95ab434f3b3d`: A1~A4 PASS, 복구 SUCCEEDED, bundle VERIFIED,
-     잔여 데이터 0. 자막 삭제 시 가용성 false, 복원 후 true; 저장 점수·동결 입력을 바꾸지 않았다.
-   - E-02 최초 공식 `e39e62ae…` PASS(WhyYou `ce8d862`, 72/74·첫 보고서 불변). `374b122`에서 E-02 preflight
-     READY/계산 소스 MATCH만 확인했고 새 E-02 actual Run은 아직 없다. AWS NOT_RUN, Spec 전체 미완료.
-   - 검증 원장: Spec validation 최신 T088. T084 전체 회귀 799 PASS/구형 기대값 1 FAIL 후 해당 계약 scoped 11 PASS;
-     WhyYou 수정 관련 184 PASS·ruff·타입 검사 PASS. 최종 전체 회귀 T091은 남아 있다.
-   - 다음: T089 시간 예산 시험 → T090 보안 corpus → T091 전체 gate → T092 quickstart → T093/T094 추적성·조건부
-     작업 확인 → T095 보안 스캔 → T096 최종 문서 수렴 → T097 두 번째 clean checkout/팀원 재현.
-   - ID-004-30은 승인·구현·actual 검증 완료. ID-004-14(b) observer 확장과 D1-only child의 범용 retest 사유 문구
-     한계는 기록되어 있다. 원본 bundle은 Git 전달 대상이 아니며 새 환경에서는 quickstart로 새 Run을 만든다.
-   - 전달 시 두 현재 작업 브랜치를 pull하고 이 문서와 Spec validation/tasks/decisions를 읽는다. 실행 시점 source SHA와
-     이후 문서 commit을 혼동하지 않는다. 연우 PC 한정 설정은 과거 인계 항목이며 현재 재현의 필수값이 아니다.
+1. **Spec 003 잔여 converge:** PR #1·WhyYou PR #5는 이미 병합됐다. Spec 003의 마지막 actual child는
+   INCONCLUSIVE이며, 최종 converge/Complete 범위 확정은 별도다. 이번 Spec 004 완료로 PASS/Complete로 올리지 않는다.
+2. **다른 PC gate:** main 통합 전 팀원의 H03_DLQ_V2 독립 재현과 별도 승인이 필요하다. main 병합 금지는 유지한다.
+3. **Spec 003 후속 한계(선택):** 문서 분석 결과까지 입증하려면 새로운 고정 모델 경계·승인·actual child가 필요하다.
+   검토 보완 후 actual Run은 NOT_RUN이다. 최신 Spec 003 validation과 ID-003-19를 먼저 읽는다.
+4. **Spec 004 Complete:** T001~T097, 최종 converge 완료(T087 NOT_REQUIRED).
+   - 최초 E-01 09c9d9bb… FAIL·D1-only ec0c895d… FAIL 보존. 수정 후 공식 child a5ad4676… A1~A4 PASS.
+   - WhyYou 374b122에서 새 checkout Q1 4030503c-a24c-42f9-b926-7aba49b4c467 / Q2
+     970108fe-8eae-4ce0-b230-400887ba3e24 실제 PASS/SUCCEEDED/VERIFIED; 7개 핵심 테이블 잔여행 0.
+     D1 네 모드는 진단 관찰이다. E-02 동결·과거 보고서 불변·72/74 재계산도 실제 확인했다.
+   - 실행 source: Q1 CP ca3df77f9377a346575e10818bf9f389d8bc470e; Q2 및 wrapper 수정
+     f75ada7172fc48802e231d24e08886de4292c276; WhyYou 374b122e1296c0159ccd88ed4763d358973c59cb.
+     이후 문서 commit을 실행 source로 바꾸지 않는다.
+   - 최종 full CP 939 PASS(한 번, 294.66초), WhyYou scoped 188 PASS(7.79초). 이후 관찰된 Windows
+     프로세스 inventory와 show/verify 경로 수정은 setup scoped 12 PASS(0.54초)로 검증했다.
+   - 366 tracked 파일/112 bundle 파일 보안 스캔 clean, 기존 4개와 새 2개 bundle VERIFIED. Q1 수정·재검증까지
+     343.613371초, Q2 Run/show/verify 38.4084182초; 복구 성공, 증거·볼륨 보존 후 재현 환경만 종료했다.
+   - ID-004-36/D-017: 기존 판정 사유 계약 및 두 번째 clean checkout 재현 기준을 보성이 명시 승인했다.
+     다른 PC와 AWS는 미검증이며 main 통합은 별도 승인 전 금지다. 원본 Run은 Git 전달 대상이 아니다.
+   - 새 팀원은 두 현재 브랜치를 pull → README/이 문서 → Spec 004 quickstart의 `spec004_local.py`를 따른다.
+     실제 AI 키·.env·연우 PC의 .pyd 우회는 필요 없다. dependency 설치 또는 설치된 interpreter 경로를 선택한다.
+     이식성 결함·Run/manifest 원장은 Spec 004 validation 마지막 closure와 traceability에 있다.
+   - ID-004-14(b) optional 거부 observer와 D1-only child 범용 사유 문구는 기록된 한계이며 v1 마감 필수 작업이 아니다.
+5. **다음 기능 Spec 005:** 웹 워크벤치·12개 시나리오 카탈로그·보고서·웹 결과 UX를 별도 Spec Kit 사이클로 시작한다.
+   아직 구현을 시작하지 않았다. Spec 004 결과를 전체 MVP 완료나 실제 모델 품질/법적 인증으로 확대하지 않는다.
 
 ## 13. 문서 유지 규칙
 

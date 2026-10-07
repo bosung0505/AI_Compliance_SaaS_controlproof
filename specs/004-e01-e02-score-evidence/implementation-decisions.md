@@ -2,15 +2,15 @@
 
 ## Status
 
-- Implementation: Phase 1 (T001~T004) and Phase 2 (T005~T021) done; Phase 3 user stories from T030 in progress.
-- WhyYou local/test fixture: `spec004-report-v1`, reviewed/fixed source `3423f16`, PR
-  jhkim0602/gbsa_aws#6 merged into `bosung/controlproof-n02-integration` at `42aaaba` (ID-004-03).
-  No WhyYou product code or main changed.
-- Actual E-01/E-02 Runs: none. Sandbox diagnostics: none.
+- Spec 004 closure: T001~T097 complete (T087 NOT_REQUIRED); final converge recorded in validation.
+- WhyYou integration 374b122: PR #6 fixture, #7 report embedder wiring and #8 approved P1 availability fix.
+- First E-01 FAIL and D1-only child FAIL preserved. Official product child a5ad4676… PASS; new second-checkout
+  E-01 4030503c… and E-02 970108fe… PASS/SUCCEEDED/VERIFIED. AWS and another PC remain unverified.
+- Full ControlProof 939 PASS once; WhyYou scoped 188 PASS; later portability corrections scoped setup 12 PASS.
 
-This log records implementation choices that cannot be inferred from Tasks alone. The first actual Run of each
-scenario will be sealed before any WhyYou product change (plan §8). A direct assertion FAIL is a preserved
-observation, not by itself proof that a WhyYou product boundary is defective.
+This log preserves historical checkpoints below. First factual results and sealed evidence are immutable;
+implementation gates and actual target verdicts remain separate. ID-004-36 is the explicit owner approval
+for reason fields and second-clean-checkout completion wording.
 
 ## Decision template
 
@@ -55,11 +55,11 @@ observation, not by itself proof that a WhyYou product boundary is defective.
 
 | Task | Condition | Required? | Evidence |
 |---|---|---|---|
-| T084 | runner/observer defect in an initial Run | pending | |
-| T085 | E01-A3 `TARGET_CONTROL_DEFECT` (P1) | pending | |
-| T086 | approved T085 fix | pending | |
-| T087 | other target defect | pending | |
-| T088 | child retest | pending | |
+| T084 | runner/observer defect in an initial Run | complete | ID-004-34, R3 four D1 modes; original result unchanged |
+| T085 | E01-A3 `TARGET_CONTROL_DEFECT` (P1) | complete | R1 actual A3 FAIL, ID-004-30 six-file proposal/approval |
+| T086 | approved T085 fix | complete | PR #8 merged 374b122, focused 15/related 184 PASS |
+| T087 | A1/A2 or E02 assertion TARGET_CONTROL_DEFECT | NOT_REQUIRED | Initial A1/A2 and E02 all PASS; T094 review below |
+| T088 | child retest | complete | R3 runner-only child; R4 approved P1 child PASS and parent bytes preserved |
 
 ### ID-004-03 — PR #6 review: explicit report-request memory scope
 
@@ -541,3 +541,38 @@ behavior or assertion meanings. Original evidence is never rewritten. Related 19
 Portable setup is confined to T092/T097 reproduction: dedicated loopback Docker resources, fixed synthetic
 model/credentials, clean source checkout, no .env/cloud authentication, fresh observer roots and owned-process
 stop without deleting evidence/volumes. It is not a new scenario, product UI or AWS validation capability.
+
+
+### ID-004-36 — closure criterion clarification (CONFIRMED, 2026-10-08)
+
+- Tasks: T092/T093/T096/T097; FR-040, SC-001/006.
+- Conflict 1: original SC-001/FR-040 asked for a reason code on every status, while the inherited
+  AssertionResult contract allows InconclusiveReason only for INCONCLUSIVE. PASS/FAIL detail, expected
+  and actual already describe reasons. Owner explicitly chose the existing common contract: require
+  reason_code for INCONCLUSIVE and factual reasons for PASS/FAIL. No model, verdict or sealed-row edit.
+- Conflict 2: SC-006 said team PC, but T097 explicitly allowed a second clean checkout or teammate.
+  Owner explicitly approved that second-checkout alternative after Q1/Q2 actual PASS, restore and verify.
+  It demonstrates a separate source/resource setup on the same PC; it does not demonstrate another PC.
+  The separate main-integration external-reproduction gate remains pending. AWS remains NOT_RUN.
+- Authorization: user answer "두 문구를 위 방향으로 확정하고 완료" to the two concrete choices.
+- Alternatives: introduce new PASS/FAIL code types and migration, or wait for a teammate PC. Neither is
+  silently treated as done. Spec/Traceability/Product Brief/Decision Log reflect the approved choice.
+
+### T094 — final conditional review and claim boundary (2026-10-08)
+
+T084~T088 table above now carries evidence-backed completion/NOT_REQUIRED. T087's precise predicate
+is an E01-A1/A2 or E02 assertion classified TARGET_CONTROL_DEFECT, not INCONCLUSIVE or unsafe restore.
+All those initial assertions PASS, so that predicate is false. This supersedes the imprecise T088
+explanation without changing its correct NOT_REQUIRED outcome. R1 A3 P1 triggered T085/T086/R4 only.
+
+ID-004-34's approved two-criterion D1 correction and ID-004-23's five recompute comparison targets are
+now reflected in Plan/Traceability. Four D1 modes are diagnostic observations, never four target PASSes.
+ID-004-14(b) refusal-receipt extension stays optional PROPOSED and NOT_REQUIRED for Spec 004 v1: actual
+report success was proved from DB records, all final assertions pass; absence still uses bounded polling.
+Future refusal-heavy scenarios may propose the observer contract separately. R3's generic retest reason
+mentions WhyYou despite its CP-only correction; source diff proves WhyYou unchanged. Keep those sealed
+bytes and this bounded metadata wording limitation; it does not change linkage, classification or verdict.
+
+No early WhyYou protection was added: R1 first truth preceded the six-file P1 fix. Automatic 939/188 gates
+establish implementation regression safety; R4/Q1/Q2 independently establish the executed target facts.
+No new product meaning, cloud verification, external AI quality or legal certification is claimed.

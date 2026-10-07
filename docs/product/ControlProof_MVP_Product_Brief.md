@@ -23,14 +23,15 @@
 - PR 검토 보완: 복구 시간 계산, A7 재시도 증거 봉인·검증, H-03 합성 동의 전제조건을 보완했다.
   자동 회귀는 실제 Run 판정을 바꾸지 않으며, 보완 후 실제 Run은 `NOT_RUN`이다. PR 병합 대상은 두
   Spec 003 작업 브랜치이고 main 통합은 금지돼 있다.
-- 다음 산출물: Spec 004의 최종 품질·재현 gate와 converge(T089~T097), 이후 Spec 005 웹 워크벤치·보고서.
-  Spec 003의 최종 converge·Complete 선언도 아직 남아 있으며, 기존 실제 판정은 유지한다.
-
-- Spec 004 현재 진행: T001~T088 완료(T087 NOT_REQUIRED). 최초 공식 E-01 FAIL을 보존하고 WhyYou PR #8
-  병합(`374b122`) 후 child `a5ad4676…`에서 A1~A4 PASS·복구 성공·VERIFIED·잔여행 0을 확인했다.
-  E-02 최초 공식 Run은 `ce8d862`에서 PASS이며, 최신 `374b122`에서는 READY/계산 소스 MATCH만 확인했다.
-  T084 전체 자동 회귀는 799 PASS/구형 기대값 1 FAIL 후 해당 계약 scoped 11 PASS; 최종 전체 gate는 T091에 남았다.
-  AWS NOT_RUN, 다음 T089~T097, Spec 004 전체 Complete는 아직 선언하지 않는다.
+- 다음 산출물: Spec 005 웹 워크벤치·보고서·웹 UX 검토의 별도 수직 사이클.
+  Spec 003 최종 converge·Complete 범위 확정은 별도로 남으며 기존 실제 INCONCLUSIVE는 유지한다.
+- Spec 004 Complete: T001~T097·converge 완료(T087 NOT_REQUIRED). 최초 E-01 FAIL 보존 → 승인 WhyYou PR #8
+  수정 child a5ad4676… PASS. 새 checkout에서 WhyYou 374b122의 E-01 4030503c…·E-02 970108fe… 실제
+  PASS/SUCCEEDED/VERIFIED·잔여행 0을 확인했다. Full CP 939 PASS 한 번·WhyYou scoped 188 PASS,
+  이후 wrapper 이식성 보완 setup scoped 12 PASS. 상세 source·manifest·시간은 Spec004 validation에 있다.
+- 완료 기준 확정(ID-004-36/D-017): PASS/FAIL은 detail/expected/actual로 사유를 제시하고 INCONCLUSIVE에는
+  reason_code를 요구한다. 두 번째 clean checkout 또는 팀원 PC 재현을 허용하며 이번 검증은 전자다.
+  다른 PC/main 통합 gate는 아직 별도이며 AWS NOT_RUN·고정 모델/외부 AI 차단의 한계는 유지한다.
 
 ### 0.1 기준 문서의 우선순위
 
@@ -787,7 +788,7 @@ Spec 003의 완료로 V4 비협상 대표 시나리오 N-02·H-03·E-03 세 개�
 
 ### 14.5 기능 Spec 004 — E-01·E-02 점수 근거·평가 기준 보존
 
-상태: T001~T088 완료, 실제 E-01 수정 child PASS·E-02 최초 PASS; 최종 품질·재현·converge 미완료
+상태: Complete — T001~T097·converge, 최초 FAIL 보존·수정 child PASS·새 checkout E-01/E-02 actual PASS. 다른 PC/AWS 미검증.
 
 - 누락·변조된 `quoted_evidence_ids`를 사용한 점수 저장·노출 우회 차단
 - 지원자·평가 기준·인용 근거의 연결 검증
