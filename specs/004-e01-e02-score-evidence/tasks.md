@@ -185,18 +185,18 @@ v2가 아니면 INCONCLUSIVE인지 확인한다.
 
 ### Tests for User Story 4 — write first
 
-- [ ] T061 [P] [US4] Add verdict matrix and precedence cases for both profiles (`RESTORE_FAILED`, direct FAIL, conflict, insufficient evidence, precondition) in `tests/integration/test_spec004_verdict_matrix.py` [FR-040, SC-001]
-- [ ] T062 [P] [US4] Add presentation contracts for mode results, removal comparison, D1, version binding, recompute table, `limitations` (fixture input, external AI blocked, fixed model) and claim boundary in `tests/contract/test_presentation_spec004.py` [FR-003, SC-007]
-- [ ] T063 [P] [US4] Add CLI contracts for E-01/E-02 preflight (capability counts 18/16, fixture, scoring source), run/show/verify projections, stable exit codes, non-empty `operator_action`, zero preflight side effects, no automatic retest in `tests/contract/test_cli_spec004.py` [FR-001, FR-040, FR-043]
-- [ ] T064 [P] [US4] Add bundle-link integration tests for every cross-reference in `contracts/evidence-bundle-v4.md`: case↔receipt, injection phase ordering for A3/A4 reads, digest recomputation, recompute re-execution in verify, redaction failures in `tests/integration/test_spec004_bundle_links.py` [FR-042, SC-004, EV4-01~EV4-10]
+- [X] T061 [P] [US4] Add verdict matrix and precedence cases for both profiles (`RESTORE_FAILED`, direct FAIL, conflict, insufficient evidence, precondition) in `tests/integration/test_spec004_verdict_matrix.py` [FR-040, SC-001]
+- [X] T062 [P] [US4] Add presentation contracts for mode results, removal comparison, D1, version binding, recompute table, `limitations` (fixture input, external AI blocked, fixed model) and claim boundary in `tests/contract/test_presentation_spec004.py` [FR-003, SC-007]
+- [X] T063 [P] [US4] Add CLI contracts for E-01/E-02 preflight (capability counts 18/16, fixture, scoring source), run/show/verify projections, stable exit codes, non-empty `operator_action`, zero preflight side effects, no automatic retest in `tests/contract/test_cli_spec004.py` [FR-001, FR-040, FR-043]
+- [X] T064 [P] [US4] Add bundle-link integration tests for every cross-reference in `contracts/evidence-bundle-v4.md`: case↔receipt, injection phase ordering for A3/A4 reads, digest recomputation, recompute re-execution in verify, redaction failures in `tests/integration/test_spec004_bundle_links.py` [FR-042, SC-004, EV4-01~EV4-10]
 
 ### Implementation for User Story 4
 
-- [ ] T065 [P] [US4] Extend `engine/presentation.py` with Spec 004 projections and limitation wording [FR-003, SC-007]
-- [ ] T066 [US4] Implement E-01/E-02 preflight/run/show/verify dispatch and additive output in `engine/cli.py` [FR-001, FR-040, FR-043]
-- [ ] T067 [US4] Complete Spec 004 cross-reference, readable-fact validation and recompute re-execution in `engine/evidence.py` [FR-042, EV4-01~EV4-10]
-- [ ] T068 [US4] Add deterministic complete E-01 and E-02 orchestration tests with sealed, verified bundles and show projections in `tests/integration/test_spec004_orchestration.py` [SC-001~SC-004]
-- [ ] T069 [US4] Run T061~T064 plus T068; record the review/bundle gate in `specs/004-e01-e02-score-evidence/validation.md` [FR-040~043, SC-001~SC-004, SC-007]
+- [X] T065 [P] [US4] Extend `engine/presentation.py` with Spec 004 projections and limitation wording [FR-003, SC-007]
+- [X] T066 [US4] Implement E-01/E-02 preflight/run/show/verify dispatch and additive output in `engine/cli.py` [FR-001, FR-040, FR-043]
+- [X] T067 [US4] Complete Spec 004 cross-reference, readable-fact validation and recompute re-execution in `engine/evidence.py` [FR-042, EV4-01~EV4-10]
+- [X] T068 [US4] Add deterministic complete E-01 and E-02 orchestration tests with sealed, verified bundles and show projections in `tests/integration/test_spec004_orchestration.py` [SC-001~SC-004]
+- [X] T069 [US4] Run T061~T064 plus T068; record the review/bundle gate in `specs/004-e01-e02-score-evidence/validation.md` [FR-040~043, SC-001~SC-004, SC-007]
 
 **Checkpoint**: 자동 fixture에서 두 시나리오의 결과와 한계를 검토할 수 있다. 실제 WhyYou 판정은 아니다.
 

@@ -7,6 +7,7 @@ from pathlib import Path
 from typing import Any
 
 from engine.models import (
+    SPEC004_PROFILES,
     AssertionStatus,
     ExecutionProfile,
     Judgement,
@@ -22,6 +23,11 @@ NO_CERTIFICATION_NOTICE = (
 N02_SCOPE_NOTICE = (
     "이 결과는 LOCAL_EMULATED에서 실행한 N-02 경로에 한정됩니다. "
     "N-01·N-03과 실제 AWS는 NOT_RUN이며 법적 준수 전체를 인증하거나 보증하지 않습니다."
+)
+SPEC004_LIMITATIONS = ["FIXTURE_INTERVIEW_INPUT", "EXTERNAL_AI_BLOCKED", "FIXED_MODEL_SUBSTITUTE"]
+SPEC004_SCOPE_NOTICE = (
+    "이 결과는 로컬 환경에서 fixture 면접 입력과 고정 모델 대체물로 실행한 {scenario} 경로와 확보한 "
+    "증적에 한정되며, 실제 AI 모델 품질, 실제 AWS 또는 법적 준수 전체를 인증하거나 보증하지 않습니다."
 )
 N02_PATH_ASSERTIONS = {
     "DOCUMENT_ANALYSIS": "N02-A2",
@@ -162,6 +168,13 @@ def load_bundle_summary(bundle: Path) -> dict[str, Any]:
         "started_at": run.started_at.isoformat() if run.started_at else None,
         "ended_at": run.ended_at.isoformat() if run.ended_at else None,
     }
+    if profile in SPEC004_PROFILES:
+        review = _spec004_review(directory, profile, run, assertions)
+        summary.update(review)
+        summary["legal_scope_notice"] = SPEC004_SCOPE_NOTICE.format(scenario=run.scenario_id)
+        summary["unverified_scope"] = list(run.unverified_scope)
+        summary["limitations"] = list(SPEC004_LIMITATIONS)
+        summary["environment_restore_status"] = review["change_injection_restore_status"]
     if n02_review is not None:
         summary["n02_review"] = n02_review
         summary["path_capability_digest"] = run.path_capability_digest
@@ -198,6 +211,38 @@ def render_human(summary: dict[str, Any]) -> str:
             f"주장 범위: {summary.get('claim_scope', CLAIM_SCOPE)}",
             summary.get("legal_scope_notice", NO_CERTIFICATION_NOTICE),
     ]
+    if "citation_modes" in summary:
+        modes = ", ".join(f"{mode}={value}" for mode, value in summary["citation_modes"].items())
+        lines.append(f"인용 모드: {modes or '증적 없음'}")
+        removal = summary["evidence_removal"]
+        lines.append(
+            "근거 제거: "
+            f"적용 {removal.get('applied')}, 복원 {removal.get('restored')}, "
+            f"근거 부족 노출 {removal.get('exposed_as_insufficient')}"
+        )
+        exposure = summary["diagnostics"].get("E01-D1") or {}
+        lines.append(
+            "E01-D1(진단, 판정 무관): "
+            + (", ".join(f"{mode}={value}" for mode, value in exposure.items()) or "기록 없음")
+        )
+    if "versions" in summary:
+        versions = summary["versions"]
+        lines.append(
+            "기준 버전: "
+            + ", ".join(
+                f"{key} #{value.get('version_number')} {value.get('status')}"
+                for key, value in versions.items()
+                if value
+            )
+        )
+        lines.append(f"첫 보고서 불변: {summary['first_report_unchanged']}")
+        lines.append(f"두 번째 보고서 묶임: {summary['second_report_bound_to'] or '확인하지 못함'}")
+        equal = sum(all(targets.values()) for targets in summary["recompute"].values())
+        lines.append(f"재계산 일치 보고서: {equal}/{len(summary['recompute'])}")
+    if "limitations" in summary:
+        lines.append(f"변경 주입 복구: {summary['change_injection_restore_status']}")
+        lines.append("격리 한계: " + ", ".join(summary["limitations"]))
+        lines.append("미검증 범위: " + ", ".join(summary.get("unverified_scope", [])))
     review = summary.get("n02_review")
     if isinstance(review, dict):
         for path, facts in review["paths"].items():
@@ -276,6 +321,79 @@ def _n02_review(directory: Path, assertions: list[dict[str, Any]]) -> dict[str, 
         },
         "unavailable_paths": unavailable,
     }
+
+
+def _spec004_review(
+    directory: Path, profile: ExecutionProfile, run: Run, assertions: list[dict[str, Any]]
+) -> dict[str, Any]:
+    """Spec 004 projections from sealed files only (no raw text exists in them)."""
+    by_id = {item["assertion_id"]: item for item in assertions}
+    injections = _read_jsonl(directory / "change-injections.jsonl")
+    states = {row.get("state") for row in injections}
+    if run.state.value == "RESTORE_FAILED" or "RESTORE_FAILED" in states:
+        restore_status = "FAILED"
+    elif injections and states == {"RESTORED"}:
+        restore_status = "SUCCEEDED"
+    else:
+        restore_status = "NOT_APPLIED"
+    review: dict[str, Any] = {"change_injection_restore_status": restore_status}
+    if profile is ExecutionProfile.E01_CITATION_EVIDENCE_V1:
+        cases = _read_jsonl(directory / "citation-cases.jsonl")
+        removal = next(
+            (row for row in injections if row.get("kind") == "EVIDENCE_SEGMENT_REMOVAL"), None
+        )
+        a3 = by_id.get("E01-A3") or {}
+        actual = a3.get("actual") if isinstance(a3.get("actual"), dict) else {}
+        exposed = (
+            bool(actual.get("indicators")) and not actual.get("unexposed")
+            if "indicators" in actual
+            else None
+        )
+        probe = _read_json(directory / "storage-probe.json")
+        review |= {
+            "citation_modes": {case["mode"]: case["outcome"] for case in cases},
+            "evidence_removal": {
+                "applied": removal is not None and removal.get("applied_at") is not None,
+                "restored": removal is not None and removal.get("state") == "RESTORED",
+                "exposed_as_insufficient": exposed,
+            },
+            "diagnostics": {
+                "E01-D1": {row["mode"]: row["exposure"] for row in probe.get("exposure", [])}
+            },
+        }
+    else:
+        versions = _read_json(directory / "criteria-versions.json")
+        recompute = _read_json(directory / "recompute.json")
+        a2 = by_id.get("E02-A2") or {}
+        actual = a2.get("actual") if isinstance(a2.get("actual"), dict) else {}
+        unchanged = (
+            bool(actual.get("record_equal")) and bool(actual.get("read_equal"))
+            if "record_equal" in actual
+            else None
+        )
+        review |= {
+            "versions": {
+                key: _select(versions[key], "competency_model_version_id", "version_number", "status")
+                if versions.get(key)
+                else None
+                for key in ("v1", "v2")
+            },
+            "first_report_unchanged": unchanged,
+            "second_report_bound_to": versions.get("published_v2_id")
+            if actual.get("second_bound_to_v2")
+            else None,
+            "recompute": {
+                record["report_id"]: {
+                    target: all(
+                        item["equal"] for item in record["comparisons"] if item["target"] == target
+                    )
+                    for target in sorted({item["target"] for item in record["comparisons"]})
+                }
+                for record in recompute.get("records", [])
+                if record is not None
+            },
+        }
+    return review
 
 
 def _select(value: dict[str, Any], *keys: str) -> dict[str, Any]:

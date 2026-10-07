@@ -20,6 +20,8 @@ from engine.lifecycle import RestoreBlockStore
 from engine.models import (
     SPEC002_UNVERIFIED_SCOPE,
     SPEC003_UNVERIFIED_SCOPE,
+    SPEC004_PROFILES,
+    SPEC004_UNVERIFIED_SCOPE,
     AwsDeploymentStatus,
     EnvironmentKind,
     ExecutionProfile,
@@ -29,7 +31,7 @@ from engine.models import (
     TargetEnvironmentSnapshot,
     Verdict,
 )
-from engine.presentation import load_bundle_summary, render_human
+from engine.presentation import SPEC004_LIMITATIONS, load_bundle_summary, render_human
 from engine.retest import RetestError, assert_parent_unchanged, prepare_retest
 from engine.runner import RunOrchestrator, build_profile_runner
 from engine.scenario import load
@@ -177,6 +179,8 @@ def _preflight(args: argparse.Namespace) -> int:
     payload = _readiness_payload(readiness, runtime.scenario)
     if selected_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
         _add_n02_paths(payload, runtime)
+    if selected_profile in SPEC004_PROFILES:
+        _add_spec004_readiness(payload, runtime, readiness)
     _emit(payload, as_json=args.json)
     return 0 if payload["readiness"] == ReadinessStatus.READY.value else EXIT_NOT_READY
 
@@ -190,6 +194,8 @@ def _run(args: argparse.Namespace) -> int:
     payload = _readiness_payload(readiness, runtime.scenario)
     if selected_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
         _add_n02_paths(payload, runtime)
+    if selected_profile in SPEC004_PROFILES:
+        _add_spec004_readiness(payload, runtime, readiness)
     if payload["readiness"] != ReadinessStatus.READY.value:
         _emit(payload, as_json=args.json)
         return EXIT_NOT_READY
@@ -248,6 +254,8 @@ def _retest(args: argparse.Namespace) -> int:
     readiness_payload = _readiness_payload(readiness, runtime.scenario)
     if parent_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
         _add_n02_paths(readiness_payload, runtime)
+    if parent_profile in SPEC004_PROFILES:
+        _add_spec004_readiness(readiness_payload, runtime, readiness)
     if readiness_payload["readiness"] != ReadinessStatus.READY.value:
         _emit(readiness_payload, as_json=args.json)
         return EXIT_NOT_READY
@@ -503,6 +511,33 @@ def _add_n02_paths(payload: dict[str, Any], runtime: Any) -> None:
             "N-02 보호 대상 경로 capability를 읽을 수 없습니다. "
             "로컬 adapter 설정과 경로 등록을 확인한 뒤 preflight를 다시 실행하세요."
         )
+
+
+def _add_spec004_readiness(payload: dict[str, Any], runtime: Any, readiness: Any) -> None:
+    """Capability counts, isolation limits and (E-02) the scoring-source match; read-only."""
+    required = set(runtime.scenario.required_capabilities)
+    ready = sum(
+        1
+        for check in readiness.checks
+        if check.capability in required and check.status is ReadinessStatus.READY
+    )
+    payload["capabilities"] = {"ready": ready, "required": len(required)}
+    payload["limitations"] = list(SPEC004_LIMITATIONS)
+    payload["unverified_scope"] = sorted(SPEC004_UNVERIFIED_SCOPE)
+    if runtime.scenario.execution_profile is not ExecutionProfile.E02_SCORING_FREEZE_V1:
+        return
+    from engine.judges.e02_scoring import PINNED_SOURCES
+
+    try:
+        source = runtime.adapters.spec004_scoring_source.read_blob_shas()
+        pinned = {item["path"]: item["blob_sha"] for item in PINNED_SOURCES}
+        if not source.ok:
+            status = "UNAVAILABLE"
+        else:
+            status = "MATCH" if dict(source.data.get("blob_shas") or {}) == pinned else "DRIFT"
+    except Exception:  # noqa: BLE001 - never project adapter details into CLI output
+        status = "UNAVAILABLE"
+    payload["scoring_rule_source"] = {"status": status, "pinned_blobs": len(PINNED_SOURCES)}
 
 
 def _run_payload(run, judgement, bundle: Path) -> dict[str, Any]:

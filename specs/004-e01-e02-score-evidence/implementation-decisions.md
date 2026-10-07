@@ -252,3 +252,29 @@ is `PRECONDITION_NOT_MET` rather than a silent PASS.
 - `API_ITEM_AVERAGE_SCORE` is recomputed from the stored axes minus those WhyYou's report read drops (a score without
   a citation, `_restored_axes`); E-02 VALID axes always cite, so this matters only for unexpected target data.
 - `scoring_rule_source_digest` = sha256 of the rule copy ID, the pinned sources and the blob SHAs read in the Run.
+
+## Phase 7 US4 implementation (T061~T069), 2026-10-07
+
+Status: `CONFIRMED`. No judgement rule changed.
+
+### ID-004-24 — Read ordering uses phase and file order, not `captured_at` (T067)
+
+The bundle contract orders E01-A3/A4 reads by "phase and `captured_at`", but `ReportReadSnapshot` has no capture time
+(data-model §7). The executor appends reads in step order, so verify checks that the removal lane's reads appear as
+PRE_REMOVAL → POST_REMOVAL → POST_RESTORE in `report-reads.jsonl`; a restored injection must carry
+`post_restore_digest == pre_projection_digest`.
+
+### ID-004-25 — Which PASS facts verify re-derives from files (T067)
+
+Verify re-derives E01-A1 PASS (four invalid modes `EMPTIED`, each with an existing receipt for the same criterion),
+E02-A2 PASS (PRE_CHANGE and POST_CHANGE record digests equal in `report-records.jsonl`) and E02-A3 PASS (recompute
+re-executed with the pinned copy; every comparison's `equal` re-evaluated). The record `state_digest` itself is not
+recomputed: it is the adapter's digest over the full projection, which the bundle does not repeat. Results are
+returned as `cross_reference_errors`, `redaction_violations` and `recompute_reexecution`; any error is `INVALID`
+(exit 5).
+
+### ID-004-26 — T061 verdict matrix was GREEN on first run (T061)
+
+The matrix covers behaviour built in Phases 4~6 (executors and `judge_spec004_run`), so it had no RED state; it is a
+regression guard. The other Phase 7 tests were RED first: T062 3 and T063 7 (missing projection fields), T064 8
+(tampered and re-sealed bundles still VERIFIED), T068 4 (no cross-reference result before T067).

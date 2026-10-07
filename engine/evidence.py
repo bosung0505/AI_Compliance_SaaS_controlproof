@@ -826,6 +826,7 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
         _verify_spec003_facts(directory, result)
     elif _is_spec004_profile(profile):
         _verify_spec004_snapshot_links(directory, manifest, profile, result)
+        _verify_spec004_facts(directory, profile, result)
     if result["missing_files"] or result["mismatched_files"]:
         result["bundle_status"] = "INVALID"
     result["missing_files"].sort()
@@ -1842,3 +1843,168 @@ def _recovered_n02_proof_readable(policy, recovery, attempts, effects, events, e
         )
     except (KeyError, TypeError, ValueError, AttributeError):
         return False
+
+
+# --- Spec 004 cross-reference, redaction and recompute re-execution (T067) -------------------------
+
+_E01_INVALID_MODES = ("EMPTY", "NONEXISTENT", "OTHER_APPLICANT", "OTHER_CRITERION")
+_REMOVAL_PHASES = ("PRE_REMOVAL", "POST_REMOVAL", "POST_RESTORE")
+
+
+def _spec004_rows(directory: Path, name: str) -> list[dict[str, Any]]:
+    path = directory / name
+    if not path.exists():
+        return []
+    return [json.loads(line) for line in path.read_text(encoding="utf-8").splitlines() if line]
+
+
+def _spec004_assertions(directory: Path) -> dict[str, dict[str, Any]]:
+    rows = json.loads((directory / "assertions.json").read_text(encoding="utf-8"))
+    return {item["assertion_id"]: item for item in rows}
+
+
+def _spec004_redaction(directory: Path, profile: ExecutionProfile, result: dict[str, Any]) -> None:
+    for name in sorted(spec004_required_files(profile) | SPEC004_BASE_FILES):
+        path = directory / name
+        if not path.exists() or not name.endswith((".json", ".jsonl")):
+            continue
+        try:
+            assert_redacted(path.read_bytes())
+        except ValueError:
+            result["redaction_violations"].append(name)
+
+
+def _spec004_lane_refs(directory: Path, errors: list[str]) -> dict[str, dict[str, Any]]:
+    document = json.loads((directory / "spec004-lanes.json").read_text(encoding="utf-8"))
+    lanes = {lane["lane_id"]: lane for lane in document.get("lanes", [])}
+    pairs = {(lane_id, lane["subject_ref"]) for lane_id, lane in lanes.items()}
+    for name in ("report-records.jsonl", "change-injections.jsonl"):
+        for row in _spec004_rows(directory, name):
+            if (row.get("lane_id"), row.get("subject_ref")) not in pairs:
+                errors.append(f"{name}:lane")
+                break
+    for row in _spec004_rows(directory, "report-reads.jsonl"):
+        if row.get("lane_id") not in lanes:
+            errors.append("report-reads.jsonl:lane")
+            break
+    return lanes
+
+
+def _spec004_e01_refs(
+    directory: Path, lanes: dict[str, dict[str, Any]], errors: list[str]
+) -> None:
+    receipts = {
+        row.get("receipt_id"): row for row in _spec004_rows(directory, "model-emissions.jsonl")
+    }
+    criteria = {
+        f"{lane_id}:{criterion['code']}": criterion["criterion_id"]
+        for lane_id, lane in lanes.items()
+        for criterion in lane.get("criteria", [])
+    }
+    cases = _spec004_rows(directory, "citation-cases.jsonl")
+    for case in cases:
+        receipt_id = case.get("emission_receipt_id")
+        if receipt_id is None:
+            continue
+        receipt = receipts.get(receipt_id)
+        if receipt is None or receipt.get("criterion_id") != criteria.get(case.get("case_id")):
+            errors.append("citation-cases.jsonl:receipt")
+            break
+    removal = [
+        row["phase"]
+        for row in _spec004_rows(directory, "report-reads.jsonl")
+        if row.get("lane_id") == "E01_EVIDENCE_REMOVAL" and row.get("phase") in _REMOVAL_PHASES
+    ]
+    if removal != sorted(removal, key=_REMOVAL_PHASES.index):
+        errors.append("report-reads.jsonl:order")
+    # A PASS is re-derived from the files, never restored from a stored boolean.
+    if _spec004_assertions(directory).get("E01-A1", {}).get("status") == "PASS":
+        by_mode = {case.get("mode"): case for case in cases}
+        if any(
+            by_mode.get(mode, {}).get("outcome") != "EMPTIED"
+            or by_mode.get(mode, {}).get("emission_receipt_id") not in receipts
+            for mode in _E01_INVALID_MODES
+        ):
+            errors.append("assertions.json:E01-A1")
+
+
+def _spec004_recompute(directory: Path, errors: list[str]) -> tuple[bool, dict[str, Any]]:
+    from engine.judges.e02 import _equal
+    from engine.judges.e02_scoring import RULE_COPY_ID, report_aggregate
+
+    document = json.loads((directory / "recompute.json").read_text(encoding="utf-8"))
+    mismatch = False
+    for record in document.get("records", []):
+        if record is None:
+            continue
+        if record.get("rule_copy_id") != RULE_COPY_ID:
+            errors.append("recompute.json:rule_copy_id")
+            mismatch = True
+            continue
+        inputs = record.get("inputs", {})
+        items = [
+            item | {"axes": [tuple(axis) for axis in item.get("axes", [])]}
+            for item in inputs.get("items", [])
+        ]
+        again = report_aggregate(items, inputs.get("config_version", ""))
+        computed = {
+            "score": again.score,
+            "numerator": again.numerator,
+            "denominator": again.denominator,
+        }
+        if not _equal(computed, record.get("computed")):
+            errors.append("recompute.json:computed")
+            mismatch = True
+        if any(
+            bool(item.get("equal")) != _equal(item.get("expected"), item.get("observed"))
+            for item in record.get("comparisons", [])
+        ):
+            errors.append("recompute.json:comparison")
+            mismatch = True
+    return mismatch, document
+
+
+def _spec004_e02_refs(directory: Path, errors: list[str], result: dict[str, Any]) -> None:
+    mismatch, document = _spec004_recompute(directory, errors)
+    result["recompute_reexecution"] = "MISMATCH" if mismatch else "MATCH"
+    assertions = _spec004_assertions(directory)
+    if assertions.get("E02-A2", {}).get("status") == "PASS":
+        steps = {
+            row.get("step"): row.get("state_digest")
+            for row in _spec004_rows(directory, "report-records.jsonl")
+        }
+        before, after = steps.get("capture-pre-change"), steps.get("capture-post-change")
+        if before is None or before != after:
+            errors.append("assertions.json:E02-A2")
+    records = document.get("records") or []
+    complete = bool(records) and all(
+        record is not None and all(item.get("equal") for item in record.get("comparisons", []))
+        for record in records
+    )
+    if assertions.get("E02-A3", {}).get("status") == "PASS" and (mismatch or not complete):
+        errors.append("assertions.json:E02-A3")
+
+
+def _verify_spec004_facts(
+    directory: Path, profile: ExecutionProfile, result: dict[str, Any]
+) -> None:
+    errors: list[str] = []
+    result["cross_reference_errors"] = errors
+    result["redaction_violations"] = []
+    result["recompute_reexecution"] = "NOT_APPLICABLE"
+    _spec004_redaction(directory, profile, result)
+    try:
+        lanes = _spec004_lane_refs(directory, errors)
+        for row in _spec004_rows(directory, "change-injections.jsonl"):
+            if row.get("state") == "RESTORED" and (
+                row.get("post_restore_digest") != row.get("pre_projection_digest")
+            ):
+                errors.append("change-injections.jsonl:restore")
+        if profile is ExecutionProfile.E01_CITATION_EVIDENCE_V1:
+            _spec004_e01_refs(directory, lanes, errors)
+        else:
+            _spec004_e02_refs(directory, errors, result)
+    except (OSError, KeyError, TypeError, ValueError, AttributeError):
+        errors.append("spec004:facts-unreadable")
+    if errors or result["redaction_violations"]:
+        result["bundle_status"] = "INVALID"

@@ -198,6 +198,30 @@ stored/served overall off by one → E02-A3 FAIL; wrong v2 binding → E02-A2 `P
 or other positions changed → `RESTORE_FAILED` and block; scoring source drift → `RUNNER_NOT_READY` before any write.
 No strict xfail remains.
 
+## Phase 7 — US4 review/bundle gate (T061~T069)
+
+| Task | Change | Tests |
+|---|---|---|
+| T061 | `tests/integration/test_spec004_verdict_matrix.py` (guard, GREEN on first run, ID-004-26) | 12 |
+| T062 | `tests/contract/test_presentation_spec004.py` (RED: 3 failed) | 3 GREEN after T065 |
+| T063 | `tests/contract/test_cli_spec004.py` (RED: 7 failed) | 7 GREEN after T066 |
+| T064 | `tests/integration/test_spec004_bundle_links.py` (RED: 8 failed) | 8 GREEN after T067 |
+| T065 | Spec 004 projections, claim boundary and `limitations` in `engine/presentation.py` | T062 |
+| T066 | preflight capability counts, limitations, scoring-source status in `engine/cli.py` | T063 |
+| T067 | cross-reference, redaction and recompute re-execution in `engine/evidence.py` (ID-004-24/25) | T064 |
+| T068 | `tests/integration/test_spec004_orchestration.py` (RED without T067: 4 failed) | 4 |
+| T069 | this record | — |
+
+```text
+.venv/Scripts/python.exe -m ruff check . -> All checks passed!
+.venv/Scripts/python.exe -m pytest -q    -> 770 passed
+```
+
+Review gate on fakes: E-01 shows citation modes, removal applied/restored/exposed, E01-D1 per mode and the restore
+status; E-02 shows v1/v2, first-report unchanged, second-report binding and per-target recompute equality; both carry
+the claim boundary, `limitations` and `unverified_scope` AWS/N-01/N-03. Preflight reports 18/18 (E-01) and 16/16
+(E-02) and writes nothing; exit codes 0/2/3/5/6 as contracted; no automatic retest.
+
 ## Sandbox diagnostics
 
 (none yet — Phase 8)
@@ -239,8 +263,8 @@ repositories before continuing; read this review entry with the corrected fixtur
 
 ## 세션 인계 (2026-10-07, 자율 진행 세션)
 
-- 마지막 완료: Phase 6 US3 T052~T060. 결정 ID-004-20~23.
+- 마지막 완료: Phase 7 US4 T061~T069. 결정 ID-004-24~26.
 - WhyYou: PR #6 병합(`42aaaba`), 로컬 `bosung/controlproof-n02-integration` = `42aaaba`, clean. WhyYou 변경 없음.
 - 진행 중: 없음.
 - 건너뛴 PROPOSED: 없음. ID-004-14(observer에 Spec 004 lane 추가)는 비차단 제안.
-- 다음 작업: Phase 7 T061(실패 시험)부터.
+- 다음 작업: Phase 8 T070(retest 실패 시험) → T071. T072 이후 sandbox 진단은 이번 범위 밖.
