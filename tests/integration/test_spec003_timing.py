@@ -119,3 +119,85 @@ def test_consent_fault_marker_ttl_comes_from_the_snapshot(tmp_path, ttl):
 
     assert len(applied) == 1
     assert (applied[0] - before).total_seconds() == pytest.approx(ttl, abs=1)
+
+
+def _n02_runner(tmp_path, fake, clock, **timing_updates):
+    from dataclasses import replace as _replace
+
+    from engine.runner import build_profile_runner
+
+    scenario = load("scenarios/N-02.yaml")
+    if timing_updates:
+        scenario = scenario.model_copy(update={"timing_policy": _timing(scenario, **timing_updates)})
+    adapters, _ = make_adapters()
+    adapters = _replace(
+        adapters,
+        n02_seed=fake,
+        n02_consent=fake,
+        n02_processing=fake,
+        n02_causality=fake,
+        n02_fault=fake,
+        n02_observer=fake,
+    )
+    return build_profile_runner(scenario, adapters, tmp_path, clock=clock)
+
+
+class SlowTeardown(FakeN02Adapters):
+    """Teardown that takes `seconds` of the executor clock (T085: restore deadline)."""
+
+    def __init__(self, clock, seconds):
+        super().__init__()
+        self._clock, self._seconds = clock, seconds
+
+    def teardown_lanes(self, *, run_id: str, lanes):
+        self._clock.sleep(self._seconds)
+        return super().teardown_lanes(run_id=run_id, lanes=lanes)
+
+
+@pytest.mark.parametrize(("deadline", "elapsed", "state"), [(120, 130, "RESTORE_FAILED"), (200, 130, "COMPLETED")])
+def test_restore_deadline_comes_from_the_snapshot(tmp_path, deadline, elapsed, state):
+    from engine.lifecycle import RestoreBlockStore
+
+    clock = FakeClock()
+    runner = _n02_runner(tmp_path, SlowTeardown(clock, elapsed), clock, environment_restore_deadline_seconds=deadline)
+    run, _judgement, _bundle = runner.execute(runner.preflight("whyyou-local"))
+
+    assert run.state.value == state
+    assert RestoreBlockStore(tmp_path).blocked("whyyou-local", "n02-consent-order") is (state == "RESTORE_FAILED")
+    timing = runner.timing_report()
+    assert timing["environment_restore_deadline_seconds"] == deadline
+    assert timing["environment_restore_seconds"] >= elapsed
+    assert timing["environment_restore_within_deadline"] is (state == "COMPLETED")
+
+
+@pytest.mark.parametrize(("budget", "verify_seconds", "within"), [(60, 61, False), (120, 61, True)])
+def test_bundle_verify_budget_is_reserved_from_the_snapshot(tmp_path, monkeypatch, budget, verify_seconds, within):
+    import engine.executors.n02 as executor_module
+
+    clock = FakeClock()
+    real_verify = executor_module.verify_bundle
+
+    def slow_verify(directory):
+        clock.sleep(verify_seconds)
+        return real_verify(directory)
+
+    monkeypatch.setattr(executor_module, "verify_bundle", slow_verify)
+    runner = _n02_runner(tmp_path, FakeN02Adapters(), clock, bundle_verify_deadline_seconds=budget)
+    runner.execute(runner.preflight("whyyou-local"))
+
+    timing = runner.timing_report()
+    assert timing["bundle_verify_deadline_seconds"] == budget
+    assert timing["bundle_verify_seconds"] == verify_seconds
+    assert timing["bundle_verify_within_budget"] is within
+
+
+def test_receipt_pre_wait_is_the_snapshot_poll_interval_not_a_constant():
+    from engine.executors.n02 import _StableReads
+
+    class Adapter:
+        receipt_wait_seconds = 0.0
+
+    adapter = Adapter()
+    timing = _timing(load("scenarios/N-02.yaml"), poll_seconds=3)
+    _StableReads(adapter, _Stabilizer(timing, FakeClock(), None))
+    assert adapter.receipt_wait_seconds == 3.0

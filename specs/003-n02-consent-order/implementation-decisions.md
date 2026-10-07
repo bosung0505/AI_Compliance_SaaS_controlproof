@@ -240,10 +240,15 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
   `poll_seconds` between reads, and raises `N02RunDeadlineExceeded` at `started_at +
   run_deadline_seconds`. The consent fault marker uses `fault_ttl_seconds`. Adapter failures pass
   through unchanged. Direct `collect_us*` calls (unit tests) are not wrapped.
-- Not yet done (T085 stays open): `environment_restore_deadline_seconds` (120 s) and
-  `bundle_verify_deadline_seconds` (60 s) are still not enforced by the N-02 path; the hard-coded
-  2.0 s AI-assessment receipt loop remains. A deadline breach currently raises after the existing
-  cleanup path instead of sealing an `INCONCLUSIVE` bundle; whether to seal it is a team decision.
+- Completed 2026-10-07 (T085): `environment_restore_deadline_seconds` now bounds the restore
+  phase (from the fault restore in US3 to the end of teardown, on the executor clock); a restore
+  that outlives it is `N02_RESTORE_DEADLINE_EXCEEDED`, so the Run is `RESTORE_FAILED` and the
+  target is blocked (SC-006). `bundle_verify_deadline_seconds` is measured around the post-seal
+  verification and reported with the restore timing in the CLI `timing` field (SC-008). The
+  AI-assessment receipt pre-wait is the scenario `poll_seconds`, set on the adapter by the
+  stabilizer; outside the executor there is no pre-wait. Deterministic tests with the fake clock
+  prove each value changes with the snapshot. A Run-deadline breach still raises after the cleanup
+  path instead of sealing an `INCONCLUSIVE` bundle; that remains a team decision.
 - Tests: `tests/integration/test_spec003_timing.py` (6) — collection RED against the received engine
   (missing stabilizer; TTL 300 s), GREEN after. `tests/conftest.py` gives the N-02 system clock a
   virtual offset so existing tests do not sleep for real. Linux full regression 447 passed; Ruff PASS.

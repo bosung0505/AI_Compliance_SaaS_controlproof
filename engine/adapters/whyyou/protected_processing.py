@@ -105,6 +105,7 @@ class WhyYouProtectedProcessingAdapter:
         self.settings = settings
         self.credentials = credentials or N02CredentialStore()
         self.upload_client = upload_client or httpx.Client(timeout=30)
+        self.receipt_wait_seconds: float = 0.0
         self.http = http_client or httpx.Client(
             base_url=settings.whyyou_base_url,
             timeout=10,
@@ -409,7 +410,9 @@ class WhyYouProtectedProcessingAdapter:
             and self.settings.observer_enabled
         ):
             event_id = probe_input.removeprefix("event:")
-            deadline = time.monotonic() + 2.0
+            # The wait budget comes from the scenario poll interval via the executor's
+            # stabilizer (ID-003-10/T085); without it there is no pre-wait at all.
+            deadline = time.monotonic() + float(self.receipt_wait_seconds)
             while True:
                 observed = self.read_processing_receipts(
                     run_id=str(subject["run_id"]),
@@ -445,7 +448,7 @@ class WhyYouProtectedProcessingAdapter:
                 )
                 if start_receipt_ids or refusal_receipt_ids or time.monotonic() >= deadline:
                     break
-                time.sleep(0.05)
+                time.sleep(min(_RECEIPT_POLL_GRANULARITY, float(self.receipt_wait_seconds)))
         digest = sha256_bytes(
             canonical_json_bytes(
                 {
@@ -658,6 +661,9 @@ def _attempt_receipt(
         drive_steps=drive_steps,
         source_ref=f"whyyou:{path.value.casefold()}:v1",
     )
+
+
+_RECEIPT_POLL_GRANULARITY = 0.05
 
 
 def _status(response) -> str:

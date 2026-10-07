@@ -229,7 +229,7 @@ T080-E2 isolation sub-bundle: WhyYou local/test startup rejects external AI prov
 
 **Purpose**: 보안, 시간 제한, 추적성, 재현성과 팀 인계를 전체 스토리에 걸쳐 마감한다.
 
-- [ ] T085 [P] Add deterministic timing tests proving 2-second poll, 3 consecutive stable reads over at least 4 seconds, 600-second fault TTL, 120-second restore, 540-second Run deadline and reserved 60-second bundle-verify budget come only from the scenario snapshot in `tests/integration/test_spec003_timing.py` [SC-006, SC-008]
+- [X] T085 [P] Add deterministic timing tests proving 2-second poll, 3 consecutive stable reads over at least 4 seconds, 600-second fault TTL, 120-second restore, 540-second Run deadline and reserved 60-second bundle-verify budget come only from the scenario snapshot in `tests/integration/test_spec003_timing.py` [SC-006, SC-008]
 - [ ] T086 [P] Extend the security corpus to all EV3 files, marker/observer receipts, causal identifiers and CLI output in `tests/unit/test_redaction_security.py` [FR-038~039, SC-011]
 - [ ] T087 Run `ruff check .` and the complete ControlProof `pytest -q` suite plus every scoped WhyYou N-02 test, and record commands, counts, durations, target FAILs, restore status and source SHAs in `specs/003-n02-consent-order/validation.md` [FR-001~041, SC-001~012]
 - [ ] T088 Execute every unconditional command in `specs/003-n02-consent-order/quickstart.md` from a clean local environment, replace `<run-id>` placeholders with T078/T084 actual IDs, execute retest and cleanup commands only when their documented condition applies, record every skipped conditional with its reason, and verify Run+bundle-verify completes within 600 seconds [SC-008]

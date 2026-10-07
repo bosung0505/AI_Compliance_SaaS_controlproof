@@ -203,6 +203,9 @@ class _StableReads:
     def __init__(self, delegate: Any, stabilizer: _Stabilizer) -> None:
         self._delegate = delegate
         self._stabilizer = stabilizer
+        if hasattr(delegate, "receipt_wait_seconds"):
+            # T085: the adapter's receipt pre-wait is the scenario poll interval, never a constant.
+            delegate.receipt_wait_seconds = float(stabilizer.timing.poll_seconds)
 
     def __getattr__(self, name: str) -> Any:
         attribute = getattr(self._delegate, name)
@@ -233,6 +236,8 @@ class N02Executor:
         self.adapters = adapters
         self.run_root = run_root.resolve()
         self.clock = clock or _SystemClock()
+        self._restore_started_at = None
+        self._timing: dict[str, Any] = {}
 
     def preflight(self, target_id: str) -> ScenarioReadiness:
         target_snapshot = None
@@ -350,6 +355,27 @@ class N02Executor:
                     )
                 raise
         ended_at = self.clock.now()
+        restore_deadline = float(self.scenario.timing_policy.environment_restore_deadline_seconds)
+        restore_started_at = getattr(collector, "_restore_started_at", None)
+        restore_elapsed = (
+            (ended_at - restore_started_at).total_seconds()
+            if restore_started_at is not None
+            else None
+        )
+        if teardown.ok and restore_elapsed is not None and restore_elapsed > restore_deadline:
+            # T085/SC-006: a restore that outlives the scenario budget is not a confirmed restore.
+            teardown = AdapterResult(
+                False,
+                "N02_RESTORE_DEADLINE_EXCEEDED",
+                {"elapsed_seconds": restore_elapsed, "deadline_seconds": restore_deadline},
+            )
+        self._timing = {
+            "environment_restore_deadline_seconds": restore_deadline,
+            "environment_restore_seconds": restore_elapsed,
+            "environment_restore_within_deadline": (
+                None if restore_elapsed is None else restore_elapsed <= restore_deadline
+            ),
+        }
         restore_ok = recovered and teardown.ok
         state = RunState.COMPLETED if restore_ok else RunState.RESTORE_FAILED
         environment_raw = self.adapters.environment.capture_environment()
@@ -453,10 +479,26 @@ class N02Executor:
                 writer.link_file_evidence(evidence_id, name)
         writer.link_intrinsic_evidence("EV3-10", "sealed-manifest")
         writer.seal()
+        verify_started = self.clock.now()
         verified = verify_bundle(writer.directory)
+        verify_seconds = (self.clock.now() - verify_started).total_seconds()
+        verify_budget = self.scenario.timing_policy.bundle_verify_deadline_seconds
+        self._timing.update(
+            {
+                "bundle_verify_seconds": verify_seconds,
+                "bundle_verify_deadline_seconds": verify_budget,
+                "bundle_verify_within_budget": (
+                    None if verify_budget is None else verify_seconds <= float(verify_budget)
+                ),
+            }
+        )
         if verified["bundle_status"] != "VERIFIED":
             raise N02ExecutionError("N-02 sealed bundle failed verification")
         return run, judgement, writer.directory
+
+    def timing_report(self) -> dict[str, Any]:
+        """Scenario timing budgets and what the last execute() actually took (T085)."""
+        return dict(self._timing)
 
     def collect_us1(self, *, run_id: UUID) -> N02BypassSliceResult:
         seed = self.adapters.n02_seed
@@ -682,6 +724,7 @@ class N02Executor:
                 )
             failed_state = failed_state_value
 
+            self._restore_started_at = self.clock.now()
             restore = fault.restore_consent_fault(run_id=str(run_id), subject=subject)
             failure_attempts: tuple[ProcessingAttemptReceipt, ...] = ()
             failure_effects: tuple[ProtectedEffectSnapshot, ...] = ()

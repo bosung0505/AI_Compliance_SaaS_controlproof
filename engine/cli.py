@@ -199,6 +199,8 @@ def _run(args: argparse.Namespace) -> int:
         label=args.label,
     )
     payload = _run_payload(run, judgement, bundle)
+    if hasattr(runtime, "timing_report"):
+        payload["timing"] = runtime.timing_report()
     _emit(payload, as_json=args.json)
     return _run_exit(run.state, judgement.verdict)
 
@@ -288,6 +290,8 @@ def _retest(args: argparse.Namespace) -> int:
     )
     assert_parent_unchanged(parent_bundle, parent_digest)
     payload = _run_payload(run, judgement, bundle)
+    if hasattr(runtime, "timing_report"):
+        payload["timing"] = runtime.timing_report()
     payload["command"] = "retest"
     payload["parent_run_id"] = str(parent_run.run_id)
     _emit(payload, as_json=args.json)
