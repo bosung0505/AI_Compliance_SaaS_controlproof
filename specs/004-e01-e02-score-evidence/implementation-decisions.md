@@ -528,3 +528,16 @@ E-02 PASS remains at ce8d862; latest 374b122 READY/MATCH is readiness, not a new
 Earlier D1-only retest reason wording remains a bounded follow-up; current product-remedy reason is accurate.
 Phase 10 T089~T097 remains required, including T094 conditional review and T091 final full gate. No
 Spec Complete or AWS claim; Phase 9 status sync does not satisfy final T096/converge.
+
+### ID-004-35 — approved verifier scan completion (CONFIRMED, 2026-10-08)
+
+T090 exposed missing scans for manifest, YAML-named scenario snapshot and both child-lineage files:
+8 genuine failures with synthetic secrets and matching hashes. User approved the proposed correction and
+requested full Spec closure. The existing redaction policy now covers those files and registered structured
+evidence; paths resolve inside the bundle before reads. This fixes FR-042/SC-004 enforcement, not WhyYou
+behavior or assertion meanings. Original evidence is never rewritten. Related 192 PASS, final ControlProof
+939 PASS and WhyYou scoped 188 PASS. Earlier stopped/red entries remain checkpoint facts.
+
+Portable setup is confined to T092/T097 reproduction: dedicated loopback Docker resources, fixed synthetic
+model/credentials, clean source checkout, no .env/cloud authentication, fresh observer roots and owned-process
+stop without deleting evidence/volumes. It is not a new scenario, product UI or AWS validation capability.

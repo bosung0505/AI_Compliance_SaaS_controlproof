@@ -287,8 +287,8 @@ T085/T086 and Spec closure are incomplete; first official parent FAIL remains un
 **Purpose**: 시간·보안·회귀·재현·추적성·인계를 두 시나리오 전체에 걸쳐 마감한다.
 
 - [X] T089 [P] Add deterministic timing tests proving poll/stability/restore/Run/verify budgets come only from the v4 scenario snapshots and the restore budget counts only restore work in `tests/integration/test_spec004_timing.py` [SC-003, SC-002]
-- [ ] T090 [P] Extend the security corpus to every Spec 004 bundle file, emission receipts and CLI output in `tests/unit/test_redaction_security.py` [FR-042, SC-004]
-- [ ] T091 Run `ruff check .`, the full `pytest -q` and the scoped WhyYou tests; record commands, counts, durations, target FAILs, restore statuses and source SHAs in `validation.md` [FR-001~FR-052, SC-001~SC-007]
+- [X] T090 [P] Extend the security corpus to every Spec 004 bundle file, emission receipts and CLI output in `tests/unit/test_redaction_security.py` [FR-042, SC-004]
+- [X] T091 Run `ruff check .`, the full `pytest -q` and the scoped WhyYou tests; record commands, counts, durations, target FAILs, restore statuses and source SHAs in `validation.md` [FR-001~FR-052, SC-001~SC-007]
 - [ ] T092 Execute every unconditional `quickstart.md` command from a clean local environment, replace `<…>` placeholders with actual IDs, record skipped conditionals with reasons, and confirm each Run+verify ≤ 600 seconds [SC-003, SC-006]
 - [ ] T093 Complete the FR/SC/assertion/EV4 → task → test → implementation → actual artifact matrix in `traceability.md` [FR-001~FR-052, SC-001~SC-007, E01-A1~A4, E02-A1~A3, Constitution VII]
 - [ ] T094 Verify each conditional branch T084~T088 is completed or evidence-backed `NOT_REQUIRED`, and summarize the implementation versus target verdict distinction in `implementation-decisions.md` [FR-050~FR-052]
@@ -389,3 +389,14 @@ T089 complete (2026-10-08): 32 deterministic E-01/E-02 timing cases added; new a
 removal/restore, E-02 journey and complete orchestration tests: 58 passed (27.32 s). Scoped ruff/format
 and diff checks PASS. Initial five test-data failures corrected (V1_PUBLISHED version phase); no engine
 change or actual Run. Next T090; final full gate T091 and Phase 10 closure remain pending.
+
+T090 started (2026-10-08), not complete: 96 security cases added to test_redaction_security.py.
+Security file gate: 148 PASS / 8 FAIL (26.20 s). Both profiles miss redaction scanning for manifest.json,
+scenario.snapshot.yaml, retest-link.json and retest-diff.json even with valid file/manifest hashes.
+This is a verifier defect, not test-data RED or a WhyYou verdict. Scoped ruff/diff PASS. Proposed narrow
+engine/evidence.py scanner correction is recorded in validation; implementation stopped at scope review.
+
+T090/T091 complete (2026-10-08): user approved the scanner correction and requested Spec closure.
+Related gate 192 PASS; final full ControlProof 939 PASS (294.66 s), ruff PASS; WhyYou scoped 188 PASS
+(7.79 s). Scanner includes all registered JSON/YAML, manifest and child lineage with path containment.
+Portable synthetic setup/quickstart prepared for T092/T097; final status sync and closure still pending.

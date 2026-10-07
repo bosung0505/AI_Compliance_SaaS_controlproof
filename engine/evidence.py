@@ -1869,13 +1869,31 @@ def _spec004_assertions(directory: Path) -> dict[str, dict[str, Any]]:
 
 
 def _spec004_redaction(directory: Path, profile: ExecutionProfile, result: dict[str, Any]) -> None:
-    for name in sorted(spec004_required_files(profile) | SPEC004_BASE_FILES):
-        path = directory / name
-        if not path.exists() or not name.endswith((".json", ".jsonl")):
+    names = (
+        spec004_required_files(profile)
+        | SPEC004_BASE_FILES
+        | {"manifest.json", "retest-link.json", "retest-diff.json"}
+    )
+    try:
+        manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
+        for record in manifest.get("files", []):
+            name = record.get("path") if isinstance(record, dict) else None
+            if isinstance(name, str) and name.endswith((".json", ".jsonl", ".yaml", ".yml")):
+                names.add(name)
+    except (OSError, ValueError, AttributeError, TypeError):
+        # The main verifier reports malformed manifests; scan known files regardless.
+        pass
+    for name in sorted(names):
+        try:
+            path = _relative(directory, name)
+        except ValueError:
+            # Do not read manifest paths outside the bundle; the main verifier rejects them.
+            continue
+        if not path.is_file():
             continue
         try:
             assert_redacted(path.read_bytes())
-        except ValueError:
+        except (OSError, ValueError):
             result["redaction_violations"].append(name)
 
 

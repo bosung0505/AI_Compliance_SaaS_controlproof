@@ -844,3 +844,69 @@ ControlProof venv: related gate 58 passed in 27.32 s (32 new + 26 existing); sco
 T089 complete; next T090 security corpus. Full pytest/WhyYou tests reserved for T091; no diagnostic/official
 Run, service or WhyYou change, main change, or sealed evidence edit. Prior actual verdicts stay unchanged.
 Global status sync waits for Phase 10 closure; T090~T097 pending, Spec 004 not Complete, AWS NOT_RUN.
+
+## 2026-10-08 — T090 security corpus / verifier coverage finding
+
+Start ControlProof yeonwoo/004-e01-e02-score-evidence `6af7a99978c17c1876bc1e142b4f1c8881641562`
+clean; WhyYou integration `374b122e1296c0159ccd88ed4763d358973c59cb` tracked clean, historical probes
+retained. Added 96 cases in tests/unit/test_redaction_security.py. Independent v4 file list covers 20
+child files per profile, including manifest and lineage. Writer bypass rejection/safe-fact preservation,
+complete sealed-file scans, emission allowlist and raw-field refusal, CLI preflight/run/show/verify/retest
+JSON and human outputs plus redacted error output are exercised with synthetic data and FakeClock only.
+
+Commands (ControlProof venv): `python -m ruff check tests/unit/test_redaction_security.py` PASS;
+`python -m pytest tests/unit/test_redaction_security.py -q --tb=short` → 148 PASS / 8 FAIL, 26.20 s
+(60 existing PASS, 88 new PASS, 8 new FAIL). `git diff --check` PASS.
+
+All eight failures are the same real verifier omission, four files per profile: manifest.json,
+scenario.snapshot.yaml, retest-link.json and retest-diff.json. Disposable fixture copies receive a nested
+credential sentinel, then file hashes/size and manifest digest are updated. verify_bundle returns VERIFIED
+with no redaction violation. The scanner excludes YAML-named snapshots, manifest and child-only files.
+This is not a syntax/setup failure, intended missing-implementation RED, or WhyYou target-control result.
+Writer gates and valid sealed child scans pass; no actual secret leak was demonstrated in official bundles.
+Only disposable test copies were modified; all official sealed evidence remains untouched.
+
+Recommended concrete correction: engine/evidence.py::_spec004_redaction scans the manifest, all v4 required
+files (including scenario.snapshot.yaml), and registered JSON/JSONL/YAML evidence/lineage files using the
+existing assert_redacted policy. Keep hash/link checks, verdict rules and sealed bytes unchanged; no new
+sensitive-key policy, WhyYou change or actual Run is proposed. Then rerun this security file plus scoped
+bundle/CLI/lineage contracts before T091. This expands the T090 test-only file scope to one existing engine
+scanner; per the user's unexpected-scope stop/report rule, implementation pauses for review here.
+T090 unchecked; no commit/push or global status sync, full regression or new official Run in this bundle.
+Next: approve/resolve that narrow verifier correction, finish T090, then T091. Spec 004 not Complete,
+AWS NOT_RUN; prior official verdicts unchanged.
+
+## 2026-10-08 — approved T090 correction / T091 final automatic gate
+
+Authorization: user "좋아 마무리해. spec 004를 완료하는거야 이제!!" approved the reported single-engine-file
+scanner correction and the remaining closure/reproduction work. engine/evidence.py::_spec004_redaction now
+scans known v4 files, manifest and registered JSON/JSONL/YAML evidence including child lineage. Existing
+assert_redacted policy unchanged; _relative guards prevent reading outside the bundle. Extra registered
+receipt and path-containment cases added. No WhyYou/product-verdict change or sealed-byte modification.
+
+| Gate | Command | Result |
+|---|---|---|
+| T090 related | python -m pytest tests/unit/test_redaction_security.py tests/integration/test_spec004_bundle_links.py tests/integration/test_spec004_retest_lineage.py tests/contract/test_cli_spec004.py tests/contract/test_bundle_profile_spec004.py -q --tb=short | 192 passed, 44.50 s |
+| T091 static | python -m ruff check . | PASS |
+| T091 full ControlProof, exactly once | python -m pytest -q --tb=short | 939 passed, 294.66 s (command wall 296.3717995 s) |
+| T091 WhyYou scoped | python -m pytest backend/tests/unit/reporting backend/tests/unit/runtime backend/tests/integration/test_controlproof_fault_hook_safety.py -q --tb=short | 188 passed, 7.79 s (command wall 15.307703 s), 3 existing dependency deprecation warnings |
+
+ControlProof venv Python 3.12; WhyYou venv Python 3.14. Full gate ran from ControlProof 6af7a99 plus the
+listed pending engine/security/setup edits; the next clean implementation checkpoint contains that same
+tested code. WhyYou source stays 374b122, tracked clean. Initial setup-helper lint findings were corrected
+before the full gate. No outstanding automatic failure. No repeated full suite after T091; later changes
+should be documentary unless an observed portability issue requires a scoped correction.
+
+T092/T097 preparation: scripts/spec004_local.py and pinned scripts/spec004-local.compose.yaml expose the
+previous isolated synthetic setup as a portable command, not a product flow. Clean feature checkouts,
+no .env, credentials scrubbed, loopback-only distinct ports/project, fresh boot observer/fault directories,
+owned process creation-time checks and retained volumes/evidence. New setup safety tests included in 939.
+Quickstart replaces obsolete draft/PC-specific instructions; existing dependency environments may be reused
+with source selected from the new clean checkout. New reproduction Runs are still pending at this checkpoint.
+
+T095 preliminary scan: 363 tracked files, no current-user absolute path, real AWS access key or private-key
+material; 76 files across all four prior official Spec 004 bundles pass assert_redacted. Synthetic negative
+security corpus remains intentionally in tests. Newly staged files and reproduction metadata will also be
+scanned before closure. Command/result journals: workspace .pr-review/20261008/closure/, outside Git.
+SC-001 reason wording and SC-006 team-PC versus T097 second-checkout inconsistency were presented for owner
+clarification; no completion-criterion change applied without that response. Spec 004 remains incomplete.

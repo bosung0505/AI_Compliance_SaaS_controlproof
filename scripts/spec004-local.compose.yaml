@@ -1,0 +1,22 @@
+services:
+  postgres:
+    image: pgvector/pgvector@sha256:ccc6e83d6e35e931dc7c5def2022729d5a6c370318d099181995567ff1fb4d6b
+    environment:
+      POSTGRES_DB: controlproof_spec004
+      POSTGRES_USER: controlproof
+      POSTGRES_PASSWORD: synthetic-local-only
+    ports:
+      - "127.0.0.1:${CP_SPEC004_PG_PORT:-15734}:5432"
+    healthcheck:
+      test: ["CMD-SHELL", "pg_isready -U controlproof -d controlproof_spec004"]
+      interval: 2s
+      timeout: 3s
+      retries: 30
+    volumes:
+      - synthetic-pg:/var/lib/postgresql/data
+  moto:
+    image: motoserver/moto@sha256:91fd602a21f49cf9eb82fdf474015a3c131d40104c8297ea6a2ca920708ae32c
+    ports:
+      - "127.0.0.1:${CP_SPEC004_AWS_PORT:-14767}:5000"
+volumes:
+  synthetic-pg:
