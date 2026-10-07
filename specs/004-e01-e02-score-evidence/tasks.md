@@ -267,7 +267,7 @@ delete block files.
 - [X] T085 [US5] Only if T083 classifies E01-A3 as `TARGET_CONTROL_DEFECT` (P1 observed): record the WhyYou minimal-fix proposal as `PROPOSED` (report read path exposing missing transcript segments through an H-4 indicator, candidate files `../gbsa_aws/backend/src/interview_evidence/reporting/repositories/postgres.py` and `../gbsa_aws/backend/src/interview_evidence/reporting/api/company_routes.py`) and obtain approval; otherwise `NOT_REQUIRED` [FR-051]
 - [X] T086 [US5] Only after T085 approval: create `yeonwoo/controlproof-e01-e02-report-evidence` from the current WhyYou base, add the failing regression in `../gbsa_aws/backend/tests/unit/reporting/test_report_view_contract.py` (or a new `test_report_evidence_availability.py`), apply the approved minimal fix, run reporting/runtime unit suites and `ruff`, push to `fork` and open a PR; keep it separate from the T029 fixture PR [FR-051]
 - [X] T087 [US5] Only if T083 classifies an E01-A1/A2 or E02 assertion as `TARGET_CONTROL_DEFECT`: record the proposal, obtain approval, then follow the T086 pattern on its own branch and PR with failing tests first; otherwise `NOT_REQUIRED` [FR-050, FR-051]
-- [ ] T088 [US5] If any T080/T081 FAIL was remediated, run a parent-linked child retest for that profile with approval, verify parent and child bundles, confirm the parent manifest is unchanged, and record SHAs and result differences; if no remediation was needed, re-verify the parents and record that no child was required, in `validation.md` [FR-052, SC-005]
+- [X] T088 [US5] If any T080/T081 FAIL was remediated, run a parent-linked child retest for that profile with approval, verify parent and child bundles, confirm the parent manifest is unchanged, and record SHAs and result differences; if no remediation was needed, re-verify the parents and record that no child was required, in `validation.md` [FR-052, SC-005]
 
 **Checkpoint**: 최초 사실은 보존되고, 필요한 경우에만 수정 전→후 계보가 별도 Run으로 남는다.
 
@@ -377,3 +377,10 @@ https://github.com/jhkim0602/gbsa_aws/pull/8 is OPEN, base bosung/controlproof-n
 Intended RED 11 failed / 4 passed across two invocations; focused GREEN 15 and related reporting/runtime
 184 passed; ruff/format/diff and company console typecheck PASS. No new actual Run. Original A3 FAIL
 remains; T088 product child and closure gates pending. See latest validation / ID-004-30 continuation.
+
+T088 complete (2026-10-08): PR #8 merged into WhyYou integration `374b122` (tested b15ba8a tree unchanged).
+Fresh READY 18/18 and 16/16/MATCH; exactly one official E-01 product-remedy child
+`a5ad4676-333b-44d0-8657-95ab434f3b3d` on clean ControlProof `8bbf36c` / WhyYou `374b122`:
+A1~A4 PASS, SUCCEEDED / VERIFIED, residue 0; all three prior bundles unchanged. E-02 was not rerun
+on the new head. Phase 9 status docs synchronized; final T096 sync remains pending. Next T089~T097,
+Spec 004 not Complete. Historical pending entries above describe their own checkpoints.

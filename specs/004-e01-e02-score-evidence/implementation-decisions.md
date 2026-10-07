@@ -511,3 +511,20 @@ created the PR through GitHub API, with credentials only in process memory. PR m
 correct base/head; no merge or actual Run performed. Parent/D1-child evidence and both mains unchanged.
 T088 product-remedy validation and T089~T097 remain; automatic gate is not actual A3 PASS. Existing generic
 retest-reason wording caveat remains separate from this six-file change.
+
+### ID-004-30 — T088 live confirmation / Phase 9 closure (2026-10-08)
+
+User authorized the next integration/fresh-READY child step. PR #8 merged to integration at
+`374b122e1296c0159ccd88ed4763d358973c59cb`; merged source tree equals tested b15ba8a, no extra scope.
+Official child `a5ad4676-333b-44d0-8657-95ab434f3b3d` of original E-01 `09c9d9bb…`, ControlProof
+`8bbf36cdbef4c627dc078b40d3eca41441d471e9`, confirms A3 H-4 via transcript_available true/false/true and
+A4 exact record/read restoration. A1~A4 PASS, restore SUCCEEDED, bundle VERIFIED, residue 0.
+Original P1 FAIL and D1-only FAIL remain immutable; this later result does not replace their verdicts.
+
+T084 runner coverage and T085/T086 approved product remedy are complete; T087 stays NOT_REQUIRED because
+neither INCONCLUSIVE nor unsafe restore defect was found. T088 complete for the product-remedy child,
+with all three previous manifests/files unchanged. Four D1 modes are observations, not target PASS claims.
+E-02 PASS remains at ce8d862; latest 374b122 READY/MATCH is readiness, not a new official Run.
+Earlier D1-only retest reason wording remains a bounded follow-up; current product-remedy reason is accurate.
+Phase 10 T089~T097 remains required, including T094 conditional review and T091 final full gate. No
+Spec Complete or AWS claim; Phase 9 status sync does not satisfy final T096/converge.

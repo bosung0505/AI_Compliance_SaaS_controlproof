@@ -63,7 +63,7 @@ ControlProof 웹 UI가 완성됐다는 뜻이 아니며, 현재 사용자 접점
 | 순서 | 상태 | 범위 |
 |---|---|---|
 | Spec 003 | 구현·actual validation 기록 완료, PR 검토 보완 | T001~T093 기록 완료. 실제 child `7b59237e…`는 A1~A4·A6 PASS, A5·A7 INCONCLUSIVE. 2026-10-07 검토에서 복구 시간·A7 원본 증거·H-03 동의 seed 보완; 최신 회귀는 validation 참조. 최종 converge 전이며 Spec 전체 Complete 또는 실제 N-02 PASS로 선언하지 않는다. |
-| Spec 004 | T001~T078 완료, 공식 Run `NOT_RUN` | Phase 8 진단 E-02 PASS, E-01 A3 FAIL(P1); 실행기 정리·비교·타임라인 seed 보완. 다음 T079 preflight. Spec 전체 미완료. |
+| Spec 004 | T001~T088 완료, 종료 gate 대기 | 최초 공식 E-01 FAIL 보존 → PR #8 수정 후 child `a5ad4676…` A1~A4 PASS·복구 성공·VERIFIED. E-02 최초 공식 PASS(`ce8d862`); 최신 WhyYou `374b122`에서는 preflight READY만 확인. 다음 T089~T097 품질·독립 재현·converge, Spec 전체 미완료. |
 | Spec 005 | 계획 확정·미착수 | 웹 워크벤치·12개 시나리오 카탈로그·보고서와 웹 UX 검토 |
 
 WhyYou 연결 기반을 별도 Spec으로 먼저 만들지 않는다. 각 시나리오에 필요한 capability를 해당 Spec의

@@ -2,9 +2,9 @@
 
 ## Current status
 
-- Workflow stage: T001~T087 done (T087 NOT_REQUIRED). T085 six-file remedy approved; T086 implemented/pushed in WhyYou PR #8 (OPEN, not merged). First official E-01 FAIL and E-02 PASS, plus D1 child A3 FAIL, remain sealed/VERIFIED. T088 partial for D1 only; next PR review/integration, fresh READY and approved product-remedy child. Spec 004 remains incomplete.
+- Workflow stage: T001~T088 done (T087 NOT_REQUIRED). WhyYou PR #8 merged into integration at 374b122. Official product-remedy child a5ad4676-333b-44d0-8657-95ab434f3b3d E01-A1~A4 PASS, restore SUCCEEDED, bundle VERIFIED; first E-01 FAIL and D1-only child FAIL preserved. Initial E-02 PASS remains on ce8d862; fresh E-02 preflight READY on 374b122, no E-02 Run on that head yet. Next T089~T097 quality/reproduction/closure. Spec 004 remains incomplete.
 - WhyYou local/test fixture (Phase 3, T022~T029): PR jhkim0602/gbsa_aws#6 reviewed, fixed and merged into `bosung/controlproof-n02-integration` at `42aaaba206ced4288c8ee477b73f5f1ccf078bf3`; main unchanged.
-- Latest WhyYou integration head: `ce8d8620d2b2fec7f448ae312cf13334b408c01a` (PR #7, ID-004-29 report-embedder wiring); live E-02 diagnostic report generation and cleanup confirmed (see Phase 8 continuation below).
+- Latest WhyYou integration head: `374b122e1296c0159ccd88ed4763d358973c59cb` (PR #8, approved ID-004-30 response-only transcript availability); T088 live E-01 product-remedy child PASS. PR #7 wiring and Phase 8 E-02 evidence remain historical checkpoints.
 - Sandbox diagnostics: complete, separate from official results. Official initial E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` FAIL; E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` PASS (see T080~T082 entry). Parent D1 OTHER_CRITERION NOT_OBSERVED stays unchanged; ID-004-34 supersedes ID-004-17 for new Runs while retaining FR-013 four-mode coverage.
 - AWS: `NOT_RUN`
 - Claim scope: `EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`
@@ -741,3 +741,78 @@ Product Brief sync waits for phase closure. First official E-01 and D1 child rem
 T088 partial for D1 only; actual product-remedy child requires PR integration and fresh READY/approval.
 AWS NOT_RUN; Spec 004 not Complete. Next: review/integrate PR #8 into integration, then T088 A3/A4 child
 verification preserving all existing parents. Generic retest-reason wording caveat remains a follow-up.
+
+## 2026-10-08 — T088 official P1-remedy child / Phase 9 complete
+
+Authorization: user "다음 작업 바로 진행" after the proposed PR #8 integration and fresh-READY child step.
+PR https://github.com/jhkim0602/gbsa_aws/pull/8 re-read: approved six-file scope, head
+`b15ba8a88be1f31b354638e42a9b828b34c06875`, base integration `ce8d862`, mergeable. Combined CI statuses
+were empty (not CI PASS). Merge connector returned permission 403; existing authorized Git-user API
+fallback merged the reviewed head with expected-head guard. Merge SHA
+`374b122e1296c0159ccd88ed4763d358973c59cb`; local integration and clean execution clone fast-forwarded.
+Merged tree equals the T086-tested b15ba8a tree (git diff --exit-code). No source edits or repeated pytest;
+the prior related 184 PASS/scoped static/typecheck gates apply to that identical tree. T091 still pending.
+Both main refs unchanged: ControlProof 71a2c250; WhyYou cc8bf556. Historical untracked probes preserved.
+
+Only 14 verified old owned API/worker process-tree entries were stopped, with PID/creation-time checks.
+Fresh API/worker roots 51920/51524 use separate t088-observers/t088-faults and logs; same isolated synthetic
+Postgres/Moto retained, external AI blocked, fixture spec004-report-v1. No original WhyYou DB or env file
+modified. Service/helper/merge journals remain under workspace .pr-review/ outside Git.
+
+Before exactly one new child submission: re-verify all three previous bundles and compare every registered
+file plus manifest bytes. E-01 preflight READY 18/18 (4.812 s); E-02 READY 16/16, scoring source MATCH for
+both pinned blobs (5.797 s). No preflight-created Run or owned rows. E-02 was not rerun on 374b122.
+
+| Field | Official child |
+|---|---|
+| Run / parent | `a5ad4676-333b-44d0-8657-95ab434f3b3d` / `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` |
+| Label / profile | e01-p1-remedied / E01_CITATION_EVIDENCE_V1 |
+| Clean ControlProof source | `8bbf36cdbef4c627dc078b40d3eca41441d471e9`, yeonwoo/004-e01-e02-score-evidence |
+| Clean WhyYou source | `374b122e1296c0159ccd88ed4763d358973c59cb`, bosung/controlproof-n02-integration |
+| Status / verdict | COMPLETED / PASS; E01-A1~A4 all PASS |
+| Restore / bundle | SUCCEEDED / VERIFIED; both injections RESTORED, no block/manual cleanup |
+| Manifest SHA-256 | `3d49961f865cfe6a3917d8d5c6f51e8f82b4c32d26922d825b2331e833a895bf` (19 registered files) |
+
+A3: affected item `01a11706-3c11-7b04-9349-3dd0096d26c4` exposes H-4 availability; unexposed and
+changed_without_indicator are empty. Evidence `01a11706-3c11-7dd0-a743-9705ce7c13a8`, segment
+`ff40fe5a-cd31-572b-8ae6-79861997a103`: transcript_available true → false after actual removal → true
+after exact restoration. All three report GETs 200; unaffected items and original scores unchanged.
+A4 read_equal=true / record_equal=true; stored item/Evidence projections and pre/post digest equal,
+frozen inputs unchanged. This is live API/worker evidence, distinct from automatic fixture gates.
+D1 all four modes observed: EMPTY AXIS_DROPPED; NONEXISTENT/OTHER_APPLICANT/OTHER_CRITERION
+SHOWN_AS_WRITTEN. These remain diagnostic observations, not extra target assertions or control PASS.
+
+Journey 37.632410 s; retest wall 45.562 s; show 3.531 s; verify 2.797 s; durable submission-to-verify
+record wall 51.894447 s; restoration 0.726722 s. All 540/120/60/600-second budgets satisfied.
+Run-owned positions, competency_model_versions, interview_sessions, reports, report_items, evidence and
+assistant_retrieval_documents all remain 0 after successful teardown. All three prior bundles' registered
+files and manifest bytes remain unchanged after child execution. The initial E-01 FAIL, D1-only child
+FAIL and initial E-02 PASS remain sealed historical results.
+
+Retest diff: target git SHA ce8d862 → 374b122, environment source SHAs updated; scenario/profile/fixed
+fixture unchanged, fresh lane manifest, reused_identities=[]. No parent evidence reused as child proof.
+The current child reason "WhyYou 수정 후 E-01 독립 Run 재시험" accurately describes this product fix;
+the earlier D1-only child's generic wording caveat remains, with its source diff proving WhyYou unchanged.
+
+Commands, using ControlProof venv and the isolated t088 environment:
+
+```text
+python -m engine.cli verify <each of 3 previous Run IDs> --run-root <official-root> --json
+python -m engine.cli preflight E-01 --profile E01_CITATION_EVIDENCE_V1 --target whyyou-local --json
+python -m engine.cli preflight E-02 --profile E02_SCORING_FREEZE_V1 --target whyyou-local --json
+python -m engine.cli retest 09c9d9bb-82a3-4485-9c9d-e9721f2452e4 --target whyyou-local --label e01-p1-remedied --run-root <official-root> --json
+python -m engine.cli show a5ad4676-333b-44d0-8657-95ab434f3b3d --run-root <official-root> --json
+python -m engine.cli verify a5ad4676-333b-44d0-8657-95ab434f3b3d --run-root <official-root> --json
+```
+
+All commands exit 0. Raw bundle: workspace cp-local/spec004-official/runs/<child ID>/; exclusive submission,
+source/parent hash baseline, readiness, stdout/stderr, timing/toggle/residue inspection:
+cp-local/spec004-official/commands/t088-p1-child/. Raw evidence remains outside Git. Native Windows
+meaningless-REX-prefix anomaly messages are retained in logs; commands exited 0, no unexpected control
+failure. No credentials or user absolute paths added to Git.
+
+T088 complete; Phase 9 T079~T088 complete (T087 evidence-backed NOT_REQUIRED). Global status documents
+synchronized once at this Phase boundary; this does not complete T096's final closure sync. Next
+T089~T097: timing/security tests, full gate, quickstart/reproduction, traceability/conditional review,
+limitations and converge. Spec 004 not Complete, AWS NOT_RUN. E-02 latest official PASS remains on ce8d862;
+fresh READY on 374b122 is not a new E-02 verdict. This documentation commit is not the child execution SHA.

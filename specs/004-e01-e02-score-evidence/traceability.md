@@ -136,3 +136,24 @@ scoped ruff PASS. PR https://github.com/jhkim0602/gbsa_aws/pull/8 OPEN, targetin
 This is implementation/automatic evidence, not a new actual A3 verdict. Original E-01 parent and D1 child
 remain sealed FAIL; E-02 parent remains PASS. No new EV4 actual manifest exists for this product fix.
 T088 product-remedy child and full FR/SC mapping/closure T089~T097 remain pending.
+
+## T088 — official product-remedy child mapping (2026-10-08)
+
+Parent `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` → child
+`a5ad4676-333b-44d0-8657-95ab434f3b3d`; CP `8bbf36cdbef4c627dc078b40d3eca41441d471e9`,
+WhyYou `374b122e1296c0159ccd88ed4763d358973c59cb` (PR #8 merged). COMPLETED/PASS A1~A4,
+SUCCEEDED/VERIFIED, residue 0. Manifest SHA256
+`3d49961f865cfe6a3917d8d5c6f51e8f82b4c32d26922d825b2331e833a895bf`, 19 registered files.
+
+| Requirement / assertion | Child evidence / observed fact |
+|---|---|
+| FR-010~012 / E01-A1,A2 / EV4-02~04 | citation-cases.jsonl, model-emissions.jsonl, report-records.jsonl; four invalid modes EMPTIED, VALID STORED_VALID |
+| FR-020~021 / E01-A3 / EV4-04,05,09 | report-reads.jsonl, report-records.jsonl, change-injections.jsonl; affected Evidence availability true→false→true, unaffected items/scores unchanged |
+| FR-022 / E01-A4 / EV4-09 | pre/post read and stored digest equal, injections RESTORED, recovery.json SUCCEEDED, teardown/residue 0 |
+| FR-013 / D1 / EV4-02,04,05,09 | storage-probe.json with donor provenance; four modes observed, diagnostic only |
+| FR-051~052 / SC-005 / EV4-10 | approved ID-004-30, WhyYou PR #8; retest-link.json and retest-diff.json, fresh identities, original parent and two other prior bundles byte/hash unchanged |
+
+Live API/worker result is separate from T086 automatic gates. Raw child and command/inspection evidence
+remain in workspace cp-local/spec004-official/runs/ and commands/t088-p1-child/, outside Git. Earlier
+tables remain original checkpoint facts. E-02 has no new actual Run at 374b122; its ce8d862 PASS remains.
+Full FR/SC mapping and quality/reproduction/closure T089~T097 still pending; Spec 004 not Complete.

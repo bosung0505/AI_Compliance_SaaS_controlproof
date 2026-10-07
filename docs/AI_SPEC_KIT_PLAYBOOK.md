@@ -6,6 +6,12 @@
 적용하도록 하는 실행 가이드다. 현재 상태를 파악할 때는 `docs/TEAM_HANDOFF.md`, 작업 방법을 파악할
 때는 이 문서를 따른다.
 
+현재 checkpoint(2026-10-08): Spec 004 T001~T088 완료(T087 NOT_REQUIRED), 다음 T089~T097.
+E-01 최초 FAIL 보존 후 WhyYou PR #8 병합 `374b122`에서 공식 child A1~A4 PASS·복구 성공·VERIFIED.
+E-02 최초 공식 PASS는 `ce8d862`에서의 결과이며 `374b122`은 preflight READY만 확인했다.
+세부 실행 source·manifest·한계는 [Spec 004 validation](../specs/004-e01-e02-score-evidence/validation.md)의
+최신 T088 기록을 따른다. Spec 전체 미완료, AWS NOT_RUN.
+
 ## 2. 새 세션의 필수 입력 순서
 
 AI에게 구현을 요청하기 전에 다음 순서로 읽히고 실제 파일 상태를 확인한다.
@@ -42,7 +48,8 @@ Spec 문서 여러 개를 한꺼번에 만든 뒤 구현하는 방식이 아니�
 ## 4. 브랜치 규칙
 
 - ControlProof 작업은 해당 Spec 전용 브랜치에서 한다.
-- WhyYou 변경은 `bosung/controlproof-h03-integration` 또는 그로부터 분기한 개인 브랜치에서만 한다.
+- WhyYou Spec 003·004 변경은 `bosung/controlproof-n02-integration` 또는 그로부터 분기한 개인 브랜치에서만 한다.
+  Spec 001·002의 기존 통합 경로는 `bosung/controlproof-h03-integration`이다.
 - WhyYou `main`에 직접 commit·push하지 않는다.
 - 실제 Run 전 두 저장소의 branch, HEAD SHA와 dirty 상태를 기록한다.
 - 검증한 source SHA와 문서만 바뀐 최신 HEAD를 혼동하지 않는다.

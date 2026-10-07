@@ -35,7 +35,7 @@ without actual validation or an explicit truthful non-execution status. Update V
 ## Repository safety
 
 - ControlProof feature work stays on its feature branch.
-- WhyYou integration uses `jhkim0602/gbsa_aws` branch `bosung/controlproof-n02-integration` (`ce8d862`) or a personal
+- WhyYou integration uses `jhkim0602/gbsa_aws` branch `bosung/controlproof-n02-integration` (`374b122`) or a personal
   branch based on it. Never commit or push ControlProof work directly to WhyYou `main`.
 - Inspect both repositories' branch, HEAD and dirty state before an actual Run.
 - Never commit `.env`, credentials, production data, `.controlproof/`, or `runs/`.
@@ -48,8 +48,10 @@ without actual validation or an explicit truthful non-execution status. Update V
 ## Current next feature
 
 Spec 004 is E-01·E-02: scores require valid evidence and reports freeze scoring inputs. Active ControlProof
-branch is `yeonwoo/004-e01-e02-score-evidence`; WhyYou is `bosung/controlproof-n02-integration` (`ce8d862`, PR #7
-merged). T001~T078 complete, including Phase 8 diagnostics and runner corrections (ID-004-31~33). Diagnostic
-E-02 A1~A3 PASS; E-01 A1/A2/A4 PASS and A3 FAIL (P1). Official E-01/E-02 and AWS remain `NOT_RUN`. Next T079:
-fresh preflights on clean committed sources; T080/T081 require approval. Read the latest Phase 8 continuation
-in validation. Spec 004 is not Complete. Do not pre-fix P1 before sealing the first official E-01 result.
+branch is `yeonwoo/004-e01-e02-score-evidence`; WhyYou is `bosung/controlproof-n02-integration` (`374b122`, PR #8
+merged). T001~T088 complete (T087 NOT_REQUIRED). First official E-01 FAIL is preserved; approved P1 fix has
+official child `a5ad4676-333b-44d0-8657-95ab434f3b3d` A1~A4 PASS, restore SUCCEEDED and bundle VERIFIED.
+D1 all four modes observed; it remains diagnostic-only. E-02 initial official PASS is on `ce8d862`; latest
+`374b122` E-02 preflight READY is not a new actual PASS. Next T089~T097 timing/security/full regression,
+quickstart and independent reproduction/closure. Read latest T088 validation. Spec 004 is not Complete;
+AWS NOT_RUN. Preserve every first factual FAIL and verify later corrections in separate child Runs.
