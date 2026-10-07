@@ -3,8 +3,10 @@
 ## Current status
 
 - Workflow stage: Implement T001~T071 done (Phases 1~7 and the Phase 8 retest machinery); Phase 8 diagnostics T072,
-  T073, T076, T077 recorded; T074, T075 blocked (ID-004-29); T078 partial. Next task: T074.
+  T073, T076, T077 recorded; ID-004-29 option (a) merged, T074/T075 re-diagnostics pending; T078 partial.
+  Next task: T074.
 - WhyYou local/test fixture (Phase 3, T022~T029): PR jhkim0602/gbsa_aws#6 reviewed, fixed and merged into `bosung/controlproof-n02-integration` at `42aaaba206ced4288c8ee477b73f5f1ccf078bf3`; main unchanged.
+- Latest WhyYou integration head: `ce8d8620d2b2fec7f448ae312cf13334b408c01a` (PR #7, ID-004-29 report-embedder wiring); diagnostic report generation has not yet been rechecked.
 - Sandbox diagnostics: partial, diagnostic only (see "Sandbox diagnostics"). Actual E-01/E-02 Runs: none (`NOT_RUN`).
 - AWS: `NOT_RUN`
 - Claim scope: `EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`
@@ -314,3 +316,30 @@ repositories before continuing; read this review entry with the corrected fixtur
 - 연우 PC 한정(다른 PC에서는 해당 없을 수 있음): WhyYou DB 포트 5433, ControlProof `.env`는 프로세스마다 수동 로드
   (quickstart §3 명령), Windows 앱 제어 때문에 `.venv`의 SQLAlchemy `*_cy*.pyd`를 `.blocked`로 바꿔 둠, PS 5.1에서는
   `scripts/local.ps1 up`을 별도 `powershell.exe -File`로 실행해야 docker stderr를 오류로 보지 않음.
+
+## ID-004-29 continuation — report embedder wiring (2026-10-07)
+
+- User authorized step 1 / option (a). WhyYou source baseline:
+  `bosung/controlproof-n02-integration` `42aaaba206ced4288c8ee477b73f5f1ccf078bf3`;
+  ControlProof input: `yeonwoo/004-e01-e02-score-evidence` `0dc87999d57e947307afdf85e64aad75d554bb95`.
+- Changed only the report handler's `embedder=aws.embedder` to the existing resolved `report_embedder`, plus
+  `backend/tests/unit/runtime/test_controlproof_report_embedder_wiring.py`. The two composition tests call the
+  real worker factory with infrastructure creation replaced: substitute enabled uses the fixed embedder shared
+  with the runtime; disabled preserves the identical AWS embedder object.
+- EXPECTED RED before the source fix:
+  `python -m pytest backend/tests/unit/runtime/test_controlproof_report_embedder_wiring.py -q`
+  → **1 failed, 1 passed** (9.61 s). The enabled handler received the AWS fallback. No unexpected test failure.
+- After the source fix:
+  `python -m pytest backend/tests/unit/runtime backend/tests/unit/reporting -q`
+  → **172 passed** (10.14 s; third-party deprecation warnings only).
+  `python -m ruff check backend/src/interview_evidence/runtime/worker.py backend/tests/unit/runtime/test_controlproof_report_embedder_wiring.py`
+  and `git diff --cached --check` → **PASS**.
+- Optional format check: the new test file passes; `worker.py` still has its pre-existing attestation flag
+  condition formatting mismatch. The pristine baseline also returns exit 1. No unrelated formatting fix added.
+- Fix commit `77df3137aaf61003d4679f20276333b5eac2c290`; [WhyYou PR #7](https://github.com/jhkim0602/gbsa_aws/pull/7)
+  merged into `bosung/controlproof-n02-integration` at `ce8d8620d2b2fec7f448ae312cf13334b408c01a`, then pulled locally.
+  PR contains the one-line source fix and the two tests only; no GitHub CI checks were attached.
+- No service or diagnostic/official Run executed in this continuation. E-01/E-02 official Runs and AWS remain
+  **NOT_RUN**. T074/T075 must confirm live diagnostic behavior; ID-004-31 / T078 remains open. ID-004-30 / P1
+  product correction remains PROPOSED until the first official E-01 result is sealed. Main and existing evidence
+  were not modified. Historical handoff and diagnostic entries above describe their original checkpoints.

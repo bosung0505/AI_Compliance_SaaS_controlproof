@@ -214,6 +214,10 @@ v2가 아니면 INCONCLUSIVE인지 확인한다.
 
 ### Sandbox diagnostics
 
+2026-10-07 continuation: ID-004-29 option (a) merged via WhyYou PR #7 (`ce8d862`); two composition tests added,
+EXPECTED RED confirmed, runtime/reporting scoped tests **172 passed**. T074/T075 re-diagnostics remain pending;
+this is not an actual Run. Commands and source SHAs are in `validation.md`.
+
 - [X] T072 Build the isolated sandbox (PostgreSQL 16+pgvector, moto S3/SQS, WhyYou API and workers from the T029 head with `spec004-report-v1`, loopback AI endpoints, separate observer root) as in Spec 003 ID-003-18; record setup and source SHAs, never the shared local DB, in `specs/004-e01-e02-score-evidence/validation.md` [FR-001, FR-003]
 - [X] T073 SD-4: run a diagnostic E-01 pass in the sandbox; record emission receipts against stored axes for all five modes and the full diagnostic Run duration against the 540-second budget in `specs/004-e01-e02-score-evidence/validation.md`; if the budget is at risk, record it as a runner finding for T078 before any official Run [FR-010~012, SC-003]
 - [ ] T074 SD-2: on a diagnostic report, read `reports.overall_score`, `scoring_inputs`, items and the API `scoring_breakdown` (read-only SELECT/GET) and confirm the comparison shape and tolerance; record in `validation.md` [FR-033]

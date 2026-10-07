@@ -305,7 +305,7 @@ bundle could not show whether the timeline read failed. The adapter now records
 `{"status_code": N, "entries": null, "playback_status": null}` for a non-200 timeline (test RED first). The judge does
 not use the timeline; it is supporting evidence only. The real timeline status is still unmeasured (rerun SD-1).
 
-### ID-004-29 — E-02 diagnostics are blocked by WhyYou's report embedder wiring (PROPOSED, not applied)
+### ID-004-29 — E-02 diagnostics are blocked by WhyYou's report embedder wiring (PROPOSED at handoff; applied in update below)
 
 Every E-02 report request failed with `RetryableError` (no report, no emission receipt). Captured by calling WhyYou's
 own report handler once from a scratch harness (no WhyYou file changed, transaction rolled back): the requirement
@@ -342,3 +342,13 @@ E-02 diagnostics measured what an absent report costs: the Run waits to its dead
 whole command, 540 s journey budget). A refused report behaves the same because Spec 004 lanes get no refusal
 receipt. Decision (a) stands; (b) observer extension remains PROPOSED and becomes worth doing if refusals are expected
 in official Runs.
+
+### ID-004-29 — Update: option (a) approved and merged (2026-10-07)
+
+The user authorized step 1. WhyYou PR #7 changes only the report handler embedder argument to `report_embedder`
+and adds two worker-composition tests. Before the fix the enabled case fails on the AWS fallback and the disabled
+case passes; after it, runtime/reporting scoped suites pass (172 tests). Disabled mode retains the same AWS
+embedder object. Fix `77df3137aaf61003d4679f20276333b5eac2c290` merged into `bosung/controlproof-n02-integration`
+at `ce8d8620d2b2fec7f448ae312cf13334b408c01a`; main unchanged. See validation continuation for commands and limits.
+This closes the wiring change, not SD-2/SD-3 or an actual E-02 verdict: T074/T075 remain pending, official Runs
+remain NOT_RUN. ID-004-30 / P1 and ID-004-31 are unchanged.
