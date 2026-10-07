@@ -128,6 +128,22 @@ def test_seeded_criterion_verification_guide_satisfies_whyyou_model() -> None:
     ``REPORT_ASSESSMENT_STARTED``. Bounds and values mirror the target model.
     """
     plan = build_n02_seed_plan(uuid4(), company_id=uuid4(), reviewer_id=uuid4())
+    positions = [row for row in plan.rows if row.table == "positions"]
+    assert positions
+    for row in positions:
+        # WhyYou PositionStatus is draft|active|closed; "open" made every position read fail.
+        assert row.values["status"] == "active"
+    from seeds.n02_subjects import build_probe_overlay_rows
+
+    for lane in plan.lanes:
+        definition = plan.by_lane(lane.lane_id)
+        for row in build_probe_overlay_rows(
+            definition, plan.company_id, plan.competency_model_version_id, plan.criterion_id,
+            include_assessment=True,
+        ):
+            if row.table == "interview_strategies":
+                # WhyYou InterviewStrategy requires time_budget.total_seconds > 0.
+                assert row.values["time_budget"].get("total_seconds", 0) > 0
     versions = [row for row in plan.rows if row.table == "competency_model_versions"]
     assert versions
     for row in versions:

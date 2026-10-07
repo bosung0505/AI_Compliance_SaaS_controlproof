@@ -268,7 +268,7 @@ def _seed_rows(
                 "description": "Synthetic local/test-only N-02 position",
                 "submission_requirements": _submission_requirements(),
                 "created_by": reviewer_id,
-                "status": "open",
+                "status": "active",
                 "row_version": 1,
                 "created_at": _FIXED_TIME,
             },
@@ -430,7 +430,8 @@ def build_probe_overlay_rows(
                 "common_topics": [],
                 "verification_points": [],
                 "follow_up_directions": {},
-                "time_budget": {},
+                # WhyYou validates total_seconds > 0 on every strategy read.
+                "time_budget": {"total_seconds": 600},
                 "required_evidence_plan": {},
                 "source_reference_candidates": [],
                 "model_config_version": "controlproof-fixed-v1",
