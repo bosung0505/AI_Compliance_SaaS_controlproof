@@ -94,6 +94,16 @@ def test_full_database_projection_is_not_persisted_as_an_allowlisted_effect():
         "protected-effects.jsonl",
         "causal-events.jsonl",
         "fault-receipts.jsonl",
+        # T086: every remaining Spec 003 EV3 file, the sealed observer rows and the judgement.
+        "target.snapshot.json",
+        "n02-capabilities.json",
+        "n02-lanes.json",
+        "baseline-effects.jsonl",
+        "causal-edges.jsonl",
+        "observations.jsonl",
+        "recovery.json",
+        "assertions.json",
+        "judgement.json",
     ],
 )
 def test_every_spec002_artifact_gate_rejects_redaction_bypass(
@@ -120,3 +130,62 @@ def test_every_spec002_artifact_gate_rejects_redaction_bypass(
                 },
                 redact_first=False,
             )
+
+
+_IDENTIFIER_ONLY_KEYS = {"trace_id", "cookie", "authorization", "idempotency_key", "session_cookie"}
+
+
+@pytest.mark.parametrize(
+    "row",
+    [
+        {"receipt_id": "r1", "boundary": "REPORT_HANDLER_ENTERED", "trace_id": "controlproof:x:y:z",
+         "cookie": "iep_applicant_session=raw-session-cookie"},
+        {"marker": "consent", "Idempotency-Key": "raw-idempotency-key", "invitation_id": "i"},
+        {"event_id": "e1", "kind": "PROCESSING_REQUESTED", "request_headers": {"Authorization": "Bearer raw.jwt"}},
+    ],
+)
+def test_receipt_marker_and_causal_rows_cannot_carry_raw_identifiers(tmp_path, run_factory, row):
+    """T086: observer receipts, fault markers and causal rows carry digests only."""
+    writer = EvidenceBundleWriter(tmp_path, run_factory())
+    with pytest.raises(ValueError, match="prohibited secret or PII"):
+        writer.write_bytes("observations.jsonl", canonical_json_bytes(row) + b"\n", "application/x-ndjson")
+
+
+def test_sealed_n02_bundle_and_cli_payloads_are_redacted(tmp_path, monkeypatch):
+    """T086/SC-011: a complete N-02 Run leaves no raw identifier, header, cookie, user path or
+    PII in any sealed file, and the CLI run payload carries only the redacted bundle path."""
+    from dataclasses import replace
+
+    from engine import cli
+    from engine.evidence import assert_redacted
+    from engine.runner import build_profile_runner
+    from engine.scenario import load
+    from tests.fixtures.fake_adapters import FakeClock, FakeN02Adapters, make_adapters
+
+    monkeypatch.setenv("USERPROFILE", str(tmp_path))
+    fake = FakeN02Adapters()
+    adapters, _ = make_adapters()
+    adapters = replace(adapters, n02_seed=fake, n02_consent=fake, n02_processing=fake,
+                       n02_causality=fake, n02_fault=fake, n02_observer=fake)
+    runner = build_profile_runner(load("scenarios/N-02.yaml"), adapters, tmp_path, clock=FakeClock())
+    run, judgement, bundle = runner.execute(runner.preflight("whyyou-local"))
+
+    sealed = sorted(path for path in bundle.rglob("*") if path.is_file())
+    assert len(sealed) >= 20
+    for path in sealed:
+        if path.suffix in {".json", ".jsonl"}:
+            assert_redacted(path.read_bytes())
+            if path.suffix == ".jsonl":
+                for line in path.read_text(encoding="utf-8").splitlines():
+                    row = json.loads(line)
+                    assert not (_IDENTIFIER_ONLY_KEYS & {key.casefold() for key in row}), path.name
+                    for digest in (row.get("trace_id_digest"), row.get("fixture_digest")):
+                        assert digest is None or (len(digest) == 64 and int(digest, 16) >= 0), path.name
+
+    payload = cli._run_payload(run, judgement, bundle)
+    assert_redacted(canonical_json_bytes(payload))
+    assert "iep_applicant_session" not in json.dumps(payload)
+    # A bundle under a user home is shown with the home replaced, on either platform.
+    for home in ("C:/Users/real-person", "/home/real-person"):
+        shown = redact({"bundle_path": f"{home}/.controlproof/runs/{run.run_id}"})["bundle_path"]
+        assert "[USER_ROOT]" in shown and "real-person" not in shown
