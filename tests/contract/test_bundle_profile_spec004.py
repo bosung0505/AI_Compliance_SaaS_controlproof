@@ -24,12 +24,6 @@ from engine.models import (
     sha256_bytes,
 )
 
-pytestmark = pytest.mark.xfail(
-    strict=True,
-    raises=(AttributeError, ImportError),
-    reason="RED until T012 (profile enum, Run policy) and T018 (Spec 004 bundle profile)",
-)
-
 E01_FILES = {
     "spec004-capabilities.json",
     "spec004-lanes.json",
@@ -197,10 +191,27 @@ def test_spec004_bundle_is_sealed_with_the_profile_evidence_subset(
 def test_missing_profile_file_is_invalid(
     tmp_path, run_factory, target_snapshot, profile_name, missing
 ) -> None:
-    writer, _ = _write_bundle(tmp_path, run_factory, target_snapshot, profile_name, skip=missing)
+    """A sealed bundle that later loses a profile file is INVALID (ID-004-04: the writer refuses to
+    seal without it, so the loss can only happen after sealing)."""
+    writer, _ = _write_bundle(tmp_path, run_factory, target_snapshot, profile_name)
+    (writer.directory / missing).unlink()
     result = verify_bundle(writer.directory)
     assert result["bundle_status"] == "INVALID"
     assert missing in result["missing_files"]
+
+
+@pytest.mark.parametrize(
+    "profile_name,missing",
+    [
+        ("E01_CITATION_EVIDENCE_V1", "storage-probe.json"),
+        ("E02_SCORING_FREEZE_V1", "recompute.json"),
+    ],
+)
+def test_writer_refuses_to_seal_without_a_profile_file(
+    tmp_path, run_factory, target_snapshot, profile_name, missing
+) -> None:
+    with pytest.raises(ValueError, match="canonical files missing"):
+        _write_bundle(tmp_path, run_factory, target_snapshot, profile_name, skip=missing)
 
 
 def test_e02_bundle_does_not_require_model_emissions(

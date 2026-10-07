@@ -2,16 +2,22 @@
 
 from __future__ import annotations
 
+import hashlib
 import os
 from dataclasses import dataclass
 from pathlib import Path
 from urllib.parse import urlparse
 
-from engine.models import SHA256_RE
+from engine.models import SHA256_RE, SPEC004_FIXTURE_ID
 
 
 class ConfigError(ValueError):
     pass
+
+
+def fixture_digest(fixture_id: str) -> str:
+    """WhyYou's fixed-model digest rule: sha256("controlproof:" + fixture_id)."""
+    return hashlib.sha256(f"controlproof:{fixture_id}".encode()).hexdigest()
 
 
 @dataclass(frozen=True, slots=True)
@@ -201,6 +207,29 @@ class Settings:
                 raise ConfigError("ControlProof git identity must be supplied as one snapshot")
             if controlproof_dirty:
                 raise ConfigError("ControlProof checkout must be clean before a Spec 002 Run")
+
+    def validate_spec004_safety(self, *, whyyou_branch: str, whyyou_dirty: bool) -> None:
+        """Fail closed before any E-01/E-02 Run (plan §3/§4 step 1, quickstart fixture switch)."""
+        if self.environment_kind != "LOCAL_EMULATED":
+            raise ConfigError("Spec 004 environment must be LOCAL_EMULATED")
+        if self.aws_deployment_status != "NOT_RUN":
+            raise ConfigError("local AWS deployment status must be NOT_RUN")
+        if not self.model_substitute_enabled or self.external_ai_allowed:
+            raise ConfigError("fixed model substitute is required and external AI must be disabled")
+        if self.model_fixture_id != SPEC004_FIXTURE_ID:
+            raise ConfigError(
+                "Spec 004 requires CONTROLPROOF_MODEL_FIXTURE_ID=spec004-report-v1 "
+                "(switch both .env files and restart the WhyYou API and workers)"
+            )
+        if self.model_fixture_digest != fixture_digest(SPEC004_FIXTURE_ID):
+            raise ConfigError(
+                "model fixture digest does not match spec004-report-v1 "
+                "(CONTROLPROOF_MODEL_FIXTURE_DIGEST)"
+            )
+        if whyyou_branch.strip().casefold() in {"main", "master"}:
+            raise ConfigError("WhyYou main branch cannot be used for a Spec 004 Run")
+        if whyyou_dirty:
+            raise ConfigError("WhyYou checkout must be clean before a Spec 004 Run")
 
     def safe_projection(self) -> dict[str, str | bool]:
         return {

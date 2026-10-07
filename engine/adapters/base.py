@@ -11,11 +11,14 @@ from engine.models import (
     BusinessEffectSnapshot,
     CausalEdge,
     CausalEvent,
+    ChangeInjection,
     ConsentFaultReceipt,
     ConsentPolicySnapshot,
     ConsentStateSnapshot,
+    CriteriaVersionSnapshot,
     DecisionPathCapability,
     FaultBoundaryReceipt,
+    ModelEmissionReceipt,
     ProcessingAttemptReceipt,
     ProtectedEffectSnapshot,
     ProtectedProcessingPath,
@@ -23,6 +26,9 @@ from engine.models import (
     ReadinessStatus,
     RecoveryRecord,
     RedriveReceipt,
+    ReportLane,
+    ReportReadSnapshot,
+    ReportRecordSnapshot,
     RunSubjectLane,
     TargetEnvironmentSnapshot,
     TargetSnapshot,
@@ -276,6 +282,83 @@ class ProcessingObserverAdapter(Protocol):
     ) -> AdapterResult: ...
 
 
+# --- Spec 004 (E-01/E-02, contracts/whyyou-spec004-adapter.md) ----------------------------------
+# Raw facts only: no protocol below decides a verdict. Free text is returned as SHA-256 + length.
+
+
+class Spec004SeedAdapter(Protocol):
+    def seed_position(self, *, run_id: str, position_id: str) -> AdapterResult: ...
+
+    def seed_lanes(self, *, run_id: str, lanes: tuple[ReportLane, ...]) -> AdapterResult: ...
+
+    def teardown(
+        self, *, run_id: str, lanes: tuple[ReportLane, ...], position_ids: tuple[str, ...]
+    ) -> AdapterResult: ...
+
+
+class ReportRequestAdapter(Protocol):
+    def request_report(self, *, lane: ReportLane) -> AdapterResult: ...
+
+    def read_processing(self, *, lane: ReportLane) -> AdapterResult: ...
+
+
+class ReportRecordAdapter(Protocol):
+    def read_records(
+        self, *, lane: ReportLane, phase: str
+    ) -> ReportRecordSnapshot | AdapterResult: ...
+
+    def read_api(
+        self, *, lane: ReportLane, phase: str, include_timeline: bool = False
+    ) -> ReportReadSnapshot | AdapterResult: ...
+
+
+class EvidenceMutationAdapter(Protocol):
+    def remove_segment(
+        self, *, lane: ReportLane, transcript_segment_id: str, injection_id: str
+    ) -> ChangeInjection | AdapterResult: ...
+
+    def restore_segment(self, *, injection: ChangeInjection) -> ChangeInjection | AdapterResult: ...
+
+    def write_probe_axes(
+        self,
+        *,
+        lane: ReportLane,
+        report_item_id: str,
+        axes: tuple[Mapping[str, Any], ...],
+        injection_id: str,
+    ) -> ChangeInjection | AdapterResult: ...
+
+    def restore_probe_axes(
+        self, *, injection: ChangeInjection
+    ) -> ChangeInjection | AdapterResult: ...
+
+
+class CriteriaVersionAdapter(Protocol):
+    def create_version(
+        self, *, position_id: str, body: Mapping[str, Any], idempotency_key: str
+    ) -> AdapterResult: ...
+
+    def publish_version(
+        self, *, version_id: str, row_version: int, idempotency_key: str
+    ) -> AdapterResult: ...
+
+    def latest_published(
+        self, *, position_id: str, snapshot_phase: str
+    ) -> CriteriaVersionSnapshot | AdapterResult: ...
+
+    def other_positions_digest(self, *, excluded_position_ids: tuple[str, ...]) -> AdapterResult: ...
+
+
+class ModelEmissionAdapter(Protocol):
+    def read_emissions(
+        self, *, criterion_ids: tuple[str, ...]
+    ) -> tuple[ModelEmissionReceipt, ...] | AdapterResult: ...
+
+
+class ScoringSourceAdapter(Protocol):
+    def read_blob_shas(self) -> AdapterResult: ...
+
+
 @dataclass(frozen=True, slots=True)
 class AdapterSet:
     target: TargetAdapter
@@ -297,3 +380,11 @@ class AdapterSet:
     n02_causality: CausalityAdapter | None = None
     n02_fault: ConsentFaultAdapter | None = None
     n02_observer: ProcessingObserverAdapter | None = None
+    spec004_seed: Spec004SeedAdapter | None = None
+    spec004_consent: ConsentAdapter | None = None
+    spec004_requests: ReportRequestAdapter | None = None
+    spec004_records: ReportRecordAdapter | None = None
+    spec004_mutation: EvidenceMutationAdapter | None = None
+    spec004_versions: CriteriaVersionAdapter | None = None
+    spec004_emissions: ModelEmissionAdapter | None = None
+    spec004_scoring_source: ScoringSourceAdapter | None = None

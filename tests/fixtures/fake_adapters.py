@@ -1000,10 +1000,14 @@ def make_adapters(
     decision_effects_available=True,
     target_exists=True,
     readiness_overrides=None,
+    spec004=None,
 ):
     lifecycle_events = []
     target = FakeTarget(target_exists=target_exists, overrides=readiness_overrides)
     n02 = FakeN02Adapters()
+    from tests.fixtures.fake_spec004 import FakeSpec004Adapters
+
+    spec004 = spec004 or FakeSpec004Adapters()
     browser = FakeBrowser(status_class=status_class)
     fault = FakeFault(
         effect=effect,
@@ -1056,6 +1060,14 @@ def make_adapters(
             n02_causality=n02,
             n02_fault=n02,
             n02_observer=n02,
+            spec004_seed=spec004,
+            spec004_consent=spec004,
+            spec004_requests=spec004,
+            spec004_records=spec004,
+            spec004_mutation=spec004,
+            spec004_versions=spec004,
+            spec004_emissions=spec004,
+            spec004_scoring_source=spec004,
         ),
         browser,
     )

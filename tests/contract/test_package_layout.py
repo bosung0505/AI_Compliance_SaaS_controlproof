@@ -23,7 +23,7 @@ def test_spec003_profile_modules_are_importable():
 @pytest.mark.parametrize(
     "module",
     [
-        pytest.param("engine.judges.e02_scoring", marks=_red_until("T017")),
+        "engine.judges.e02_scoring",
         pytest.param("engine.adapters.whyyou.spec004_seed", marks=_red_until("T036")),
         pytest.param("engine.adapters.whyyou.report_records", marks=_red_until("T037")),
         pytest.param("engine.adapters.whyyou.model_emission", marks=_red_until("T038")),

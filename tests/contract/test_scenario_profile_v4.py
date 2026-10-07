@@ -16,12 +16,6 @@ from pydantic import ValidationError
 
 from engine.scenario import ScenarioDefinition, load
 
-RED_V4 = pytest.mark.xfail(
-    strict=True,
-    raises=(ValidationError, AttributeError),
-    reason="RED until T012 (profile enum) and T013 (scenario v4 validation)",
-)
-
 COMMON_CAPABILITIES = {
     "target.version.read": "v1",
     "target.environment.read": "v1",
@@ -193,7 +187,6 @@ def payload(spec: dict) -> dict:
     }
 
 
-@RED_V4
 @pytest.mark.parametrize("spec", [E01, E02], ids=["E-01", "E-02"])
 def test_canonical_v4_payload_loads(spec) -> None:
     scenario = ScenarioDefinition.model_validate(payload(spec))
@@ -204,7 +197,6 @@ def test_canonical_v4_payload_loads(spec) -> None:
     assert scenario.timing_policy.fault_ttl_seconds is None
 
 
-@RED_V4
 def test_module_exports_the_canonical_sets() -> None:
     scenario = import_module("engine.scenario")
     assert scenario.E01_CANONICAL_STEPS == E01_STEPS
@@ -277,7 +269,6 @@ DRIFTS = [
 ]
 
 
-@RED_V4
 @pytest.mark.parametrize("spec", [E01, E02], ids=["E-01", "E-02"])
 @pytest.mark.parametrize("drift", DRIFTS, ids=lambda item: item.__name__.lstrip("_"))
 def test_v4_rejects_contract_drift(spec, drift) -> None:
@@ -288,7 +279,6 @@ def test_v4_rejects_contract_drift(spec, drift) -> None:
         ScenarioDefinition.model_validate(mutated)
 
 
-@RED_V4
 def test_e02_requires_the_scoring_source_precondition() -> None:
     ScenarioDefinition.model_validate(payload(E02))
     mutated = payload(E02)
@@ -301,7 +291,6 @@ def test_e02_requires_the_scoring_source_precondition() -> None:
         ScenarioDefinition.model_validate(mutated)
 
 
-@RED_V4
 def test_v4_profiles_cannot_borrow_each_others_lanes() -> None:
     ScenarioDefinition.model_validate(payload(E01))
     mutated = payload(E01)

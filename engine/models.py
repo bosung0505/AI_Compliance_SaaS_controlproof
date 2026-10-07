@@ -88,6 +88,26 @@ class ExecutionProfile(StrEnum):
     E03_BEFORE_V2 = "E03_BEFORE_V2"
     E03_AFTER_V2 = "E03_AFTER_V2"
     N02_CONSENT_ORDER_V1 = "N02_CONSENT_ORDER_V1"
+    E01_CITATION_EVIDENCE_V1 = "E01_CITATION_EVIDENCE_V1"
+    E02_SCORING_FREEZE_V1 = "E02_SCORING_FREEZE_V1"
+
+
+SPEC004_PROFILES = frozenset(
+    {ExecutionProfile.E01_CITATION_EVIDENCE_V1, ExecutionProfile.E02_SCORING_FREEZE_V1}
+)
+#: Spec 004 timing (contracts/scenario-profile-v4.md): N-02 values without a fault marker TTL.
+SPEC004_TIMING_POLICY = {
+    "poll_seconds": 2,
+    "stability_consecutive": 3,
+    "stability_seconds": 4,
+    "environment_restore_deadline_seconds": 120,
+    "run_deadline_seconds": 540,
+    "bundle_verify_deadline_seconds": 60,
+}
+E01_ASSERTIONS = ("E01-A1", "E01-A2", "E01-A3", "E01-A4")
+E02_ASSERTIONS = ("E02-A1", "E02-A2", "E02-A3")
+E01_EVIDENCE = ("EV4-01", "EV4-02", "EV4-03", "EV4-04", "EV4-05", "EV4-09", "EV4-10")
+E02_EVIDENCE = ("EV4-01", "EV4-02", "EV4-04", "EV4-06", "EV4-07", "EV4-08", "EV4-09", "EV4-10")
 
 
 class FaultVariant(StrEnum):
@@ -139,6 +159,18 @@ class N02LaneId(StrEnum):
     ASSESSMENT_BOUNDARY_PROBE = "ASSESSMENT_BOUNDARY_PROBE"
     NORMAL_ORDER = "NORMAL_ORDER"
     CONSENT_FAULT_RECOVERY = "CONSENT_FAULT_RECOVERY"
+
+
+class E01LaneId(StrEnum):
+    E01_REFERENCE = "E01_REFERENCE"
+    E01_CITATION_MATRIX = "E01_CITATION_MATRIX"
+    E01_EVIDENCE_REMOVAL = "E01_EVIDENCE_REMOVAL"
+    E01_STORAGE_PROBE = "E01_STORAGE_PROBE"
+
+
+class E02LaneId(StrEnum):
+    E02_FIRST_APPLICANT = "E02_FIRST_APPLICANT"
+    E02_SECOND_APPLICANT = "E02_SECOND_APPLICANT"
 
 
 class BaselineKind(StrEnum):
@@ -370,6 +402,17 @@ class ScenarioProfile(FrozenModel):
                     "bundle_verify_deadline_seconds": 60,
                 },
             )
+        if profile in SPEC004_PROFILES:
+            e01 = profile is ExecutionProfile.E01_CITATION_EVIDENCE_V1
+            return cls(
+                execution_profile=profile,
+                scenario_id="E-01" if e01 else "E-02",
+                scenario_version="1.0.0",
+                fault_variant=None,
+                applicable_assertion_ids=E01_ASSERTIONS if e01 else E02_ASSERTIONS,
+                required_evidence=E01_EVIDENCE if e01 else E02_EVIDENCE,
+                timing_policy=dict(SPEC004_TIMING_POLICY),
+            )
         return cls(
             execution_profile=profile,
             scenario_id="E-03",
@@ -414,6 +457,8 @@ class ScenarioProfile(FrozenModel):
                 None,
                 tuple(f"N02-A{i}" for i in range(1, 8)),
             ),
+            ExecutionProfile.E01_CITATION_EVIDENCE_V1: ("E-01", None, E01_ASSERTIONS),
+            ExecutionProfile.E02_SCORING_FREEZE_V1: ("E-02", None, E02_ASSERTIONS),
         }[self.execution_profile]
         if (self.scenario_id, self.fault_variant, self.applicable_assertion_ids) != canonical:
             raise ValueError("profile scenario, fault variant, or assertion ownership is not canonical")
@@ -1246,6 +1291,460 @@ class RecoveryRecord(FrozenModel):
         return self
 
 
+# --- Spec 004 (E-01/E-02) ------------------------------------------------------------------------
+
+SPEC004_UNVERIFIED_SCOPE = frozenset({"AWS", "N-01", "N-03"})
+SPEC004_FIXTURE_ID = "spec004-report-v1"
+SPEC004_MARKER_PREFIX = "[controlproof-spec004 "
+SPEC004_RULE_COPY_ID = "controlproof.whyyou-scoring-copy.v1"
+SPEC004_RECOMPUTE_TOLERANCE = 1e-9
+SPEC004_AXIS_KEYS = ("correctness", "depth", "fundamentals", "ownership", "communication")
+_WEIGHT_TOTAL_EPSILON = 1e-6
+
+
+class CitationMode(StrEnum):
+    VALID = "VALID"
+    EMPTY = "EMPTY"
+    NONEXISTENT = "NONEXISTENT"
+    OTHER_APPLICANT = "OTHER_APPLICANT"
+    OTHER_CRITERION = "OTHER_CRITERION"
+
+
+SPEC004_ARGUMENT_MODES = frozenset(
+    {CitationMode.NONEXISTENT, CitationMode.OTHER_APPLICANT, CitationMode.OTHER_CRITERION}
+)
+
+
+class EmissionMode(StrEnum):
+    DEFAULT = "DEFAULT"
+    VALID = "VALID"
+    EMPTY = "EMPTY"
+    NONEXISTENT = "NONEXISTENT"
+    OTHER_APPLICANT = "OTHER_APPLICANT"
+    OTHER_CRITERION = "OTHER_CRITERION"
+
+
+class EmissionStatus(StrEnum):
+    EMITTED = "EMITTED"
+    MODE_SOURCE_MISSING = "MODE_SOURCE_MISSING"
+    MARKER_INVALID = "MARKER_INVALID"
+
+
+class VersionSource(StrEnum):
+    RUN_SEED = "RUN_SEED"
+    PRODUCT_API_LATEST_PUBLISHED = "PRODUCT_API_LATEST_PUBLISHED"
+
+
+class CitationOutcome(StrEnum):
+    EMPTIED = "EMPTIED"
+    REJECTED = "REJECTED"
+    STORED_VALID = "STORED_VALID"
+    STORED_INVALID = "STORED_INVALID"
+    NOT_PRODUCED = "NOT_PRODUCED"
+
+
+class ReportPhase(StrEnum):
+    GENERATED = "GENERATED"
+    PRE_REMOVAL = "PRE_REMOVAL"
+    POST_REMOVAL = "POST_REMOVAL"
+    POST_RESTORE = "POST_RESTORE"
+    PRE_PROBE = "PRE_PROBE"
+    POST_PROBE = "POST_PROBE"
+    PRE_CHANGE = "PRE_CHANGE"
+    POST_CHANGE = "POST_CHANGE"
+
+
+class ChangeInjectionKind(StrEnum):
+    EVIDENCE_SEGMENT_REMOVAL = "EVIDENCE_SEGMENT_REMOVAL"
+    STORAGE_PROBE_WRITE = "STORAGE_PROBE_WRITE"
+    CRITERIA_VERSION_PUBLISH = "CRITERIA_VERSION_PUBLISH"
+
+
+class RestoreAction(StrEnum):
+    REINSERT = "REINSERT"
+    REWRITE = "REWRITE"
+    TEARDOWN = "TEARDOWN"
+
+
+class ChangeInjectionState(StrEnum):
+    REQUESTED = "REQUESTED"
+    APPLIED = "APPLIED"
+    RESTORING = "RESTORING"
+    RESTORED = "RESTORED"
+    RESTORE_FAILED = "RESTORE_FAILED"
+
+
+class CompetencyVersionStatus(StrEnum):
+    DRAFT = "draft"
+    PUBLISHED = "published"
+    RETIRED = "retired"
+
+
+class VersionSnapshotPhase(StrEnum):
+    V1_PUBLISHED = "V1_PUBLISHED"
+    V2_PUBLISHED = "V2_PUBLISHED"
+
+
+class RecomputeTarget(StrEnum):
+    STORED_OVERALL_SCORE = "STORED_OVERALL_SCORE"
+    SCORING_INPUTS = "SCORING_INPUTS"
+    API_OVERALL_SCORE = "API_OVERALL_SCORE"
+    API_SCORING_BREAKDOWN = "API_SCORING_BREAKDOWN"
+    API_ITEM_AVERAGE_SCORE = "API_ITEM_AVERAGE_SCORE"
+
+
+def spec004_marker(mode: CitationMode | str, argument: str | None, score: int | None) -> str:
+    """The criterion-text marker the WhyYou `spec004-report-v1` fixture reads (fixture contract)."""
+    parts = [f"mode={CitationMode(mode).value}"]
+    if argument is not None:
+        parts.append(f"arg={argument}")
+    if score is not None:
+        parts.append(f"score={score}")
+    return f"{SPEC004_MARKER_PREFIX}{' '.join(parts)}]"
+
+
+def _require_sha(value: str | None, name: str) -> None:
+    if not _is_sha(value):
+        raise ValueError(f"{name} must be 64 lowercase hex characters")
+
+
+class LaneCriterion(FrozenModel):
+    criterion_id: UUID
+    code: str = Field(min_length=1, max_length=100)
+    weight: float = Field(ge=0)
+    citation_mode: CitationMode | None = CitationMode.VALID
+    mode_argument: str | None = None
+    fixture_score: int | None = Field(default=None, ge=0, le=100)
+    marker: str
+    answer_turn_id: UUID
+    question_turn_id: UUID
+    transcript_segment_id: UUID
+
+    @model_validator(mode="after")
+    def validate_criterion(self) -> LaneCriterion:
+        mode = self.citation_mode or CitationMode.VALID
+        if (self.mode_argument is not None) != (mode in SPEC004_ARGUMENT_MODES):
+            raise ValueError(f"{mode.value} mode argument rule is violated")
+        if self.mode_argument is not None:
+            try:
+                normalized = str(UUID(self.mode_argument))
+            except ValueError as error:
+                raise ValueError("mode_argument must be a UUID") from error
+            if normalized != self.mode_argument:
+                raise ValueError("mode_argument must be a canonical UUID string")
+        if self.marker != spec004_marker(mode, self.mode_argument, self.fixture_score):
+            raise ValueError("marker must be the canonical Spec 004 marker for this criterion")
+        return self
+
+
+class ReportLane(FrozenModel):
+    run_id: UUID
+    lane_id: E01LaneId | E02LaneId
+    subject_ref: str = Field(min_length=1)
+    position_id: UUID
+    invitation_id: UUID
+    applicant_id: UUID
+    interview_session_id: UUID
+    competency_model_version_id: UUID
+    version_source: VersionSource
+    criteria: tuple[LaneCriterion, ...] = Field(min_length=1)
+    fixture_rows: dict[str, tuple[str, ...]] = Field(default_factory=dict)
+    fixture_digest: str
+    consent_required_purposes: tuple[str, ...]
+    trace_namespace: str
+    seed_correlation_id: str = Field(min_length=1)
+
+    @model_validator(mode="after")
+    def validate_lane(self) -> ReportLane:
+        _require_sha(self.fixture_digest, "fixture_digest")
+        e02 = isinstance(self.lane_id, E02LaneId)
+        expected_source = VersionSource.PRODUCT_API_LATEST_PUBLISHED if e02 else VersionSource.RUN_SEED
+        if self.version_source is not expected_source:
+            raise ValueError(f"{self.lane_id.value} requires version_source {expected_source.value}")
+        if "ai_assessment" not in self.consent_required_purposes:
+            raise ValueError("report lanes must commit ai_assessment consent before a report request")
+        if self.trace_namespace != f"controlproof:{self.run_id}:{self.lane_id.value}":
+            raise ValueError("trace_namespace must be controlproof:{run_id}:{lane_id}")
+        codes = [item.code for item in self.criteria]
+        if codes != sorted(codes) or len(set(codes)) != len(codes):
+            # WhyYou evaluates a version's criteria in code order (order_by(code)).
+            raise ValueError("criteria must be unique and in code order")
+        if e02 and any(item.fixture_score is None for item in self.criteria):
+            raise ValueError("E-02 criteria require a fixture score marker")
+        seen_valid: set[str] = set()
+        for item in self.criteria:
+            if item.citation_mode is CitationMode.OTHER_CRITERION and item.mode_argument not in seen_valid:
+                raise ValueError("OTHER_CRITERION must reference an earlier VALID criterion of the lane")
+            if item.citation_mode in {None, CitationMode.VALID}:
+                seen_valid.add(str(item.criterion_id))
+        return self
+
+
+class ModelEmissionReceipt(FrozenModel):
+    schema_version: Literal["controlproof.spec004-model-emission.v1"]
+    receipt_id: UUID
+    fixture_id: Literal["spec004-report-v1"]
+    criterion_id: UUID
+    mode: EmissionMode
+    provided_evidence_ids: tuple[UUID, ...]
+    emitted_quoted_ids: tuple[UUID, ...]
+    emitted_score: int | None = Field(ge=0, le=100)
+    mode_status: EmissionStatus
+    emitted_at: datetime
+
+
+class StoredAxisProjection(FrozenModel):
+    axis: str
+    score: int | None = Field(ge=0, le=100)
+    quoted_evidence_ids: tuple[UUID, ...] = ()
+    rationale_sha256: str
+    rationale_is_unverified_notice: bool
+
+    @model_validator(mode="after")
+    def validate_axis(self) -> StoredAxisProjection:
+        _require_sha(self.rationale_sha256, "rationale_sha256")
+        return self
+
+
+class CitationCase(FrozenModel):
+    case_id: str = Field(min_length=1)
+    mode: CitationMode
+    intended_quoted_ids: tuple[UUID, ...]
+    emission_receipt_id: UUID | None
+    stored_axes: tuple[StoredAxisProjection, ...]
+    stored_evidence_ids: tuple[UUID, ...]
+    invalid_id_present: bool
+    rationale_present: bool
+    outcome: CitationOutcome
+
+    @model_validator(mode="after")
+    def validate_case(self) -> CitationCase:
+        if self.invalid_id_present and self.outcome is not CitationOutcome.STORED_INVALID:
+            raise ValueError("an invalid ID left in the item must be outcome STORED_INVALID")
+        return self
+
+
+class ReportItemProjection(FrozenModel):
+    report_item_id: UUID
+    criterion_id: UUID
+    competency_model_version_id: UUID
+    assessment_state: str
+    criterion_weight: float
+    axis_weights: dict[str, float]
+    axes: tuple[StoredAxisProjection, ...]
+    observation_sha256: str
+    rationale_sha256: str
+    uncertainty_sha256: str
+
+
+class EvidenceProjection(FrozenModel):
+    evidence_id: UUID
+    report_item_id: UUID
+    criterion_id: UUID
+    competency_model_version_id: UUID
+    answer_turn_id: UUID
+    transcript_segment_id: UUID
+    video_start_ms: int = Field(ge=0)
+    video_end_ms: int = Field(ge=0)
+    sufficiency: str
+    observation_sha256: str
+    rationale_sha256: str
+
+
+class TranscriptSegmentProjection(FrozenModel):
+    transcript_segment_id: UUID
+    turn_id: UUID
+    version: int = Field(ge=1)
+    session_start_ms: int = Field(ge=0)
+    session_end_ms: int = Field(ge=0)
+    text_sha256: str
+    text_length: int = Field(ge=0)
+    row_digest: str
+
+
+class ReportRecordSnapshot(FrozenModel):
+    run_id: UUID
+    lane_id: E01LaneId | E02LaneId
+    subject_ref: str
+    phase: ReportPhase
+    report_id: UUID | None
+    report_version: int | None = Field(default=None, ge=1)
+    model_version: str | None = None
+    prompt_version: str | None = None
+    config_version: str | None = None
+    status: str | None = None
+    summary_sha256: str | None = None
+    summary_length: int | None = Field(default=None, ge=0)
+    overall_score: int | None = None
+    scoring_inputs: dict[str, Any] = Field(default_factory=dict)
+    items: tuple[ReportItemProjection, ...] = ()
+    evidence: tuple[EvidenceProjection, ...] = ()
+    transcript_segments: tuple[TranscriptSegmentProjection, ...] = ()
+    source_status: Presence
+    source_error_code: str | None = None
+    state_digest: str
+
+    @model_validator(mode="after")
+    def validate_record(self) -> ReportRecordSnapshot:
+        _require_sha(self.state_digest, "state_digest")
+        if self.source_status is Presence.PRESENT and self.report_id is None:
+            raise ValueError("a PRESENT report record requires report_id")
+        if self.source_status is Presence.UNAVAILABLE and not self.source_error_code:
+            raise ValueError("UNAVAILABLE report record requires source_error_code")
+        return self
+
+
+class ReportReadSnapshot(FrozenModel):
+    phase: ReportPhase
+    request_id: UUID
+    status_code: int = Field(ge=100, le=599)
+    report: dict[str, Any] | None = None
+    timeline: dict[str, Any] | None = None
+    unknown_fields: tuple[str, ...] = ()
+    read_digest: str
+
+    @model_validator(mode="after")
+    def validate_read(self) -> ReportReadSnapshot:
+        _require_sha(self.read_digest, "read_digest")
+        return self
+
+
+_INJECTION_SHAPE = {
+    ChangeInjectionKind.EVIDENCE_SEGMENT_REMOVAL: ("transcript_segments", RestoreAction.REINSERT),
+    ChangeInjectionKind.STORAGE_PROBE_WRITE: ("report_items", RestoreAction.REWRITE),
+    ChangeInjectionKind.CRITERIA_VERSION_PUBLISH: ("competency_model_versions", RestoreAction.TEARDOWN),
+}
+
+
+class ChangeInjection(FrozenModel):
+    injection_id: UUID
+    kind: ChangeInjectionKind
+    run_id: UUID
+    lane_id: E01LaneId | E02LaneId
+    subject_ref: str
+    target_table: str
+    target_ids: tuple[UUID, ...] = Field(min_length=1)
+    pre_projection_digest: str
+    applied_at: datetime | None = None
+    apply_receipt: dict[str, Any] = Field(default_factory=dict)
+    restore_action: RestoreAction
+    restored_at: datetime | None = None
+    post_restore_digest: str | None = None
+    state: ChangeInjectionState
+    failure_code: str | None = None
+
+    @model_validator(mode="after")
+    def validate_injection(self) -> ChangeInjection:
+        _require_sha(self.pre_projection_digest, "pre_projection_digest")
+        if (self.target_table, self.restore_action) != _INJECTION_SHAPE[self.kind]:
+            raise ValueError(f"{self.kind.value} has a fixed target table and restore action")
+        if self.state is ChangeInjectionState.REQUESTED:
+            if self.applied_at is not None:
+                raise ValueError("REQUESTED injection cannot have applied_at")
+        elif self.applied_at is None:
+            raise ValueError("an applied injection requires applied_at")
+        if self.state is ChangeInjectionState.RESTORED and (
+            self.restored_at is None or self.post_restore_digest != self.pre_projection_digest
+        ):
+            raise ValueError("RESTORED requires restored_at and the pre-change digest back")
+        if self.state is ChangeInjectionState.RESTORE_FAILED and not self.failure_code:
+            raise ValueError("RESTORE_FAILED requires failure_code")
+        if self.state is not ChangeInjectionState.RESTORE_FAILED and self.failure_code:
+            raise ValueError("failure_code is only for RESTORE_FAILED")
+        return self
+
+
+class CriteriaVersionCriterion(FrozenModel):
+    criterion_id: UUID
+    code: str = Field(min_length=1)
+    weight: float = Field(ge=0)
+
+
+class CriteriaVersionSnapshot(FrozenModel):
+    position_id: UUID
+    competency_model_version_id: UUID
+    version_number: int = Field(ge=1)
+    row_version: int = Field(ge=1)
+    status: CompetencyVersionStatus
+    published_at: datetime | None
+    criteria: tuple[CriteriaVersionCriterion, ...] = Field(min_length=1)
+    axis_weights: dict[str, float]
+    request_ids: tuple[UUID, ...]
+    snapshot_phase: VersionSnapshotPhase
+    other_positions_digest: str
+
+    @model_validator(mode="after")
+    def validate_version(self) -> CriteriaVersionSnapshot:
+        _require_sha(self.other_positions_digest, "other_positions_digest")
+        if self.status is CompetencyVersionStatus.PUBLISHED and self.published_at is None:
+            raise ValueError("a published version requires published_at")
+        if abs(sum(item.weight for item in self.criteria) - 100) > _WEIGHT_TOTAL_EPSILON:
+            raise ValueError("criterion weights must total 100")
+        if self.axis_weights:
+            if set(self.axis_weights) != set(SPEC004_AXIS_KEYS):
+                raise ValueError("axis weights must be empty or name every scoring axis")
+            if abs(sum(self.axis_weights.values()) - 100) > _WEIGHT_TOTAL_EPSILON:
+                raise ValueError("axis weights must total 100")
+        return self
+
+
+class FrozenInputSet(FrozenModel):
+    report_id: UUID
+    competency_model_version_id: UUID
+    model_version: str
+    prompt_version: str
+    config_version: str
+    criterion_weights: dict[str, float]
+    axis_weights: dict[str, dict[str, float]]
+    scoring_inputs_present: bool
+    missing_fields: tuple[str, ...] = ()
+    matches_version_snapshot: bool
+
+    @model_validator(mode="after")
+    def validate_frozen(self) -> FrozenInputSet:
+        if not self.scoring_inputs_present and "scoring_inputs" not in self.missing_fields:
+            raise ValueError("absent scoring_inputs must be listed in missing_fields")
+        return self
+
+
+class RuleSource(FrozenModel):
+    path: str = Field(min_length=1)
+    blob_sha: str
+
+    @model_validator(mode="after")
+    def validate_source(self) -> RuleSource:
+        if not GIT_SHA_RE.fullmatch(self.blob_sha):
+            raise ValueError("blob_sha must be a 40-character git object ID")
+        if PurePosixPath(self.path).is_absolute() or ".." in PurePosixPath(self.path).parts:
+            raise ValueError("rule source path must be repository-relative")
+        return self
+
+
+class RecomputeComparison(FrozenModel):
+    target: RecomputeTarget
+    field_path: str
+    expected: Any
+    observed: Any
+    equal: bool
+
+
+class RecomputeRecord(FrozenModel):
+    report_id: UUID
+    rule_copy_id: Literal["controlproof.whyyou-scoring-copy.v1"]
+    rule_source: tuple[RuleSource, ...] = Field(min_length=1)
+    target_source_blob_shas: tuple[str, ...]
+    inputs: dict[str, Any]
+    computed: dict[str, Any]
+    comparisons: tuple[RecomputeComparison, ...]
+    tolerance: float
+
+    @model_validator(mode="after")
+    def validate_recompute(self) -> RecomputeRecord:
+        if self.tolerance != SPEC004_RECOMPUTE_TOLERANCE:
+            raise ValueError("recompute tolerance is fixed at 1e-9")
+        return self
+
+
 class Run(FrozenModel):
     run_id: UUID = Field(default_factory=uuid4)
     scenario_id: str
@@ -1275,6 +1774,7 @@ class Run(FrozenModel):
     lane_manifest_digest: str | None = None
     path_capability_digest: str | None = None
     policy_snapshot_digest: str | None = None
+    scoring_rule_source_digest: str | None = None
     source_event_id: UUID | None = None
     unverified_scope: tuple[str, ...] = ()
 
@@ -1341,6 +1841,32 @@ class Run(FrozenModel):
                 raise ValueError("optional N-02 queue topology digest must be SHA-256")
             if set(self.unverified_scope) != SPEC003_UNVERIFIED_SCOPE:
                 raise ValueError("N-02 Run requires exact AWS/N-01/N-03 unverified scope")
+        if self.execution_profile in SPEC004_PROFILES:
+            e02 = self.execution_profile is ExecutionProfile.E02_SCORING_FREEZE_V1
+            if self.scenario_id != ("E-02" if e02 else "E-01") or self.fault_variant is not None:
+                raise ValueError("Spec 004 Run requires its canonical scenario and no fault variant")
+            if self.environment_kind is not EnvironmentKind.LOCAL_EMULATED:
+                raise ValueError("Spec 004 Run requires LOCAL_EMULATED environment")
+            if self.aws_deployment_status is not AwsDeploymentStatus.NOT_RUN:
+                raise ValueError("Spec 004 local Run requires AWS NOT_RUN")
+            # Spec 003 digest fields are reused: lane manifest = spec004-lanes.json,
+            # path capability = spec004-capabilities.json (data-model §1).
+            required = (
+                self.environment_snapshot_digest,
+                self.lane_manifest_digest,
+                self.path_capability_digest,
+            )
+            if any(not _is_sha(value) for value in required):
+                raise ValueError("Spec 004 Run requires environment, lane and capability digests")
+            if e02 != _is_sha(self.scoring_rule_source_digest):
+                raise ValueError("only and every E-02 Run carries scoring_rule_source_digest")
+            for optional in (self.queue_topology_digest, self.policy_snapshot_digest):
+                if optional is not None and not _is_sha(optional):
+                    raise ValueError("optional Spec 004 digests must be SHA-256")
+            if set(self.unverified_scope) != SPEC004_UNVERIFIED_SCOPE:
+                raise ValueError("Spec 004 Run requires exact AWS/N-01/N-03 unverified scope")
+        elif self.scoring_rule_source_digest is not None:
+            raise ValueError("scoring_rule_source_digest belongs to E-02 Runs only")
         return self
 
 

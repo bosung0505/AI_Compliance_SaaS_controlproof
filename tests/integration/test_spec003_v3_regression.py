@@ -49,3 +49,17 @@ def test_sealed_spec003_parent_bundle_is_unchanged_and_verifies() -> None:
     assert hashlib.sha256(manifest.read_bytes()).hexdigest() == PARENT_MANIFEST_SHA256
     assert verify_bundle(PARENT_BUNDLE)["bundle_status"] == "VERIFIED"
     assert hashlib.sha256(manifest.read_bytes()).hexdigest() == PARENT_MANIFEST_SHA256
+
+
+def test_existing_scenario_snapshot_digests_are_unchanged() -> None:
+    """Spec 004 widened the scenario model (v4, `diagnostic_ids`, more lane enums); earlier
+    profiles' snapshot digests feed retest diffs and must stay byte-identical (T013)."""
+    expected = {
+        "H-03": "7d989c2e60c3e05dc8e5c7eec15b29f1c8341dd183328f670f224e81485bbacf",
+        "H-03-DLQ": "e7aa68fd59f3458c0b65a2d5bf474effd2954fd6b45d0fab33e52a0a04e7543b",
+        "E-03-BEFORE": "70ac59317cdb0317103a01b9e87f2535838b1df8af609fa3eec4926f1977b8a4",
+        "E-03-AFTER": "739350adc53307c848861e11b6a895c13fbe4261cf993c7938edea26920c9ff3",
+        "N-02": "6ee0731c943fe869fb2fe096e240796e2aaa381d268f6bca623dfd9bcf34063d",
+    }
+    actual = {name: load(f"scenarios/{name}.yaml").snapshot().digest for name in expected}
+    assert actual == expected

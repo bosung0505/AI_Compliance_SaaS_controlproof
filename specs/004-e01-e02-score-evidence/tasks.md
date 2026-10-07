@@ -57,16 +57,16 @@ removes its marker in the same change that turns it green. 113 RED, 15 new guard
 
 ### Foundation implementation
 
-- [ ] T012 Implement the `data-model.md` entities and invariants in `engine/models.py` (profiles, lane enums, `LaneCriterion`, receipts, cases, snapshots, injections, version snapshots, frozen inputs, recompute records) [FR-002, FR-012, FR-020~022, FR-030~034, FR-041]
-- [ ] T013 Implement additive scenario v4 loading and canonical E-01/E-02 validation in `engine/scenario.py`; widen `lanes` to profile-specific enums; keep v1/v2/v3 behavior [FR-040, FR-043]
-- [ ] T014 [P] Add the eight Spec 004 protocols (`Spec004SeedAdapter`, `ReportRequestAdapter`, `ReportRecordAdapter`, `EvidenceMutationAdapter`, `CriteriaVersionAdapter`, `ModelEmissionAdapter`, `ScoringSourceAdapter`, reused `ConsentAdapter`) with sanitized envelopes in `engine/adapters/base.py` after T012 [FR-001, FR-004]
-- [ ] T015 [P] Extend `engine/config.py` with typed Spec 004 settings (expected fixture ID, observer root, scoring blob pins) and fail-closed validation [FR-001, FR-034]
-- [ ] T016 Add Spec 004 profile policies to Run validation and the profile registry in `engine/runner.py` without inheriting Spec 002 queue requirements; executors are registered later by T040 and T057 [FR-040, FR-043]
-- [ ] T017 [P] Implement the WhyYou scoring-rule copy with pinned source blobs (`scoring.py` `61d1e615…`, `report.py` `81428968…`) in `engine/judges/e02_scoring.py` [FR-033, FR-034]
-- [ ] T018 [P] Add the Spec 004 profile registry, canonical writers and base verifiers to `engine/evidence.py` without rewriting existing sealed bundles [FR-042, EV4-01~EV4-10]
-- [ ] T019 Extend deterministic fakes for all Spec 004 protocols (report generation outcomes, emission receipts, removal/restore outcomes, version create/publish, source unavailable, restore failure) in `tests/fixtures/fake_adapters.py` after T012 and T014 [FR-010~013, FR-020~022, FR-030~034]
-- [ ] T020 Add E-01/E-02 to the CLI profile table and scenario path map in `engine/cli.py` [FR-043]
-- [ ] T021 Run T005~T011 and record exact commands and results in `specs/004-e01-e02-score-evidence/validation.md` [FR-001, FR-040, FR-042, FR-043]
+- [X] T012 Implement the `data-model.md` entities and invariants in `engine/models.py` (profiles, lane enums, `LaneCriterion`, receipts, cases, snapshots, injections, version snapshots, frozen inputs, recompute records) [FR-002, FR-012, FR-020~022, FR-030~034, FR-041]
+- [X] T013 Implement additive scenario v4 loading and canonical E-01/E-02 validation in `engine/scenario.py`; widen `lanes` to profile-specific enums; keep v1/v2/v3 behavior [FR-040, FR-043]
+- [X] T014 [P] Add the eight Spec 004 protocols (`Spec004SeedAdapter`, `ReportRequestAdapter`, `ReportRecordAdapter`, `EvidenceMutationAdapter`, `CriteriaVersionAdapter`, `ModelEmissionAdapter`, `ScoringSourceAdapter`, reused `ConsentAdapter`) with sanitized envelopes in `engine/adapters/base.py` after T012 [FR-001, FR-004]
+- [X] T015 [P] Extend `engine/config.py` with typed Spec 004 settings (expected fixture ID, observer root, scoring blob pins) and fail-closed validation [FR-001, FR-034]
+- [X] T016 Add Spec 004 profile policies to Run validation and the profile registry in `engine/runner.py` without inheriting Spec 002 queue requirements; executors are registered later by T040 and T057 [FR-040, FR-043]
+- [X] T017 [P] Implement the WhyYou scoring-rule copy with pinned source blobs (`scoring.py` `61d1e615…`, `report.py` `81428968…`) in `engine/judges/e02_scoring.py` [FR-033, FR-034]
+- [X] T018 [P] Add the Spec 004 profile registry, canonical writers and base verifiers to `engine/evidence.py` without rewriting existing sealed bundles [FR-042, EV4-01~EV4-10]
+- [X] T019 Extend deterministic fakes for all Spec 004 protocols (report generation outcomes, emission receipts, removal/restore outcomes, version create/publish, source unavailable, restore failure) in `tests/fixtures/fake_adapters.py` after T012 and T014 [FR-010~013, FR-020~022, FR-030~034]
+- [X] T020 Add E-01/E-02 to the CLI profile table and scenario path map in `engine/cli.py` [FR-043]
+- [X] T021 Run T005~T011 and record exact commands and results in `specs/004-e01-e02-score-evidence/validation.md` [FR-001, FR-040, FR-042, FR-043]
 
 **Checkpoint**: Spec 001~003 회귀를 깨뜨리지 않는 Spec 004 공통 모델·계약·재계산 사본이 준비된다.
 

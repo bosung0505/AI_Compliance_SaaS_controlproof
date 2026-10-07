@@ -11,6 +11,7 @@ from uuid import UUID, uuid4
 
 from engine.lifecycle import atomic_write
 from engine.models import (
+    SPEC004_PROFILES,
     EvidenceArtifact,
     ExecutionProfile,
     IntegrityStatus,
@@ -51,6 +52,17 @@ FORBIDDEN_KEYS = {
     "report_text",
     "model_prompt",
     "credential",
+    # Spec 004 raw text fields: projections carry *_sha256/*_length instead (FR-042, T018).
+    # Generic keys such as summary/rationale stay allowed for ControlProof's own wording.
+    "report_summary",
+    "item_observation",
+    "axis_rationale",
+    "item_uncertainty",
+    "follow_up_question",
+    "question_text",
+    "transcript_text",
+    "criterion_description",
+    "playback_url",
 }
 PII_KEYS = {
     "name",
@@ -128,6 +140,69 @@ SPEC003_REQUIRED_FILE_LINKS = {
     "EV3-10": {"assertions.json", "judgement.json"},
 }
 
+SPEC004_PROFILE_CONTRACT = "controlproof.bundle-profile.spec004.v1"
+#: Spec 004 has no fault marker, so `faults.jsonl` is not canonical (ID-004-05).
+SPEC004_BASE_FILES = (CANONICAL_FILES - {"faults.jsonl"}) | {"environment.snapshot.json"}
+SPEC004_SNAPSHOT_FILES = frozenset(
+    {"environment.snapshot.json", "scenario.snapshot.yaml", "target.snapshot.json"}
+)
+SPEC004_PROFILE_FILES = {
+    ExecutionProfile.E01_CITATION_EVIDENCE_V1: frozenset(
+        {
+            "spec004-capabilities.json",
+            "spec004-lanes.json",
+            "citation-cases.jsonl",
+            "model-emissions.jsonl",
+            "report-records.jsonl",
+            "report-reads.jsonl",
+            "storage-probe.json",
+            "change-injections.jsonl",
+            "recovery.json",
+        }
+    ),
+    ExecutionProfile.E02_SCORING_FREEZE_V1: frozenset(
+        {
+            "spec004-capabilities.json",
+            "spec004-lanes.json",
+            "report-records.jsonl",
+            "report-reads.jsonl",
+            "criteria-versions.json",
+            "frozen-inputs.json",
+            "recompute.json",
+            "change-injections.jsonl",
+            "recovery.json",
+        }
+    ),
+}
+#: contracts/evidence-bundle-v4.md "Evidence mapping".
+SPEC004_REQUIRED_FILE_LINKS = {
+    ExecutionProfile.E01_CITATION_EVIDENCE_V1: {
+        "EV4-01": {"spec004-capabilities.json", *SPEC004_SNAPSHOT_FILES},
+        "EV4-02": {"spec004-lanes.json"},
+        "EV4-03": {"citation-cases.jsonl", "model-emissions.jsonl"},
+        "EV4-04": {"report-records.jsonl", "storage-probe.json"},
+        "EV4-05": {"report-reads.jsonl"},
+        "EV4-09": {"change-injections.jsonl", "recovery.json"},
+        "EV4-10": {"assertions.json", "judgement.json"},
+    },
+    ExecutionProfile.E02_SCORING_FREEZE_V1: {
+        "EV4-01": {"spec004-capabilities.json", "recompute.json", *SPEC004_SNAPSHOT_FILES},
+        "EV4-02": {"spec004-lanes.json"},
+        "EV4-04": {"report-records.jsonl"},
+        "EV4-06": {"criteria-versions.json"},
+        "EV4-07": {"frozen-inputs.json", "report-reads.jsonl"},
+        "EV4-08": {"recompute.json"},
+        "EV4-09": {"change-injections.jsonl", "recovery.json"},
+        "EV4-10": {"assertions.json", "judgement.json"},
+    },
+}
+
+
+def spec004_required_files(profile: ExecutionProfile) -> set[str]:
+    """The profile-specific files a Spec 004 bundle must carry (on top of the base files)."""
+    return set(SPEC004_PROFILE_FILES[profile])
+
+
 REQUIRED_EVIDENCE_ARTIFACT_TYPES: dict[str, frozenset[str]] = {
     "EV-01": frozenset({"STATE_SNAPSHOT"}),
     "EV-02": frozenset({"FAULT_RECEIPT"}),
@@ -153,8 +228,16 @@ def _is_spec003_profile(profile: ExecutionProfile | None) -> bool:
     return profile is ExecutionProfile.N02_CONSENT_ORDER_V1
 
 
+def _is_spec004_profile(profile: ExecutionProfile | None) -> bool:
+    return profile in SPEC004_PROFILES
+
+
 def _is_versioned_profile(profile: ExecutionProfile | None) -> bool:
-    return _is_spec002_profile(profile) or _is_spec003_profile(profile)
+    return (
+        _is_spec002_profile(profile)
+        or _is_spec003_profile(profile)
+        or _is_spec004_profile(profile)
+    )
 
 
 def _canonical_files(profile: ExecutionProfile | None) -> set[str]:
@@ -164,6 +247,8 @@ def _canonical_files(profile: ExecutionProfile | None) -> set[str]:
         return set(SPEC002_COMMON_CANONICAL_FILES)
     if _is_spec003_profile(profile):
         return set(SPEC003_CANONICAL_FILES)
+    if _is_spec004_profile(profile):
+        return set(SPEC004_BASE_FILES) | spec004_required_files(profile)
     return set(CANONICAL_FILES)
 
 
@@ -585,6 +670,17 @@ class EvidenceBundleWriter:
                     "policy_snapshot_digest": self.run.policy_snapshot_digest,
                 }
             )
+        elif _is_spec004_profile(self.profile):
+            manifest.update(
+                {
+                    "profile_contract": SPEC004_PROFILE_CONTRACT,
+                    "execution_profile": self.profile.value,
+                    "environment_snapshot_digest": self.run.environment_snapshot_digest,
+                    "lane_manifest_digest": self.run.lane_manifest_digest,
+                    "path_capability_digest": self.run.path_capability_digest,
+                    "scoring_rule_source_digest": self.run.scoring_rule_source_digest,
+                }
+            )
         manifest["bundle_digest"] = sha256_bytes(canonical_json_bytes(manifest))
         atomic_write(self.directory / "manifest.json", canonical_json_bytes(manifest))
         return manifest
@@ -700,6 +796,25 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
                         f"evidence:{evidence_id}:canonical-files"
                     )
             result["checked_evidence_requirements"] = list(expected)
+        elif _is_spec004_profile(profile):
+            expected = ScenarioProfile.canonical(profile).required_evidence
+            _verify_spec002_evidence(
+                directory,
+                required_evidence,
+                expected,
+                registered,
+                artifact_records,
+                result,
+            )
+            for evidence_id, paths in SPEC004_REQUIRED_FILE_LINKS[profile].items():
+                references = required_evidence.get(evidence_id, [])
+                if not isinstance(references, list) or not {
+                    f"file:{name}" for name in paths
+                }.issubset(references):
+                    result["mismatched_files"].append(
+                        f"evidence:{evidence_id}:canonical-files"
+                    )
+            result["checked_evidence_requirements"] = list(expected)
         else:
             _verify_v1_evidence(required_evidence, artifact_records, result)
     _verify_manifest_run_link(directory, manifest, result)
@@ -709,6 +824,8 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
     elif _is_spec003_profile(profile):
         _verify_spec003_snapshot_links(directory, manifest, result)
         _verify_spec003_facts(directory, result)
+    elif _is_spec004_profile(profile):
+        _verify_spec004_snapshot_links(directory, manifest, profile, result)
     if result["missing_files"] or result["mismatched_files"]:
         result["bundle_status"] = "INVALID"
     result["missing_files"].sort()
@@ -771,9 +888,12 @@ def _resolve_bundle_profile(
         if _is_versioned_profile(profile):
             result["mismatched_files"].append("manifest.json:profile_contract")
         return profile
-    expected_contract = (
-        SPEC003_PROFILE_CONTRACT if _is_spec003_profile(profile) else SPEC002_PROFILE_CONTRACT
-    )
+    if _is_spec003_profile(profile):
+        expected_contract = SPEC003_PROFILE_CONTRACT
+    elif _is_spec004_profile(profile):
+        expected_contract = SPEC004_PROFILE_CONTRACT
+    else:
+        expected_contract = SPEC002_PROFILE_CONTRACT
     if contract != expected_contract:
         result["mismatched_files"].append("manifest.json:profile_contract")
         return profile
@@ -1050,6 +1170,61 @@ def _verify_spec002_snapshot_links(
         or queue.get("visibility_timeout_seconds") != 5
     ):
         result["mismatched_files"].append("queue-topology.snapshot.json:contract")
+
+
+def _verify_spec004_snapshot_links(
+    directory: Path,
+    manifest: dict[str, Any],
+    profile: ExecutionProfile,
+    result: dict[str, Any],
+) -> None:
+    """Spec 004 Run ↔ manifest ↔ file digest links and the local-only claim."""
+    try:
+        run = json.loads((directory / "run.json").read_text(encoding="utf-8"))
+        environment = json.loads(
+            (directory / "environment.snapshot.json").read_text(encoding="utf-8")
+        )
+    except (OSError, json.JSONDecodeError):
+        return
+    if not isinstance(run, dict) or not isinstance(environment, dict):
+        result["mismatched_files"].append("spec004:snapshot-object")
+        return
+    environment_identity = {
+        key: value
+        for key, value in environment.items()
+        if key not in {"captured_at", "snapshot_digest"}
+    }
+    environment_digest = sha256_bytes(canonical_json_bytes(environment_identity))
+    if not (
+        environment_digest
+        == environment.get("snapshot_digest")
+        == run.get("environment_snapshot_digest")
+        == manifest.get("environment_snapshot_digest")
+    ):
+        result["mismatched_files"].append("environment.snapshot.json:link")
+    for relative_path, field in (
+        ("spec004-lanes.json", "lane_manifest_digest"),
+        ("spec004-capabilities.json", "path_capability_digest"),
+    ):
+        try:
+            digest = sha256_bytes((directory / relative_path).read_bytes())
+        except OSError:
+            continue
+        if not digest == run.get(field) == manifest.get(field):
+            result["mismatched_files"].append(f"{relative_path}:link")
+    if run.get("scoring_rule_source_digest") != manifest.get("scoring_rule_source_digest"):
+        result["mismatched_files"].append("manifest.json:scoring_rule_source_digest")
+    e02 = profile is ExecutionProfile.E02_SCORING_FREEZE_V1
+    if e02 != bool(manifest.get("scoring_rule_source_digest")):
+        result["mismatched_files"].append("manifest.json:scoring_rule_source_digest")
+    expected_scope = {"AWS", "N-01", "N-03"}
+    if (
+        run.get("environment_kind") != "LOCAL_EMULATED"
+        or run.get("aws_deployment_status") != "NOT_RUN"
+        or set(run.get("unverified_scope", [])) != expected_scope
+        or environment.get("external_ai_allowed") is not False
+    ):
+        result["mismatched_files"].append("run.json:spec004-local-claim")
 
 
 def _verify_spec003_snapshot_links(

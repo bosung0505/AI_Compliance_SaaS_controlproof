@@ -14,12 +14,6 @@ from pydantic import ValidationError
 
 from tests.fixtures import spec004 as fx
 
-pytestmark = pytest.mark.xfail(
-    strict=True,
-    raises=AttributeError,
-    reason="RED until T012 implements the Spec 004 entities in engine/models.py",
-)
-
 
 def m(name: str):
     return getattr(import_module("engine.models"), name)

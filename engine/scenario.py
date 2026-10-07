@@ -9,7 +9,12 @@ import yaml
 from pydantic import BaseModel, ConfigDict, Field, model_validator
 
 from engine.models import (
+    SPEC004_FIXTURE_ID,
+    SPEC004_PROFILES,
+    SPEC004_TIMING_POLICY,
     ComparatorPolicy,
+    E01LaneId,
+    E02LaneId,
     ExecutionProfile,
     FaultVariant,
     N02LaneId,
@@ -88,6 +93,124 @@ N02_REQUIRED_CAPABILITIES = {
 }
 
 
+SPEC004_FIXTURE_DIGEST = "e15ec3790b64b2fba10e0caa9372f08c917edbbaa99ce308076952b838668b3f"
+SPEC004_BUNDLE_PROFILE = "controlproof.bundle-profile.spec004.v1"
+SPEC004_COMMON_CAPABILITIES = {
+    "target.version.read": "v1",
+    "target.environment.read": "v1",
+    "model.fixture.read": "v1",
+    "spec004.lanes.seed": "v1",
+    "spec004.lanes.teardown": "v1",
+    "consent.policy.read": "v1",
+    "consent.commit.write": "v1",
+    "consent.state.read": "v1",
+    "report.generation.request": "v1",
+    "report.processing.receipts.read": "v1",
+    "report.records.read": "v1",
+    "report.api.read": "v1",
+}
+E01_REQUIRED_CAPABILITIES = SPEC004_COMMON_CAPABILITIES | {
+    "model.emission.read": "v1",
+    "timeline.api.read": "v1",
+    "evidence.segment.remove": "v1",
+    "evidence.segment.restore": "v1",
+    "report.axes.probe_write": "v1",
+    "report.axes.probe_restore": "v1",
+}
+E02_REQUIRED_CAPABILITIES = SPEC004_COMMON_CAPABILITIES | {
+    "criteria.version.create": "v1",
+    "criteria.version.publish": "v1",
+    "criteria.version.read": "v1",
+    "scoring.rule.source.read": "v1",
+}
+E01_CANONICAL_STEPS = (
+    "capture-environment",
+    "capture-capabilities",
+    "seed-report-lanes",
+    "commit-lane-consents",
+    "request-lane-reports",
+    "capture-reference-report",
+    "seed-citation-matrix",
+    "commit-matrix-consent",
+    "request-matrix-report",
+    "capture-citation-cases",
+    "capture-removal-baseline",
+    "apply-evidence-removal",
+    "capture-post-removal",
+    "restore-evidence-removal",
+    "verify-removal-restored",
+    "capture-post-restore",
+    "capture-probe-baseline",
+    "apply-storage-probe",
+    "capture-storage-probe-reads",
+    "restore-storage-probe",
+    "verify-storage-probe-restored",
+    "recapture-reference-report",
+    "teardown-report-lanes",
+)
+E01_ALWAYS_RUN_STEPS = frozenset(
+    {
+        "restore-evidence-removal",
+        "verify-removal-restored",
+        "restore-storage-probe",
+        "verify-storage-probe-restored",
+        "teardown-report-lanes",
+    }
+)
+E02_CANONICAL_STEPS = (
+    "capture-environment",
+    "capture-capabilities",
+    "capture-scoring-rule-source",
+    "seed-e02-position",
+    "create-publish-v1",
+    "seed-first-applicant",
+    "commit-first-consent",
+    "request-first-report",
+    "capture-pre-change",
+    "recompute-first-report",
+    "create-publish-v2",
+    "capture-version-change",
+    "seed-second-applicant",
+    "commit-second-consent",
+    "request-second-report",
+    "capture-second-report",
+    "capture-post-change",
+    "recompute-second-report",
+    "compare-first-report",
+    "teardown-e02-position",
+    "verify-other-positions-unchanged",
+)
+E02_ALWAYS_RUN_STEPS = frozenset({"teardown-e02-position", "verify-other-positions-unchanged"})
+#: Steps a Spec 004 scenario may never contain (contracts/scenario-profile-v4.md validation rules).
+SPEC004_FORBIDDEN_STEP_TERMS = (
+    "n-01",
+    "n-03",
+    "viewport",
+    "policy invalidation",
+    "deletion request",
+    "deletion-request",
+    "published version direct",
+)
+SPEC004_PROFILE_RULES = {
+    ExecutionProfile.E01_CITATION_EVIDENCE_V1: {
+        "lanes": tuple(E01LaneId),
+        "capabilities": E01_REQUIRED_CAPABILITIES,
+        "steps": E01_CANONICAL_STEPS,
+        "always": E01_ALWAYS_RUN_STEPS,
+        "diagnostics": ("E01-D1",),
+        "preconditions": frozenset({"source-clean", "fixture-spec004"}),
+    },
+    ExecutionProfile.E02_SCORING_FREEZE_V1: {
+        "lanes": tuple(E02LaneId),
+        "capabilities": E02_REQUIRED_CAPABILITIES,
+        "steps": E02_CANONICAL_STEPS,
+        "always": E02_ALWAYS_RUN_STEPS,
+        "diagnostics": (),
+        "preconditions": frozenset({"source-clean", "fixture-spec004", "scoring-source-pinned"}),
+    },
+}
+
+
 class ScenarioError(ValueError):
     pass
 
@@ -158,7 +281,8 @@ class ScenarioDefinition(ScenarioModel):
     fault_variant: FaultVariant | None = None
     bundle_profile_contract: str | None = None
     applicable_assertion_ids: tuple[str, ...] = ()
-    lanes: tuple[N02LaneId, ...] = ()
+    diagnostic_ids: tuple[str, ...] = ()
+    lanes: tuple[N02LaneId | E01LaneId | E02LaneId, ...] = ()
     title: str
     control_intent: str
     required_capabilities: dict[str, str]
@@ -181,6 +305,8 @@ class ScenarioDefinition(ScenarioModel):
             raise ValueError("capability contract versions must all be v1")
         assertion_ids = tuple(item.assertion_id for item in self.assertions)
         evidence_ids = tuple(item.evidence_id for item in self.required_evidence)
+        if self.diagnostic_ids and self.execution_profile not in SPEC004_PROFILES:
+            raise ValueError("diagnostic_ids are a Spec 004 scenario field")
         if self.execution_profile is None:
             if self.schema_version not in {None, "controlproof.scenario.v1"}:
                 raise ValueError("v1 scenario has an unsupported schema_version")
@@ -189,8 +315,11 @@ class ScenarioDefinition(ScenarioModel):
                 or self.applicable_assertion_ids
                 or self.bundle_profile_contract is not None
                 or self.lanes
+                or self.diagnostic_ids
             ):
                 raise ValueError("v1 scenario cannot declare partial v2 profile fields")
+        elif self.execution_profile in SPEC004_PROFILES:
+            self._validate_spec004(assertion_ids, evidence_ids)
         elif self.execution_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
             if self.schema_version != "controlproof.scenario.v3":
                 raise ValueError("N-02 profile requires controlproof.scenario.v3")
@@ -289,10 +418,54 @@ class ScenarioDefinition(ScenarioModel):
             raise ValueError("model fixture digest must be SHA-256 lowercase hex")
         return self
 
+    def _validate_spec004(self, assertion_ids: tuple[str, ...], evidence_ids: tuple[str, ...]) -> None:
+        """Canonical E-01/E-02 contract (contracts/scenario-profile-v4.md)."""
+        assert self.execution_profile is not None
+        if self.schema_version != "controlproof.scenario.v4":
+            raise ValueError("Spec 004 profiles require controlproof.scenario.v4")
+        canonical = ScenarioProfile.canonical(self.execution_profile)
+        rules = SPEC004_PROFILE_RULES[self.execution_profile]
+        if self.scenario_id != canonical.scenario_id or self.fault_variant is not None:
+            raise ValueError("scenario_id or fault variant does not match the Spec 004 profile")
+        if self.bundle_profile_contract != SPEC004_BUNDLE_PROFILE:
+            raise ValueError("Spec 004 requires the Spec 004 bundle profile")
+        if tuple(self.applicable_assertion_ids) != canonical.applicable_assertion_ids:
+            raise ValueError("applicable assertions do not match the canonical Spec 004 profile")
+        if assertion_ids != canonical.applicable_assertion_ids:
+            raise ValueError("YAML assertions do not match the canonical Spec 004 profile")
+        if self.diagnostic_ids not in {(), rules["diagnostics"]}:
+            raise ValueError("diagnostic_ids do not match the canonical Spec 004 profile")
+        if evidence_ids != canonical.required_evidence:
+            raise ValueError("required evidence does not match the profile's EV4 subset")
+        if self.lanes != rules["lanes"]:
+            raise ValueError("lanes must match the profile's canonical ordered lanes")
+        if self.required_capabilities != rules["capabilities"]:
+            raise ValueError("required capabilities must match the profile's canonical registry")
+        if tuple(step.step_id for step in self.steps) != rules["steps"]:
+            raise ValueError("ordered steps do not match the canonical Spec 004 contract")
+        if frozenset(step.step_id for step in self.steps if step.always_run) != rules["always"]:
+            raise ValueError("restore and teardown always-run steps are not canonical")
+        timing = self.timing_policy
+        actual = {name: getattr(timing, name) for name in SPEC004_TIMING_POLICY}
+        if actual != SPEC004_TIMING_POLICY or timing.fault_ttl_seconds is not None or timing.expected_queue:
+            raise ValueError("Spec 004 timing policy must match the fixed 600-second contract")
+        if self.allowed_model_fixtures != {SPEC004_FIXTURE_ID: SPEC004_FIXTURE_DIGEST}:
+            raise ValueError("Spec 004 allows exactly the spec004-report-v1 model fixture")
+        missing = rules["preconditions"] - {item.precondition_id for item in self.preconditions}
+        if missing:
+            raise ValueError(f"Spec 004 preconditions missing: {', '.join(sorted(missing))}")
+        for step in self.steps:
+            searchable = f"{step.step_id} {step.action}".casefold()
+            if any(term in searchable for term in SPEC004_FORBIDDEN_STEP_TERMS):
+                raise ValueError("N-01/N-03, product deletion and direct version edits are forbidden")
+
     def snapshot(self) -> ScenarioSnapshot:
-        exclude = set()
+        spec004 = self.execution_profile in SPEC004_PROFILES
+        # `diagnostic_ids` arrived with Spec 004; excluding it elsewhere keeps every earlier
+        # profile's snapshot digest byte-identical.
+        exclude = set() if spec004 else {"diagnostic_ids"}
         if self.execution_profile is None:
-            exclude = {
+            exclude |= {
                 "schema_version",
                 "execution_profile",
                 "fault_variant",
@@ -300,10 +473,12 @@ class ScenarioDefinition(ScenarioModel):
                 "applicable_assertion_ids",
                 "lanes",
             }
-        elif self.execution_profile is not ExecutionProfile.N02_CONSENT_ORDER_V1:
-            exclude = {"bundle_profile_contract", "lanes"}
+        elif self.execution_profile is not ExecutionProfile.N02_CONSENT_ORDER_V1 and not spec004:
+            exclude |= {"bundle_profile_contract", "lanes"}
         definition = self.model_dump(mode="json", exclude=exclude)
-        if self.execution_profile is not ExecutionProfile.N02_CONSENT_ORDER_V1:
+        if spec004:
+            definition["timing_policy"].pop("fault_ttl_seconds", None)
+        elif self.execution_profile is not ExecutionProfile.N02_CONSENT_ORDER_V1:
             timing = definition["timing_policy"]
             for field in ("fault_ttl_seconds", "bundle_verify_deadline_seconds"):
                 timing.pop(field, None)

@@ -68,8 +68,7 @@ def test_uuid_is_not_corrupted_by_phone_redaction(value):
 # projections carry `*_sha256` and `*_length` instead (FR-042). The raw-field names below are the ones a
 # Spec 004 projection must never carry. Generic keys such as `summary`/`rationale` are deliberately not
 # listed: existing judgement artifacts use them for ControlProof's own wording. RED until T018 extends
-# `redact` (strict xfail, ID-004-01).
-@pytest.mark.xfail(strict=True, raises=AssertionError, reason="RED until T018 redacts Spec 004 text fields")
+# `redact` (T018 done).
 @pytest.mark.parametrize(
     "payload,forbidden",
     [

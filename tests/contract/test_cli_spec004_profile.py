@@ -9,11 +9,10 @@ from __future__ import annotations
 import argparse
 
 import pytest
-from pydantic import ValidationError
 
 from engine import cli
 from engine.models import ExecutionProfile
-from engine.runner import PROFILE_REGISTRY, build_profile_runner
+from engine.runner import PROFILE_REGISTRY, UnregisteredExecutionProfile, build_profile_runner
 from engine.scenario import ScenarioDefinition
 from tests.contract.test_scenario_profile_v4 import E01, E02, payload
 from tests.fixtures.fake_adapters import FakeClock, make_adapters
@@ -25,11 +24,6 @@ def _select(scenario_id: str, profile: str | None):
     )
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="RED until T020: E-01/E-02 are not yet in the explicit-profile set (currently PROFILE_MISMATCH)",
-)
 @pytest.mark.parametrize("scenario_id", ["E-01", "E-02"])
 def test_spec004_scenarios_require_an_explicit_profile(scenario_id: str) -> None:
     with pytest.raises(cli.CliContractError) as exc:
@@ -37,9 +31,6 @@ def test_spec004_scenarios_require_an_explicit_profile(scenario_id: str) -> None
     assert exc.value.code == "PROFILE_REQUIRED"
 
 
-@pytest.mark.xfail(
-    strict=True, raises=ValueError, reason="RED until T012 (enum) and T020 (scenario paths)"
-)
 @pytest.mark.parametrize(
     "scenario_id,profile,filename",
     [
@@ -55,9 +46,6 @@ def test_spec004_profile_selects_its_own_scenario_file(
     assert path.name == filename
 
 
-@pytest.mark.xfail(
-    strict=True, raises=ValueError, reason="RED until T012 (enum) and T020 (CLI table)"
-)
 @pytest.mark.parametrize(
     "scenario_id,profile",
     [
@@ -76,8 +64,8 @@ def test_spec004_profiles_cannot_cross_scenarios(scenario_id: str, profile: str)
 
 @pytest.mark.xfail(
     strict=True,
-    raises=AttributeError,
-    reason="RED until T040 (E-01) and T057 (E-02) register executors",
+    raises=AssertionError,
+    reason="RED until T040 (E-01) and T057 (E-02) register executors (enum exists since T012)",
 )
 @pytest.mark.parametrize("profile", ["E01_CITATION_EVIDENCE_V1", "E02_SCORING_FREEZE_V1"])
 def test_spec004_profiles_have_registered_executors(profile: str) -> None:
@@ -86,8 +74,8 @@ def test_spec004_profiles_have_registered_executors(profile: str) -> None:
 
 @pytest.mark.xfail(
     strict=True,
-    raises=(ValidationError, AttributeError),
-    reason="RED until T013 (scenario v4) and T040/T057 (executors)",
+    raises=UnregisteredExecutionProfile,
+    reason="RED until T040/T057 register the executors (scenario v4 loads since T013)",
 )
 @pytest.mark.parametrize("spec", [E01, E02], ids=["E-01", "E-02"])
 def test_non_ready_preflight_leaves_no_side_effects(tmp_path, spec) -> None:

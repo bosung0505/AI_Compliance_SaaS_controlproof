@@ -21,12 +21,6 @@ from pathlib import Path
 
 import pytest
 
-pytestmark = pytest.mark.xfail(
-    strict=True,
-    raises=ImportError,
-    reason="RED until T017 implements engine/judges/e02_scoring.py",
-)
-
 VECTORS = json.loads(Path("tests/fixtures/whyyou_scoring_vectors.json").read_text(encoding="utf-8"))
 SEPARATED = VECTORS["communication_separated_config_version"]
 

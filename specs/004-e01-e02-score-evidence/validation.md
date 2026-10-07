@@ -97,6 +97,30 @@ Full regression after Phase 1~2:
 redaction survival, N-02 v3 execute/verify, sealed parent `15cef078…` manifest SHA-256
 `d2306f3c…` unchanged and `VERIFIED`). No existing test changed outcome.
 
+## Phase 2 — Foundation implementation (T012~T021)
+
+| Task | Change | Tests turned GREEN |
+|---|---|---|
+| T012 | `engine/models.py`: profiles, lane enums, Spec 004 entities, Run policy (ID-004-06) | T005 24 |
+| T013 | `engine/scenario.py`: v4 validation, canonical sets, snapshot unchanged for earlier profiles (ID-004-07) | T006 29 |
+| T014 | `engine/adapters/base.py`: eight Spec 004 protocols and `AdapterSet` fields | — (used by T019) |
+| T015 | `engine/config.py`: `validate_spec004_safety`, `fixture_digest` (ID-004-10) | new `test_config_spec004.py` 10 (RED first) |
+| T016 | no `runner.py` change (ID-004-06) | — |
+| T017 | `engine/judges/e02_scoring.py` (WhyYou cross-check 0/2000 mismatches) | T009 18, layout 1 |
+| T018 | `engine/evidence.py`: Spec 004 profile, files, EV4 links, snapshot links, nine redacted keys (ID-004-04/04) | T007 11, T010 9 |
+| T019 | `tests/fixtures/fake_spec004.py`, `make_adapters(spec004=…)` (ID-004-09) | — |
+| T020 | `engine/cli.py`: E-01/E-02 explicit profiles and scenario paths | T008 4 |
+| T021 | this record | — |
+
+```text
+.venv\Scripts\ruff.exe check .        -> All checks passed!
+.venv\Scripts\python.exe -m pytest -q -> 617 passed, 15 xfailed in 59.66s
+```
+
+Remaining strict xfail (15): executor registration and non-READY preflight for both profiles (T040/T057, 4) and
+eleven planned modules (T035~T058). Existing scenario snapshot digests and the sealed parent `15cef078…` are pinned
+by guard tests and unchanged.
+
 ## Sandbox diagnostics
 
 (none yet — Phase 8)
