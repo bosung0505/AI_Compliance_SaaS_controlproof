@@ -17,7 +17,10 @@
   [Spec 003 기술 Plan](../../specs/003-n02-consent-order/plan.md),
   [Spec 003 Tasks](../../specs/003-n02-consent-order/tasks.md),
   [팀 통합 인수인계](../TEAM_HANDOFF.md)
-- 다음 산출물: Spec 003 US5 불변 retest 계약·actual Run·converge. 이후 Spec 004 — E-01·E-02
+- 현재 산출물: Spec 003 N-02 actual Run 완료(부모 `15cef078…` → child `7b59237e…`, A1~A4·A6 PASS, A5·A7
+  `INCONCLUSIVE`). 동의 전 세 경계 차단과 동의 저장 실패의 원자성·복구를 실제 WhyYou에서 입증했고, 녹화·AI 평가
+  동의 확인 2건을 WhyYou에 추가했다. 문서 분석 결과는 격리 환경의 외부 AI 차단으로 미입증이다.
+- 다음 산출물: Spec 003 PR·검토·converge. 이후 Spec 004 — E-01·E-02
   점수 근거·평가 기준 보존, Spec 005 — 웹 워크벤치·보고서 순서로 진행한다.
 
 ### 0.1 기준 문서의 우선순위

@@ -114,6 +114,12 @@ quickstart.md를 입력으로 다음 미완료 묶음인 US5 T074~T076부터 진
 쓰지 말고, 최초 actual FAIL 전에 WhyYou 보호조치를 미리 고치지 마라.
 ```
 
+2026-10-05~07 이어받기 결과(연우): T080~T093 완료. 최초 Run의 FAIL은 실행기 결함 10건과 WhyYou 보호조치
+2건으로 분류됐고, child `7b59237e-0a96-403a-9add-28b91011e950`가 A1~A4·A6 PASS, A5·A7 `INCONCLUSIVE`로 봉인됐다.
+실행기 수정은 모두 실패 시험 → 최소 수정 → 전체 회귀 순서였고, WhyYou 수정은 실제 Run에서 동의 없는
+처리 시작이 관찰된 뒤에만 추가했다. 격리 재현(PostgreSQL+pgvector, moto, WhyYou API·작업자)으로 실행기
+변경을 먼저 검증한 다음 팀원 PC에서 공식 Run을 돌렸다. 세부는 Implementation Decisions ID-003-09~18.
+
 ## 9. 문서 수렴 체크
 
 Converge에서 최소한 다음 상태가 같아야 한다.

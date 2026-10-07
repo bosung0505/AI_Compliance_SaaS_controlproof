@@ -20,7 +20,8 @@ ControlProof는 합성 데이터를 이용해 AI 서비스의 절차적 보호�
 - 작성된 기능 명세: [Spec 003 — N-02 동의·AI 처리 순서 검증](./specs/003-n02-consent-order/spec.md)
 - Spec 003 기술 계획: [경계·lane·fault·인과관계·시험 설계](./specs/003-n02-consent-order/plan.md)
 - Spec 003 작업 목록: [테스트 우선 구현·최초 Run·조건부 보완 순서](./specs/003-n02-consent-order/tasks.md)
-- Spec 003 검증 기록: [US1~US4 자동 gate·미실행 actual Run·알려진 한계](./specs/003-n02-consent-order/validation.md)
+- Spec 003 검증 기록: [부모·child actual Run 원장, 회귀 기록, 알려진 한계](./specs/003-n02-consent-order/validation.md)
+  — child `7b59237e…`는 A1~A4·A6 PASS, A5·A7 `INCONCLUSIVE`(격리 대상의 문서 분석 결과 미입증)
 - Spec 003 구현 계약: [데이터 모델](./specs/003-n02-consent-order/data-model.md),
   [계약](./specs/003-n02-consent-order/contracts/),
   [구현 후 재현 절차](./specs/003-n02-consent-order/quickstart.md)

@@ -236,8 +236,8 @@ T080-E2 isolation sub-bundle: WhyYou local/test startup rejects external AI prov
 - [X] T089 Complete the FR/SC/N02-A/EV3 → task → test → implementation → actual artifact matrix in `specs/003-n02-consent-order/traceability.md` [FR-001~041, SC-001~012, N02-A1~A7, Constitution VII]
 - [X] T090 Verify all conditional branches T080~T084 are either completed or evidence-backed `NOT_REQUIRED`, and summarize the final implementation/target verdict distinction in `specs/003-n02-consent-order/implementation-decisions.md` [FR-033~041]
 - [X] T091 [P] Scan tracked source and generated bundle metadata for `C:\\Users\\`, other absolute user paths, raw credentials and real applicant identifiers; record the clean command/result in `specs/003-n02-consent-order/validation.md` [FR-038~039, SC-011]
-- [ ] T092 Update Spec 003 state, source SHAs, reproducibility commands, actual verdict and next workflow step consistently in `README.md`, `docs/TEAM_HANDOFF.md`, `docs/AI_SPEC_KIT_PLAYBOOK.md`, `docs/product/ControlProof_MVP_Product_Brief.md` and `docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md` [SC-012]
-- [ ] T093 Have a second clean checkout or teammate follow only `README.md`, `docs/TEAM_HANDOFF.md` and `specs/003-n02-consent-order/quickstart.md` through preflight and one N-02 Run, then record source SHAs, manifest digest and any portability defect in `specs/003-n02-consent-order/validation.md` [SC-008, Constitution VII]
+- [X] T092 Update Spec 003 state, source SHAs, reproducibility commands, actual verdict and next workflow step consistently in `README.md`, `docs/TEAM_HANDOFF.md`, `docs/AI_SPEC_KIT_PLAYBOOK.md`, `docs/product/ControlProof_MVP_Product_Brief.md` and `docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md` [SC-012]
+- [X] T093 Have a second clean checkout or teammate follow only `README.md`, `docs/TEAM_HANDOFF.md` and `specs/003-n02-consent-order/quickstart.md` through preflight and one N-02 Run, then record source SHAs, manifest digest and any portability defect in `specs/003-n02-consent-order/validation.md` [SC-008, Constitution VII]
 
 ---
 
