@@ -926,3 +926,18 @@ two regression/safety cases. New test insertion briefly caused a test-scope Name
 Scoped setup gate 10 passed in 5.70 s; ruff PASS. Full 939 gate not repeated: engine/security code unchanged
 since that gate; only the observed setup portability issue and its tests changed. Next clean checkpoint
 contains this correction for T092/T097. Do not claim 941 full-suite PASS; only 939 full + 10 scoped are proven.
+
+### T092 bundle-location correction after the first reproduction Run
+
+Clean reproduction ControlProof ca3df77 / WhyYou 374b122: preflight E-01 READY 18/18 and E-02 READY
+16/16 with scoring MATCH. Exactly one E-01 Run 4030503c-a24c-42f9-b926-7aba49b4c467 completed PASS,
+restore SUCCEEDED. The documented wrapper's subsequent show/verify exited 1: engine bundle commands
+default to .controlproof/runs instead of reading CONTROLPROOF_RUN_ROOT. This is a setup wrapper defect,
+not a target FAIL or a failed restore. Original run/show/verify attempt wall was 47.1497238 s, but verification
+did not succeed then; it is not evidence of a successful <=600 s end-to-end reproduction.
+
+The wrapper now supplies its isolated runs directory to show/verify unless the caller supplied --run-root.
+Two command-routing regression cases added: setup scoped gate 12 passed in 0.54 s, ruff PASS. Engine,
+verdict and sealed evidence unchanged; full 939 gate not repeated. Verify the same existing Run after
+this correction; do not rerun E-01 to hide this failure. Repair delay is separate from scenario execution
+and the original successful official child timing. E-02 reproduction remains pending at this checkpoint.

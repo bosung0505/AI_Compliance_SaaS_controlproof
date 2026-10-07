@@ -98,3 +98,26 @@ def test_process_inventory_ignores_trailing_native_diagnostic(monkeypatch):
 def test_incomplete_process_inventory_requires_inspection_before_stop():
     with pytest.raises(RuntimeError, match="inspect pending PID"):
         local.stop({"pending_process": {"name": "api", "pid": 7}})
+
+
+@pytest.mark.parametrize("verb", ["show", "verify"])
+def test_bundle_commands_locate_evidence_in_the_isolated_instance(tmp_path, monkeypatch, verb):
+    import json
+    from subprocess import CompletedProcess
+
+    root = tmp_path / "repro"
+    root.mkdir()
+    state = _state(tmp_path)
+    state.update(root=str(root), ready=True, stopped=False)
+    (root / "state.json").write_text(json.dumps(state), encoding="utf-8")
+    monkeypatch.setattr(local, "checked_git", lambda *args: None)
+    monkeypatch.setattr(local, "environment", lambda *args, **kwargs: {})
+    captured = []
+
+    def journal(_state, command, **kwargs):
+        captured.extend(command)
+        return CompletedProcess(command, 0, b"", b"")
+
+    monkeypatch.setattr(local, "journal_command", journal)
+    assert local.main(["cli", "--state-root", str(tmp_path), "--", verb, "synthetic-run", "--json"]) == 0
+    assert captured[-2:] == ["--run-root", str(root / "runs")]

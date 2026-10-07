@@ -450,6 +450,11 @@ def main(argv=None):
             command = command[1:]
         if not command:
             parser.error("cli requires engine arguments after --")
+        # Bundle commands have a parser default rather than consulting Settings.from_env.
+        if command[0] in {"show", "verify"} and not any(
+            value == "--run-root" or value.startswith("--run-root=") for value in command
+        ):
+            command.extend(["--run-root", str(Path(state["root"]) / "runs")])
         result = journal_command(
             state,
             [sys.executable, "-m", "engine.cli", *command],
