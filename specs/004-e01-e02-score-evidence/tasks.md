@@ -286,7 +286,7 @@ T085/T086 and Spec closure are incomplete; first official parent FAIL remains un
 
 **Purpose**: 시간·보안·회귀·재현·추적성·인계를 두 시나리오 전체에 걸쳐 마감한다.
 
-- [ ] T089 [P] Add deterministic timing tests proving poll/stability/restore/Run/verify budgets come only from the v4 scenario snapshots and the restore budget counts only restore work in `tests/integration/test_spec004_timing.py` [SC-003, SC-002]
+- [X] T089 [P] Add deterministic timing tests proving poll/stability/restore/Run/verify budgets come only from the v4 scenario snapshots and the restore budget counts only restore work in `tests/integration/test_spec004_timing.py` [SC-003, SC-002]
 - [ ] T090 [P] Extend the security corpus to every Spec 004 bundle file, emission receipts and CLI output in `tests/unit/test_redaction_security.py` [FR-042, SC-004]
 - [ ] T091 Run `ruff check .`, the full `pytest -q` and the scoped WhyYou tests; record commands, counts, durations, target FAILs, restore statuses and source SHAs in `validation.md` [FR-001~FR-052, SC-001~SC-007]
 - [ ] T092 Execute every unconditional `quickstart.md` command from a clean local environment, replace `<…>` placeholders with actual IDs, record skipped conditionals with reasons, and confirm each Run+verify ≤ 600 seconds [SC-003, SC-006]
@@ -384,3 +384,8 @@ Fresh READY 18/18 and 16/16/MATCH; exactly one official E-01 product-remedy chil
 A1~A4 PASS, SUCCEEDED / VERIFIED, residue 0; all three prior bundles unchanged. E-02 was not rerun
 on the new head. Phase 9 status docs synchronized; final T096 sync remains pending. Next T089~T097,
 Spec 004 not Complete. Historical pending entries above describe their own checkpoints.
+
+T089 complete (2026-10-08): 32 deterministic E-01/E-02 timing cases added; new and existing related
+removal/restore, E-02 journey and complete orchestration tests: 58 passed (27.32 s). Scoped ruff/format
+and diff checks PASS. Initial five test-data failures corrected (V1_PUBLISHED version phase); no engine
+change or actual Run. Next T090; final full gate T091 and Phase 10 closure remain pending.

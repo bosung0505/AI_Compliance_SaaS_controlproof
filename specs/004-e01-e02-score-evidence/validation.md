@@ -2,7 +2,7 @@
 
 ## Current status
 
-- Workflow stage: T001~T088 done (T087 NOT_REQUIRED). WhyYou PR #8 merged into integration at 374b122. Official product-remedy child a5ad4676-333b-44d0-8657-95ab434f3b3d E01-A1~A4 PASS, restore SUCCEEDED, bundle VERIFIED; first E-01 FAIL and D1-only child FAIL preserved. Initial E-02 PASS remains on ce8d862; fresh E-02 preflight READY on 374b122, no E-02 Run on that head yet. Next T089~T097 quality/reproduction/closure. Spec 004 remains incomplete.
+- Workflow stage: T001~T089 done (T087 NOT_REQUIRED). WhyYou PR #8 merged into integration at 374b122. Official product-remedy child a5ad4676-333b-44d0-8657-95ab434f3b3d E01-A1~A4 PASS, restore SUCCEEDED, bundle VERIFIED; first E-01 FAIL and D1-only child FAIL preserved. Initial E-02 PASS remains on ce8d862; fresh E-02 preflight READY on 374b122, no E-02 Run on that head yet. T089 deterministic timing gate 58 related tests PASS. Next T090~T097 security/reproduction/closure. Spec 004 remains incomplete.
 - WhyYou local/test fixture (Phase 3, T022~T029): PR jhkim0602/gbsa_aws#6 reviewed, fixed and merged into `bosung/controlproof-n02-integration` at `42aaaba206ced4288c8ee477b73f5f1ccf078bf3`; main unchanged.
 - Latest WhyYou integration head: `374b122e1296c0159ccd88ed4763d358973c59cb` (PR #8, approved ID-004-30 response-only transcript availability); T088 live E-01 product-remedy child PASS. PR #7 wiring and Phase 8 E-02 evidence remain historical checkpoints.
 - Sandbox diagnostics: complete, separate from official results. Official initial E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` FAIL; E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` PASS (see T080~T082 entry). Parent D1 OTHER_CRITERION NOT_OBSERVED stays unchanged; ID-004-34 supersedes ID-004-17 for new Runs while retaining FR-013 four-mode coverage.
@@ -816,3 +816,31 @@ synchronized once at this Phase boundary; this does not complete T096's final cl
 T089~T097: timing/security tests, full gate, quickstart/reproduction, traceability/conditional review,
 limitations and converge. Spec 004 not Complete, AWS NOT_RUN. E-02 latest official PASS remains on ce8d862;
 fresh READY on 374b122 is not a new E-02 verdict. This documentation commit is not the child execution SHA.
+
+## 2026-10-08 — T089 deterministic timing gate
+
+Start: ControlProof yeonwoo/004-e01-e02-score-evidence `7e5c47b597bf98ce9c606340416b2cd6881bcd7c`
+clean; WhyYou integration `374b122e1296c0159ccd88ed4763d358973c59cb` tracked clean, historical untracked
+probes retained. Added tests/integration/test_spec004_timing.py only (32 cases), no product/engine change.
+Both profiles freeze 2 s poll / 3 consecutive reads / 4 s stability / 120 s restore / 540 s Run / 60 s verify.
+Test-only counterfactual snapshots prove changed poll, consecutive count, stability window/reset, missing
+report deadline with always-run teardown, restore boundary/block/manual-cleanup/sealed recovery, and
+verify budget measurement. Long report work is excluded from restore time; all actual restores accumulate,
+including exceptions. Genuine bundle verification is retained while FakeClock advances without real waits.
+An over-budget verify is measured as such; VERIFIED alone does not claim the timing budget was met.
+
+Initial new-file pytest: 27 passed / 5 failed (19.36 s), solely test setup using PRE_CHANGE where a criteria
+version snapshot requires V1_PUBLISHED. Corrected test data, not engine behavior; not intended implementation
+RED or target-control failure. No unexpected failure remains.
+
+```text
+python -m pytest tests/integration/test_spec004_timing.py tests/integration/test_e01_removal_restore.py tests/integration/test_e02_orchestration.py tests/integration/test_spec004_orchestration.py -q --tb=short
+python -m ruff check tests/integration/test_spec004_timing.py
+python -m ruff format --check tests/integration/test_spec004_timing.py
+git diff --check
+```
+
+ControlProof venv: related gate 58 passed in 27.32 s (32 new + 26 existing); scoped static/format/diff PASS.
+T089 complete; next T090 security corpus. Full pytest/WhyYou tests reserved for T091; no diagnostic/official
+Run, service or WhyYou change, main change, or sealed evidence edit. Prior actual verdicts stay unchanged.
+Global status sync waits for Phase 10 closure; T090~T097 pending, Spec 004 not Complete, AWS NOT_RUN.
