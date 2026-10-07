@@ -35,8 +35,8 @@ without actual validation or an explicit truthful non-execution status. Update V
 ## Repository safety
 
 - ControlProof feature work stays on its feature branch.
-- WhyYou integration uses `jhkim0602/gbsa_aws` branch `bosung/controlproof-h03-integration` or a personal branch
-  based on it. Never commit or push ControlProof work directly to WhyYou `main`.
+- WhyYou integration uses `jhkim0602/gbsa_aws` branch `bosung/controlproof-n02-integration` (`eec8f70`) or a personal
+  branch based on it. Never commit or push ControlProof work directly to WhyYou `main`.
 - Inspect both repositories' branch, HEAD and dirty state before an actual Run.
 - Never commit `.env`, credentials, production data, `.controlproof/`, or `runs/`.
 - Historical one-time exception approved on 2026-10-02: the exact synthetic Spec 003 N-02 parent bundle
@@ -47,9 +47,9 @@ without actual validation or an explicit truthful non-execution status. Update V
 
 ## Current next feature
 
-Spec 003 is N-02: consent must be durably completed before document analysis, recording or AI assessment starts.
-Specify, clarify, plan, tasks and analyze are complete; the re-analysis has no CRITICAL, HIGH or interpretation-
-changing MEDIUM findings. The next step is `$speckit-implement`. Use every artifact under
-`specs/003-n02-consent-order/` and the source baseline. Keep pristine baselines,
-deep-boundary prerequisite fixtures and post-attempt effect deltas distinct. Do not pre-fix a suspected WhyYou
-consent guard before sealing the first factual actual-Run result.
+Spec 004 is E-01·E-02: AI scores must not be stored or shown without valid evidence, and a report must freeze its
+scoring inputs so later criteria changes cannot restate it. Work on ControlProof branch `004-e01-e02-score-evidence`
+against WhyYou `bosung/controlproof-n02-integration` (`eec8f70`). Specify, clarify, plan, tasks and analyze are complete;
+the analysis has no CRITICAL, HIGH or interpretation-changing MEDIUM findings. The next step is `$speckit-implement`.
+Use every artifact under `specs/004-e01-e02-score-evidence/` and the Spec 004 source baseline. Do not pre-fix a suspected
+WhyYou report-read defect (prediction P1) before sealing the first factual actual-Run result.

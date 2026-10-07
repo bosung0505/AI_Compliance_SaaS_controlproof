@@ -97,7 +97,7 @@ Spec 002는 나란히 있는 두 저장소를 사용한다.
 
 | 저장소 | 허용 브랜치 | 용도 |
 |---|---|---|
-| `AI_Compliance_SaaS_controlproof` | `003-n02-consent-order` | Spec 001·002 기반과 Spec 003 구현·판정·증적·문서 |
+| `AI_Compliance_SaaS_controlproof` | `004-e01-e02-score-evidence` | Spec 001~003 기반(병합된 `003-n02-consent-order`)과 현재 기능 Spec 004 |
 | `gbsa_aws` | `bosung/controlproof-n02-integration` | WhyYou local/test 전용 N-02 observer·fault hook; product guard 변경 전 최초 사실 시험 대상 |
 
 WhyYou의 `main`에 ControlProof 변경을 직접 commit 또는 push하지 않는다. actual Run 전에는 두 checkout이

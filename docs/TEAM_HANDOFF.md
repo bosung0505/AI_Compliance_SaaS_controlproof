@@ -7,7 +7,8 @@
 확인할 때는 이 문서를 먼저 읽는다.
 
 - 상태 기준일: 2026-10-07
-- 전달 기준 브랜치: ControlProof `003-n02-consent-order`, WhyYou `bosung/controlproof-n02-integration`.
+- 전달 기준 브랜치: ControlProof `003-n02-consent-order`, WhyYou `bosung/controlproof-n02-integration`(`eec8f70`).
+  현재 기능 Spec 004의 작업 브랜치는 ControlProof `004-e01-e02-score-evidence`다.
   PR #1과 WhyYou PR #5의 base를 각각 이 브랜치로 변경했으며, main 병합은 사용자가 명시적으로 금지했다.
   PR 병합 뒤 두 전달 브랜치를 pull한다. 실제 Run의 source SHA는 검증 원장의 당시 값으로 유지한다.
 - 이 문서가 설명하는 범위: Spec 001·002 전체, Spec 003 T001~T093 기록과 2026-10-07 PR 검토 보완
@@ -219,7 +220,7 @@ H-01·H-02·N-01·N-03의 실제 완주는 V4의 목표 상한이다. Spec 005�
 
 | 저장소 | 사용 브랜치 | 역할 |
 |---|---|---|
-| `bosung0505/AI_Compliance_SaaS_controlproof` | `003-n02-consent-order` | Spec 001·002 완료 기반과 Spec 003 구현·판정·증적·문서 |
+| `bosung0505/AI_Compliance_SaaS_controlproof` | `004-e01-e02-score-evidence` | Spec 001~003 기반(병합된 `003-n02-consent-order`)과 현재 기능 Spec 004 |
 | `jhkim0602/gbsa_aws` | `bosung/controlproof-n02-integration` | WhyYou local/test 전용 N-02 observer·fault hook; product guard 변경 전 최초 사실 시험 대상 |
 
 현재 브랜치와 원격의 일치 여부는 아래 명령으로 확인한다. Spec 002 최종 actual-stack에서 검증한
@@ -453,7 +454,9 @@ PASS로 바꾸지 않는다. 자동 fixture PASS, API/작업자 readiness, bundl
 
 ## 12. 다음 작업 순서
 
-Spec 003 Implement와 actual validation(T001~T093)은 끝났다. 이 순서로 이어간다.
+Spec 003 Implement와 actual validation(T001~T093)은 끝났고 PR #1(`d0c0e5b`)과 WhyYou PR #5(`eec8f70`)는 병합됐다.
+현재 기능은 Spec 004(`004-e01-e02-score-evidence`, WhyYou `bosung/controlproof-n02-integration` `eec8f70`)이며 아래 4번이
+진행 중이다. 1~3번은 Spec 003에 남은 항목이다.
 
 1. **PR과 검토:** `yeonwoo/003-t080-t085` → `003-n02-consent-order` PR을 만든다. 보성은 ID-003-13~18의
    `PROPOSED`/위임 판단 항목을 최종 확정하고, WhyYou PR jhkim0602/gbsa_aws#5(T083·T082)를 병합 또는 재배치한다.
@@ -463,7 +466,8 @@ Spec 003 Implement와 actual validation(T001~T093)은 끝났다. 이 순서로 �
 3. **후속 한계 처리(선택):** 문서 분석 결과까지 입증하려면 WhyYou 고정 모델을 문서 분석·전략 생성 작업까지
    확장해야 한다(제품 코드 변경, 미승인). H-03 seed에 동의 행을 넣기 전에는 T083이 적용된 대상에서 H-03을
    재실행하지 않는다.
-4. **Spec 004:** E-01·E-02 점수 근거·평가 기준 보존으로 넘어간다.
+4. **Spec 004 (현재):** E-01·E-02 점수 근거·평가 기준 보존. Specify~Analyze 완료, 다음은 Implement
+   (`specs/004-e01-e02-score-evidence/tasks.md`).
 
 ## 13. 문서 유지 규칙
 
