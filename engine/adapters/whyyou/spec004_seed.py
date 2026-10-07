@@ -102,6 +102,37 @@ class WhyYouSpec004SeedAdapter:
         try:
             with self._transaction_factory() as connection:
                 connection.execute(text("SELECT :run_id"), {"run_id": run_id})
+                # Reports reference sessions without an FK, so the catalog walk cannot find
+                # them. Start only from sessions registered by this adapter for this Run.
+                for row in rows:
+                    if row.table != "interview_sessions":
+                        continue
+                    reports = (
+                        connection.execute(
+                            text(
+                                "SELECT * FROM reports WHERE company_id=:company_id "
+                                "AND interview_session_id=:interview_session_id"
+                            ),
+                            {
+                                "company_id": row.values["company_id"],
+                                "interview_session_id": row.values["interview_session_id"],
+                            },
+                        )
+                        .mappings()
+                        .all()
+                    )
+                    for report in reports:
+                        _delete_dependents(connection, "reports", dict(report))
+                        _delete_row(
+                            connection,
+                            SeedRow(
+                                "reports",
+                                {
+                                    "company_id": report["company_id"],
+                                    "report_id": report["report_id"],
+                                },
+                            ),
+                        )
                 for row in reversed(rows):
                     _delete_dependents(connection, row.table, row.values)
                     _delete_row(connection, row)

@@ -7,10 +7,15 @@ WhyYou groups an applicant answer under a criterion only when an interviewer que
 
 from __future__ import annotations
 
+from contextlib import contextmanager
 from importlib import import_module
 from uuid import UUID, uuid4
 
+import pytest
+from sqlalchemy import create_engine, text
+
 from engine.models import CitationMode, CriteriaVersionSnapshot, E01LaneId, E02LaneId, VersionSource
+from seeds.n02_subjects import SeedRow
 from tests.fixtures import spec004 as fx
 
 COMPANY = UUID("00000000-0000-7000-8000-000000000001")
@@ -198,6 +203,177 @@ def test_seed_adapter_rolls_back_the_whole_seed_on_failure(settings) -> None:
     assert not result.ok and result.code == "SPEC004_SEED_WRITE_FAILED"
     assert transaction.rolled_back
     assert all(adapter.credentials.get(lane.subject_ref) is None for lane in lanes)
+
+
+@pytest.fixture
+def report_cleanup_database(settings, monkeypatch):
+    """Real transactions/FKs with a catalog shim for SQLite's different metadata API."""
+    database = create_engine("sqlite://")
+    with database.begin() as connection:
+        connection.execute(text("PRAGMA foreign_keys=ON"))
+        connection.execute(
+            text(
+                "CREATE TABLE interview_sessions (company_id TEXT, interview_session_id TEXT, "
+                "PRIMARY KEY (company_id, interview_session_id))"
+            )
+        )
+        # Match WhyYou: reports has no FK to interview_sessions; dependents do have FKs.
+        connection.execute(
+            text(
+                "CREATE TABLE reports (company_id TEXT, report_id TEXT, interview_session_id TEXT, "
+                "PRIMARY KEY (company_id, report_id))"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE report_items (company_id TEXT, report_item_id TEXT, report_id TEXT, "
+                "PRIMARY KEY (company_id, report_item_id), "
+                "FOREIGN KEY (company_id, report_id) REFERENCES reports (company_id, report_id))"
+            )
+        )
+        connection.execute(
+            text(
+                "CREATE TABLE evidence (company_id TEXT, evidence_id TEXT, report_item_id TEXT, "
+                "PRIMARY KEY (company_id, evidence_id), FOREIGN KEY (company_id, report_item_id) "
+                "REFERENCES report_items (company_id, report_item_id))"
+            )
+        )
+
+    references = {
+        "reports": [
+            {
+                "child_table": "report_items",
+                "child_columns": ["company_id", "report_id"],
+                "parent_columns": ["company_id", "report_id"],
+            }
+        ],
+        "report_items": [
+            {
+                "child_table": "evidence",
+                "child_columns": ["company_id", "report_item_id"],
+                "parent_columns": ["company_id", "report_item_id"],
+            }
+        ],
+    }
+
+    class CatalogConnection:
+        def __init__(self, connection):
+            self.connection = connection
+
+        def execute(self, statement, params=None):
+            if "FROM pg_constraint" in str(statement):
+                return _Result(references.get(params["parent"], ()))
+            normalized = {
+                key: str(value) if isinstance(value, UUID) else value
+                for key, value in (params or {}).items()
+            }
+            return self.connection.execute(statement, normalized)
+
+    @contextmanager
+    def transaction():
+        with database.begin() as connection:
+            yield CatalogConnection(connection)
+
+    def session_rows(lane, **_kwargs):
+        return (
+            SeedRow(
+                "interview_sessions",
+                {
+                    "company_id": COMPANY,
+                    "interview_session_id": lane.interview_session_id,
+                },
+            ),
+        )
+
+    # Seed only the sessions needed by this test, through the real ownership registration.
+    monkeypatch.setattr(adapter_module(), "lane_rows", session_rows)
+    adapter = adapter_module().WhyYouSpec004SeedAdapter(settings, transaction_factory=transaction)
+    lanes = seeds().e01_lanes(uuid4())[:2]
+    assert adapter.seed_lanes(run_id=str(lanes[0].run_id), lanes=lanes).ok
+    try:
+        yield adapter, database, lanes
+    finally:
+        database.dispose()
+
+
+def _worker_report(database, *, company_id, session_id, report_id):
+    with database.begin() as connection:
+        connection.execute(
+            text("INSERT INTO reports VALUES (:company, :report, :session)"),
+            {"company": str(company_id), "report": str(report_id), "session": str(session_id)},
+        )
+        connection.execute(
+            text("INSERT INTO report_items VALUES (:company, :item, :report)"),
+            {"company": str(company_id), "item": str(report_id), "report": str(report_id)},
+        )
+        connection.execute(
+            text("INSERT INTO evidence VALUES (:company, :evidence, :item)"),
+            {"company": str(company_id), "evidence": str(report_id), "item": str(report_id)},
+        )
+
+
+def _database_ids(database, table, column):
+    with database.connect() as connection:
+        return set(connection.execute(text(f"SELECT {column} FROM {table}")).scalars())
+
+
+def test_teardown_deletes_worker_reports_and_dependents_but_preserves_other_owners(
+    report_cleanup_database,
+) -> None:
+    adapter, database, lanes = report_cleanup_database
+    for lane in lanes:
+        _worker_report(
+            database, company_id=COMPANY, session_id=lane.interview_session_id, report_id=uuid4()
+        )
+    other_run_report, other_company_report = uuid4(), uuid4()
+    _worker_report(database, company_id=COMPANY, session_id=uuid4(), report_id=other_run_report)
+    _worker_report(
+        database,
+        company_id=uuid4(),
+        session_id=lanes[0].interview_session_id,
+        report_id=other_company_report,
+    )
+
+    result = adapter.teardown(run_id=str(lanes[0].run_id), lanes=lanes, position_ids=())
+
+    assert result.ok
+    expected = {str(other_run_report), str(other_company_report)}
+    assert _database_ids(database, "reports", "report_id") == expected
+    assert _database_ids(database, "report_items", "report_item_id") == expected
+    assert _database_ids(database, "evidence", "evidence_id") == expected
+    assert _database_ids(database, "interview_sessions", "interview_session_id") == set()
+    assert all(adapter.credentials.get(lane.subject_ref) is None for lane in lanes)
+
+
+def test_report_cleanup_failure_rolls_back_and_keeps_ownership_for_retry(report_cleanup_database):
+    adapter, database, lanes = report_cleanup_database
+    report_id = uuid4()
+    _worker_report(
+        database, company_id=COMPANY, session_id=lanes[0].interview_session_id, report_id=report_id
+    )
+    with database.begin() as connection:
+        connection.execute(
+            text(
+                "CREATE TRIGGER refuse_report_delete BEFORE DELETE ON reports "
+                "BEGIN SELECT RAISE(ABORT, 'synthetic cleanup failure'); END"
+            )
+        )
+
+    result = adapter.teardown(run_id=str(lanes[0].run_id), lanes=lanes, position_ids=())
+
+    assert not result.ok and result.code == "SPEC004_TEARDOWN_FAILED"
+    assert _database_ids(database, "reports", "report_id") == {str(report_id)}
+    assert _database_ids(database, "report_items", "report_item_id") == {str(report_id)}
+    assert _database_ids(database, "evidence", "evidence_id") == {str(report_id)}
+    assert _database_ids(database, "interview_sessions", "interview_session_id") == {
+        str(lane.interview_session_id) for lane in lanes
+    }
+    assert all(adapter.credentials.get(lane.subject_ref) for lane in lanes)
+    with database.begin() as connection:
+        connection.execute(text("DROP TRIGGER refuse_report_delete"))
+    retried = adapter.teardown(run_id=str(lanes[0].run_id), lanes=lanes, position_ids=())
+    assert retried.ok
+    assert _database_ids(database, "reports", "report_id") == set()
 
 
 def test_teardown_removes_only_this_runs_rows_and_credentials(settings) -> None:
