@@ -2,10 +2,10 @@
 
 ## Current status
 
-- Workflow stage: T001~T079 done, including Phase 8 diagnostics and fresh clean-source preflights. Next: separately approved initial official T080/T081. Spec 004 remains incomplete.
+- Workflow stage: T001~T082 done. First official LOCAL_EMULATED E-01 FAIL (A3 only) and E-02 PASS sealed/VERIFIED, both restores SUCCEEDED. Next T083 classification and evidence-gated remediation. Spec 004 remains incomplete.
 - WhyYou local/test fixture (Phase 3, T022~T029): PR jhkim0602/gbsa_aws#6 reviewed, fixed and merged into `bosung/controlproof-n02-integration` at `42aaaba206ced4288c8ee477b73f5f1ccf078bf3`; main unchanged.
 - Latest WhyYou integration head: `ce8d8620d2b2fec7f448ae312cf13334b408c01a` (PR #7, ID-004-29 report-embedder wiring); live E-02 diagnostic report generation and cleanup confirmed (see Phase 8 continuation below).
-- Sandbox diagnostics: complete. E-02 A1~A3 PASS; E-01 A1/A2/A4 PASS, A3 FAIL (P1). Diagnostic results do not replace official verdicts. Actual E-01/E-02 Runs: none (`NOT_RUN`).
+- Sandbox diagnostics: complete, separate from official results. Official initial E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` FAIL; E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` PASS (see T080~T082 entry). D1 OTHER_CRITERION NOT_OBSERVED; ID-004-17/FR-013 discrepancy pending review.
 - AWS: `NOT_RUN`
 - Claim scope: `EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`
 
@@ -493,3 +493,105 @@ records, then T082. Quickstart §6 requires explicit approval for official execu
 completes only the T079 preparation gate. E01-A3 FAIL/P1 remains expected from diagnostics. No P1 product
 change is applied before sealing the first official result. Actual Run setup must capture its current clean
 source SHA again; this preflight is not a permanent readiness guarantee or an official verdict.
+
+## T080~T082 — first official actual-stack results (2026-10-07)
+
+The user explicitly authorized stage 4: one initial official E-01 and E-02 Run plus show/verify and records.
+These are **official LOCAL_EMULATED Runs**, distinct from Phase 8 diagnostics. AWS remains **NOT_RUN**.
+Fixed synthetic inputs/model do not prove real external AI behavior or legal certification. No WhyYou product
+correction before the first E-01 FAIL; both initial results remain immutable.
+
+### Fixed sources and preparation
+
+- ControlProof `yeonwoo/004-e01-e02-score-evidence`: `8c266f5dc77e0cfff53215ba44226c719ad78615`, clean.
+- WhyYou `bosung/controlproof-n02-integration`: `ce8d8620d2b2fec7f448ae312cf13334b408c01a`, clean execution
+  checkout. Original repository HEAD matches; prior untracked raw evidence preserved. Both bundle source
+  snapshots match these SHAs with dirty=false. No source/branch/commit change during either Run.
+- Dedicated PostgreSQL/Moto/API/four actual workers from T079; loopback endpoints, synthetic credentials,
+  external AI disabled, `spec004-report-v1` digest
+  `e15ec3790b64b2fba10e0caa9372f08c917edbbaa99ce308076952b838668b3f`.
+- Fresh preflights: E-01 READY 18/18 (exit 0, 6.688 s), E-02 READY 16/16 (exit 0, 6.422 s);
+  E-02 scoring-source pinned blobs 2/2 MATCH. No preflight-created subject/report/Run.
+  CLI also runs its required readiness check immediately before actual execution. Fresh raw preflight root:
+  `.pr-review/20261007/spec004-sandbox/t079/preflight-20261007T125103157494Z`.
+- Official root: workspace `cp-local/spec004-official/runs/`; separate from all diagnostic bundles.
+
+### Immutable first results
+
+| Scenario | Run ID | CLI exit / verdict | Assertions | Restore / bundle | Manifest SHA-256 |
+|---|---|---|---|---|---|
+| E-01 | `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` | 3 / FAIL | A1 PASS, A2 PASS, A3 FAIL, A4 PASS | SUCCEEDED / VERIFIED (17 files) | `7f622a3381e6c03dac907f55604f1f82c03e5101e33736b4f22bde50cc8475b2` |
+| E-02 | `e39e62ae-be73-4e52-8cab-1f878637a0c6` | 0 / PASS | A1~A3 PASS | SUCCEEDED / VERIFIED (17 files) | `e6b74b7e78fa40a77d0c3c99315592e2e7713e9891d43f68b8d4b437d2d28364` |
+
+- E-01 A1: four invalid citation modes emptied by worker validation; reference report unchanged. A2: VALID
+  score/citation stored with same criterion's Evidence. Actual emission receipts and worker-stored rows agree.
+- E-01 A3: **P1 observed officially**. One Run-owned transcript segment was removed, absence confirmed;
+  report/timeline GETs 200, timeline entries 2 → 1 → 2. The affected item kept its score/citation without
+  an H-4 evidence-insufficiency indicator. Unaffected items unchanged. Preserve A3 FAIL, never restate PASS.
+  A4: restored report read and stored record match baseline.
+- E-01 segment reinsert and probe-axis rewrite both RESTORED, with equal pre/post projection digests.
+  Teardown succeeds; manual_cleanup_required=false.
+- E-02 A1: complete frozen scoring/model/prompt/config/version inputs. A2: second report uses product-API
+  published v2 ID/weights; first report ID/digest/frozen inputs/API read unchanged. A3: recomputed totals
+  72.5 → 72 (v1), 73.5 → 74 (v2), denominator 1, all comparisons agree. CRITERION_ID_V2 declared, observed
+  array order preserved; exact integers, 1e-9 float tolerance and pinned arithmetic copy unchanged.
+- No INCONCLUSIVE assertion or required missing evidence. Original per-assertion reason_code fields are null
+  for these PASS/FAIL rows; detail/actual/expected describe the factual reasons. Preserve that shape when
+  reviewing SC-001; never edit the sealed judgement afterward to fill a code.
+
+### E01-D1: supporting observation and limit
+
+| Mode | Official observation |
+|---|---|
+| EMPTY | AXIS_DROPPED |
+| NONEXISTENT | SHOWN_AS_WRITTEN |
+| OTHER_APPLICANT | SHOWN_AS_WRITTEN |
+| OTHER_CRITERION | NOT_OBSERVED — no write/read attempted |
+
+D1 is a diagnostic within the official Run, **not an assertion or additional target FAIL**. Current `_probe`
+writes three modes, following ID-004-17's single-criterion design. FR-013 still requires four. Resolve this
+implementation/document discrepancy before closure; three observations do not prove four-mode coverage.
+It does not alter A1~A4 facts or E-02 PASS. No fixture, product meaning or sealed storage-probe file changed.
+Review in T083/T084; product-meaning changes require approval.
+
+### Timing and recovery
+
+| Scenario | Journey ≤540 s | Run command wall | show / verify (verify ≤60 s) | Command time sum | Submission→verify record wall ≤600 s | Restore ≤120 s |
+|---|---:|---:|---|---:|---:|---:|
+| E-01 | 38.031042 | 45.109000 | 1.813000 / 1.828000 | 48.750000 | 80.700767 | 0.396020 |
+| E-02 | 21.245658 | 27.938000 | 2.344000 / 2.422000 | 32.704000 | 69.082898 | 0.177660 |
+
+Total wall uses durable submission timestamp through verify-result write time (includes idle/operator time),
+not just summed command durations. Both internal bundle verifications also meet 60 seconds. No restore block
+or manual cleanup required. After each Run, positions, versions, interview sessions, reports, report items,
+Evidence and assistant search projections are 0. E-01 verify/restore/zero-residue gates passed before E-02.
+After both Runs, both manifest bytes and all 17 registered file hashes remain unchanged.
+
+### Commands and original evidence
+
+ControlProof .venv Python, same configuration as T079; no .env edited:
+
+- `python -m engine.cli run E-01 --profile E01_CITATION_EVIDENCE_V1 --target whyyou-local --label e01-initial --json`
+- `python -m engine.cli show 09c9d9bb-82a3-4485-9c9d-e9721f2452e4 --run-root <official-root> --json` → exit 0.
+- `python -m engine.cli verify 09c9d9bb-82a3-4485-9c9d-e9721f2452e4 --run-root <official-root> --json` → exit 0, VERIFIED;
+  EV4-01/02/03/04/05/09/10 checked.
+- `python -m engine.cli run E-02 --profile E02_SCORING_FREEZE_V1 --target whyyou-local --label e02-initial --json`
+- `python -m engine.cli show e39e62ae-be73-4e52-8cab-1f878637a0c6 --run-root <official-root> --json` → exit 0.
+- `python -m engine.cli verify e39e62ae-be73-4e52-8cab-1f878637a0c6 --run-root <official-root> --json` → exit 0, VERIFIED;
+  EV4-01/02/04/06/07/08/09/10 checked.
+
+<official-root> = workspace `cp-local/spec004-official/runs/`. Exactly two initial official Runs exist, one per
+scenario, parent_run_id=null; no retry/retest/child submitted. Original bundles and command stdout/stderr,
+result, submission, inspection journals remain outside Git at `cp-local/spec004-official/`; time audit:
+`commands/official-time-audit.json`. Scratch helper uses an exclusive submission journal and stops on abnormal
+restore/verification. T082 source/result mapping frozen in traceability. No new raw evidence publicly uploaded.
+
+Only Spec tasks, validation and traceability changed. No implementation change or pytest rerun; Phase 8
+793 passed / ruff PASS remains the automatic gate. Main untouched. Global docs wait for Phase 9/closure sync;
+older NOT_RUN entries describe their own checkpoints. Scratch document-generator quoting errors occurred
+before any files were written, then were corrected; they had no effect on execution or sealed evidence.
+
+Next T083: classify E01-A3 FAIL and review ID-004-17/FR-013 D1 coverage discrepancy. Then T084 runner fixes
+if needed, T085 P1 proposal/approval, T086 approved WhyYou fix, T087 conditional proposal/NOT_REQUIRED,
+T088 approved child preserving this parent. T089~T097 closure and independent reproduction remain pending.
+Spec 004 is **not Complete**.

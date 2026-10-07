@@ -1,7 +1,7 @@
 # Traceability: E-01·E-02 점수 근거·평가 기준 보존 검증
 
-**Status**: 초안(Tasks 단계). "실제 산출물" 열은 구현·actual Run 뒤 T082·T093에서 채운다. 빈칸은 미실행을 뜻하며 PASS를
-뜻하지 않는다.
+**Status**: 최초 공식 Run source/result/manifest 매핑 고정(T082). 전체 FR/SC 산출물 매핑 마감은 T093에 남아 있다.
+아래 초기 결과와 assertion/EV4 열이 실제 기록이며, 아직 비어 있는 마감 열을 PASS로 해석하지 않는다.
 
 경로 약어: `tests/u` = `tests/unit`, `tests/c` = `tests/contract`, `tests/i` = `tests/integration`, `adp` =
 `engine/adapters/whyyou`, `WY` = `../gbsa_aws/backend`.
@@ -53,26 +53,53 @@ projection은 `report-records.jsonl`에 넣지 않으며 fixture는 요건 평�
 
 | ID | Task | Judge test | Judge | Evidence | 실제 결과 |
 |---|---|---|---|---|---|
-| E01-A1 | T033, T041, T073, T080 | tests/u/test_judge_e01_citation.py | engine/judges/e01.py | EV4-02, EV4-03, EV4-04 | |
-| E01-A2 | T033, T041, T073, T080 | tests/u/test_judge_e01_citation.py | engine/judges/e01.py | EV4-02, EV4-03, EV4-04 | |
-| E01-A3 | T045, T049, T076, T080 | tests/u/test_judge_e01_removal.py | engine/judges/e01.py | EV4-04, EV4-05, EV4-09 | |
-| E01-A4 | T045, T049, T076, T080 | tests/u/test_judge_e01_removal.py | engine/judges/e01.py | EV4-04, EV4-05, EV4-09 | |
-| E01-D1 | T045, T049, T077, T080 | tests/u/test_judge_e01_removal.py | engine/judges/e01.py | EV4-04, EV4-05, EV4-09 | |
-| E02-A1 | T053, T058, T081 | tests/u/test_judge_e02.py | engine/judges/e02.py | EV4-04, EV4-06, EV4-07 | |
-| E02-A2 | T053, T058, T075, T081 | tests/u/test_judge_e02.py | engine/judges/e02.py | EV4-04, EV4-06, EV4-07, EV4-09 | |
-| E02-A3 | T009, T053, T058, T074, T081 | tests/u/test_e02_scoring_copy.py, tests/u/test_judge_e02.py | engine/judges/e02.py, engine/judges/e02_scoring.py | EV4-04, EV4-08 | |
+| E01-A1 | T033, T041, T073, T080 | tests/u/test_judge_e01_citation.py | engine/judges/e01.py | EV4-02, EV4-03, EV4-04 | PASS — `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` (최초 공식) |
+| E01-A2 | T033, T041, T073, T080 | tests/u/test_judge_e01_citation.py | engine/judges/e01.py | EV4-02, EV4-03, EV4-04 | PASS — `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` (최초 공식) |
+| E01-A3 | T045, T049, T076, T080 | tests/u/test_judge_e01_removal.py | engine/judges/e01.py | EV4-04, EV4-05, EV4-09 | FAIL — `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` (최초 공식) |
+| E01-A4 | T045, T049, T076, T080 | tests/u/test_judge_e01_removal.py | engine/judges/e01.py | EV4-04, EV4-05, EV4-09 | PASS — `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` (최초 공식) |
+| E01-D1 | T045, T049, T077, T080 | tests/u/test_judge_e01_removal.py | engine/judges/e01.py | EV4-04, EV4-05, EV4-09 | EMPTY AXIS_DROPPED; NONEXISTENT/OTHER_APPLICANT SHOWN_AS_WRITTEN; OTHER_CRITERION NOT_OBSERVED — `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` |
+| E02-A1 | T053, T058, T081 | tests/u/test_judge_e02.py | engine/judges/e02.py | EV4-04, EV4-06, EV4-07 | PASS — `e39e62ae-be73-4e52-8cab-1f878637a0c6` (최초 공식) |
+| E02-A2 | T053, T058, T075, T081 | tests/u/test_judge_e02.py | engine/judges/e02.py | EV4-04, EV4-06, EV4-07, EV4-09 | PASS — `e39e62ae-be73-4e52-8cab-1f878637a0c6` (최초 공식) |
+| E02-A3 | T009, T053, T058, T074, T081 | tests/u/test_e02_scoring_copy.py, tests/u/test_judge_e02.py | engine/judges/e02.py, engine/judges/e02_scoring.py | EV4-04, EV4-08 | PASS — `e39e62ae-be73-4e52-8cab-1f878637a0c6` (최초 공식) |
 
 ## Evidence
 
 | EV4 | 파일 | Writer task | Verify test | 실제 manifest |
 |---|---|---|---|---|
-| EV4-01 | spec004-capabilities.json, snapshots | T018, T042, T059 | tests/c/test_bundle_profile_spec004.py | |
-| EV4-02 | spec004-lanes.json | T036, T018 | tests/c/test_spec004_seed_adapter.py | |
-| EV4-03 | citation-cases.jsonl, model-emissions.jsonl | T038, T040 | tests/c/test_spec004_model_emission_adapter.py | |
-| EV4-04 | report-records.jsonl | T037 | tests/c/test_spec004_report_adapters.py | |
-| EV4-05 | report-reads.jsonl | T037, T048 | tests/i/test_spec004_bundle_links.py | |
-| EV4-06 | criteria-versions.json | T055 | tests/c/test_spec004_criteria_version_adapter.py | |
-| EV4-07 | frozen-inputs.json | T057, T058 | tests/u/test_judge_e02.py | |
-| EV4-08 | recompute.json | T058, T067 | tests/i/test_spec004_bundle_links.py | |
-| EV4-09 | change-injections.jsonl, recovery.json | T047, T048, T057 | tests/c/test_spec004_evidence_mutation_adapter.py | |
-| EV4-10 | assertions, judgement, manifest, retest-diff | T018, T067, T071 | tests/i/test_spec004_orchestration.py | |
+| EV4-01 | spec004-capabilities.json, snapshots | T018, T042, T059 | tests/c/test_bundle_profile_spec004.py | E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4`; E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` (manifest 고정, 아래 SHA 참조) |
+| EV4-02 | spec004-lanes.json | T036, T018 | tests/c/test_spec004_seed_adapter.py | E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4`; E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` (manifest 고정, 아래 SHA 참조) |
+| EV4-03 | citation-cases.jsonl, model-emissions.jsonl | T038, T040 | tests/c/test_spec004_model_emission_adapter.py | E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` (manifest 고정, 아래 SHA 참조) |
+| EV4-04 | report-records.jsonl | T037 | tests/c/test_spec004_report_adapters.py | E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4`; E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` (manifest 고정, 아래 SHA 참조) |
+| EV4-05 | report-reads.jsonl | T037, T048 | tests/i/test_spec004_bundle_links.py | E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` (manifest 고정, 아래 SHA 참조) |
+| EV4-06 | criteria-versions.json | T055 | tests/c/test_spec004_criteria_version_adapter.py | E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` (manifest 고정, 아래 SHA 참조) |
+| EV4-07 | frozen-inputs.json | T057, T058 | tests/u/test_judge_e02.py | E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` (manifest 고정, 아래 SHA 참조) |
+| EV4-08 | recompute.json | T058, T067 | tests/i/test_spec004_bundle_links.py | E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` (manifest 고정, 아래 SHA 참조) |
+| EV4-09 | change-injections.jsonl, recovery.json | T047, T048, T057 | tests/c/test_spec004_evidence_mutation_adapter.py | E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4`; E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` (manifest 고정, 아래 SHA 참조) |
+| EV4-10 | assertions, judgement, manifest, retest-diff | T018, T067, T071 | tests/i/test_spec004_orchestration.py | E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4`; E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` (manifest 고정, 아래 SHA 참조) |
+
+## T082 — 최초 공식 Run source/result mapping (2026-10-07)
+
+LOCAL_EMULATED 합성 입력·고정 모델 기반의 실제 WhyYou API/작업자 처리다. AWS NOT_RUN.
+Phase 8 진단 ID와 구분한다. 두 Run 모두 수정 전 최초 결과, parent_run_id=null; child 없음.
+
+| Scenario / profile | Run ID | ControlProof source | WhyYou source | Result | Restore / evidence | Manifest SHA-256 |
+|---|---|---|---|---|---|---|
+| E-01 / E01_CITATION_EVIDENCE_V1 | `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` | `8c266f5dc77e0cfff53215ba44226c719ad78615` | `ce8d8620d2b2fec7f448ae312cf13334b408c01a` | FAIL | SUCCEEDED / VERIFIED | `7f622a3381e6c03dac907f55604f1f82c03e5101e33736b4f22bde50cc8475b2` |
+| E-02 / E02_SCORING_FREEZE_V1 | `e39e62ae-be73-4e52-8cab-1f878637a0c6` | `8c266f5dc77e0cfff53215ba44226c719ad78615` | `ce8d8620d2b2fec7f448ae312cf13334b408c01a` | PASS | SUCCEEDED / VERIFIED | `e6b74b7e78fa40a77d0c3c99315592e2e7713e9891d43f68b8d4b437d2d28364` |
+
+- E01-A3 FAIL: `change-injections.jsonl`의 실제 제거(affected_rows=1, absence_confirmed=true)·같은 digest 복원,
+  `report-reads.jsonl`의 세 보고서·타임라인 GET 200(2→1→2), `judgement.json`의
+  `P1: an affected item kept its score and citation after evidence removal`. 수정 후 판정으로 덮어쓰지 않는다.
+- E01-A1/A2 PASS: `citation-cases.jsonl`, `model-emissions.jsonl`, `report-records.jsonl`의 다섯 모드 출력·저장.
+  E01-A4 PASS: 제거 전/복원 후 조회·저장 동일, `recovery.json` 복구·teardown 성공.
+- E01-D1: storage-probe의 세 모드 노출은 보조 관찰. OTHER_CRITERION NOT_OBSERVED. ID-004-17 한 기준 설계와
+  FR-013 네 모드 요구 차이는 미해결이며 closure 전 검토한다. 최초 bundle을 보완해 채우거나 verdict를 바꾸지
+  않는다. D1은 E01-A1/A2 판정 근거가 아니다.
+- E02-A1/A2/A3 PASS: `frozen-inputs.json`, `criteria-versions.json`, `report-records.jsonl`, `report-reads.jsonl`,
+  `recompute.json`. v2 제품 API 발행 뒤 두 번째 74점, 첫 보고서 72점·원본 digest 그대로.
+  INCONCLUSIVE/필수 누락 evidence 없음. PASS는 실행된 E-02와 확인된 증거에 한정한다.
+- 원본: workspace `cp-local/spec004-official/runs/<Run ID>/`. 별도 명령·잔여행·시간 원장:
+  `cp-local/spec004-official/commands/inspection-E-01.json`, `inspection-E-02.json`, `official-time-audit.json`.
+  명령·시간·한계는 validation T080~T082. 각각 17개 파일과 manifest 해시가 show/verify·두 실행 후 동일하다.
+- 초기 Run에는 retest-diff가 없으며 EV4-10의 child 계보 파일은 해당 없음이다.
+- T083 분류, 조건부 수정·child T084~T088, 전체 매핑·완료 gate T089~T097은 미완료다.

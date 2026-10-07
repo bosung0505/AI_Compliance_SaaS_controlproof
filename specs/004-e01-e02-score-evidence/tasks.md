@@ -247,9 +247,15 @@ are in validation. Next T079; official E-01/E-02 and AWS remain NOT_RUN.
     E-01 READY 18/18; E-02 READY 16/16 and scoring source MATCH (2 pinned blobs). Fixed fixture
     `spec004-report-v1`, LOCAL_EMULATED, AWS NOT_RUN. No Run directory or subject/report rows created.
     Raw preflights and startup-only NOT_READY attempts retained; see validation T079 entry.
-- [ ] T080 [US5] With approval, execute exactly one initial E-01 actual Run before any WhyYou product change; run show/verify; record Run ID, A1~A4, D1, restore status, timing and manifest SHA-256 in `validation.md` [FR-040~042, FR-050, SC-001~SC-004]
-- [ ] T081 [US5] With approval, execute exactly one initial E-02 actual Run; run show/verify; record the same facts in `validation.md` [FR-040~042, FR-050, SC-001~SC-004]
-- [ ] T082 [US5] Freeze the T080/T081 source/result mapping in `specs/004-e01-e02-score-evidence/traceability.md`; document every FAIL, INCONCLUSIVE and unavailable fact without changing the sealed bundles [FR-050]
+- [X] T080 [US5] With approval, execute exactly one initial E-01 actual Run before any WhyYou product change; run show/verify; record Run ID, A1~A4, D1, restore status, timing and manifest SHA-256 in `validation.md` [FR-040~042, FR-050, SC-001~SC-004]
+- [X] T081 [US5] With approval, execute exactly one initial E-02 actual Run; run show/verify; record the same facts in `validation.md` [FR-040~042, FR-050, SC-001~SC-004]
+- [X] T082 [US5] Freeze the T080/T081 source/result mapping in `specs/004-e01-e02-score-evidence/traceability.md`; document every FAIL, INCONCLUSIVE and unavailable fact without changing the sealed bundles [FR-050]
+
+2026-10-07 first official results (user-approved stage 4): E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` FAIL (A3 only),
+E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` PASS (A1~A3). Both COMPLETED, restore SUCCEEDED, bundle VERIFIED,
+Run-owned residue 0. Source/result/manifest mapping frozen in validation and traceability. D1 records three modes;
+OTHER_CRITERION is NOT_OBSERVED (ID-004-17 versus FR-013 discrepancy), pending closure review.
+Next T083 classification; no product correction or child Run applied. AWS NOT_RUN.
 
 If T080 or T081 ends `RESTORE_FAILED` (exit 6), stop, start no new change-injection Run, and follow `quickstart.md` §9. Do not
 delete block files.
