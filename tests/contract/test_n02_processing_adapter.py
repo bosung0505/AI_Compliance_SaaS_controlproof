@@ -379,3 +379,78 @@ def test_assessment_refusal_and_consumer_bookkeeping_stay_apart_from_effects(
     assert effects.start_receipt_ids == ()
     assert effects.probe_bookkeeping_effect_ids == (f"processed:{event_id}",)
     assert effects.new_effect_ids == ()
+
+
+def _driven_adapter(settings, log: list[str]):
+    """A fake WhyYou that honours the applicant product flow the runner drives (ID-003-18)."""
+    session_id = "00000000-0000-7000-8000-000000000071"
+    upload_id = "00000000-0000-7000-8000-000000000072"
+
+    def api(request: httpx.Request) -> httpx.Response:
+        log.append(f"{request.method} {request.url.path}")
+        if request.url.path == "/v1/applicant/equipment-checks":
+            return httpx.Response(201, json={"equipment_check_id": "00000000-0000-7000-8000-000000000073"})
+        if request.url.path == "/v1/applicant/interview-sessions":
+            body = json.loads(request.content)
+            log.append(f"session-equipment:{body['equipment_check_id']}")
+            return httpx.Response(201, json={"interview_session_id": session_id})
+        if request.url.path.endswith("/media-upload-intents"):
+            return httpx.Response(201, json={"method": "PUT", "url": "http://store.test/chunk", "required_headers": {}})
+        if request.url.path.endswith("/media-uploads"):
+            return httpx.Response(201, json={"recording_chunk_id": "00000000-0000-7000-8000-000000000074"})
+        if request.url.path == "/v1/applicant/submissions/upload-intents":
+            body = json.loads(request.content)
+            assert body["byte_size"] > 1 and body["sha256"] != "0" * 64
+            return httpx.Response(201, json={"upload_id": upload_id, "method": "PUT", "url": "http://store.test/resume", "required_headers": {"Content-Type": "application/pdf"}})
+        if request.url.path == "/v1/applicant/submissions":
+            assert json.loads(request.content)["upload_id"] == upload_id
+            return httpx.Response(202, json={"submission_id": "00000000-0000-7000-8000-000000000075"})
+        return httpx.Response(404)
+
+    def store(request: httpx.Request) -> httpx.Response:
+        log.append(f"{request.method} {request.url}")
+        return httpx.Response(200)
+
+    credentials = N02CredentialStore()
+    return WhyYouProtectedProcessingAdapter(
+        settings,
+        http_client=httpx.Client(base_url=settings.whyyou_base_url, transport=httpx.MockTransport(api)),
+        upload_client=httpx.Client(transport=httpx.MockTransport(store)),
+        credentials=credentials,
+    ), credentials, session_id
+
+
+def test_driven_recording_attempt_runs_the_applicant_flow_to_the_confirmed_chunk(settings) -> None:
+    """ID-003-18: equipment check, session, upload intent, PUT and confirmation."""
+    log: list[str] = []
+    adapter, credentials, session_id = _driven_adapter(settings, log)
+    subject = _subject(N02LaneId.NORMAL_ORDER)
+    credentials.put(subject["subject_ref"], "cookie")
+    attempt = adapter.attempt(path_id="RECORDING", subject=subject, drive=True)
+    assert attempt.response_class is ProcessingResponseClass.ACCEPTED
+    assert attempt.created_session_id == session_id
+    assert attempt.drive_steps == ("equipment-check:201", "request:201", "media-intent:201", "upload:200", "confirm:201")
+    assert "session-equipment:00000000-0000-7000-8000-000000000073" in log
+    assert "PUT http://store.test/chunk" in log
+
+
+def test_driven_document_attempt_uploads_and_registers_the_submission(settings) -> None:
+    log: list[str] = []
+    adapter, credentials, _ = _driven_adapter(settings, log)
+    subject = _subject(N02LaneId.NORMAL_ORDER)
+    credentials.put(subject["subject_ref"], "cookie")
+    attempt = adapter.attempt(path_id="DOCUMENT_ANALYSIS", subject=subject, drive=True)
+    assert attempt.response_class is ProcessingResponseClass.ACCEPTED
+    assert attempt.drive_steps == ("request:201", "upload:200", "register:202")
+    assert attempt.created_session_id is None
+
+
+def test_probe_attempt_without_drive_stops_at_the_first_request(settings) -> None:
+    log: list[str] = []
+    adapter, credentials, _ = _driven_adapter(settings, log)
+    subject = _subject(N02LaneId.RECORDING_BOUNDARY_PROBE)
+    credentials.put(subject["subject_ref"], "cookie")
+    attempt = adapter.attempt(path_id="RECORDING", subject=subject)
+    assert attempt.drive_steps == () and attempt.created_session_id is None
+    assert log[0] == "POST /v1/applicant/interview-sessions"
+    assert "POST /v1/applicant/equipment-checks" not in log and len(log) == 2

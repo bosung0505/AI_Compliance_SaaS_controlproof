@@ -16,6 +16,11 @@ from sqlalchemy import create_engine, text
 
 from engine.adapters.base import AdapterResult
 from engine.adapters.whyyou.n02_seed import N02CredentialStore
+from engine.adapters.whyyou.synthetic_media import (
+    sha256_hex,
+    synthetic_recording_chunk,
+    synthetic_resume_pdf,
+)
 from engine.config import Settings
 from engine.models import (
     ConsentPurpose,
@@ -91,6 +96,7 @@ class WhyYouProtectedProcessingAdapter:
         settings: Settings,
         *,
         http_client: httpx.Client | None = None,
+        upload_client: httpx.Client | None = None,
         credentials: N02CredentialStore | None = None,
         effect_reader: Callable[[Mapping[str, Any], ProtectedPathId], Mapping[str, Any]]
         | None = None,
@@ -98,6 +104,7 @@ class WhyYouProtectedProcessingAdapter:
     ) -> None:
         self.settings = settings
         self.credentials = credentials or N02CredentialStore()
+        self.upload_client = upload_client or httpx.Client(timeout=30)
         self.http = http_client or httpx.Client(
             base_url=settings.whyyou_base_url,
             timeout=10,
@@ -120,7 +127,7 @@ class WhyYouProtectedProcessingAdapter:
         return _PATHS
 
     def attempt(
-        self, *, path_id: str, subject: Mapping[str, Any]
+        self, *, path_id: str, subject: Mapping[str, Any], drive: bool = False
     ) -> ProcessingAttemptReceipt | AdapterResult:
         path = ProtectedPathId(path_id)
         key = (str(subject["subject_ref"]), path)
@@ -134,42 +141,55 @@ class WhyYouProtectedProcessingAdapter:
         sent_at = utcnow()
         request_id = str(_attempt_id(subject, path, "request", ordinal))
         trace_id = _trace_id(subject, path)
-        try:
-            if path is ProtectedPathId.DOCUMENT_ANALYSIS:
-                route = "/v1/applicant/submissions/upload-intents"
-                payload = {
-                    "source_type": "resume",
-                    "filename": "controlproof-synthetic-resume.pdf",
-                    "media_type": "application/pdf",
-                    "byte_size": 1,
-                    "sha256": "0" * 64,
-                }
-            else:
-                route = "/v1/applicant/interview-sessions"
-                payload = {
-                    "equipment_check_id": str(subject["equipment_check_id"]),
-                    "strategy_id": str(subject["strategy_id"]),
-                    "acknowledged_partial_analysis": True,
-                }
-            response = self.http.post(
-                route,
-                json=payload,
-                headers={
-                    "Idempotency-Key": request_id,
-                    "X-Trace-Id": trace_id,
-                    "Cookie": f"iep_applicant_session={credential}",
+        headers = {
+            "X-Trace-Id": trace_id,
+            "Cookie": f"iep_applicant_session={credential}",
+        }
+        steps: list[str] = []
+        equipment_check_id = str(subject["equipment_check_id"])
+        if drive and path is ProtectedPathId.RECORDING:
+            # The product flow starts with the applicant's own equipment check (ID-003-18).
+            equipment = self._post(
+                "/v1/applicant/equipment-checks",
+                {
+                    "camera": {"status": "ready", "sanitized_code": None},
+                    "microphone": {"status": "ready", "sanitized_code": None},
+                    "network": {"status": "ready", "sanitized_code": None},
                 },
+                headers | {"Idempotency-Key": str(_attempt_id(subject, path, "equipment", ordinal))},
             )
-        except httpx.HTTPError:
+            steps.append(f"equipment-check:{_status(equipment)}")
+            if equipment is None or not 200 <= equipment.status_code < 300:
+                return _attempt_receipt(
+                    path=path, subject=subject, request_id=request_id, trace_id=trace_id,
+                    sent_at=sent_at, response_class=ProcessingResponseClass.ERROR,
+                    status_code=None if equipment is None else equipment.status_code,
+                    reason="EQUIPMENT_CHECK_FAILED", drive_steps=tuple(steps),
+                )
+            equipment_check_id = str(equipment.json()["equipment_check_id"])
+        document_bytes = synthetic_resume_pdf()
+        if path is ProtectedPathId.DOCUMENT_ANALYSIS:
+            route = "/v1/applicant/submissions/upload-intents"
+            payload = {
+                "source_type": "resume",
+                "filename": "controlproof-synthetic-resume.pdf",
+                "media_type": "application/pdf",
+                "byte_size": len(document_bytes) if drive else 1,
+                "sha256": sha256_hex(document_bytes) if drive else "0" * 64,
+            }
+        else:
+            route = "/v1/applicant/interview-sessions"
+            payload = {
+                "equipment_check_id": equipment_check_id,
+                "strategy_id": str(subject["strategy_id"]),
+                "acknowledged_partial_analysis": True,
+            }
+        response = self._post(route, payload, headers | {"Idempotency-Key": request_id})
+        if response is None:
             return _attempt_receipt(
-                path=path,
-                subject=subject,
-                request_id=request_id,
-                trace_id=trace_id,
-                sent_at=sent_at,
-                response_class=ProcessingResponseClass.NO_RESPONSE,
-                status_code=None,
-                reason="TRANSPORT_UNAVAILABLE",
+                path=path, subject=subject, request_id=request_id, trace_id=trace_id,
+                sent_at=sent_at, response_class=ProcessingResponseClass.NO_RESPONSE,
+                status_code=None, reason="TRANSPORT_UNAVAILABLE", drive_steps=tuple(steps),
             )
         response_class = (
             ProcessingResponseClass.ACCEPTED
@@ -185,16 +205,75 @@ class WhyYouProtectedProcessingAdapter:
             if response_class is ProcessingResponseClass.DENIED
             else response_class.value
         )
+        created_session_id: str | None = None
+        if drive and response_class is ProcessingResponseClass.ACCEPTED:
+            steps.append(f"request:{response.status_code}")
+            if path is ProtectedPathId.RECORDING:
+                created_session_id = str(response.json()["interview_session_id"])
+                steps.extend(self._drive_recording(subject, created_session_id, headers, ordinal))
+            else:
+                steps.extend(
+                    self._drive_document(subject, response.json(), document_bytes, headers, ordinal)
+                )
         return _attempt_receipt(
-            path=path,
-            subject=subject,
-            request_id=request_id,
-            trace_id=trace_id,
-            sent_at=sent_at,
-            response_class=response_class,
-            status_code=response.status_code,
-            reason=reason,
+            path=path, subject=subject, request_id=request_id, trace_id=trace_id,
+            sent_at=sent_at, response_class=response_class, status_code=response.status_code,
+            reason=reason, created_session_id=created_session_id, drive_steps=tuple(steps),
         )
+
+    def _post(self, route: str, payload: Mapping[str, Any], headers: Mapping[str, str]):
+        try:
+            return self.http.post(route, json=payload, headers=dict(headers))
+        except httpx.HTTPError:
+            return None
+
+    def _upload(self, intent: Mapping[str, Any], data: bytes) -> str:
+        """PUT the bytes to the presigned URL the target issued; returns the step outcome."""
+        try:
+            response = self.upload_client.request(
+                str(intent.get("method", "PUT")),
+                str(intent["url"]),
+                content=data,
+                headers=dict(intent.get("required_headers") or {}),
+            )
+        except (httpx.HTTPError, KeyError):
+            return "upload:none"
+        return f"upload:{response.status_code}"
+
+    def _drive_recording(self, subject, session_id: str, headers, ordinal: int) -> list[str]:
+        chunk = synthetic_recording_chunk()
+        body = {
+            "chunk_sequence": 0,
+            "byte_size": len(chunk),
+            "sha256": sha256_hex(chunk),
+            "session_start_ms": 0,
+            "session_end_ms": 2000,
+        }
+        key = str(_attempt_id(subject, ProtectedPathId.RECORDING, "media", ordinal))
+        base = f"/v1/applicant/interview-sessions/{session_id}"
+        intent = self._post(f"{base}/media-upload-intents", body, headers | {"Idempotency-Key": key})
+        steps = [f"media-intent:{_status(intent)}"]
+        if intent is None or not 200 <= intent.status_code < 300:
+            return steps
+        steps.append(self._upload(intent.json(), chunk))
+        if not steps[-1].endswith(("200", "201", "204")):
+            return steps
+        # The confirmation reuses the intent's idempotency key and body (target contract).
+        confirm = self._post(f"{base}/media-uploads", body, headers | {"Idempotency-Key": key})
+        steps.append(f"confirm:{_status(confirm)}")
+        return steps
+
+    def _drive_document(self, subject, intent, data: bytes, headers, ordinal: int) -> list[str]:
+        steps = [self._upload(intent, data)]
+        if not steps[-1].endswith(("200", "201", "204")):
+            return steps
+        register = self._post(
+            "/v1/applicant/submissions",
+            {"material_type": "resume", "source_type": "resume", "upload_id": str(intent["upload_id"])},
+            headers | {"Idempotency-Key": str(_attempt_id(subject, ProtectedPathId.DOCUMENT_ANALYSIS, "register", ordinal))},
+        )
+        steps.append(f"register:{_status(register)}")
+        return steps
 
     def _attempt_assessment(
         self, subject: Mapping[str, Any], *, ordinal: int = 0
@@ -549,6 +628,8 @@ def _attempt_receipt(
     status_code: int | None,
     reason: str,
     probe_input_effect_id: str | None = None,
+    created_session_id: str | None = None,
+    drive_steps: tuple[str, ...] = (),
 ) -> ProcessingAttemptReceipt:
     entry = (
         ProcessingEntryKind.DOMAIN_EVENT
@@ -570,5 +651,11 @@ def _attempt_receipt(
         status_code=status_code,
         sanitized_reason_code=reason,
         probe_input_effect_id=probe_input_effect_id,
+        created_session_id=created_session_id,
+        drive_steps=drive_steps,
         source_ref=f"whyyou:{path.value.casefold()}:v1",
     )
+
+
+def _status(response) -> str:
+    return "none" if response is None else str(response.status_code)

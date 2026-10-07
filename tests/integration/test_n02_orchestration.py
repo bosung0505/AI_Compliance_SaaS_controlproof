@@ -120,8 +120,8 @@ def test_target_assessment_start_receipt_is_sealed_and_linked(tmp_path) -> None:
     receipt_id = UUID("00000000-0000-7000-8000-000000000042")
 
     class AssessmentStart(CountingN02):
-        def attempt(self, *, path_id, subject):
-            result = super().attempt(path_id=path_id, subject=subject)
+        def attempt(self, *, path_id, subject, drive=False):
+            result = super().attempt(path_id=path_id, subject=subject, drive=drive)
             if subject["lane_id"] == "ASSESSMENT_BOUNDARY_PROBE" and path_id == "AI_ASSESSMENT":
                 return result.model_copy(update={
                     "response_class": ProcessingResponseClass.SUBMITTED,
@@ -216,8 +216,8 @@ def test_target_assessment_refusal_is_sealed_linked_and_passes_a4(tmp_path, boun
     receipt_id = UUID("00000000-0000-7000-8000-000000000052")
 
     class AssessmentRefusal(CountingN02):
-        def attempt(self, *, path_id, subject):
-            result = super().attempt(path_id=path_id, subject=subject)
+        def attempt(self, *, path_id, subject, drive=False):
+            result = super().attempt(path_id=path_id, subject=subject, drive=drive)
             if subject["lane_id"] == "ASSESSMENT_BOUNDARY_PROBE" and path_id == "AI_ASSESSMENT":
                 return result.model_copy(update={
                     "response_class": ProcessingResponseClass.SUBMITTED,

@@ -99,7 +99,7 @@ def test_timeout_or_cancellation_still_restores_overlay_fault_and_lanes(
             self.restore_calls = 0
             self.teardown_called = False
 
-        def attempt(self, *, path_id: str, subject):
+        def attempt(self, *, path_id: str, subject, drive: bool = False):
             if str(subject["lane_id"]) == "CONSENT_FAULT_RECOVERY":
                 raise interruption("synthetic interruption")
             return super().attempt(path_id=path_id, subject=subject)

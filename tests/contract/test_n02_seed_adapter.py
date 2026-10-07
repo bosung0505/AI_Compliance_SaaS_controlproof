@@ -2,6 +2,7 @@ from __future__ import annotations
 
 from uuid import UUID, uuid4
 
+from engine.adapters.base import AdapterResult
 from engine.adapters.whyyou.n02_seed import WhyYouN02SeedAdapter
 from engine.models import BaselineKind, N02LaneId
 from seeds.n02_subjects import build_n02_seed_plan
@@ -221,3 +222,55 @@ def test_teardown_removes_target_rows_that_reference_this_runs_seed_first() -> N
         'DELETE FROM "invitation_state_history" WHERE "invitation_id" = :k0 AND "company_id" = :k1'
     ]
     assert not any('"unrelated"' in sql for _, sql, _ in connection.statements)
+
+
+class _RecordingTransaction(_Transaction):
+    def __init__(self) -> None:
+        super().__init__()
+        self.rows: list[tuple[str, dict]] = []
+
+    def execute(self, statement, params=None):
+        text = str(statement)
+        if text.lstrip().upper().startswith("INSERT INTO"):
+            self.rows.append((text.split()[2], dict(params or {})))
+        return super().execute(statement, params)
+
+
+def test_processing_prerequisites_fit_the_consented_product_flow(settings) -> None:
+    """ID-003-18: recording needs only a ready strategy (the equipment check is real), the
+    assessment attaches turns to the one real session, probe lanes get nothing."""
+    transaction = _RecordingTransaction()
+    adapter = WhyYouN02SeedAdapter(settings, transaction_factory=lambda: transaction)
+    run_id = uuid4()
+    lanes = adapter.seed_lanes(run_id=str(run_id))
+    assert not isinstance(lanes, AdapterResult)
+    subject = adapter.subject_for(run_id=str(run_id), lane_id=N02LaneId.NORMAL_ORDER)
+    transaction.rows.clear()
+
+    recording = adapter.apply_processing_prerequisites(subject=subject, path_id="RECORDING")
+    assert recording.ok and [table for table, _ in transaction.rows] == ["interview_strategies"]
+    assert recording.data["fixture_effect_ids"] == (f"strategy:{subject['strategy_id']}",)
+
+    session_id = str(uuid4())
+    transaction.rows.clear()
+    assessment = adapter.apply_processing_prerequisites(
+        subject=subject, path_id="AI_ASSESSMENT", interview_session_id=session_id
+    )
+    assert assessment.ok
+    tables = sorted(table for table, _ in transaction.rows)
+    assert tables == ["interview_turns", "recording_assets", "transcript_segments"]
+    assert all(str(values["interview_session_id"]) == session_id for _, values in transaction.rows)
+    assert any(item.startswith("asset:") for item in assessment.data["fixture_effect_ids"])
+
+    assert adapter.apply_processing_prerequisites(
+        subject=subject, path_id="AI_ASSESSMENT", interview_session_id=session_id
+    ).code == (
+        "N02_PREREQUISITES_ALREADY_APPLIED"
+    )
+    probe = adapter.subject_for(run_id=str(run_id), lane_id=N02LaneId.RECORDING_BOUNDARY_PROBE)
+    assert adapter.apply_processing_prerequisites(subject=probe, path_id="RECORDING").code == (
+        "N02_PREREQUISITE_LANE_MISMATCH"
+    )
+    assert adapter.apply_processing_prerequisites(
+        subject=subject, path_id="DOCUMENT_ANALYSIS"
+    ).code == "N02_PREREQUISITES_NOT_REQUIRED"

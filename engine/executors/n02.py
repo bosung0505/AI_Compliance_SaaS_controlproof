@@ -569,28 +569,13 @@ class N02Executor:
             if isinstance(state, AdapterResult):
                 raise N02ExecutionError(f"N-02 consent state read failed: {state.code}")
             if _durable_consent_matches(policy, state):
-                attempt_rows = []
-                effect_rows = []
-                for path in ProtectedPathId:
-                    attempt = processing.attempt(path_id=path.value, subject=subject)
-                    if isinstance(attempt, AdapterResult):
-                        raise N02ExecutionError(
-                            f"N-02 normal processing attempt failed: {attempt.code}"
-                        )
-                    attempt_rows.append(attempt)
-                    effect = processing.read_effects(
-                        path_id=path.value,
-                        subject=subject,
-                        phase=Phase.INJECTED.value,
-                        step_id=f"capture-normal-{path.value.casefold()}-effects",
-                    )
-                    if isinstance(effect, AdapterResult):
-                        raise N02ExecutionError(
-                            f"N-02 normal effect read failed: {effect.code}"
-                        )
-                    effect_rows.append(effect)
-                attempts = tuple(attempt_rows)
-                effects = tuple(effect_rows)
+                attempts, effects, subject = _collect_processing(
+                    processing,
+                    subject,
+                    phase=Phase.INJECTED,
+                    step_prefix="capture-normal",
+                    seed=seed,
+                )
                 receipts: tuple[dict[str, Any], ...] = ()
                 if self.adapters.n02_observer is not None:
                     observed = self.adapters.n02_observer.read_processing_receipts(
@@ -784,11 +769,12 @@ class N02Executor:
                     )
                 recovered_state = recovered_state_value
                 if _durable_consent_matches(policy, recovered_state):
-                    recovered_attempts, recovered_effects = _collect_processing(
+                    recovered_attempts, recovered_effects, subject = _collect_processing(
                         processing,
                         subject,
                         phase=Phase.RECOVERED,
                         step_prefix="capture-recovered",
+                        seed=seed,
                     )
                     receipts = _read_receipts(self.adapters, run_id, lane)
                     if hasattr(causality, "capture_normal_order"):
@@ -1031,13 +1017,45 @@ def _durable_consent_matches(
     )
 
 
-def _collect_processing(processing, subject, *, phase: Phase, step_prefix: str):
+# ID-003-18: a consented lane is driven through the product flow. Recording comes first
+# because a registered submission makes the target demand a finished AI analysis before
+# any session starts, the assessment reuses the one session per invitation, and the
+# document path is last so its registration cannot block the others.
+_CONSENTED_PATH_ORDER = (
+    ProtectedPathId.RECORDING,
+    ProtectedPathId.AI_ASSESSMENT,
+    ProtectedPathId.DOCUMENT_ANALYSIS,
+)
+
+
+def _collect_processing(processing, subject, *, phase: Phase, step_prefix: str, seed=None):
     attempts = []
     effects = []
-    for path in ProtectedPathId:
-        attempt = processing.attempt(path_id=path.value, subject=subject)
+    driven = seed is not None
+    subject = dict(subject)
+    fixtures = [str(item) for item in subject.get("allowed_fixture_effect_ids", ())]
+    for path in _CONSENTED_PATH_ORDER if driven else tuple(ProtectedPathId):
+        if driven:
+            prerequisites = seed.apply_processing_prerequisites(
+                subject=subject,
+                path_id=path.value,
+                interview_session_id=(
+                    subject.get("interview_session_id")
+                    if path is ProtectedPathId.AI_ASSESSMENT
+                    else None
+                ),
+            )
+            if not prerequisites.ok:
+                raise N02ExecutionError(
+                    f"N-02 processing prerequisites failed: {prerequisites.code}"
+                )
+            fixtures.extend(str(item) for item in prerequisites.data.get("fixture_effect_ids", ()))
+            subject["allowed_fixture_effect_ids"] = tuple(sorted(set(fixtures)))
+        attempt = processing.attempt(path_id=path.value, subject=subject, drive=driven)
         if isinstance(attempt, AdapterResult):
             raise N02ExecutionError(f"N-02 processing attempt failed: {attempt.code}")
+        if driven and path is ProtectedPathId.RECORDING and attempt.created_session_id:
+            subject["interview_session_id"] = attempt.created_session_id
         attempts.append(attempt)
         effect = processing.read_effects(
             path_id=path.value,
@@ -1048,7 +1066,7 @@ def _collect_processing(processing, subject, *, phase: Phase, step_prefix: str):
         if isinstance(effect, AdapterResult):
             raise N02ExecutionError(f"N-02 effect read failed: {effect.code}")
         effects.append(effect)
-    return tuple(attempts), tuple(effects)
+    return tuple(attempts), tuple(effects), subject
 
 
 def _read_receipts(adapters: AdapterSet, run_id: UUID, lane: RunSubjectLane):

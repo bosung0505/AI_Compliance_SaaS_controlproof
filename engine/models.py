@@ -1056,6 +1056,10 @@ class ProcessingAttemptReceipt(FrozenModel):
     status_code: int | None = None
     sanitized_reason_code: str | None = None
     probe_input_effect_id: str | None = None
+    # ID-003-18: when the runner drives a consented path to its result, the session it
+    # created and the sanitized outcome of each step ("equipment-check:201", ...).
+    created_session_id: str | None = None
+    drive_steps: tuple[str, ...] = ()
     source_ref: str
 
     @model_validator(mode="after")
