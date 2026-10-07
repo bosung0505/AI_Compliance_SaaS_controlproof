@@ -454,3 +454,21 @@ def test_probe_attempt_without_drive_stops_at_the_first_request(settings) -> Non
     assert attempt.drive_steps == () and attempt.created_session_id is None
     assert log[0] == "POST /v1/applicant/interview-sessions"
     assert "POST /v1/applicant/equipment-checks" not in log and len(log) == 2
+
+
+def test_results_are_only_what_the_attempt_newly_produced(settings, tmp_path) -> None:
+    """ID-003-18: a fixture strategy present before the attempt is not a document result."""
+    fixture = "strategy:00000000-0000-7000-8000-000000000081"
+    subject = {**_subject(N02LaneId.NORMAL_ORDER), "allowed_fixture_effect_ids": [fixture]}
+    adapter = WhyYouProtectedProcessingAdapter(
+        replace(settings, observer_enabled=True, observer_root=tmp_path),
+        effect_reader=lambda _subject, _path: {
+            "source_status": "PRESENT",
+            "effect_ids": [fixture, "upload:00000000-0000-7000-8000-000000000082"],
+        },
+    )
+    effects = adapter.read_effects(
+        path_id="DOCUMENT_ANALYSIS", subject=subject, phase=Phase.INJECTED.value, step_id="x"
+    )
+    assert effects.new_effect_ids == ("upload:00000000-0000-7000-8000-000000000082",)
+    assert effects.result_ids == ()

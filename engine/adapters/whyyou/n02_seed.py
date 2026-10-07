@@ -122,22 +122,51 @@ class WhyYouN02SeedAdapter:
                 include_assessment=(path is ProtectedPathId.AI_ASSESSMENT),
             )
         )
+        target_session: str | None = None
         try:
             with self._transaction_factory() as connection:
+                if path is ProtectedPathId.AI_ASSESSMENT:
+                    # The target allows one session per invitation. If it already created one
+                    # (an unconsented recording request it accepted), the fixture turns attach
+                    # to that session instead of conflicting with it, so the leak stays sealed.
+                    target_session = _existing_session(
+                        connection, plan.company_id, definition.invitation_id
+                    )
+                    if target_session and target_session != str(definition.interview_session_id):
+                        rows = tuple(
+                            SeedRow(row.table, {**row.values, "interview_session_id": UUID(target_session)})
+                            if "interview_session_id" in row.values
+                            else row
+                            for row in rows
+                            if row.table != "interview_sessions"
+                        )
+                    else:
+                        target_session = None
                 for row in rows:
                     _insert_row(connection, row)
         except Exception as exc:  # noqa: BLE001 - normalize target provider details
             return AdapterResult(False, "N02_PROBE_OVERLAY_WRITE_FAILED", detail=type(exc).__name__)
         self._overlays[key] = rows
-        return AdapterResult(
-            True,
-            "N02_PROBE_OVERLAY_APPLIED",
-            {
-                "path_id": path.value,
-                "row_count": len(rows),
-                "original_seed_digest": plan.digest,
-            },
-        )
+        data = {
+            "path_id": path.value,
+            "row_count": len(rows),
+            "original_seed_digest": plan.digest,
+        }
+        if target_session:
+            data["interview_session_id"] = target_session
+            return AdapterResult(True, "N02_PROBE_OVERLAY_APPLIED_ON_TARGET_SESSION", data)
+        return AdapterResult(True, "N02_PROBE_OVERLAY_APPLIED", data)
+
+    def target_session_for(self, *, subject: Mapping[str, Any]) -> AdapterResult:
+        """The session the target already holds for this lane's invitation, if any."""
+        try:
+            plan = self._plans[str(subject["run_id"])]
+            invitation_id = UUID(str(subject["invitation_id"]))
+            with self._transaction_factory() as connection:
+                session_id = _existing_session(connection, plan.company_id, invitation_id)
+        except Exception as exc:  # noqa: BLE001 - normalize target provider details
+            return AdapterResult(False, "N02_TARGET_SESSION_READ_FAILED", detail=type(exc).__name__)
+        return AdapterResult(True, "N02_TARGET_SESSION_READ", {"interview_session_id": session_id})
 
     def apply_processing_prerequisites(
         self, *, subject: Mapping[str, Any], path_id: str, interview_session_id: str | None = None
@@ -382,3 +411,14 @@ def _fixture_effect_ids(rows: list[SeedRow]) -> tuple[str, ...]:
         if column is not None and column in row.values:
             ids.append(f"{prefix}:{row.values[column]}")
     return tuple(sorted(ids))
+
+
+def _existing_session(connection: Any, company_id: UUID, invitation_id: UUID) -> str | None:
+    row = connection.execute(
+        text(
+            "SELECT interview_session_id FROM interview_sessions "
+            "WHERE company_id=:company_id AND invitation_id=:invitation_id"
+        ),
+        {"company_id": company_id, "invitation_id": invitation_id},
+    ).mappings().all()
+    return str(row[0]["interview_session_id"]) if row else None

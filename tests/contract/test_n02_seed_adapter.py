@@ -274,3 +274,48 @@ def test_processing_prerequisites_fit_the_consented_product_flow(settings) -> No
     assert adapter.apply_processing_prerequisites(
         subject=subject, path_id="DOCUMENT_ANALYSIS"
     ).code == "N02_PREREQUISITES_NOT_REQUIRED"
+
+
+class _TargetSessionTransaction(_RecordingTransaction):
+    """The target already holds a session for the invitation (it accepted an unconsented
+    recording request); the FK catalog and other reads stay empty."""
+
+    def __init__(self, session_id) -> None:
+        super().__init__()
+        self.session_id = session_id
+
+    def execute(self, statement, params=None):
+        if "FROM interview_sessions" in str(statement):
+            session_id = self.session_id
+
+            class _Rows:
+                def mappings(self):
+                    return self
+
+                def all(self):
+                    return [{"interview_session_id": session_id}]
+
+            return _Rows()
+        return super().execute(statement, params)
+
+
+def test_assessment_overlay_attaches_to_a_session_the_target_already_created(settings) -> None:
+    """ID-003-18: when the target accepted an unconsented session, the fault-lane assessment
+    fixture attaches its turns to that session instead of aborting the Run on a conflict."""
+    leaked = uuid4()
+    transaction = _TargetSessionTransaction(leaked)
+    adapter = WhyYouN02SeedAdapter(settings, transaction_factory=lambda: transaction)
+    run_id = uuid4()
+    assert not isinstance(adapter.seed_lanes(run_id=str(run_id)), AdapterResult)
+    subject = adapter.subject_for(run_id=str(run_id), lane_id=N02LaneId.CONSENT_FAULT_RECOVERY)
+    transaction.rows.clear()
+    result = adapter.apply_probe_overlay(subject=subject, path_id="AI_ASSESSMENT")
+    assert result.ok and result.code == "N02_PROBE_OVERLAY_APPLIED_ON_TARGET_SESSION"
+    assert result.data["interview_session_id"] == str(leaked)
+    tables = [table for table, _ in transaction.rows]
+    assert "interview_sessions" not in tables and "interview_turns" in tables
+    assert all(
+        str(values["interview_session_id"]) == str(leaked)
+        for table, values in transaction.rows
+        if "interview_session_id" in values
+    )

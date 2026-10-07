@@ -638,6 +638,9 @@ class FakeN02Adapters:
     def teardown_lanes(self, *, run_id: str, lanes):
         return AdapterResult(True, "N02_LANES_REMOVED", {"count": len(lanes)})
 
+    def target_session_for(self, *, subject):
+        return AdapterResult(True, "N02_TARGET_SESSION_READ", {"interview_session_id": None})
+
     def apply_processing_prerequisites(self, *, subject, path_id: str, interview_session_id=None):
         self.prerequisite_calls.append((str(subject["lane_id"]), path_id, interview_session_id))
         return AdapterResult(True, "N02_PREREQUISITES_APPLIED", {"fixture_effect_ids": ()})

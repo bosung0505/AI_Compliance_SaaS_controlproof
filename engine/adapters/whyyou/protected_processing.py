@@ -480,9 +480,11 @@ class WhyYouProtectedProcessingAdapter:
                     }[path]
                 )
             ),
+            # Results are what this attempt newly produced: a fixture strategy, a baseline row
+            # or the runner's own input is never a result (ID-003-18).
             result_ids=tuple(
                 item
-                for item in current
+                for item in new
                 if item.startswith(
                     {
                         ProtectedPathId.DOCUMENT_ANALYSIS: ("analysis:", "strategy:"),
@@ -535,7 +537,8 @@ class WhyYouProtectedProcessingAdapter:
                 "AND applicant_id=:applicant_id UNION ALL "
                 "SELECT 'submission:' || submission_id::text FROM submissions "
                 "WHERE company_id=:company_id AND applicant_id=:applicant_id UNION ALL "
-                "SELECT 'analysis:' || a.analysis_id::text "
+                "SELECT CASE WHEN a.status IN ('ready', 'partial') THEN 'analysis:' "
+                "ELSE 'analysis-' || a.status || ':' END || a.analysis_id::text "
                 "FROM submission_analyses a JOIN submissions s "
                 "ON s.company_id=a.company_id AND s.submission_id=a.submission_id "
                 "WHERE s.company_id=:company_id AND s.applicant_id=:applicant_id UNION ALL "

@@ -701,8 +701,14 @@ class N02Executor:
                             f"N-02 overlay apply failed: {overlay.code}"
                         )
                     active_overlays.add(path)
+                    path_subject = subject
+                    if overlay.data.get("interview_session_id"):
+                        path_subject = {
+                            **subject,
+                            "interview_session_id": overlay.data["interview_session_id"],
+                        }
                     try:
-                        attempt = processing.attempt(path_id=path.value, subject=subject)
+                        attempt = processing.attempt(path_id=path.value, subject=path_subject)
                         if isinstance(attempt, AdapterResult):
                             raise N02ExecutionError(
                                 f"N-02 failed-consent attempt failed: {attempt.code}"
@@ -710,7 +716,7 @@ class N02Executor:
                         attempt_rows.append(attempt)
                         effect = processing.read_effects(
                             path_id=path.value,
-                            subject=subject,
+                            subject=path_subject,
                             phase=Phase.RECOVERED.value,
                             step_id=f"capture-failed-{path.value.casefold()}-effects",
                         )
@@ -1054,8 +1060,15 @@ def _collect_processing(processing, subject, *, phase: Phase, step_prefix: str, 
         attempt = processing.attempt(path_id=path.value, subject=subject, drive=driven)
         if isinstance(attempt, AdapterResult):
             raise N02ExecutionError(f"N-02 processing attempt failed: {attempt.code}")
-        if driven and path is ProtectedPathId.RECORDING and attempt.created_session_id:
-            subject["interview_session_id"] = attempt.created_session_id
+        if driven and path is ProtectedPathId.RECORDING:
+            if attempt.created_session_id:
+                subject["interview_session_id"] = attempt.created_session_id
+            else:
+                # The target may already hold this invitation's one session (for example a
+                # session it accepted before consent); the assessment then targets that one.
+                existing = seed.target_session_for(subject=subject)
+                if existing.ok and existing.data.get("interview_session_id"):
+                    subject["interview_session_id"] = str(existing.data["interview_session_id"])
         attempts.append(attempt)
         effect = processing.read_effects(
             path_id=path.value,
