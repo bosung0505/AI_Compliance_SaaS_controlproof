@@ -350,3 +350,19 @@ def test_report_event_identity_is_per_lane(settings, lane_id) -> None:
         != adapter.request_report(lane=other).data["event_id"]
     )
     assert uuid4()
+
+
+def test_api_read_keeps_a_non_200_timeline_status(settings) -> None:
+    """T078 (SD-1): a failing timeline read must stay visible as a status, not vanish as None."""
+    lane = _lane()
+
+    def handler(request: httpx.Request) -> httpx.Response:
+        if request.url.path.endswith("/report"):
+            return httpx.Response(200, json=_api_body(lane))
+        return httpx.Response(500, json={"detail": "boom"})
+
+    read = _adapter(settings, handler=handler).read_api(
+        lane=lane, phase="POST_REMOVAL", include_timeline=True
+    )
+    assert read.status_code == 200
+    assert read.timeline == {"status_code": 500, "entries": None, "playback_status": None}

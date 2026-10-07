@@ -373,6 +373,14 @@ class WhyYouSpec004ReportAdapter:
                 timeline_response = self.http.get(f"{base}/timeline", headers=headers)
                 if timeline_response.status_code == 200:
                     timeline = _project_timeline(_json(timeline_response), unknown)
+                    timeline["status_code"] = 200
+                else:
+                    # Keep a failed timeline read visible (T078, SD-1).
+                    timeline = {
+                        "status_code": timeline_response.status_code,
+                        "entries": None,
+                        "playback_status": None,
+                    }
         except (httpx.HTTPError, ValueError, TypeError) as exc:
             return AdapterResult(False, "REPORT_API_UNAVAILABLE", detail=type(exc).__name__)
         payload = {"status_code": response.status_code, "report": report, "timeline": timeline}

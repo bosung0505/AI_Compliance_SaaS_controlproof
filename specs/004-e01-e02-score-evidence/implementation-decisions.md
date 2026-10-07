@@ -295,3 +295,50 @@ Status: `CONFIRMED`. Sandbox diagnostics T072~T078 were not started (out of this
   judgement SHA-256. Both are linked to EV4-10; verify reuses the Spec 003 retest-link checker with `EV4-10`
   (label `spec004-retest`), so a child is valid only while its parent bundle verifies unchanged.
 - `cli retest` gives Spec 004 children a local environment snapshot with AWS/N-01/N-03 scope and no queue capture.
+
+## Phase 8 sandbox diagnostics (T072~T078), 2026-10-07 — 진단, 공식 아님
+
+### ID-004-28 — A failed timeline read stays visible (T078, CONFIRMED)
+
+SD-1 showed `timeline: null` in every removal read: `read_api` dropped a non-200 timeline response silently, so the
+bundle could not show whether the timeline read failed. The adapter now records
+`{"status_code": N, "entries": null, "playback_status": null}` for a non-200 timeline (test RED first). The judge does
+not use the timeline; it is supporting evidence only. The real timeline status is still unmeasured (rerun SD-1).
+
+### ID-004-29 — E-02 diagnostics are blocked by WhyYou's report embedder wiring (PROPOSED, not applied)
+
+Every E-02 report request failed with `RetryableError` (no report, no emission receipt). Captured by calling WhyYou's
+own report handler once from a scratch harness (no WhyYou file changed, transaction rolled back): the requirement
+retrieval calls `self._embedder.embed(...)` (`runtime/worker.py:553`) and the handler receives
+`embedder=aws.embedder` (`runtime/worker.py:922`), the real provider, which raises `AwsEmbeddingProviderError` with
+external AI blocked. The fixture embedder `report_embedder` (`runtime/worker.py:765`) is built but not passed. E-01
+never reaches this path (Run-seeded versions have no job requirements); E-02 always does (product API
+`job_requirements` `min_length=1`). Seeding E-02 versions directly would change H-1 (product-API versions), so no
+ControlProof-side workaround is taken.
+Options: (a) WhyYou one-line change `embedder=aws.embedder` → `embedder=report_embedder` with two tests (substitute on
+→ fixed embedder; substitute off → the same `aws.embedder` object, production unchanged), PR to
+`bosung/controlproof-n02-integration`, then rerun SD-2·SD-3; (b) leave E-02 unvalidated. Recommendation: (a). The
+official E-02 Run requires this fix merged.
+
+### ID-004-30 — T085 WhyYou minimal fix for P1 (PROPOSED, not applied)
+
+SD-1 confirmed P1 on the diagnostic target: the company report read (`reporting/api/company_routes.py:401-436`
+`get_report` → `repositories/postgres.py:911-925` `_latest_report` → `:818` `_report_from_row`) reads report items and
+Evidence only, never `transcript_segments` (only the timeline does, `:613`). Proposal for T085, inside the H-4 (a)
+indicator set: when building the report view, look up each Evidence's `transcript_segment_id`; if the segment is
+absent, mark that Evidence `available=false` (indicator 4) — or return the citing axis score as `null`
+(indicator 1). Stored rows are not rewritten. Apply only after the first official E-01 FAIL is sealed (Phase 9).
+
+### ID-004-31 — E-01 teardown leaves worker-created reports (runner finding, open)
+
+After E-01 teardown the DB still held 4 `reports` rows (and their items/Evidence) created by the worker for Run-owned
+sessions: they reference the session without a foreign key, so the FK-catalog teardown does not reach them. They do
+not affect later Runs (new session IDs) but are Run-owned residue. Fix in T078 continuation: delete `reports` (and
+dependents) by the Run's `interview_session_id`s before deleting the seeded rows, with a failing test first.
+
+### ID-004-14 — Update
+
+E-02 diagnostics measured what an absent report costs: the Run waits to its deadline (557 s and 558 s wall for the
+whole command, 540 s journey budget). A refused report behaves the same because Spec 004 lanes get no refusal
+receipt. Decision (a) stands; (b) observer extension remains PROPOSED and becomes worth doing if refusals are expected
+in official Runs.

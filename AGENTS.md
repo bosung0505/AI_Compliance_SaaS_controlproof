@@ -35,7 +35,7 @@ without actual validation or an explicit truthful non-execution status. Update V
 ## Repository safety
 
 - ControlProof feature work stays on its feature branch.
-- WhyYou integration uses `jhkim0602/gbsa_aws` branch `bosung/controlproof-n02-integration` (`eec8f70`) or a personal
+- WhyYou integration uses `jhkim0602/gbsa_aws` branch `bosung/controlproof-n02-integration` (`42aaaba`) or a personal
   branch based on it. Never commit or push ControlProof work directly to WhyYou `main`.
 - Inspect both repositories' branch, HEAD and dirty state before an actual Run.
 - Never commit `.env`, credentials, production data, `.controlproof/`, or `runs/`.
@@ -49,7 +49,9 @@ without actual validation or an explicit truthful non-execution status. Update V
 
 Spec 004 is E-01·E-02: AI scores must not be stored or shown without valid evidence, and a report must freeze its
 scoring inputs so later criteria changes cannot restate it. Work on ControlProof branch `004-e01-e02-score-evidence`
-against WhyYou `bosung/controlproof-n02-integration` (`eec8f70`). Specify, clarify, plan, tasks and analyze are complete;
-the analysis has no CRITICAL, HIGH or interpretation-changing MEDIUM findings. The next step is `$speckit-implement`.
+against WhyYou `bosung/controlproof-n02-integration` (`42aaaba`, fixture PR #6 merged). Tasks T001~T071 are implemented
+and Phase 8 diagnostics T072, T073, T076, T077 are recorded (diagnostic, not official). The next task is T074: E-02
+diagnostics are blocked until the WhyYou report-embedder fix in ID-004-29 is merged, which is also a precondition of the
+official E-02 Run. Official E-01/E-02 Runs are `NOT_RUN`. Start from the "세션 인계" section of the Spec 004 validation.
 Use every artifact under `specs/004-e01-e02-score-evidence/` and the Spec 004 source baseline. Do not pre-fix a suspected
 WhyYou report-read defect (prediction P1) before sealing the first factual actual-Run result.

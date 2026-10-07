@@ -214,12 +214,12 @@ v2가 아니면 INCONCLUSIVE인지 확인한다.
 
 ### Sandbox diagnostics
 
-- [ ] T072 Build the isolated sandbox (PostgreSQL 16+pgvector, moto S3/SQS, WhyYou API and workers from the T029 head with `spec004-report-v1`, loopback AI endpoints, separate observer root) as in Spec 003 ID-003-18; record setup and source SHAs, never the shared local DB, in `specs/004-e01-e02-score-evidence/validation.md` [FR-001, FR-003]
-- [ ] T073 SD-4: run a diagnostic E-01 pass in the sandbox; record emission receipts against stored axes for all five modes and the full diagnostic Run duration against the 540-second budget in `specs/004-e01-e02-score-evidence/validation.md`; if the budget is at risk, record it as a runner finding for T078 before any official Run [FR-010~012, SC-003]
+- [X] T072 Build the isolated sandbox (PostgreSQL 16+pgvector, moto S3/SQS, WhyYou API and workers from the T029 head with `spec004-report-v1`, loopback AI endpoints, separate observer root) as in Spec 003 ID-003-18; record setup and source SHAs, never the shared local DB, in `specs/004-e01-e02-score-evidence/validation.md` [FR-001, FR-003]
+- [X] T073 SD-4: run a diagnostic E-01 pass in the sandbox; record emission receipts against stored axes for all five modes and the full diagnostic Run duration against the 540-second budget in `specs/004-e01-e02-score-evidence/validation.md`; if the budget is at risk, record it as a runner finding for T078 before any official Run [FR-010~012, SC-003]
 - [ ] T074 SD-2: on a diagnostic report, read `reports.overall_score`, `scoring_inputs`, items and the API `scoring_breakdown` (read-only SELECT/GET) and confirm the comparison shape and tolerance; record in `validation.md` [FR-033]
 - [ ] T075 SD-3: diagnostic E-02 pass (v1→v2 publish, latest-published seed); confirm the second report uses v2 ID/weights and the H-2 totals (72, 74), and record the diagnostic Run duration against the 540-second budget in `validation.md` [FR-031, FR-032, SC-003]
-- [ ] T076 SD-1: diagnostic segment removal/reinsert on a Run-owned segment; record report and timeline differences; if P1 is observed, record it as a prediction confirmed in the sandbox only and do not change WhyYou [FR-020~022, FR-051]
-- [ ] T077 SD-5: diagnostic storage-probe write/read/restore; record exposure per mode [FR-013]
+- [X] T076 SD-1: diagnostic segment removal/reinsert on a Run-owned segment; record report and timeline differences; if P1 is observed, record it as a prediction confirmed in the sandbox only and do not change WhyYou [FR-020~022, FR-051]
+- [X] T077 SD-5: diagnostic storage-probe write/read/restore; record exposure per mode [FR-013]
 - [ ] T078 For every runner/observer defect found in T072~T077, add a failing test, apply the minimal fix in the file that owns it, rerun the full regression and record ID-004-xx in `specs/004-e01-e02-score-evidence/implementation-decisions.md`; if none, record `NOT_REQUIRED` [FR-050, SC-005]
 
 **Checkpoint**: 공식 Run 전에 실행기 경로가 실제 작업자·DB·API에서 동작함을 진단으로 확인했다. 공식 판정 없음.

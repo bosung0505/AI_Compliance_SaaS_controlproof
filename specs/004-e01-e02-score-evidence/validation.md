@@ -2,10 +2,10 @@
 
 ## Current status
 
-- Workflow stage: Implement started. Phase 1 (T001~T004) done; Phase 2 failing tests (T005~T011) written and
-  confirmed RED for the intended reasons; Phase 2 implementation (T012~T021) not started.
+- Workflow stage: Implement T001~T071 done (Phases 1~7 and the Phase 8 retest machinery); Phase 8 diagnostics T072,
+  T073, T076, T077 recorded; T074, T075 blocked (ID-004-29); T078 partial. Next task: T074.
 - WhyYou local/test fixture (Phase 3, T022~T029): PR jhkim0602/gbsa_aws#6 reviewed, fixed and merged into `bosung/controlproof-n02-integration` at `42aaaba206ced4288c8ee477b73f5f1ccf078bf3`; main unchanged.
-- Sandbox diagnostics: none. Actual E-01/E-02 Runs: none (`NOT_RUN`).
+- Sandbox diagnostics: partial, diagnostic only (see "Sandbox diagnostics"). Actual E-01/E-02 Runs: none (`NOT_RUN`).
 - AWS: `NOT_RUN`
 - Claim scope: `EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`
 
@@ -238,7 +238,31 @@ Sandbox diagnostics T072~T078 and every official Run remain NOT_RUN.
 
 ## Sandbox diagnostics
 
-(none yet — Phase 8)
+**진단, 공식 아님.** 2026-10-07, 연우 PC 로컬 스택(WhyYou `bosung/controlproof-n02-integration` `42aaaba`, 변경 없음,
+`docker compose down -v` 뒤 새 DB, API·작업자 4개, fixture `spec004-report-v1`). Spec 003 ID-003-18 같은 별도 격리
+sandbox가 아니라 볼륨을 초기화한 로컬 스택을 진단 대상으로 썼다. 진단 bundle은 공식 runs 폴더가 아니라 workspace
+`cp-local/archive/spec004-diagnostics/`에 run root로 직접 기록했다. `RESTORE_FAILED`·차단 없음.
+
+Preflight: E-01 READY 18/18, E-02 READY 16/16, `scoring_rule_source` MATCH, health `fixture_id=spec004-report-v1`.
+
+| Run (label) | 결과 | 시간 |
+|---|---|---|
+| `4ea910b9…` (`diag-sd-e01`) | E-01 FAIL: A1 PASS, A2 PASS, A3 FAIL(P1), A4 PASS, 복구 SUCCEEDED | 57 s |
+| `f82d65ed…` (`diag-sd-e02`) | E-02 INCONCLUSIVE: 보고서 미생성(ID-004-29), teardown·다른 직무 불변 확인 | 558 s |
+| `ee502194…` (`diag-sd-e02-r2`) | 재현: 같은 원인으로 INCONCLUSIVE | 557 s |
+
+| SD | 상태 | 결과 |
+|---|---|---|
+| SD-1 (T076) | 완료 | **P1 확인.** 제거 receipt `affected_rows=1`, 별도 연결 부재 확인, 복원 digest 일치. 보고서 조회 PRE_REMOVAL·POST_REMOVAL·POST_RESTORE 세 번이 완전히 같음(총점 72, 두 항목 모두 `confirmed`·평균 72·축 5개 72, Evidence 필드 동일, `unknown_fields` 없음). 근거: ID-004-30. 타임라인은 200 아닌 응답이 기록되지 않아 보조 증거 없음(ID-004-28로 수정, 재측정 필요). |
+| SD-2 (T074) | 차단 | E-02 보고서가 생성되지 않아 실측 못 함(ID-004-29). |
+| SD-3 (T075) | 일부 | 제품 API로 v1·v2 생성·발행, 최신 발행 버전에 두 번째 지원자 묶기까지 동작. 보고서 생성에서 차단(ID-004-29). |
+| SD-4 (T073) | 완료 | 네 잘못된 모드 `EMPTIED`, VALID `STORED_VALID`, E01-A1·A2 PASS. E-01 전체 57 s로 540 s 예산 안. |
+| SD-5 (T077) | 완료 | E01-D1: EMPTY `AXIS_DROPPED`, NONEXISTENT·OTHER_APPLICANT `SHOWN_AS_WRITTEN`, 복원 RESTORED. |
+| T078 | 일부 | 실행기 결함 2건: 타임라인 상태 누락(ID-004-28, 수정·시험 완료), teardown 뒤 보고서 잔존(ID-004-31, 미수정). |
+
+ID-004-14 대기 시간: 보고서가 생기지 않으면 Run은 마감까지 기다린다(E-02 557~558 s). 거부도 같은 경로다.
+
+진단 결과는 판정이 아니다. 공식 E-01·E-02 Run은 `NOT_RUN`이다.
 
 ## Actual Run ledger
 
@@ -275,10 +299,18 @@ PR #6 merged into `bosung/controlproof-n02-integration` at
 sandbox/official Run source snapshot, not the superseded `3dfa10c` fixture head. Fetch/pull both
 repositories before continuing; read this review entry with the corrected fixture contract.
 
-## 세션 인계 (2026-10-07, 자율 진행 세션 종료)
+## 세션 인계 (2026-10-07, 연우 마지막 세션 → 보성)
 
-- 마지막 완료: T071 (Phase 3~7 전체와 Phase 8의 retest T070~T071). 결정 ID-004-11~27.
-- WhyYou: PR #6 병합(`42aaaba`), 로컬 `bosung/controlproof-n02-integration` = `42aaaba`, clean. WhyYou 변경 없음.
-- 진행 중: 없음.
-- 건너뛴 PROPOSED: 없음. ID-004-14(observer에 Spec 004 lane 추가)는 비차단 제안.
-- 다음 작업: T072 격리 sandbox 구성(Phase 8 진단). 로컬 스택 기동·DB 쓰기가 필요해 사용자 승인 뒤 시작.
+- 완료: T001~T071, Phase 8 진단 중 T072(진단 환경)·T073(SD-4)·T076(SD-1)·T077(SD-5). T078은 일부(ID-004-28 수정,
+  ID-004-31 미수정). 결정 ID-004-01~31.
+- 미완료: T074(SD-2)·T075(SD-3)는 WhyYou 보고서 embedder 연결 때문에 차단(ID-004-29). 다음 작업 번호는 T074다.
+- 순서 제안: ① ID-004-29 (a) WhyYou PR 병합 → ② SD-2·SD-3 재실행(T074·T075) → ③ T078 나머지(ID-004-31, 필요하면
+  SD-1 타임라인 재측정) → ④ Phase 9 T080~(quickstart §6 preflight, §7 최초 actual Run, §8 최초 FAIL 처리).
+- **공식 E-02 Run은 ID-004-29 수정 병합이 전제다.** 공식 E-01 Run은 지금 대상으로 가능하며 SD-1대로라면 E01-A3
+  FAIL(P1)이 예상된다. P1 수정(T085, ID-004-30)은 그 FAIL을 봉인한 뒤에만 한다.
+- 열린 PROPOSED: ID-004-29(추천 (a)), ID-004-30(T085, Phase 9), ID-004-14 (b) observer 확장(추천: 거부가 예상될 때만).
+- 환경: 두 `.env`는 `h03-report-v1`로 복원, API·작업자 종료, `docker compose down`(볼륨 유지), WhyYou checkout은
+  `bosung/controlproof-n02-integration` `42aaaba` 변경 없음. 진단 bundle은 workspace `cp-local/archive/spec004-diagnostics/`.
+- 연우 PC 한정(다른 PC에서는 해당 없을 수 있음): WhyYou DB 포트 5433, ControlProof `.env`는 프로세스마다 수동 로드
+  (quickstart §3 명령), Windows 앱 제어 때문에 `.venv`의 SQLAlchemy `*_cy*.pyd`를 `.blocked`로 바꿔 둠, PS 5.1에서는
+  `scripts/local.ps1 up`을 별도 `powershell.exe -File`로 실행해야 docker stderr를 오류로 보지 않음.
