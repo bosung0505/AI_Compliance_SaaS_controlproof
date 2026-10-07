@@ -1,0 +1,113 @@
+{
+  "source": {
+    "repository": "jhkim0602/gbsa_aws",
+    "commit": "eec8f706a6b8b3fb8d7c5193c7f349e9f9f93014",
+    "path": "backend/tests/unit/reporting/test_weighted_scoring.py",
+    "blob_sha": "c5337d24aa0ee9d22a86ad5bdcd51800a0792960",
+    "note": "Read-only copy of the WhyYou scoring test cases for the ControlProof E-02 scoring copy (Spec 004 T003). Values only; no WhyYou code."
+  },
+  "axis_keys": ["correctness", "depth", "fundamentals", "ownership", "communication"],
+  "communication_separated_config_version": "report-config-v2-communication-separated",
+  "aggregate": [
+    {
+      "name": "spec_example_30_25_20_25_fourth_unscored",
+      "entries": [["A", 85, 30.0], ["B", 72, 25.0], ["C", 61, 20.0], ["D", null, 25.0]],
+      "expected": {"score": 74, "numerator": 55.7, "denominator": 0.75, "excluded_keys": ["D"]}
+    },
+    {
+      "name": "unscored_entry_leaves_numerator_and_divisor",
+      "entries": [["A", 80, 50.0], ["B", null, 50.0]],
+      "expected": {"score": 80, "denominator": 0.5, "excluded_keys": ["B"]}
+    },
+    {
+      "name": "nothing_scored_is_none_never_zero",
+      "entries": [["A", null, 60.0], ["B", null, 40.0]],
+      "expected": {"score": null, "numerator": 0.0, "denominator": 0.0}
+    },
+    {
+      "name": "zero_weight_entry_is_excluded_from_score",
+      "entries": [["A", 90, 100.0], ["B", 10, 0.0]],
+      "expected": {"score": 90}
+    },
+    {
+      "name": "absent_weights_reproduce_plain_mean",
+      "entries": [["A", 90, 0.0], ["B", 80, 0.0], ["C", null, 0.0]],
+      "expected": {"score": 85}
+    }
+  ],
+  "weights_for": [
+    {
+      "name": "unnamed_key_defaults_to_one",
+      "keys": ["depth", "correctness"],
+      "weights": {"depth": 40.0},
+      "expected": [40.0, 1.0]
+    },
+    {
+      "name": "empty_mapping_is_all_ones",
+      "keys": ["correctness", "depth", "fundamentals", "ownership", "communication"],
+      "weights": {},
+      "expected": [1.0, 1.0, 1.0, 1.0, 1.0]
+    }
+  ],
+  "criterion": [
+    {
+      "name": "criterion_applies_axis_weights_round_half_even",
+      "axes": [["correctness", 90], ["depth", 60]],
+      "axis_weights": {"correctness": 75.0, "depth": 25.0},
+      "expected": {"average_score": 82, "axis_denominator": 1.0}
+    },
+    {
+      "name": "communication_separated_from_competency",
+      "axes": [["correctness", 90], ["communication", 30]],
+      "axis_weights": {"correctness": 50.0, "communication": 50.0},
+      "expected": {"average_score": 60, "competency_score": 90}
+    }
+  ],
+  "report": [
+    {
+      "name": "separated_config_scores_competency_and_communication_apart",
+      "config_version": "report-config-v2-communication-separated",
+      "items": [
+        {"criterion_weight": 1.0, "axes": [["correctness", 90], ["communication", 30]],
+         "axis_weights": {"correctness": 50.0, "communication": 50.0}}
+      ],
+      "expected": {"overall_score": 90, "communication_score": 30}
+    },
+    {
+      "name": "legacy_config_keeps_communication_in_score",
+      "config_version": "c",
+      "items": [
+        {"criterion_weight": 1.0, "axes": [["correctness", 90], ["communication", 30]],
+         "axis_weights": {"correctness": 50.0, "communication": 50.0}}
+      ],
+      "expected": {"overall_score": 60}
+    },
+    {
+      "name": "report_applies_criterion_weights",
+      "config_version": "c",
+      "items": [
+        {"criterion_weight": 80.0, "axes": [["depth", 90]], "axis_weights": {}},
+        {"criterion_weight": 20.0, "axes": [["depth", 40]], "axis_weights": {}}
+      ],
+      "expected": {"overall_score": 80}
+    },
+    {
+      "name": "unreached_criterion_shrinks_divisor_and_is_reported",
+      "config_version": "c",
+      "items": [
+        {"criterion_weight": 75.0, "axes": [["depth", 80]], "axis_weights": {}},
+        {"criterion_weight": 25.0, "axes": [], "axis_weights": {}}
+      ],
+      "expected": {"overall_score": 80, "denominator": 0.75, "excluded_normalized_weights": [0.25]}
+    },
+    {
+      "name": "reweighted_report_is_a_different_report",
+      "config_version": "c",
+      "items": [
+        {"criterion_weight": 20.0, "axes": [["depth", 90]], "axis_weights": {}},
+        {"criterion_weight": 80.0, "axes": [["depth", 40]], "axis_weights": {}}
+      ],
+      "expected": {"overall_score": 50}
+    }
+  ]
+}
