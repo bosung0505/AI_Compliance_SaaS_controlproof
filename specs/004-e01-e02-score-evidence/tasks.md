@@ -262,14 +262,23 @@ delete block files.
 
 ### Evidence-gated classification and conditional remediation
 
-- [ ] T083 [US5] For every FAIL and INCONCLUSIVE in T080/T081, record the assertion, exact artifacts and root-cause class `TARGET_CONTROL_DEFECT|RUNNER_OR_OBSERVER_DEFECT|RESTORE_OPERATOR_DEFECT` in `implementation-decisions.md` (plan §8 step 3) [FR-050, SC-005]
-- [ ] T084 [US5] Only for `RUNNER_OR_OBSERVER_DEFECT`: add the failing test, apply the minimal ControlProof fix in the owning file listed in this tasks file, run the full regression and record it; changes outside the listed files or product meaning stay `PROPOSED` until approved; otherwise `NOT_REQUIRED` [FR-050]
+- [X] T083 [US5] For every FAIL and INCONCLUSIVE in T080/T081, record the assertion, exact artifacts and root-cause class `TARGET_CONTROL_DEFECT|RUNNER_OR_OBSERVER_DEFECT|RESTORE_OPERATOR_DEFECT` in `implementation-decisions.md` (plan §8 step 3) [FR-050, SC-005]
+- [X] T084 [US5] Only for `RUNNER_OR_OBSERVER_DEFECT`: add the failing test, apply the minimal ControlProof fix in the owning file listed in this tasks file, run the full regression and record it; changes outside the listed files or product meaning stay `PROPOSED` until approved; otherwise `NOT_REQUIRED` [FR-050]
 - [ ] T085 [US5] Only if T083 classifies E01-A3 as `TARGET_CONTROL_DEFECT` (P1 observed): record the WhyYou minimal-fix proposal as `PROPOSED` (report read path exposing missing transcript segments through an H-4 indicator, candidate files `../gbsa_aws/backend/src/interview_evidence/reporting/repositories/postgres.py` and `../gbsa_aws/backend/src/interview_evidence/reporting/api/company_routes.py`) and obtain approval; otherwise `NOT_REQUIRED` [FR-051]
 - [ ] T086 [US5] Only after T085 approval: create `yeonwoo/controlproof-e01-e02-report-evidence` from the current WhyYou base, add the failing regression in `../gbsa_aws/backend/tests/unit/reporting/test_report_view_contract.py` (or a new `test_report_evidence_availability.py`), apply the approved minimal fix, run reporting/runtime unit suites and `ruff`, push to `fork` and open a PR; keep it separate from the T029 fixture PR [FR-051]
-- [ ] T087 [US5] Only if T083 classifies an E01-A1/A2 or E02 assertion as `TARGET_CONTROL_DEFECT`: record the proposal, obtain approval, then follow the T086 pattern on its own branch and PR with failing tests first; otherwise `NOT_REQUIRED` [FR-050, FR-051]
+- [X] T087 [US5] Only if T083 classifies an E01-A1/A2 or E02 assertion as `TARGET_CONTROL_DEFECT`: record the proposal, obtain approval, then follow the T086 pattern on its own branch and PR with failing tests first; otherwise `NOT_REQUIRED` [FR-050, FR-051]
 - [ ] T088 [US5] If any T080/T081 FAIL was remediated, run a parent-linked child retest for that profile with approval, verify parent and child bundles, confirm the parent manifest is unchanged, and record SHAs and result differences; if no remediation was needed, re-verify the parents and record that no child was required, in `validation.md` [FR-052, SC-005]
 
 **Checkpoint**: 최초 사실은 보존되고, 필요한 경우에만 수정 전→후 계보가 별도 Run으로 남는다.
+
+2026-10-07 T083/T084: ID-004-34 classifies A3 as TARGET_CONTROL_DEFECT and D1 missing
+OTHER_CRITERION as RUNNER_OR_OBSERVER_DEFECT. D1 two-criterion seed / provenance guard / four modes
+implemented; EXPECTED RED 8 failed / 6 passed; scoped 27 and 62 passed. Full regression once:
+799 passed / 1 obsolete three-mode presentation expectation failed (309.83 s). Only that test's
+expectation was corrected afterward; presentation/CLI scoped 11 passed, ruff and diff check PASS.
+This is not a claim that the full command exited green. T087 NOT_REQUIRED (initial A1/A2/E02 all PASS).
+D1 child verification follows on clean sources; T088 remains pending for the separate A3 product remedy.
+T085/T086 and Spec closure are incomplete; first official parent FAIL remains unchanged.
 
 ---
 

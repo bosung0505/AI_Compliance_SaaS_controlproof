@@ -113,7 +113,9 @@ class E01Executor(Spec004LaneExecutor):
         journey.records.append(value.model_dump(mode="json") | {"step": step})
 
     def _read(self, journey: _Journey, lane: ReportLane, phase: str) -> ReportReadSnapshot | None:
-        value = self.adapters.spec004_records.read_api(lane=lane, phase=phase, include_timeline=True)
+        value = self.adapters.spec004_records.read_api(
+            lane=lane, phase=phase, include_timeline=True
+        )
         if isinstance(value, AdapterResult):
             journey.steps.append({"step": f"read:{phase}", "code": value.code})
             return None
@@ -264,7 +266,69 @@ class E01Executor(Spec004LaneExecutor):
             lane=lane, phase=ReportPhase.PRE_PROBE.value
         )
         self._record(journey, before, "capture-probe-baseline")
-        item_id = str(generated.items[0].report_item_id)
+        # Use seed identity, not database/API ordering. All four modes must have
+        # verified prerequisites before the first probe write.
+        owned = (
+            before.source_status is Presence.PRESENT
+            and before.run_id == lane.run_id
+            and before.lane_id == lane.lane_id
+            and before.subject_ref == lane.subject_ref
+            and before.report_id == generated.report_id
+            and len(lane.criteria) == 2
+        )
+        target = donor = evidence = None
+        if owned:
+            target = next(
+                (
+                    item
+                    for item in before.items
+                    if item.criterion_id == lane.criteria[0].criterion_id
+                    and item.competency_model_version_id == lane.competency_model_version_id
+                ),
+                None,
+            )
+            donor = next(
+                (
+                    item
+                    for item in before.items
+                    if item.criterion_id == lane.criteria[1].criterion_id
+                    and item.competency_model_version_id == lane.competency_model_version_id
+                ),
+                None,
+            )
+        if (
+            target is not None
+            and donor is not None
+            and target.report_item_id != donor.report_item_id
+        ):
+            criterion = lane.criteria[1]
+            evidence = next(
+                (
+                    row
+                    for row in before.evidence
+                    if row.report_item_id == donor.report_item_id
+                    and row.criterion_id == donor.criterion_id
+                    and row.competency_model_version_id == donor.competency_model_version_id
+                    and row.answer_turn_id == criterion.answer_turn_id
+                    and row.transcript_segment_id == criterion.transcript_segment_id
+                    and any(
+                        segment.transcript_segment_id == row.transcript_segment_id
+                        and segment.turn_id == row.answer_turn_id
+                        for segment in before.transcript_segments
+                    )
+                    and any(
+                        axis.score is not None and row.evidence_id in axis.quoted_evidence_ids
+                        for axis in donor.axes
+                    )
+                ),
+                None,
+            )
+        if target is None or evidence is None or journey.reference_evidence is None:
+            journey.probe_document["detail"] = (
+                f"{PRECONDITION_NOT_MET}: PROBE_PREREQUISITE_UNVERIFIED"
+            )
+            return
+        item_id = str(target.report_item_id)
         written = [
             {"mode": "EMPTY", "axis": "correctness", "quoted_evidence_ids": []},
             {
@@ -273,14 +337,20 @@ class E01Executor(Spec004LaneExecutor):
                 "quoted_evidence_ids": [str(nonexistent_evidence_id(run_id))],
             },
         ]
-        if journey.reference_evidence is not None:
-            written.append(
+        written.extend(
+            [
                 {
                     "mode": "OTHER_APPLICANT",
                     "axis": "fundamentals",
                     "quoted_evidence_ids": [str(journey.reference_evidence)],
-                }
-            )
+                },
+                {
+                    "mode": "OTHER_CRITERION",
+                    "axis": "ownership",
+                    "quoted_evidence_ids": [str(evidence.evidence_id)],
+                },
+            ]
+        )
         axes = [
             {
                 "axis": axis["axis"],
@@ -297,6 +367,15 @@ class E01Executor(Spec004LaneExecutor):
         journey.probe_document |= {
             "report_item_id": item_id,
             "written_axes": [axis | {"score": 80} for axis in written],
+            "other_criterion_source": {
+                "report_id": str(before.report_id),
+                "report_item_id": str(evidence.report_item_id),
+                "criterion_id": str(evidence.criterion_id),
+                "competency_model_version_id": str(evidence.competency_model_version_id),
+                "evidence_id": str(evidence.evidence_id),
+                "answer_turn_id": str(evidence.answer_turn_id),
+                "transcript_segment_id": str(evidence.transcript_segment_id),
+            },
         }
         if not isinstance(journey.probe, ChangeInjection):
             journey.probe_document["detail"] = journey.probe.code

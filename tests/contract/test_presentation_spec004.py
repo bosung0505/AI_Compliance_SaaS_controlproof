@@ -39,7 +39,9 @@ def test_e01_projection_shows_modes_removal_and_diagnostic(tmp_path) -> None:
         "restored": True,
         "exposed_as_insufficient": True,
     }
-    assert set(summary["diagnostics"]["E01-D1"]) == {"EMPTY", "NONEXISTENT", "OTHER_APPLICANT"}
+    assert set(summary["diagnostics"]["E01-D1"]) == {
+        "EMPTY", "NONEXISTENT", "OTHER_APPLICANT", "OTHER_CRITERION"
+    }
     assert summary["change_injection_restore_status"] == "SUCCEEDED"
     assert summary["limitations"] == LIMITATIONS
     assert summary["unverified_scope"] == ["AWS", "N-01", "N-03"]

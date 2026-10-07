@@ -387,3 +387,33 @@ EXPECTED RED then scoped GREEN. New diagnostic timeline reads are 200 with 2/1/2
 restore. ID-004-28 is now measured; its error visibility behavior remains. P1/E01-A3 FAIL remains unchanged,
 and ID-004-30 stays PROPOSED until the first official E-01 result is sealed. See validation for preserved 500
 bundle and new Run. These changes stay in the T035/T036/T018/T058/T067 owning files under T078.
+
+### ID-004-34 — T083 factual cause classification (CONFIRMED, 2026-10-07)
+
+Initial official E-01 parent `09c9d9bb-82a3-4485-9c9d-e9721f2452e4`, manifest SHA256
+`7f622a3381e6c03dac907f55604f1f82c03e5101e33736b4f22bde50cc8475b2`, has one failing assertion:
+`E01-A3` → `TARGET_CONTROL_DEFECT` (P1). Exact artifacts: `judgement.json` assertion E01-A3 identifies
+item `01a1166d-1035-754c-a329-7b8bc954f0fc` as unexposed; `report-records.jsonl` E01_EVIDENCE_REMOVAL
+PRE_REMOVAL/POST_RESTORE; `report-reads.jsonl` same lane PRE_REMOVAL/POST_REMOVAL/POST_RESTORE;
+`change-injections.jsonl` EVIDENCE_SEGMENT_REMOVAL target `6e06f7e9-2041-5f99-ac78-b0fc83e107c6`.
+Removal was confirmed, Timeline decreased from 2 segments to 1, but the report retained the affected score
+and citation without H-4. Reinsertion restores the original projection digest. At WhyYou `ce8d862`,
+`reporting/api/company_routes.py` get_report / _report_view and `reporting/repositories/postgres.py`
+get_report_for_session / _report_from_row do not check current transcript availability. This is not an
+observer failure or unsafe restore. ID-004-30 remains the separate PROPOSED WhyYou remedy (T085/T086).
+
+The same parent's `storage-probe.json` (SHA256
+`5ded79933b98472a57e36a42e70983b0772d43212ac1d9bc3330647ceda625ab`) contains three modes and no
+OTHER_CRITERION write/read. Class: `RUNNER_OR_OBSERVER_DEFECT` (FR-013 coverage omission, T084), not an
+additional target assertion FAIL. ID-004-17's single-criterion design caused the omission. T084 keeps
+FR-013 and the diagnostic-only verdict contract; it adds a second Run-owned VALID criterion and uses its
+actual same-report, different-criterion Evidence. Seed identities select the target and donor regardless
+of row order. Report/run/lane/subject/version/item/answer/segment/quoted-axis provenance is checked before
+any write; unverifiable prerequisites produce NOT_RUN / PROBE_PREREQUISITE_UNVERIFIED, never partial
+four-mode coverage. The source IDs are recorded in additive `other_criterion_source`; legacy parent
+bundles remain valid and unchanged. This supersedes ID-004-17 for new Runs without rewriting its history.
+
+E-01 A1/A2/A4 and E-02 A1~A3 all PASS; there are no INCONCLUSIVE assertions in either initial Run.
+Both restores SUCCEEDED, digests match and owned residue is zero: no RESTORE_OPERATOR_DEFECT observed.
+T087 is evidence-backed NOT_REQUIRED for the current initial Runs. The original FAIL remains sealed;
+fixing D1 cannot resolve the independent E01-A3 product FAIL or complete Spec 004.

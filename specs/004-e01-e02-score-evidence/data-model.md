@@ -233,12 +233,15 @@ DB allowlist projection. 한 보고서·한 시점.
 | Field | Type | Rules |
 |---|---|---|
 | `report_item_id` | UUID | `E01_STORAGE_PROBE` lane |
-| `written_axes` | list | 모드별 축(축·점수·인용) |
+| `written_axes` | list | `EMPTY`, `NONEXISTENT`, `OTHER_APPLICANT`, `OTHER_CRITERION` 네 모드의 축·점수·인용 |
+| `other_criterion_source` | object | 같은 probe 보고서의 다른 Run-owned 기준에서 생성·인용된 Evidence의 report/item/criterion/version/answer/segment/evidence ID; 신규 기록의 출처 증명. 과거 bundle에는 없을 수 있음 |
 | `injection_id` | UUID | `STORAGE_PROBE_WRITE` |
 | `read_after_write` | `ReportReadSnapshot` ref | |
 | `exposure` | list | 모드별 `SHOWN_AS_WRITTEN`, `AXIS_DROPPED`, `SCORE_HIDDEN`, `READ_ERROR` |
 
-진단 관찰이며 assertion 결과에 들어가지 않는다.
+진단 관찰이며 assertion 결과에 들어가지 않는다. 두 VALID 기준으로 구성한 probe lane에서 출처를 확인한 뒤
+네 모드를 함께 쓴다. 출처가 확인되지 않으면 쓰지 않고 `NOT_RUN`과 `PROBE_PREREQUISITE_UNVERIFIED`를 기록한다.
+세 모드만 기록한 과거 부모 Run은 수정하지 않는다(ID-004-17의 후속 정정 참조).
 
 ## 13. Assertion and Verdict Rules
 

@@ -2,10 +2,10 @@
 
 ## Current status
 
-- Workflow stage: T001~T082 done. First official LOCAL_EMULATED E-01 FAIL (A3 only) and E-02 PASS sealed/VERIFIED, both restores SUCCEEDED. Next T083 classification and evidence-gated remediation. Spec 004 remains incomplete.
+- Workflow stage: T001~T084 done; T087 NOT_REQUIRED (ID-004-34). First official LOCAL_EMULATED E-01 FAIL (A3 only) and E-02 PASS sealed/VERIFIED, both restores SUCCEEDED. D1 runner correction implemented; child verification pending on clean committed sources. Next T085/T086 separate A3 product proposal/approval/remedy. Spec 004 remains incomplete.
 - WhyYou local/test fixture (Phase 3, T022~T029): PR jhkim0602/gbsa_aws#6 reviewed, fixed and merged into `bosung/controlproof-n02-integration` at `42aaaba206ced4288c8ee477b73f5f1ccf078bf3`; main unchanged.
 - Latest WhyYou integration head: `ce8d8620d2b2fec7f448ae312cf13334b408c01a` (PR #7, ID-004-29 report-embedder wiring); live E-02 diagnostic report generation and cleanup confirmed (see Phase 8 continuation below).
-- Sandbox diagnostics: complete, separate from official results. Official initial E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` FAIL; E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` PASS (see T080~T082 entry). D1 OTHER_CRITERION NOT_OBSERVED; ID-004-17/FR-013 discrepancy pending review.
+- Sandbox diagnostics: complete, separate from official results. Official initial E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` FAIL; E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` PASS (see T080~T082 entry). Parent D1 OTHER_CRITERION NOT_OBSERVED stays unchanged; ID-004-34 supersedes ID-004-17 for new Runs while retaining FR-013 four-mode coverage.
 - AWS: `NOT_RUN`
 - Claim scope: `EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`
 
@@ -595,3 +595,34 @@ Next T083: classify E01-A3 FAIL and review ID-004-17/FR-013 D1 coverage discrepa
 if needed, T085 P1 proposal/approval, T086 approved WhyYou fix, T087 conditional proposal/NOT_REQUIRED,
 T088 approved child preserving this parent. T089~T097 closure and independent reproduction remain pending.
 Spec 004 is **not Complete**.
+
+## 2026-10-07 — T083 classification and T084 D1 runner correction
+
+Scope requested: classify initial official failures and complete the missing D1 OTHER_CRITERION observation
+before the next product-remediation bundle. ID-004-34 contains exact parent artifacts and cause classes:
+A3 TARGET_CONTROL_DEFECT; D1 missing coverage RUNNER_OR_OBSERVER_DEFECT; no unsafe-restore defect or
+INCONCLUSIVE assertion. Initial A1/A2/A4 and E-02 all PASS, so T087 NOT_REQUIRED.
+
+Changed owning files: seeds/spec004_subjects.py, engine/executors/e01.py; seed/removal/restore/presentation
+contract tests; data-model's additive donor provenance field. Two VALID probe criteria use 50/50 weights.
+The target and donor are selected by seed criterion identity, independent of returned item order. Evidence
+must belong to the other item in the same owned report, version, answer and existing segment, and actually
+be quoted by a scored donor axis. Missing/foreign/unquoted provenance prevents all probe writes and records
+NOT_RUN / PROBE_PREREQUISITE_UNVERIFIED. Four modes remain diagnostic-only; no assertion meaning changed.
+
+| Gate | Command | Result |
+|---|---|---|
+| RED | pytest seed deterministic contract + test_e01_removal_restore.py -q | 8 intended assertion failures / 6 PASS, 8.47 s; missing second criterion/fourth mode/pre-write guard |
+| GREEN scoped | pytest seed adapter + removal_restore + spec004_retest_lineage -q | 27 PASS, 11.93 s |
+| Restoration/bundle scope | pytest removal_restore + bundle_links + bundle_profile_spec004 + evidence_mutation_adapter + judge_e01_removal -q | 62 PASS, 33.54 s; includes reversed item ordering and exact before/after item/evidence restoration |
+| Full regression, once | pytest -q | 799 PASS / 1 FAIL, 309.83 s; sole failure was test_presentation_spec004.py::test_e01_projection_shows_modes_removal_and_diagnostic expecting the obsolete three modes |
+| Failed-contract correction | pytest presentation_spec004 + cli_spec004 -q | 11 PASS, 9.02 s; only the old test expectation changed after the full invocation, no executor/seed change |
+| Static | ruff check .; git diff --check | PASS |
+
+Full-command failure is retained in the record; it is not relabeled as a green full run. All full-suite
+cases executed; the sole failed expectation was corrected and re-executed in its output/CLI scope, avoiding
+a redundant full-suite invocation. Logs remain outside Git under .pr-review/20261007/spec004-sandbox/.
+No unexpected implementation/restore failure or syntax error occurred. Original parent bundle bytes have
+not been changed. Official D1 child verification follows on clean committed sources; E01-A3 is expected to
+remain FAIL because WhyYou P1 is unchanged. T088 cannot be marked complete until the separate product
+remedy has its required lineage verification. AWS NOT_RUN; Spec 004 not Complete. Global docs wait for closure.

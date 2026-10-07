@@ -55,7 +55,10 @@ E01_LANE_CRITERIA: dict[E01LaneId, tuple[tuple[str, CitationMode, float], ...]] 
         ("E01-REM-1-VALID", CitationMode.VALID, 50.0),
         ("E01-REM-2-VALID", CitationMode.VALID, 50.0),
     ),
-    E01LaneId.E01_STORAGE_PROBE: (("E01-PROBE-1-VALID", CitationMode.VALID, 100.0),),
+    E01LaneId.E01_STORAGE_PROBE: (
+        ("E01-PROBE-1-VALID", CitationMode.VALID, 50.0),
+        ("E01-PROBE-2-VALID", CitationMode.VALID, 50.0),
+    ),
 }
 #: plan.md "E-02 점수 표식 값": (code, score, weight); v1 72.5 -> 72, v2 73.5 -> 74.
 E02_VERSION_CRITERIA = {

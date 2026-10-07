@@ -82,6 +82,12 @@ def test_e01_lanes_are_deterministic_and_isolated() -> None:
     assert all(lane.version_source is VersionSource.RUN_SEED for lane in first)
     removal = first[1]
     assert [item.code for item in removal.criteria] == ["E01-REM-1-VALID", "E01-REM-2-VALID"]
+    probe = first[2]
+    assert [item.code for item in probe.criteria] == ["E01-PROBE-1-VALID", "E01-PROBE-2-VALID"]
+    assert all(item.citation_mode is CitationMode.VALID for item in probe.criteria)
+    assert [item.weight for item in probe.criteria] == [50.0, 50.0]
+    for field in ("criterion_id", "answer_turn_id", "transcript_segment_id"):
+        assert len({getattr(item, field) for item in probe.criteria}) == 2
 
 
 def test_matrix_lane_needs_the_reference_evidence_and_an_absent_uuid() -> None:
