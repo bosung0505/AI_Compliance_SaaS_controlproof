@@ -217,6 +217,7 @@ DB allowlist projection. 한 보고서·한 시점.
 |---|---|---|
 | `report_id` | UUID | |
 | `rule_copy_id` | const | `controlproof.whyyou-scoring-copy.v1` |
+| `comparison_policy` | enum | 새 기록 `CRITERION_ID_V2`: 기여 항목은 기준 ID로 대응하고 중복·누락·값 차이는 거부. 과거 기록의 필드 부재는 `POSITIONAL_V1`로 해석해 기존 순서 비교를 유지 |
 | `rule_source` | list | `{path, blob_sha}` 두 개(scoring.py, report.py) |
 | `target_source_blob_shas` | list | preflight에서 읽은 값 |
 | `inputs` | object | 항목별 축 점수·가중치·`config_version` |

@@ -1934,7 +1934,7 @@ def _spec004_e01_refs(
 
 
 def _spec004_recompute(directory: Path, errors: list[str]) -> tuple[bool, dict[str, Any]]:
-    from engine.judges.e02 import _equal
+    from engine.judges.e02 import _equal, _equal_contributions
     from engine.judges.e02_scoring import RULE_COPY_ID, report_aggregate
 
     document = json.loads((directory / "recompute.json").read_text(encoding="utf-8"))
@@ -1944,6 +1944,11 @@ def _spec004_recompute(directory: Path, errors: list[str]) -> tuple[bool, dict[s
             continue
         if record.get("rule_copy_id") != RULE_COPY_ID:
             errors.append("recompute.json:rule_copy_id")
+            mismatch = True
+            continue
+        policy = record.get("comparison_policy", "POSITIONAL_V1")
+        if policy not in {"POSITIONAL_V1", "CRITERION_ID_V2"}:
+            errors.append("recompute.json:comparison_policy")
             mismatch = True
             continue
         inputs = record.get("inputs", {})
@@ -1960,12 +1965,18 @@ def _spec004_recompute(directory: Path, errors: list[str]) -> tuple[bool, dict[s
         if not _equal(computed, record.get("computed")):
             errors.append("recompute.json:computed")
             mismatch = True
-        if any(
-            bool(item.get("equal")) != _equal(item.get("expected"), item.get("observed"))
-            for item in record.get("comparisons", [])
-        ):
-            errors.append("recompute.json:comparison")
-            mismatch = True
+        for item in record.get("comparisons", []):
+            keyed = policy == "CRITERION_ID_V2" and (
+                item.get("target"),
+                item.get("field_path"),
+            ) in {
+                ("SCORING_INPUTS", "scoring_inputs.criteria"),
+                ("API_SCORING_BREAKDOWN", "report.scoring_breakdown.contributions"),
+            }
+            equal = _equal_contributions if keyed else _equal
+            if bool(item.get("equal")) != equal(item.get("expected"), item.get("observed")):
+                errors.append("recompute.json:comparison")
+                mismatch = True
     return mismatch, document
 
 

@@ -351,6 +351,7 @@ def recompute(
     return RecomputeRecord(
         report_id=record.report_id,
         rule_copy_id=RULE_COPY_ID,
+        comparison_policy="CRITERION_ID_V2",
         rule_source=tuple(
             {"path": item["path"], "blob_sha": item["blob_sha"]} for item in PINNED_SOURCES
         ),

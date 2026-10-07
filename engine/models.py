@@ -1732,6 +1732,7 @@ class RecomputeComparison(FrozenModel):
 class RecomputeRecord(FrozenModel):
     report_id: UUID
     rule_copy_id: Literal["controlproof.whyyou-scoring-copy.v1"]
+    comparison_policy: Literal["POSITIONAL_V1", "CRITERION_ID_V2"] = "POSITIONAL_V1"
     rule_source: tuple[RuleSource, ...] = Field(min_length=1)
     target_source_blob_shas: tuple[str, ...]
     inputs: dict[str, Any]

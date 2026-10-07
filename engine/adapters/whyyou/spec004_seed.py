@@ -123,6 +123,14 @@ class WhyYouSpec004SeedAdapter:
                     )
                     for report in reports:
                         _delete_dependents(connection, "reports", dict(report))
+                        # The report's assistant search projections also have no FK.
+                        connection.execute(
+                            text(
+                                "DELETE FROM assistant_retrieval_documents "
+                                "WHERE company_id=:company_id AND report_id=:report_id"
+                            ),
+                            {"company_id": report["company_id"], "report_id": report["report_id"]},
+                        )
                         _delete_row(
                             connection,
                             SeedRow(

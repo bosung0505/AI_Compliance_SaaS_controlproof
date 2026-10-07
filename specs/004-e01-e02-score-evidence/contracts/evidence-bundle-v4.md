@@ -61,6 +61,9 @@ retest child에는 기존 `retest-diff.json`도 필수다.
   V2 스냅샷과 같아야 한다.
 - E02-A3 PASS는 verify가 `recompute.json`의 입력으로 사본을 다시 실행해 `computed`와 같은지 확인한다. 사본 ID가 다르면
   verify 실패.
+- `RecomputeRecord.comparison_policy=CRITERION_ID_V2`이면 `scoring_inputs.criteria`와 API 기여 목록을 기준 ID로
+  대응해 비교한다. 중복·누락·다른 기준 ID·필드·수치 차이는 거부하고 정수 정확성·실수 `1e-9` 허용차는 유지한다.
+  필드가 없는 과거 기록은 `POSITIONAL_V1`(순서 비교)로 검증한다. 알 수 없는 정책은 verify 실패이며 과거 파일은 고치지 않는다.
 - `recovery.json`은 Spec 003 ID-003-19처럼 `restore_timing`(예산과 실제 복구 작업 누적 시간)을 가진다.
 
 ## Integrity

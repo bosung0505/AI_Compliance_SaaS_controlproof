@@ -22,13 +22,19 @@ from tests.fixtures.fake_spec004 import FakeSpec004Adapters, use_spec004_fixture
 def _bundle(tmp_path: Path, scenario: str, **options) -> Path:
     adapters, _ = make_adapters(spec004=FakeSpec004Adapters(**options))
     use_spec004_fixture(adapters)
-    runner = build_profile_runner(load(f"scenarios/{scenario}.yaml"), adapters, tmp_path, clock=FakeClock())
+    runner = build_profile_runner(
+        load(f"scenarios/{scenario}.yaml"), adapters, tmp_path, clock=FakeClock()
+    )
     _, _, bundle = runner.execute(runner.preflight("whyyou-local"))
     return bundle
 
 
 def _rows(bundle: Path, name: str) -> list[dict]:
-    return [json.loads(line) for line in (bundle / name).read_text(encoding="utf-8").splitlines() if line]
+    return [
+        json.loads(line)
+        for line in (bundle / name).read_text(encoding="utf-8").splitlines()
+        if line
+    ]
 
 
 def _write_rows(bundle: Path, name: str, rows: list[dict]) -> None:
@@ -111,6 +117,59 @@ def test_recompute_is_re_executed(tmp_path, field) -> None:
         document["records"][0]["computed"]["score"] += 1
     else:
         document["records"][0]["rule_copy_id"] = "other-copy"
+    _write_json(bundle, "recompute.json", document)
+    _invalid(bundle, "recompute.json")
+
+
+def _permuted_comparisons(document, *, policy, equal):
+    for record in document["records"]:
+        if policy is None:
+            record.pop("comparison_policy", None)
+        else:
+            record["comparison_policy"] = policy
+        for comparison in record["comparisons"]:
+            if comparison["field_path"] in {
+                "scoring_inputs.criteria",
+                "report.scoring_breakdown.contributions",
+            }:
+                comparison["observed"].reverse()
+                comparison["equal"] = equal
+
+
+def test_verify_keyed_comparison_policy_preserves_permutation_equivalence(tmp_path) -> None:
+    bundle = _bundle(tmp_path, "E-02")
+    document = json.loads((bundle / "recompute.json").read_text(encoding="utf-8"))
+    _permuted_comparisons(document, policy="CRITERION_ID_V2", equal=True)
+    _write_json(bundle, "recompute.json", document)
+    assert verify_bundle(bundle)["bundle_status"] == "VERIFIED"
+
+
+def test_verify_absent_policy_preserves_legacy_positional_fail(tmp_path) -> None:
+    bundle = _bundle(tmp_path, "E-02", stored_overall_offset=1)
+    document = json.loads((bundle / "recompute.json").read_text(encoding="utf-8"))
+    _permuted_comparisons(document, policy=None, equal=False)
+    _write_json(bundle, "recompute.json", document)
+    assert verify_bundle(bundle)["bundle_status"] == "VERIFIED"
+
+
+@pytest.mark.parametrize("mutation", ["value", "duplicate", "unknown_policy"])
+def test_verify_keyed_comparisons_still_reject_tampering(tmp_path, mutation) -> None:
+    bundle = _bundle(tmp_path, "E-02")
+    document = json.loads((bundle / "recompute.json").read_text(encoding="utf-8"))
+    _permuted_comparisons(document, policy="CRITERION_ID_V2", equal=True)
+    record = document["records"][0]
+    if mutation == "unknown_policy":
+        record["comparison_policy"] = "unreviewed-policy"
+    else:
+        comparison = next(
+            item
+            for item in record["comparisons"]
+            if item["field_path"] == "scoring_inputs.criteria"
+        )
+        if mutation == "value":
+            comparison["observed"][0]["contribution"] += 1
+        else:
+            comparison["observed"][1] = comparison["observed"][0].copy()
     _write_json(bundle, "recompute.json", document)
     _invalid(bundle, "recompute.json")
 

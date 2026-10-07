@@ -238,6 +238,12 @@ def report_cleanup_database(settings, monkeypatch):
                 "REFERENCES report_items (company_id, report_item_id))"
             )
         )
+        connection.execute(
+            text(
+                "CREATE TABLE assistant_retrieval_documents (company_id TEXT, assistant_document_id TEXT, "
+                "report_id TEXT, PRIMARY KEY (company_id, assistant_document_id))"
+            )
+        )
 
     references = {
         "reports": [
@@ -310,6 +316,10 @@ def _worker_report(database, *, company_id, session_id, report_id):
             text("INSERT INTO evidence VALUES (:company, :evidence, :item)"),
             {"company": str(company_id), "evidence": str(report_id), "item": str(report_id)},
         )
+        connection.execute(
+            text("INSERT INTO assistant_retrieval_documents VALUES (:company, :doc, :report)"),
+            {"company": str(company_id), "doc": str(report_id), "report": str(report_id)},
+        )
 
 
 def _database_ids(database, table, column):
@@ -341,6 +351,10 @@ def test_teardown_deletes_worker_reports_and_dependents_but_preserves_other_owne
     assert _database_ids(database, "reports", "report_id") == expected
     assert _database_ids(database, "report_items", "report_item_id") == expected
     assert _database_ids(database, "evidence", "evidence_id") == expected
+    assert (
+        _database_ids(database, "assistant_retrieval_documents", "assistant_document_id")
+        == expected
+    )
     assert _database_ids(database, "interview_sessions", "interview_session_id") == set()
     assert all(adapter.credentials.get(lane.subject_ref) is None for lane in lanes)
 
@@ -365,6 +379,9 @@ def test_report_cleanup_failure_rolls_back_and_keeps_ownership_for_retry(report_
     assert _database_ids(database, "reports", "report_id") == {str(report_id)}
     assert _database_ids(database, "report_items", "report_item_id") == {str(report_id)}
     assert _database_ids(database, "evidence", "evidence_id") == {str(report_id)}
+    assert _database_ids(database, "assistant_retrieval_documents", "assistant_document_id") == {
+        str(report_id)
+    }
     assert _database_ids(database, "interview_sessions", "interview_session_id") == {
         str(lane.interview_session_id) for lane in lanes
     }
@@ -374,6 +391,9 @@ def test_report_cleanup_failure_rolls_back_and_keeps_ownership_for_retry(report_
     retried = adapter.teardown(run_id=str(lanes[0].run_id), lanes=lanes, position_ids=())
     assert retried.ok
     assert _database_ids(database, "reports", "report_id") == set()
+    assert (
+        _database_ids(database, "assistant_retrieval_documents", "assistant_document_id") == set()
+    )
 
 
 def test_teardown_removes_only_this_runs_rows_and_credentials(settings) -> None:
