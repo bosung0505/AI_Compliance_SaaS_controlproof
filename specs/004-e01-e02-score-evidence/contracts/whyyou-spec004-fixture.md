@@ -52,10 +52,22 @@ fixture_digest = sha256(fixture_seed)
 ## OTHER_CRITERION memory
 
 - 인스턴스는 처리 호출 범위 기억 `last_provided[criterion_id] = provided_answers[0].evidence_id`를 갖는다. 같은
-  `generate` 흐름에서 버전 기준 순서대로 호출되므로 앞 기준의 값이 이미 있다.
-- 키는 criterion UUID이며, 항목은 최대 256개로 제한하고 오래된 것부터 버린다. 참조 기준 값이 없으면 인용 `[]`, 점수
-  `None`을 내고 receipt `MODE_SOURCE_MISSING`.
-- 기억은 local/test fixture 인스턴스 안에만 있고 영속하지 않는다(판단 보류 H-3).
+  `generate` 흐름에서 기준이 `code` 오름차순으로 평가되므로, 참조 기준의 code가 더 앞이면 그 값이 이미 있다
+  (ControlProof seed가 code 순서를 보장한다).
+- **세션·지원자 경계(H-3)**: WhyYou는 한 `generate` 호출의 모든 Evidence ID를 같은 `occurred_at`으로 만든다
+  (`new_uuid7(occurred_at)`, 상위 48비트 = 밀리초 타임스탬프). fixture는 기억한 ID의 UUIDv7 타임스탬프가 현재
+  `provided_answers[0].evidence_id`의 타임스탬프와 같을 때만 그 기억을 쓴다. 다르면 다른 처리 호출(다른 세션·지원자 또는
+  재생성)이므로 쓰지 않고 `MODE_SOURCE_MISSING`이다. 또한 참조 기준 ID는 Run 소유 버전에 속하고 E-01 버전은 lane 하나의
+  세션에만 쓰인다.
+- 다른 지원자 Evidence ID는 기억으로 만들지 않는다. `OTHER_APPLICANT`는 실행기가 넣은 표식 인자만 쓴다.
+- 키는 criterion UUID이며, 항목은 최대 256개로 제한하고 오래된 것부터 버린다. 참조 기준 값이 없거나 경계 검사에 실패하면
+  인용 `[]`, 점수 `None`을 내고 receipt `MODE_SOURCE_MISSING`.
+- 기억은 local/test fixture 인스턴스 안에만 있고 영속하지 않는다.
+
+## E-02 score values (H-2)
+
+E-02 기준 표식은 `mode=VALID score=NN`이다. 값은 plan §Plan Decisions의 표(v1 72/73, v2 72/74)를 따르며 fixture는
+그 값을 모든 축에 그대로 낸다.
 
 ## Emission receipt
 

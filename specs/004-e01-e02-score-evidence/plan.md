@@ -3,7 +3,8 @@
 **Branch**: `004-e01-e02-score-evidence`
 **Date**: 2026-10-07
 **Spec**: [spec.md](./spec.md)
-**Status**: Plan 작성 완료. 판단 보류 H-1~H-4의 보성 결정 뒤 Tasks로 넘어간다. 구현·실제 Run 없음.
+**Status**: Plan 완료. 판단 보류 H-1~H-4는 2026-10-07 보성 결정으로 닫혔다(§Plan Decisions). 다음은 Tasks·Analyze.
+구현·실제 Run 없음.
 
 ## Summary
 
@@ -166,15 +167,17 @@ preflight는 대상 checkout의 두 blob SHA를 읽어 다르면 `RUNNER_NOT_REA
 
 세부 규칙은 [scenario-profile-v4.md](./contracts/scenario-profile-v4.md)에 있다.
 
-- E01-A1: 네 잘못된 모드 각각 emission receipt가 의도한 인용을 냈고, 저장 축이 `score=null`·인용 없음이며, 잘못된 ID가
-  축 인용·Evidence 행 어디에도 없고, 참조 lane 기록 digest가 불변이면 PASS. 점수나 잘못된 ID가 남으면 FAIL. receipt가
-  없거나 의도와 다르면 INCONCLUSIVE(실행기 결함 후보).
+- E01-A1: 네 잘못된 모드 각각 emission receipt가 의도한 인용을 냈고, 저장 축이 `score=null`·인용 없음·비어 있지 않은
+  `rationale`이며, 잘못된 ID가 그 기준 항목의 축 인용·Evidence 행에 없고(다른 항목·참조 보고서에 원래 있는 행은 제외),
+  참조 lane 기록 digest가 불변이면 PASS. 점수나 잘못된 ID가 그 항목에 남으면 FAIL. receipt가 없거나 의도와 다르면
+  INCONCLUSIVE(실행기 결함 후보).
 - E01-A2: `VALID` 모드 축이 점수·인용을 갖고 인용 ID가 같은 항목의 Evidence 행이며 그 행의 기준·버전 ID가 항목과
   같으면 PASS.
-- E01-A3: 제거 receipt와 타임라인 변화로 제거가 실제로 일어났음을 확인한 뒤, 제거된 근거를 인용한 축·항목이 허용 목록
-  지표 중 하나로 근거 부족을 드러내면 PASS. 지표가 없고 점수·인용이 제거 전과 같으면 FAIL. 근거를 인용하지 않은
-  항목이 바뀌어도 FAIL. 제거가 확인되지 않으면 INCONCLUSIVE.
-- E01-A4: 복원 행 digest가 같고 복원 뒤 보고서 projection이 제거 전과 같으면 PASS.
+- E01-A3: 제거 receipt(별도 연결의 행 부재 확인)로 제거가 실제로 일어났음을 확인한 뒤(타임라인 변화는 보조 증거),
+  제거된 근거를 인용한 축·항목이 H-4 허용 지표 중 하나로 근거 부족을 드러내면 PASS. 지표가 없고 점수·인용이 제거 전과
+  같거나, POST_REMOVAL 조회가 5xx거나, 근거를 인용하지 않은 항목이 바뀌면 FAIL. 제거가 확인되지 않으면 INCONCLUSIVE.
+- E01-A4: 복원 행 digest가 같고 복원 뒤 보고서 projection이 제거 전과 같으면 PASS, digest는 같은데 조회가 다르면 FAIL.
+  digest 불일치·복원 실패는 assertion이 아니라 `RESTORE_FAILED`다.
 - E02-A1: 첫 보고서에 동결 입력 집합이 모두 있고 항목 가중치가 v1 값과 같으면 PASS.
 - E02-A2: 두 번째 보고서가 v2 버전 ID·가중치이고(전제), 첫 보고서의 저장·조회 projection이 변경 전과 같으면 PASS.
   전제가 깨지면 INCONCLUSIVE.
@@ -207,7 +210,8 @@ E02 또는 다른 E01 assertion의 FAIL도 같은 순서를 따른다.
 - 파일: `backend/src/interview_evidence/runtime/controlproof_model_substitute.py`,
   `backend/tests/unit/runtime/test_controlproof_model_substitute.py`
 - 추가: fixture ID `spec004-report-v1`(digest = SHA-256 of `controlproof:spec004-report-v1`), 기준 설명 표식 파서, 다섯
-  인용 모드, 기준별 점수(판단 보류 H-2), 같은 처리 호출 범위의 앞 기준 Evidence 기억(H-3), emission receipt.
+  인용 모드, 기준별 점수(H-2), 같은 처리 호출 범위의 앞 기준 Evidence 기억(H-3, 세션·지원자를 넘지 않음), emission
+  receipt. 다른 지원자 Evidence ID는 fixture가 기억하지 않고 실행기가 표식 인자로 넣는다.
 - 표식이 없으면 `h03-report-v1`과 같은 출력(첫 Evidence, 72)을 낸다.
 - 유지: local/test 밖 기동 거부, 외부 AI 차단 digest, `h03-report-v1` 동작·digest 불변. 제품 코드는 바꾸지 않는다.
 - 분기: `eec8f70`에서 `yeonwoo/controlproof-e01-e02-model-fixture`, remote `fork` push, PR base
@@ -300,14 +304,25 @@ Spec 003 ID-003-18 환경(PostgreSQL 16+pgvector, moto S3/SQS, WhyYou API·작�
 | 다른 scenario(H-03·N-02)와 fixture ID 충돌 | 프로세스별 fixture는 하나, quickstart에 재기동 절차, preflight가 fixture ID를 확인 |
 | P1 FAIL 뒤 서둘러 수정 | §8 순서와 Constitution VI, 봉인 전 수정 금지 |
 
-## 판단 보류 (보성 결정 필요)
+## Plan Decisions (2026-10-07, 보성 결정)
 
-| ID | 질문 | 선택지 | 추천 |
+| ID | 질문 | 결정 | 반영 위치 |
 |---|---|---|---|
-| H-1 | E-02 두 번째 지원자를 어떻게 새 버전에 묶나 | (a) 발행 뒤 제품 API로 읽은 최신 발행 버전 ID로 seed (b) 제품 초대 API로 실제 초대(본인 확인·토큰 흐름 필요) | (a). 초대 규칙(최신 발행 버전)을 그대로 따르고 범위가 작다 |
-| H-2 | fixture가 기준별 점수를 줄지 | (a) 표식 `score=NN`으로 기준별 점수(가중치가 총점을 바꾸고 x.5 짝수 반올림 실측) (b) 72 고정, 가중치·분자·분모로만 판정 | (a). 같은 WhyYou PR에 포함 |
-| H-3 | 타 기준 인용 모드를 어떻게 만드나 | (a) fixture가 같은 처리 호출 안에서 앞 기준에 받은 Evidence ID 기억 (b) 이 모드는 deep probe 진단으로만 | (a). local/test 대체물 안의 결정론적 상태로 한정 |
-| H-4 | E01-A3 PASS 지표 | (a) 허용 목록: 축 `score=null`, 항목 `average_score=null`, 항목 상태 `insufficient_evidence`·`needs_follow_up`, Evidence 항목의 가용성 필드(`playable`·`available`·`transcript_available`)가 false (b) 대상 수정 뒤 정하기 | (a). 판정 기준을 대상 수정 전에 고정하고, 밖의 표현은 scenario version 증가 |
+| H-1 | E-02 두 번째 지원자를 어떻게 새 버전에 묶나 | (a) v2 발행 뒤 제품 API(`GET .../competency-model-versions`)로 읽은 최신 발행 버전에 seed로 묶는다. 제품 초대 API는 쓰지 않는다 | §4, adapter 계약 `latest_published` |
+| H-2 | fixture가 기준별 점수를 줄지 | (a) 표식 `score=NN`으로 기준별 점수를 다르게 준다. 값은 아래 표처럼 x.5 짝수 반올림이 두 방향으로 실측되게 고른다 | §2·§6, fixture 계약 |
+| H-3 | 타 기준 인용 모드를 어떻게 만드나 | (a) 같은 처리 호출 안에서 앞 기준에 받은 Evidence ID를 기억하는 모드를 local/test 대체물 안에만 둔다. 기억은 세션·지원자를 넘지 않는다. **다른 지원자 Evidence ID는 fixture 기억으로 만들지 않고** 실행기가 다른 lane의 실제 Evidence ID를 표식 인자로 넣는다 | fixture 계약 OTHER_CRITERION memory |
+| H-4 | E01-A3 PASS 지표 | (a) 허용 목록을 지금 고정한다: 축 `score=null`, 항목 `average_score=null`, 항목 상태 `insufficient_evidence`·`needs_follow_up`, Evidence 가용성 필드(`playable`·`available`·`transcript_available`)=false. 네 표현 모두 PASS 지표다. 대상 수정이 이 밖의 표현을 쓰면 그때 scenario version을 올린다 | scenario 계약 E01-A3 |
+
+### E-02 점수 표식 값 (H-2)
+
+| 버전 | 기준 A (score, weight) | 기준 B (score, weight) | numerator | 총점 `round` | 반올림 방향 |
+|---|---|---|---|---|---|
+| v1 | 72, 50 | 73, 50 | 0.5·72 + 0.5·73 = 72.5 | 72 | 짝수로 내림(half-up이면 73) |
+| v2 | 72, 25 | 74, 75 | 0.25·72 + 0.75·74 = 73.5 | 74 | 짝수로 올림 |
+
+모든 축에 같은 점수를 주므로 기준 점수는 표식 값과 같고, 정규화 가중치(0.5·0.25·0.75)와 곱이 이진 부동소수에서 정확해
+경계값이 흔들리지 않는다. 축 가중치는 v1 균등(각 20), v2 비균등(합 100)으로 둔다. 의사소통 점수도 같은 기준 가중치로
+집계되므로 v1 72, v2 74가 된다.
 
 ## Project Structure
 
@@ -339,6 +354,11 @@ engine/
 ├── scenario.py                 # scenario v4 검증
 ├── evidence.py                 # Spec 004 bundle profile·교차 참조
 ├── presentation.py             # 모드·제거·재계산 설명, 한계 표시
+├── config.py                   # fixture ID·observer root·scoring blob pin 설정
+├── runner.py                   # profile policy·executor 등록
+├── judge.py                    # E01·E02 판정기 등록
+├── execution.py                # Spec 004 차단·cleanup-confirm 주체(필요한 곳만)
+├── retest.py                   # E-01/E-02 child 계보
 ├── executors/
 │   ├── report_lanes.py         # 공통 lane·보고서 대기
 │   ├── e01.py
@@ -391,6 +411,7 @@ matrix, 근거 제거, 진단 쓰기가 서로의 보고서를 오염시키지 �
 
 ## Phase Gate
 
-Plan 산출물(plan, research, data-model, contracts, quickstart)을 작성했다. 다음 단계는 판단 보류 H-1~H-4의 보성 결정을
-반영한 뒤 `$speckit-tasks`다. Tasks에서 WhyYou fixture 작업을 ControlProof 작업과 분리한다. Analyze에서 CRITICAL·HIGH와
+Plan 산출물(plan, research, data-model, contracts, quickstart)을 작성했고 H-1~H-4 결정을 반영했다. Tasks(`tasks.md`,
+T001~T097)와 Analyze(`checklists/analysis.md`: CRITICAL 0, HIGH 4·MEDIUM 5 모두 수정)를 2026-10-07에 마쳤다. 다음 단계는
+`$speckit-implement`이며 Phase 1(T001)부터 시작한다. Tasks에서 WhyYou fixture 작업을 ControlProof 작업과 분리한다. Analyze에서 CRITICAL·HIGH와
 해석 차이를 만드는 MEDIUM이 0건일 때만 구현한다.

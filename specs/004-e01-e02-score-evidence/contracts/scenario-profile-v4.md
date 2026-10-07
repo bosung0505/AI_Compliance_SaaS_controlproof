@@ -169,12 +169,15 @@ snapshot digest 변경을 요구한다.
 네 모드(`EMPTY`, `NONEXISTENT`, `OTHER_APPLICANT`, `OTHER_CRITERION`) 각각:
 
 - PASS 조건(모두): emission receipt `mode_status=EMITTED`이고 `emitted_quoted_ids`가 의도와 같다(`EMPTY`는 빈 목록과 점수
-  있음); 저장 축 전부 `score=null`·`quoted_evidence_ids=[]`; 잘못된 ID가 그 보고서의 축 인용·`evidence` 행 어디에도 없다;
+  있음); 저장 축 전부 `score=null`·`quoted_evidence_ids=[]`·비어 있지 않은 `rationale`; 잘못된 ID가 **그 기준 항목**의 축
+  인용과 그 항목의 `evidence` 행에 없다(`OTHER_CRITERION` ID가 같은 보고서의 VALID 항목에, `OTHER_APPLICANT` ID가 참조
+  보고서에 원래 있는 것은 위반이 아니다);
   참조 lane 보고서 projection digest가 GENERATED와 최종 재수집에서 같다.
-- FAIL: 저장 축에 점수가 남거나 잘못된 ID가 축 인용·Evidence 행에 남음, 또는 참조 lane 기록이 바뀜.
+- FAIL: 저장 축에 점수가 남거나 잘못된 ID가 그 항목의 축 인용·Evidence 행에 남음, 또는 참조 lane 기록이 바뀜.
 - INCONCLUSIVE: receipt 없음(`INSUFFICIENT_EVIDENCE`), receipt가 의도와 다름(`FIXTURE_EMISSION_MISMATCH`),
   `MODE_SOURCE_MISSING`, 보고서 미생성(`PRECONDITION_NOT_MET`).
-- 사유 보존은 `rationale_is_unverified_notice`로 기록하되 PASS 필수 조건이 아니다(대상 문구 변경에 판정이 흔들리지 않게).
+- 사유 보존의 PASS 조건은 `rationale`이 비어 있지 않은 것이다. WhyYou 고정 보류 문구와 같은지
+  (`rationale_is_unverified_notice`)는 기록만 하고 PASS 조건에 넣지 않는다(대상 문구 변경에 판정이 흔들리지 않게).
 
 ### E01-A2 — 유효 인용은 정상 저장된다
 
@@ -185,11 +188,11 @@ snapshot digest 변경을 요구한다.
 
 ### E01-A3 — 근거 제거 뒤 점수는 근거 부족으로 노출된다
 
-전제: `EVIDENCE_SEGMENT_REMOVAL` 적용 receipt가 행 부재를 확인하고, PRE_REMOVAL·POST_REMOVAL 보고서 조회가 모두 200.
-타임라인 차이는 보조 증거다.
+전제: `EVIDENCE_SEGMENT_REMOVAL` 적용 receipt가 행 부재를 확인하고, PRE_REMOVAL 보고서 조회가 200. POST_REMOVAL 조회의
+5xx는 전제 실패가 아니라 아래 FAIL 사유다. 타임라인 차이는 보조 증거다.
 
-허용 지표(판단 보류 H-4 (a)) — 제거된 자막 구간을 가리키는 Evidence를 인용한 각 축·항목에 대해 POST_REMOVAL 응답이 다음
-중 하나를 보이면 근거 부족 노출로 본다.
+허용 지표(H-4 (a), 2026-10-07 보성 승인으로 고정) — 제거된 자막 구간을 가리키는 Evidence를 인용한 각 축·항목에 대해
+POST_REMOVAL 응답이 다음 중 하나를 보이면 근거 부족 노출로 본다. 네 표현 모두 PASS 지표다.
 
 1. 그 축의 `score`가 `null`
 2. 그 항목의 `average_score`가 `null`

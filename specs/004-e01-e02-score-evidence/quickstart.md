@@ -144,10 +144,11 @@ uv run --cache-dir .uv-cache --no-sync pytest backend/tests/unit/runtime/test_co
 
 예상: 모두 PASS
 
-## 5. 격리 샌드박스 진단 (공식 Run 전, 선택)
+## 5. 격리 샌드박스 진단 (최초 공식 Run 전 필수)
 
-[research.md](./research.md)의 SD-1~SD-5는 Spec 003 ID-003-18 격리 대상에서 실행한다. 진단 결과는 `validation.md`에
-"진단"으로만 기록하고 공식 Run·verdict로 쓰지 않는다.
+[research.md](./research.md)의 SD-1~SD-5(tasks T072~T078)는 Spec 004의 최초 공식 Run 전에 반드시 Spec 003 ID-003-18 격리
+대상에서 실행한다. 이후 팀원 재현(T097)에서는 생략할 수 있다. 진단 결과는 `validation.md`에 "진단"으로만 기록하고 공식
+Run·verdict로 쓰지 않는다.
 
 ## 6. Preflight
 

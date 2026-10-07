@@ -28,7 +28,8 @@ python -m engine.cli preflight E-02 --profile E02_SCORING_FREEZE_V1 --target why
   "scoring_rule_source": {"status": "MATCH", "pinned_blobs": 2},
   "capabilities": {"ready": 16, "required": 16},
   "claim_scope": "EXECUTED_SCENARIO_AND_EVIDENCE_ONLY",
-  "unverified_scope": ["AWS", "N-01", "N-03", "REAL_AI_MODEL", "DOCUMENT_ANALYSIS_RESULT"]
+  "unverified_scope": ["AWS", "N-01", "N-03"],
+  "limitations": ["FIXTURE_INTERVIEW_INPUT", "EXTERNAL_AI_BLOCKED", "FIXED_MODEL_SUBSTITUTE"]
 }
 ```
 
@@ -70,9 +71,12 @@ E-01 terminal projection 예:
   "model_fixture_id": "spec004-report-v1",
   "bundle_path": ".controlproof/runs/...",
   "claim_scope": "EXECUTED_SCENARIO_AND_EVIDENCE_ONLY",
+  "unverified_scope": ["AWS", "N-01", "N-03"],
   "limitations": ["FIXTURE_INTERVIEW_INPUT", "EXTERNAL_AI_BLOCKED", "FIXED_MODEL_SUBSTITUTE"]
 }
 ```
+
+`unverified_scope`는 실행하지 않은 범위(Spec 003과 같은 의미), `limitations`는 실행한 범위 안의 격리 한계(SC-007)다.
 
 위 FAIL 값은 형식 예시이며 예상 결과를 주장하지 않는다. E-02 projection은 `versions`(v1·v2 ID·번호·상태),
 `first_report_unchanged`, `second_report_bound_to`, `recompute`(보고서별 비교 대상 다섯 개 equal 여부)를 가진다.

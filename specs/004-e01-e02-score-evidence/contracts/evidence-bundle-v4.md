@@ -19,7 +19,7 @@ Spec 001·002·003 bundle은 새 파일 없이 기존 contract로 계속 verify�
 | `spec004-capabilities.json` | 필수 | 필수 | capability map, fixture ID·digest, 외부 AI 차단 digest |
 | `spec004-lanes.json` | 필수 | 필수 | lane·subject·기준 표식(모드·인자·점수)·fixture digest |
 | `citation-cases.jsonl` | 필수 | - | CitationCase |
-| `model-emissions.jsonl` | 필수 | 필수 | ModelEmissionReceipt(E-02는 점수 확인용) |
+| `model-emissions.jsonl` | 필수 | - | ModelEmissionReceipt. E-02는 `model.emission.read` capability가 없고 점수는 저장 축에서 확인한다 |
 | `report-records.jsonl` | 필수 | 필수 | ReportRecordSnapshot 단계별 |
 | `report-reads.jsonl` | 필수 | 필수 | ReportReadSnapshot 단계별 |
 | `storage-probe.json` | 필수 | - | StorageProbeRecord(E01-D1) |
@@ -38,7 +38,7 @@ retest child에는 기존 `retest-diff.json`도 필수다.
 | EV4-01 | `spec004-capabilities.json` + environment/scenario/target snapshot (+ E-02 `recompute.json`의 `target_source_blob_shas`) |
 | EV4-02 | `spec004-lanes.json` |
 | EV4-03 | `citation-cases.jsonl` + `model-emissions.jsonl` |
-| EV4-04 | `report-records.jsonl` |
+| EV4-04 | `report-records.jsonl` (+ E-01 `storage-probe.json`, E01-D1 진단의 쓰기 전·후 기록) |
 | EV4-05 | `report-reads.jsonl`의 PRE_REMOVAL·POST_REMOVAL·POST_RESTORE (E-01) |
 | EV4-06 | `criteria-versions.json` |
 | EV4-07 | `frozen-inputs.json` + `report-reads.jsonl`의 PRE_CHANGE·POST_CHANGE |

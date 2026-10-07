@@ -62,7 +62,7 @@ Spec 003 `RunSubjectLane`과 같은 원칙(lane마다 독립 subject, trace name
 | `weight` | float | 버전 안 합 100(제품 API) |
 | `citation_mode` | enum/null | E-01만: `VALID`, `EMPTY`, `NONEXISTENT`, `OTHER_APPLICANT`, `OTHER_CRITERION` |
 | `mode_argument` | UUID/string/null | `NONEXISTENT`·`OTHER_APPLICANT`: 인용할 UUID, `OTHER_CRITERION`: 참조 기준 ID |
-| `fixture_score` | integer/null | 판단 보류 H-2 (a)일 때 0~100 |
+| `fixture_score` | integer/null | 0~100. E-02 기준은 필수(plan §Plan Decisions 값), E-01은 선택(없으면 72) |
 | `marker` | string | 기준 설명 맨 앞 표식, 계약 형식 |
 | `answer_turn_id`, `question_turn_id`, `transcript_segment_id` | UUID | 이 기준에 묶인 fixture |
 
@@ -70,7 +70,11 @@ Spec 003 `RunSubjectLane`과 같은 원칙(lane마다 독립 subject, trace name
 
 - E-01 lane의 기준 표식은 그 lane의 기준에만 있다. `E01_CITATION_MATRIX`의 `OTHER_APPLICANT` 인자는 `E01_REFERENCE`
   보고서의 실제 Evidence ID여야 하며 참조 보고서가 저장되기 전에는 matrix를 seed하지 않는다.
-- `OTHER_CRITERION` 인자는 같은 lane에서 버전 순서상 앞에 있는 `VALID` 기준 ID여야 한다.
+- WhyYou는 버전의 기준을 `code` 오름차순으로 읽어 그 순서로 평가한다(`company_management/repositories/postgres.py`
+  `order_by(EvaluationCriterionRow.code)`). matrix 기준 code는 `e01-1-valid`, `e01-2-empty`, `e01-3-nonexistent`,
+  `e01-4-other-applicant`, `e01-5-other-criterion`으로 고정한다.
+- `OTHER_CRITERION` 인자는 같은 lane에서 code 순서상 앞에 있는 `VALID` 기준 ID여야 한다. fixture 기억은 같은 처리
+  호출(같은 세션·지원자)에서만 쓰이며, 다른 지원자 ID는 기억이 아니라 `OTHER_APPLICANT` 표식 인자로만 전달한다(H-3).
 - `NONEXISTENT` 인자는 `uuid5(run namespace, "e01-nonexistent")`이며 대상 DB 어디에도 없어야 한다(seed 전 확인).
 - 자막 구간은 lane마다 고유하고 다른 lane·Run과 공유하지 않는다.
 - E-02 두 lane은 같은 `position_id`를 가지며 `E02_SECOND_APPLICANT`는 v2 발행 뒤에만 seed한다.
@@ -106,7 +110,8 @@ E-01 matrix와 참조 lane의 기준별 사례.
 | `emission_receipt_id` | UUID/null | 없으면 판정 INCONCLUSIVE |
 | `stored_axes` | list of `StoredAxisProjection` | 저장 레코드 |
 | `stored_evidence_ids` | ordered UUID set | 그 항목의 Evidence 행 |
-| `invalid_id_present` | boolean | 잘못된 ID가 축 인용·Evidence 행 어디든 남았는지 |
+| `invalid_id_present` | boolean | 잘못된 ID가 **그 기준 항목**의 축 인용이나 그 항목의 Evidence 행에 남았는지(다른 항목·참조 보고서에 원래 있는 행은 제외) |
+| `rationale_present` | boolean | 비운 축의 `rationale`이 비어 있지 않은지(PASS 조건) |
 | `outcome` | enum | `EMPTIED`, `REJECTED`, `STORED_VALID`, `STORED_INVALID`, `NOT_PRODUCED` |
 
 ### StoredAxisProjection
@@ -125,7 +130,7 @@ DB allowlist projection. 한 보고서·한 시점.
 | `report_id`, `report_version` | UUID, int | Run이 만든 보고서 |
 | `model_version`, `prompt_version`, `config_version` | string | 원문 |
 | `status` | string | ready/partial/... |
-| `summary_sha256` | SHA-256 | 원문 금지 |
+| `summary_sha256`, `summary_length` | SHA-256, int | 원문 금지(FR-042) |
 | `overall_score` | int/null | 저장 열 |
 | `scoring_inputs` | object | 원본 JSON(숫자·ID만이므로 그대로) |
 | `items` | list of `ReportItemProjection` | criterion 순 |
