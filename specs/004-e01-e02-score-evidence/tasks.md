@@ -364,3 +364,9 @@ Phase 8 diagnostics → Phase 9 first truth → classification → approved mini
 - 최초 FAIL·INCONCLUSIVE를 다시 돌려 덮어쓰지 않는다. `RESTORE_FAILED`면 즉시 멈춘다.
 - 실제 AI 키·외부 AI 호출 금지(`CONTROLPROOF_EXTERNAL_AI_ALLOWED=false`).
 - 문서에 개인 절대 경로·토큰·쿠키 값을 쓰지 않는다.
+
+D1 T084 child validation: `ec0c895d-4617-457a-94ce-7d0198e1c6a5`, parent
+`09c9d9bb-82a3-4485-9c9d-e9721f2452e4`, VERIFIED / restore SUCCEEDED / zero residue; all four D1
+modes observed on clean ControlProof `69d3c00`, WhyYou `ce8d862` unchanged. Parents' registered files
+and manifests unchanged. A3 still FAIL, A1/A2/A4 PASS. T088 partial only; A3 proposal/approval/remedy
+T085/T086 and its child remain pending. Generic retest reason wording caveat is recorded in validation.

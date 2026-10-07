@@ -2,7 +2,7 @@
 
 ## Current status
 
-- Workflow stage: T001~T084 done; T087 NOT_REQUIRED (ID-004-34). First official LOCAL_EMULATED E-01 FAIL (A3 only) and E-02 PASS sealed/VERIFIED, both restores SUCCEEDED. D1 runner correction implemented; child verification pending on clean committed sources. Next T085/T086 separate A3 product proposal/approval/remedy. Spec 004 remains incomplete.
+- Workflow stage: T001~T084 done; T087 NOT_REQUIRED (ID-004-34). First official LOCAL_EMULATED E-01 FAIL (A3 only) and E-02 PASS sealed/VERIFIED, both restores SUCCEEDED. D1 runner correction verified in child `ec0c895d-4617-457a-94ce-7d0198e1c6a5`; child A3 still FAIL. T088 partial for D1 only. Next T085/T086 separate A3 product proposal/approval/remedy. Spec 004 remains incomplete.
 - WhyYou local/test fixture (Phase 3, T022~T029): PR jhkim0602/gbsa_aws#6 reviewed, fixed and merged into `bosung/controlproof-n02-integration` at `42aaaba206ced4288c8ee477b73f5f1ccf078bf3`; main unchanged.
 - Latest WhyYou integration head: `ce8d8620d2b2fec7f448ae312cf13334b408c01a` (PR #7, ID-004-29 report-embedder wiring); live E-02 diagnostic report generation and cleanup confirmed (see Phase 8 continuation below).
 - Sandbox diagnostics: complete, separate from official results. Official initial E-01 `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` FAIL; E-02 `e39e62ae-be73-4e52-8cab-1f878637a0c6` PASS (see T080~T082 entry). Parent D1 OTHER_CRITERION NOT_OBSERVED stays unchanged; ID-004-34 supersedes ID-004-17 for new Runs while retaining FR-013 four-mode coverage.
@@ -626,3 +626,51 @@ No unexpected implementation/restore failure or syntax error occurred. Original 
 not been changed. Official D1 child verification follows on clean committed sources; E01-A3 is expected to
 remain FAIL because WhyYou P1 is unchanged. T088 cannot be marked complete until the separate product
 remedy has its required lineage verification. AWS NOT_RUN; Spec 004 not Complete. Global docs wait for closure.
+
+### D1 parent-linked child — four-mode coverage verified, A3 still FAIL
+
+- Child `ec0c895d-4617-457a-94ce-7d0198e1c6a5`, parent
+  `09c9d9bb-82a3-4485-9c9d-e9721f2452e4`, label `e01-d1-four-mode`, LOCAL_EMULATED.
+- Clean execution sources: ControlProof `69d3c003e468d3fd1c84070a5413d86b1e252f77` on
+  `yeonwoo/004-e01-e02-score-evidence`; WhyYou clean clone `ce8d8620d2b2fec7f448ae312cf13334b408c01a`
+  on `bosung/controlproof-n02-integration`. Original WhyYou tracked files unchanged; historical untracked
+  probe files retained. Neither main changed (ControlProof 71a2c250; WhyYou cc8bf556).
+- Before submission: both initial parents re-verified; every registered file and manifest hash matched.
+  Fresh E-01 preflight READY, 18/18; preflight created no Run or owned data. Exactly one child submitted.
+- `retest` exit 3, COMPLETED / FAIL; A1/A2/A4 PASS, A3 FAIL with the same P1 meaning. `show` exit 0;
+  `verify` exit 0, VERIFIED. Child manifest SHA256
+  `606cf7a0d70bc1a8cfef3743fca2c7b95334e88dcd1a0e58acd65cd975f3250f`, 19 registered files.
+
+| D1 mode | Child observation |
+|---|---|
+| EMPTY | AXIS_DROPPED |
+| NONEXISTENT | SHOWN_AS_WRITTEN |
+| OTHER_APPLICANT | SHOWN_AS_WRITTEN |
+| OTHER_CRITERION | SHOWN_AS_WRITTEN |
+
+`other_criterion_source` and PRE_PROBE records prove that Evidence
+`01a11690-575b-75a4-a0e1-13b9ba46ccbf` belongs to donor item
+`01a11690-575b-7f55-935a-91dedc1d51e0`, different criterion from target item
+`01a11690-575b-7410-a0cd-624bf77eaf07`, in the same report/version/Run. The donor and target stored
+items/Evidence exactly match after restoration; pre/post state digest matches. Both injections RESTORED,
+restoration SUCCEEDED (0.390982 s), teardown successful, no block or manual cleanup. Positions, versions,
+interview sessions, reports, report items, Evidence and assistant search projections remain 0.
+
+Journey 29.677024 s; retest wall 37.609 s; show 1.781 s; verify 1.922 s; durable submission-to-verify
+record wall 41.330597 s. All 540/120/60/600-second budgets satisfied. After the child, both original
+parents' manifest bytes and every registered file hash remain unchanged. retest-diff declares identical
+scenario/profile/WhyYou target/fixed-model fixture/scoring source, changed ControlProof commit, new lane
+manifest and reused_identities=[]. No WhyYou product fix was applied.
+
+Commands (ControlProof venv, same isolated t079 environment): parent `verify` x2; E-01 `preflight`;
+`python -m engine.cli retest 09c9d9bb-82a3-4485-9c9d-e9721f2452e4 --target whyyou-local --label e01-d1-four-mode --run-root <official-root> --json`;
+`show` and `verify` for the child with the same root. Raw bundles remain at workspace
+`cp-local/spec004-official/runs/`; exclusive submission, source/parent hashes, stdout/stderr, readiness,
+timing and zero-residue inspection are in `cp-local/spec004-official/commands/t084-d1-child/` outside Git.
+
+Metadata caveat found during lineage inspection: the existing generic retest-link reason is literally
+"WhyYou 수정 후 E-01 독립 Run 재시험", even for this ControlProof-only correction. It does not describe the
+actual change; immutable source snapshots and retest-diff prove WhyYou unchanged. Preserve the sealed text
+and report this limited wording issue for follow-up in T088; no additional retest implementation was added
+to this D1 scope. D1 completion is coverage, not a target-control PASS. T088 remains incomplete for the
+separate A3 remedy, T085/T086 remain pending, AWS NOT_RUN and Spec 004 not Complete.

@@ -417,3 +417,11 @@ E-01 A1/A2/A4 and E-02 A1~A3 all PASS; there are no INCONCLUSIVE assertions in e
 Both restores SUCCEEDED, digests match and owned residue is zero: no RESTORE_OPERATOR_DEFECT observed.
 T087 is evidence-backed NOT_REQUIRED for the current initial Runs. The original FAIL remains sealed;
 fixing D1 cannot resolve the independent E01-A3 product FAIL or complete Spec 004.
+
+T084 actual child follow-up: `ec0c895d-4617-457a-94ce-7d0198e1c6a5` (ControlProof `69d3c00`,
+WhyYou `ce8d862` unchanged) observes all four D1 modes. Evidence, exact restoration and immutable parent
+hashes VERIFIED; no reused lane identities. The child remains FAIL only for unchanged P1 / E01-A3.
+T088 partial, not complete. The existing generic retest reason text wrongly implies a WhyYou change;
+source snapshots and retest-diff show the actual ControlProof-only change. Preserve the sealed text and
+review its wording separately; no retest implementation scope was added here. See validation for commands,
+manifest, timings and the full-command failure / scoped correction record.

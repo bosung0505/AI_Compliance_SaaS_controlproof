@@ -103,3 +103,23 @@ Phase 8 진단 ID와 구분한다. 두 Run 모두 수정 전 최초 결과, pare
   명령·시간·한계는 validation T080~T082. 각각 17개 파일과 manifest 해시가 show/verify·두 실행 후 동일하다.
 - 초기 Run에는 retest-diff가 없으며 EV4-10의 child 계보 파일은 해당 없음이다.
 - T083 분류, 조건부 수정·child T084~T088, 전체 매핑·완료 gate T089~T097은 미완료다.
+
+## T084 D1 correction child (2026-10-07; T088 partial)
+
+| Parent → child | ControlProof / WhyYou execution sources | Assertions | D1 | Restore / evidence | Child manifest SHA256 |
+|---|---|---|---|---|---|
+| `09c9d9bb-82a3-4485-9c9d-e9721f2452e4` → `ec0c895d-4617-457a-94ce-7d0198e1c6a5` | `69d3c003e468d3fd1c84070a5413d86b1e252f77` / `ce8d8620d2b2fec7f448ae312cf13334b408c01a` | A1/A2/A4 PASS, A3 FAIL | EMPTY AXIS_DROPPED; NONEXISTENT/OTHER_APPLICANT/OTHER_CRITERION SHOWN_AS_WRITTEN | SUCCEEDED / VERIFIED; residue 0 | `606cf7a0d70bc1a8cfef3743fca2c7b95334e88dcd1a0e58acd65cd975f3250f` |
+
+- FR-013/D1 runner omission is resolved for new Runs by two VALID probe criteria, verified donor provenance
+  and four-mode writes (T084, ID-004-34). Tests: seed_adapter, e01_removal_restore, presentation_spec004;
+  implementations: seeds/spec004_subjects.py and engine/executors/e01.py.
+- EV4-02/04/05/09/10: child spec004-lanes.json, storage-probe.json (other_criterion_source),
+  report-records.jsonl PRE_PROBE/POST_RESTORE, report-reads.jsonl POST_PROBE, change-injections.jsonl,
+  recovery.json, retest-link.json and retest-diff.json. Before/after stored item/Evidence projections match;
+  no lane identities reused. Source diff is ControlProof-only; WhyYou/model/scenario unchanged.
+- Both original parent manifests and all 17 registered files are unchanged. Original result mappings above
+  remain historical facts; the parent's missing fourth D1 observation is not filled retrospectively.
+- Commands/inspection: workspace cp-local/spec004-official/commands/t084-d1-child/. Raw evidence outside Git.
+  Generic retest reason wording caveat and exact timing/full-suite records are in validation.
+- A3 TARGET_CONTROL_DEFECT remains. T085/T086, A3 lineage portion of T088 and T089~T097 incomplete.
+  No claim of four-mode target PASS, AWS validation or Spec completion.
