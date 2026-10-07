@@ -62,22 +62,37 @@ def test_spec004_profiles_cannot_cross_scenarios(scenario_id: str, profile: str)
     assert exc.value.code == "PROFILE_MISMATCH"
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=AssertionError,
-    reason="RED until T040 (E-01) and T057 (E-02) register executors (enum exists since T012)",
+@pytest.mark.parametrize(
+    "profile",
+    [
+        "E01_CITATION_EVIDENCE_V1",
+        pytest.param(
+            "E02_SCORING_FREEZE_V1",
+            marks=pytest.mark.xfail(
+                strict=True, raises=AssertionError, reason="RED until T057 registers the executor"
+            ),
+        ),
+    ],
 )
-@pytest.mark.parametrize("profile", ["E01_CITATION_EVIDENCE_V1", "E02_SCORING_FREEZE_V1"])
 def test_spec004_profiles_have_registered_executors(profile: str) -> None:
     assert getattr(ExecutionProfile, profile) in PROFILE_REGISTRY.registrations
 
 
-@pytest.mark.xfail(
-    strict=True,
-    raises=UnregisteredExecutionProfile,
-    reason="RED until T040/T057 register the executors (scenario v4 loads since T013)",
+@pytest.mark.parametrize(
+    "spec",
+    [
+        pytest.param(E01, id="E-01"),
+        pytest.param(
+            E02,
+            id="E-02",
+            marks=pytest.mark.xfail(
+                strict=True,
+                raises=UnregisteredExecutionProfile,
+                reason="RED until T057 registers the executor",
+            ),
+        ),
+    ],
 )
-@pytest.mark.parametrize("spec", [E01, E02], ids=["E-01", "E-02"])
 def test_non_ready_preflight_leaves_no_side_effects(tmp_path, spec) -> None:
     scenario = ScenarioDefinition.model_validate(payload(spec))
     adapters, _ = make_adapters(target_exists=False)

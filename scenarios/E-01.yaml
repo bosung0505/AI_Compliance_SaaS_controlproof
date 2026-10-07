@@ -1,0 +1,132 @@
+schema_version: controlproof.scenario.v4
+scenario_id: E-01
+version: 1.0.0
+execution_profile: E01_CITATION_EVIDENCE_V1
+bundle_profile_contract: controlproof.bundle-profile.spec004.v1
+applicable_assertion_ids: [E01-A1, E01-A2, E01-A3, E01-A4]
+diagnostic_ids: [E01-D1]
+lanes:
+  - E01_REFERENCE
+  - E01_CITATION_MATRIX
+  - E01_EVIDENCE_REMOVAL
+  - E01_STORAGE_PROBE
+title: 근거 인용 없는 점수 저장·노출 차단
+control_intent: >-
+  잘못된 인용을 담은 모델 출력이 보고서 작업자의 검증을 거쳐 점수로 저장되지 않고, 저장된 점수의 근거가
+  사라지면 회사 보고서 조회가 그 점수를 근거 부족으로 드러내며, 근거가 복원되면 원래대로 돌아오는지 검증한다.
+
+required_capabilities:
+  target.version.read: v1
+  target.environment.read: v1
+  model.fixture.read: v1
+  spec004.lanes.seed: v1
+  spec004.lanes.teardown: v1
+  consent.policy.read: v1
+  consent.commit.write: v1
+  consent.state.read: v1
+  report.generation.request: v1
+  report.processing.receipts.read: v1
+  report.records.read: v1
+  report.api.read: v1
+  model.emission.read: v1
+  timeline.api.read: v1
+  evidence.segment.remove: v1
+  evidence.segment.restore: v1
+  report.axes.probe_write: v1
+  report.axes.probe_restore: v1
+
+preconditions:
+  - {precondition_id: source-clean, kind: TARGET, description: both checkouts are clean and WhyYou is not main}
+  - {precondition_id: fixture-spec004, kind: TARGET, description: the API and every worker run fixed model spec004-report-v1}
+  - {precondition_id: external-ai-blocked, kind: TARGET, description: the AI isolation digest proves external AI is unreachable}
+
+steps:
+  - {step_id: capture-environment, phase: BASELINE, action: target.environment.read, outputs: [target.environment], evidence_requirements: [EV4-01]}
+  - {step_id: capture-capabilities, phase: BASELINE, action: spec004.capabilities.read, outputs: [capabilities], evidence_requirements: [EV4-01]}
+  - {step_id: seed-report-lanes, phase: BASELINE, action: spec004.lanes.seed, outputs: [lanes.initial], evidence_requirements: [EV4-02]}
+  - {step_id: commit-lane-consents, phase: BASELINE, action: consent.commit.write, outputs: [consent.lanes], evidence_requirements: [EV4-02]}
+  - {step_id: request-lane-reports, phase: BASELINE, action: report.generation.request, outputs: [reports.requested], evidence_requirements: [EV4-04]}
+  - {step_id: capture-reference-report, phase: BASELINE, action: report.records.read, outputs: [reference.generated], evidence_requirements: [EV4-04]}
+  - {step_id: seed-citation-matrix, phase: INJECTED, action: spec004.lanes.seed, outputs: [lanes.matrix], evidence_requirements: [EV4-02]}
+  - {step_id: commit-matrix-consent, phase: INJECTED, action: consent.commit.write, outputs: [consent.matrix], evidence_requirements: [EV4-02]}
+  - {step_id: request-matrix-report, phase: INJECTED, action: report.generation.request, outputs: [report.matrix], evidence_requirements: [EV4-04]}
+  - {step_id: capture-citation-cases, phase: INJECTED, action: model.emission.read, outputs: [citation.cases], evidence_requirements: [EV4-03, EV4-04]}
+  - {step_id: capture-removal-baseline, phase: INJECTED, action: report.api.read, outputs: [removal.pre], evidence_requirements: [EV4-04, EV4-05]}
+  - {step_id: apply-evidence-removal, phase: INJECTED, action: evidence.segment.remove, outputs: [removal.receipt], evidence_requirements: [EV4-09]}
+  - {step_id: capture-post-removal, phase: INJECTED, action: report.api.read, outputs: [removal.post], evidence_requirements: [EV4-04, EV4-05]}
+  - step_id: restore-evidence-removal
+    phase: RECOVERED
+    action: evidence.segment.restore
+    outputs: [removal.restore]
+    evidence_requirements: [EV4-09]
+    always_run: true
+  - step_id: verify-removal-restored
+    phase: RECOVERED
+    action: report.records.read
+    outputs: [removal.safe]
+    evidence_requirements: [EV4-09]
+    always_run: true
+  - {step_id: capture-post-restore, phase: RECOVERED, action: report.api.read, outputs: [removal.restored], evidence_requirements: [EV4-04, EV4-05]}
+  - {step_id: capture-probe-baseline, phase: INJECTED, action: report.records.read, outputs: [probe.pre], evidence_requirements: [EV4-04]}
+  - {step_id: apply-storage-probe, phase: INJECTED, action: report.axes.probe_write, outputs: [probe.receipt], evidence_requirements: [EV4-09]}
+  - {step_id: capture-storage-probe-reads, phase: INJECTED, action: report.api.read, outputs: [probe.read], evidence_requirements: [EV4-04, EV4-05]}
+  - step_id: restore-storage-probe
+    phase: RECOVERED
+    action: report.axes.probe_restore
+    outputs: [probe.restore]
+    evidence_requirements: [EV4-09]
+    always_run: true
+  - step_id: verify-storage-probe-restored
+    phase: RECOVERED
+    action: report.records.read
+    outputs: [probe.safe]
+    evidence_requirements: [EV4-09]
+    always_run: true
+  - {step_id: recapture-reference-report, phase: RECOVERED, action: report.records.read, outputs: [reference.final], evidence_requirements: [EV4-04]}
+  - step_id: teardown-report-lanes
+    phase: RECOVERED
+    action: spec004.lanes.teardown
+    outputs: [lanes.removed]
+    evidence_requirements: [EV4-10]
+    always_run: true
+
+assertions:
+  - {assertion_id: E01-A1, description: invalid citations are emptied by the worker and never stored, expectation: {invalid_modes: EMPTIED, reference: UNCHANGED}, required_observation_keys: [citation.cases, reference.final], required_evidence_ids: [EV4-02, EV4-03, EV4-04], source_requirements: [FR-010, FR-011, FR-012]}
+  - {assertion_id: E01-A2, description: a valid citation is stored with its own evidence, expectation: {valid_mode: STORED_VALID}, required_observation_keys: [citation.cases], required_evidence_ids: [EV4-02, EV4-03, EV4-04], source_requirements: [FR-010, FR-011]}
+  - {assertion_id: E01-A3, description: a score whose evidence was removed is exposed as insufficient, expectation: {indicator: H-4}, required_observation_keys: [removal.pre, removal.post], required_evidence_ids: [EV4-04, EV4-05, EV4-09], source_requirements: [FR-020, FR-021]}
+  - {assertion_id: E01-A4, description: restoring the evidence restores the report read, expectation: {post_restore: EQUALS_PRE_REMOVAL}, required_observation_keys: [removal.restore, removal.restored], required_evidence_ids: [EV4-04, EV4-05, EV4-09], source_requirements: [FR-022]}
+
+required_evidence:
+  - {evidence_id: EV4-01, description: scenario target environment fixture and capability snapshot, artifact_types: [VERSION_SNAPSHOT, CAPABILITY_SNAPSHOT]}
+  - {evidence_id: EV4-02, description: lanes subjects criteria markers and fixture digests, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV4-03, description: citation cases and model emission receipts, artifact_types: [MODEL_EMISSION]}
+  - {evidence_id: EV4-04, description: report records before and after each change, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV4-05, description: report and timeline reads before after and post restore, artifact_types: [HTTP_EXCHANGE]}
+  - {evidence_id: EV4-09, description: change injections restore and safe state, artifact_types: [RECOVERY_RECORD]}
+  - {evidence_id: EV4-10, description: assertion results judgement and sealed manifest, artifact_types: [JUDGEMENT, MANIFEST]}
+
+timing_policy:
+  poll_seconds: 2
+  environment_restore_deadline_seconds: 120
+  run_deadline_seconds: 540
+  bundle_verify_deadline_seconds: 60
+  stability_consecutive: 3
+  stability_seconds: 4
+  expected_queue: {}
+
+restore_policy:
+  mandatory: true
+  action: restore-change-injections-and-teardown
+  report_processing_result_field: change_injection_restore_status
+
+observation_comparators: {}
+source_requirements: [FR-001, FR-003, FR-004, FR-010, FR-013, FR-020, FR-041, FR-042]
+allowed_model_fixtures:
+  spec004-report-v1: e15ec3790b64b2fba10e0caa9372f08c917edbbaa99ce308076952b838668b3f
+excluded_scope:
+  - AWS
+  - N-01
+  - N-03
+  - product privacy deletion as an evidence-removal means
+  - transcript correction as an evidence-removal means
+  - job requirement assessments

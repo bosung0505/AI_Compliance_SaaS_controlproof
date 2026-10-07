@@ -136,3 +136,48 @@ the wiring. Options drive single facts wrong for FAIL/INCONCLUSIVE tests.
 non-spec004 fixture, a wrong digest (`sha256("controlproof:" + id)`), external AI, non-local claims, or a main/dirty
 WhyYou checkout. The scoring copy was additionally compared with WhyYou's own `aggregate` on 2000 random inputs
 (WhyYou checkout read-only): 0 mismatches.
+
+## Phase 4 US1 implementation (T030~T043), 2026-10-07
+
+Status: `CONFIRMED` unless marked `PROPOSED`. No product meaning or judgement rule changed.
+
+### ID-004-11 — Criterion codes are uppercase (T035)
+
+WhyYou validates every competency criterion code against `^[A-Z0-9_-]{2,40}$` on each read, so the lowercase codes
+in data-model.md would make every seeded version unreadable. Codes are uppercase (`E01-1-VALID` …
+`E01-5-OTHER-CRITERION`, `E01-REF-1-VALID`, `E01-REM-1/2-VALID`, `E01-PROBE-1-VALID`, `E02-A`, `E02-B`) and
+`LaneCriterion.code` carries the same pattern. Code order, which WhyYou uses to evaluate criteria, is unchanged.
+
+### ID-004-12 — Contract reason codes ride as a `detail` prefix (T041)
+
+`InconclusiveReason` has only `NO_TEST_TARGET`, `ACCESS_LIMITED`, `INSUFFICIENT_EVIDENCE`, `EVIDENCE_CONFLICT`
+(shared with Spec 001~003 bundles). The contract codes `PRECONDITION_NOT_MET` and `FIXTURE_EMISSION_MISMATCH` are
+reported as `reason_code=INSUFFICIENT_EVIDENCE` with the code as the first token of `detail`; tests assert the prefix.
+Extending the shared enum would change earlier bundles' schema and was not needed.
+
+### ID-004-13 — Report/timeline API route has no `/company` segment (T037, T042)
+
+The adapter contract, plan.md and the source-baseline note named `GET /v1/company/interview-sessions/{id}/report`.
+WhyYou registers `/interview-sessions/{session_id}/report` and `/timeline` under `APIRouter(prefix="/v1")`
+(`reporting/api/company_routes.py`), the same route the H-03 feature probe already checks. The documents and the
+adapter now use `/v1/interview-sessions/{session_id}/report|timeline` (company token unchanged).
+
+### ID-004-14 — Report presence comes from the DB, receipts are best effort (T037, T040)
+
+WhyYou's observer writes receipts only for N-02 lanes (`runtime/controlproof_consent.py` `LANES`), so Spec 004
+lanes get none. The executor waits on the stored report (DB projection) and ends the wait early only if a
+`REPORT_ASSESSMENT_REFUSED` receipt exists; a report that never appears is `PRECONDITION_NOT_MET`, never FAIL.
+`PROPOSED` (non-blocking, no task skipped): add Spec 004 lanes to the WhyYou local/test observer so refusals are
+explicit instead of timing out at the Run deadline. Options: (a) leave as is — correct but slow on refusal;
+(b) extend `LANES` in WhyYou local/test (WhyYou change, needs approval). Recommendation: (a) until Phase 8 SD shows
+refusal latency matters.
+
+### ID-004-15 — US1 scope of the E-01 executor and capabilities (T040, T042)
+
+All Spec 004 capability names are registered at `v1` (`model.fixture.read` checks the target's fixture ID and
+digest). Mutation (T047) and criteria-version/scoring-source (T055) capabilities report `RUNNER_NOT_READY` with an
+operator action until their adapters are composed, so a real E-01/E-02 preflight cannot be READY yet. On fakes, the
+E-01 executor runs the citation steps; E01-A3/A4 are `PRECONDITION_NOT_MET` INCONCLUSIVE and `storage-probe.json`
+records `NOT_RUN` until US2, so an E-01 Run cannot PASS before Phase 5. Spec 004 consent reuses
+`WhyYouConsentAdapter` with a separate credential store. Tests point the fake target at the spec004 fixture with
+`use_spec004_fixture` (fake target defaults stay h03 for earlier profiles).

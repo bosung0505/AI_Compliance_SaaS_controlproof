@@ -103,23 +103,23 @@ receipt가 없거나 다르면 INCONCLUSIVE인지 확인한다.
 
 ### Tests for User Story 1 — write first
 
-- [ ] T030 [P] [US1] Add seed/teardown contract tests: atomic multi-lane seed with rollback, criterion markers and matrix code order, per-criterion question/answer turns, rationale `target_criterion_id`, segment inside its turn range, `final_video` asset, no seeded consent/report, matrix seeded only after the reference report with its real Evidence ID, absent `NONEXISTENT` UUID, FK-catalog teardown of Run-owned rows only, in `tests/contract/test_spec004_seed_adapter.py` [FR-002, FR-003, FR-012, EV4-02]
-- [ ] T031 [P] [US1] Add report adapter contract tests: report request outbox identity, handler/started/refused receipts, record projection allowlist with text hashing, report/timeline API projection, `unknown_fields`, `ABSENT` versus `UNAVAILABLE`, in `tests/contract/test_spec004_report_adapters.py` [FR-003, FR-004, FR-010, EV4-04, EV4-05]
-- [ ] T032 [P] [US1] Add emission adapter tests (Run filtering by criterion ID, malformed receipt → `UNAVAILABLE`) in `tests/contract/test_spec004_model_emission_adapter.py` [FR-010, EV4-03]
-- [ ] T033 [P] [US1] Add E01-A1/A2 judge tests: all four modes emptied PASS, residual score FAIL, invalid ID in axis or Evidence row FAIL, reference report changed FAIL, receipt missing/mismatch/`MODE_SOURCE_MISSING` INCONCLUSIVE, unverified notice not required for PASS, VALID PASS/FAIL in `tests/unit/test_judge_e01_citation.py` [FR-010~012, E01-A1, E01-A2]
-- [ ] T034 [P] [US1] Add the citation journey on fakes (consent before request, refused receipt → `PRECONDITION_NOT_MET`, reference-first ordering) in `tests/integration/test_e01_citation_orchestration.py` [FR-004, FR-010~012]
+- [X] T030 [P] [US1] Add seed/teardown contract tests: atomic multi-lane seed with rollback, criterion markers and matrix code order, per-criterion question/answer turns, rationale `target_criterion_id`, segment inside its turn range, `final_video` asset, no seeded consent/report, matrix seeded only after the reference report with its real Evidence ID, absent `NONEXISTENT` UUID, FK-catalog teardown of Run-owned rows only, in `tests/contract/test_spec004_seed_adapter.py` [FR-002, FR-003, FR-012, EV4-02]
+- [X] T031 [P] [US1] Add report adapter contract tests: report request outbox identity, handler/started/refused receipts, record projection allowlist with text hashing, report/timeline API projection, `unknown_fields`, `ABSENT` versus `UNAVAILABLE`, in `tests/contract/test_spec004_report_adapters.py` [FR-003, FR-004, FR-010, EV4-04, EV4-05]
+- [X] T032 [P] [US1] Add emission adapter tests (Run filtering by criterion ID, malformed receipt → `UNAVAILABLE`) in `tests/contract/test_spec004_model_emission_adapter.py` [FR-010, EV4-03]
+- [X] T033 [P] [US1] Add E01-A1/A2 judge tests: all four modes emptied PASS, residual score FAIL, invalid ID in axis or Evidence row FAIL, reference report changed FAIL, receipt missing/mismatch/`MODE_SOURCE_MISSING` INCONCLUSIVE, unverified notice not required for PASS, VALID PASS/FAIL in `tests/unit/test_judge_e01_citation.py` [FR-010~012, E01-A1, E01-A2]
+- [X] T034 [P] [US1] Add the citation journey on fakes (consent before request, refused receipt → `PRECONDITION_NOT_MET`, reference-first ordering) in `tests/integration/test_e01_citation_orchestration.py` [FR-004, FR-010~012]
 
 ### Implementation for User Story 1
 
-- [ ] T035 [P] [US1] Create deterministic lane, criterion code/marker/score and synthetic identity definitions in `seeds/spec004_subjects.py` [FR-002, FR-003, FR-012]
-- [ ] T036 [US1] Implement `Spec004SeedAdapter` (atomic seed, late matrix seed, Run-only FK teardown reusing `n02_seed.py` helpers) in `engine/adapters/whyyou/spec004_seed.py` [FR-002, FR-003, FR-012, EV4-02]
-- [ ] T037 [P] [US1] Implement `ReportRequestAdapter` (reusing the `protected_processing.py` outbox insert) and `ReportRecordAdapter` (DB projection, report/timeline API) in `engine/adapters/whyyou/report_records.py` [FR-003, FR-004, EV4-04, EV4-05]
-- [ ] T038 [P] [US1] Implement `ModelEmissionAdapter` in `engine/adapters/whyyou/model_emission.py` [FR-010, EV4-03]
-- [ ] T039 [P] [US1] Create the canonical `scenarios/E-01.yaml` from `contracts/scenario-profile-v4.md` [FR-040, FR-043]
-- [ ] T040 [US1] Implement shared lane orchestration (seed, consent, report request, stabilized report wait) in `engine/executors/report_lanes.py` and the citation steps of `engine/executors/e01.py`; register the E-01 executor in `engine/runner.py` [FR-004, FR-010~012]
-- [ ] T041 [US1] Implement E01-A1/A2 in `engine/judges/e01.py` and register it in `engine/judge.py` [E01-A1, E01-A2]
-- [ ] T042 [US1] Compose the E-01 citation-path capabilities (12 common + `model.emission.read`, `timeline.api.read`) and readiness (fixture ID, observer root, emission directory) with non-empty `operator_action` in `engine/adapters/whyyou/adapter.py`; the mutation capabilities follow in T047 [FR-001]
-- [ ] T043 [US1] Run T030~T034 and the implementation tests; record the citation gate in `specs/004-e01-e02-score-evidence/validation.md` [FR-010~012, E01-A1, E01-A2, EV4-02~EV4-04]
+- [X] T035 [P] [US1] Create deterministic lane, criterion code/marker/score and synthetic identity definitions in `seeds/spec004_subjects.py` [FR-002, FR-003, FR-012]
+- [X] T036 [US1] Implement `Spec004SeedAdapter` (atomic seed, late matrix seed, Run-only FK teardown reusing `n02_seed.py` helpers) in `engine/adapters/whyyou/spec004_seed.py` [FR-002, FR-003, FR-012, EV4-02]
+- [X] T037 [P] [US1] Implement `ReportRequestAdapter` (reusing the `protected_processing.py` outbox insert) and `ReportRecordAdapter` (DB projection, report/timeline API) in `engine/adapters/whyyou/report_records.py` [FR-003, FR-004, EV4-04, EV4-05]
+- [X] T038 [P] [US1] Implement `ModelEmissionAdapter` in `engine/adapters/whyyou/model_emission.py` [FR-010, EV4-03]
+- [X] T039 [P] [US1] Create the canonical `scenarios/E-01.yaml` from `contracts/scenario-profile-v4.md` [FR-040, FR-043]
+- [X] T040 [US1] Implement shared lane orchestration (seed, consent, report request, stabilized report wait) in `engine/executors/report_lanes.py` and the citation steps of `engine/executors/e01.py`; register the E-01 executor in `engine/runner.py` [FR-004, FR-010~012]
+- [X] T041 [US1] Implement E01-A1/A2 in `engine/judges/e01.py` and register it in `engine/judge.py` [E01-A1, E01-A2]
+- [X] T042 [US1] Compose the E-01 citation-path capabilities (12 common + `model.emission.read`, `timeline.api.read`) and readiness (fixture ID, observer root, emission directory) with non-empty `operator_action` in `engine/adapters/whyyou/adapter.py`; the mutation capabilities follow in T047 [FR-001]
+- [X] T043 [US1] Run T030~T034 and the implementation tests; record the citation gate in `specs/004-e01-e02-score-evidence/validation.md` [FR-010~012, E01-A1, E01-A2, EV4-02~EV4-04]
 
 **Checkpoint**: 잘못된 인용 네 종류와 기준 사례를 독립 판정할 수 있다. E-01 전체 완료를 주장하지 않는다.
 

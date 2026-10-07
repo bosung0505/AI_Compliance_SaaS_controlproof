@@ -71,8 +71,8 @@ Spec 003 `RunSubjectLane`과 같은 원칙(lane마다 독립 subject, trace name
 - E-01 lane의 기준 표식은 그 lane의 기준에만 있다. `E01_CITATION_MATRIX`의 `OTHER_APPLICANT` 인자는 `E01_REFERENCE`
   보고서의 실제 Evidence ID여야 하며 참조 보고서가 저장되기 전에는 matrix를 seed하지 않는다.
 - WhyYou는 버전의 기준을 `code` 오름차순으로 읽어 그 순서로 평가한다(`company_management/repositories/postgres.py`
-  `order_by(EvaluationCriterionRow.code)`). matrix 기준 code는 `e01-1-valid`, `e01-2-empty`, `e01-3-nonexistent`,
-  `e01-4-other-applicant`, `e01-5-other-criterion`으로 고정한다.
+  `order_by(EvaluationCriterionRow.code)`). matrix 기준 code는 `E01-1-VALID`, `E01-2-EMPTY`, `E01-3-NONEXISTENT`,
+  `E01-4-OTHER-APPLICANT`, `E01-5-OTHER-CRITERION`으로 고정한다.
 - `OTHER_CRITERION` 인자는 같은 lane에서 code 순서상 앞에 있는 `VALID` 기준 ID여야 한다. fixture 기억은 같은 처리
   호출(같은 세션·지원자)에서만 쓰이며, 다른 지원자 ID는 기억이 아니라 `OTHER_APPLICANT` 표식 인자로만 전달한다(H-3).
 - `NONEXISTENT` 인자는 `uuid5(run namespace, "e01-nonexistent")`이며 대상 DB 어디에도 없어야 한다(seed 전 확인).

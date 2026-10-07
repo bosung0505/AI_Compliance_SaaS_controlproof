@@ -99,7 +99,7 @@ def test_matrix_lane_requires_code_order_and_an_earlier_valid_reference() -> Non
     criteria = fx.matrix_criteria(reference_evidence_id=fx.uuid7_at(fx.FIXED_AT, 9))
     assert len(lane.model_validate(fx.report_lane("E01_CITATION_MATRIX", criteria)).criteria) == 5
     reordered = [criteria[4], *criteria[:4]]
-    reordered[0] = reordered[0] | {"code": "e01-0-other-criterion"}
+    reordered[0] = reordered[0] | {"code": "E01-0-OTHER-CRITERION"}
     with pytest.raises(ValidationError, match="code order|earlier"):
         lane.model_validate(fx.report_lane("E01_CITATION_MATRIX", reordered))
 

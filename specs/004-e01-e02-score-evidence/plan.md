@@ -63,7 +63,7 @@ test_controls` 가드 유지). 자막 구간 직접 삭제와 deep probe 쓰기�
 |---|---|---|---|
 | 잘못된 인용 비우기 (E01-A1·A2) | `ReportRequestedEventHandler` → `CriterionAssessor.assess` → `verified_against` → `save_report` | 기준 설명의 인용 모드 표식 + `report.generation_requested` | fixture emission receipt, `report_items.axis_assessments`, `evidence` 행 |
 | 저장 뒤 노출 (E01-D1 진단) | `_report_from_row` → `_restored_axes` → `_report_view` | Run 소유 항목 JSON 직접 쓰기 | `GET .../report` |
-| 근거 제거 노출 (E01-A3·A4) | `GET /v1/company/interview-sessions/{id}/report`(자막 구간 미조회), `.../timeline`(조회) | Run 소유 자막 구간 DELETE/INSERT | 두 조회 3회, 행 digest |
+| 근거 제거 노출 (E01-A3·A4) | `GET /v1/interview-sessions/{id}/report`(자막 구간 미조회), `.../timeline`(조회) | Run 소유 자막 구간 DELETE/INSERT | 두 조회 3회, 행 digest |
 | 동결 (E02-A1·A2) | `ReportGenerator`가 버전 가중치를 항목에 복사, 작업자는 세션 스냅샷의 버전을 읽음 | 제품 API 버전 생성·발행, 버전에 묶인 lane seed | `reports`, `report_items`, 조회 응답 |
 | 재계산 (E02-A3) | `scoring.aggregate`, `Report.criterion_aggregate`, `_scoring_inputs`, `_scoring_breakdown_view` | 없음(읽기만) | 저장 `overall_score`·`scoring_inputs`, 조회 `overall_score`·`scoring_breakdown` |
 

@@ -1410,7 +1410,8 @@ def _require_sha(value: str | None, name: str) -> None:
 
 class LaneCriterion(FrozenModel):
     criterion_id: UUID
-    code: str = Field(min_length=1, max_length=100)
+    #: WhyYou EvaluationCriterion code rule; a stored row that breaks it fails every criterion read.
+    code: str = Field(pattern=r"^[A-Z0-9_-]{2,40}$")
     weight: float = Field(ge=0)
     citation_mode: CitationMode | None = CitationMode.VALID
     mode_argument: str | None = None

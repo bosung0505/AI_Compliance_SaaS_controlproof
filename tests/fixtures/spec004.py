@@ -27,22 +27,22 @@ E02_LANES = ("E02_FIRST_APPLICANT", "E02_SECOND_APPLICANT")
 CITATION_MODES = ("VALID", "EMPTY", "NONEXISTENT", "OTHER_APPLICANT", "OTHER_CRITERION")
 INVALID_MODES = ("EMPTY", "NONEXISTENT", "OTHER_APPLICANT", "OTHER_CRITERION")
 MATRIX_CODES = {
-    "VALID": "e01-1-valid",
-    "EMPTY": "e01-2-empty",
-    "NONEXISTENT": "e01-3-nonexistent",
-    "OTHER_APPLICANT": "e01-4-other-applicant",
-    "OTHER_CRITERION": "e01-5-other-criterion",
+    "VALID": "E01-1-VALID",
+    "EMPTY": "E01-2-EMPTY",
+    "NONEXISTENT": "E01-3-NONEXISTENT",
+    "OTHER_APPLICANT": "E01-4-OTHER-APPLICANT",
+    "OTHER_CRITERION": "E01-5-OTHER-CRITERION",
 }
 AXES = ("correctness", "depth", "fundamentals", "ownership", "communication")
 COMMUNICATION_SEPARATED = "report-config-v2-communication-separated"
 #: plan.md "E-02 점수 표식 값": v1 72.5 -> 72, v2 73.5 -> 74 (round half to even, both directions).
 E02_V1 = (
-    {"code": "e02-a", "score": 72, "weight": 50.0},
-    {"code": "e02-b", "score": 73, "weight": 50.0},
+    {"code": "E02-A", "score": 72, "weight": 50.0},
+    {"code": "E02-B", "score": 73, "weight": 50.0},
 )
 E02_V2 = (
-    {"code": "e02-a", "score": 72, "weight": 25.0},
-    {"code": "e02-b", "score": 74, "weight": 75.0},
+    {"code": "E02-A", "score": 72, "weight": 25.0},
+    {"code": "E02-B", "score": 74, "weight": 75.0},
 )
 E02_V1_AXIS_WEIGHTS = {axis: 20.0 for axis in AXES}
 E02_V2_AXIS_WEIGHTS = {
@@ -91,6 +91,7 @@ def lane_criterion(
     weight: float = 20.0,
     **updates: Any,
 ) -> dict[str, Any]:
+    code = code.upper()
     criterion_id = sid(f"{lane_id}:criterion", code)
     argument = UUID(mode_argument) if mode_argument else None
     value = {

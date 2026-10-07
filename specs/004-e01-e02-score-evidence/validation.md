@@ -64,7 +64,7 @@ baseline above is not an actual-Run source claim.
 - T001 `.env.example`: commented Spec 004 fixture ID/digest pair and the rule that scoring-source pins have no
   override variable. Active defaults stay `h03-report-v1`.
 - T002 `tests/fixtures/spec004.py`: deterministic, text-free builders for lanes, criteria/markers (matrix codes
-  `e01-1-valid` … `e01-5-other-criterion`), emission receipts, citation cases, report records/reads, change
+  `E01-1-VALID` … `E01-5-OTHER-CRITERION`), emission receipts, citation cases, report records/reads, change
   injections, version snapshots, frozen inputs and `scoring_inputs`. Sanity: E-02 v1 total 72 (72.5), v2 74 (73.5).
 - T003 `tests/fixtures/whyyou_scoring_vectors.json`: values from WhyYou `eec8f70`
   `backend/tests/unit/reporting/test_weighted_scoring.py` (blob `c5337d24aa0ee9d22a86ad5bdcd51800a0792960`).
@@ -121,6 +121,35 @@ Remaining strict xfail (15): executor registration and non-READY preflight for b
 eleven planned modules (T035~T058). Existing scenario snapshot digests and the sealed parent `15cef078…` are pinned
 by guard tests and unchanged.
 
+## Phase 4 — US1 citation gate (T030~T043)
+
+| Task | Change | Tests |
+|---|---|---|
+| T030 | `tests/contract/test_spec004_seed_adapter.py` (RED: ImportError) | 8 GREEN after T036 |
+| T031 | `tests/contract/test_spec004_report_adapters.py` (RED: ImportError) | 10 GREEN after T037 |
+| T032 | `tests/contract/test_spec004_model_emission_adapter.py` (RED: ImportError) | 4 GREEN after T038 |
+| T033 | `tests/unit/test_judge_e01_citation.py` (RED: ImportError) | 19 GREEN after T041 |
+| T034 | `tests/integration/test_e01_citation_orchestration.py` (RED: ScenarioError/Unregistered) | 3 GREEN after T040 |
+| T035 | `seeds/spec004_subjects.py` (uppercase codes, ID-004-11) | layout 1 |
+| T036 | `engine/adapters/whyyou/spec004_seed.py` | T030 |
+| T037 | `engine/adapters/whyyou/report_records.py` (route fix, ID-004-13) | T031 |
+| T038 | `engine/adapters/whyyou/model_emission.py` | T032 |
+| T039 | `scenarios/E-01.yaml` | v4 loader |
+| T040 | `engine/executors/report_lanes.py`, `engine/executors/e01.py`, runner registration (ID-004-14/15) | T034, T008 E-01 2 |
+| T041 | `engine/judges/e01.py`, `engine/judge.py` facade (ID-004-12) | T033 |
+| T042 | capabilities + composition in `capability.py`/`adapter.py` | new `test_spec004_capability_composition.py` 4 (RED first: 3 failed) |
+| T043 | this record | — |
+
+```text
+.venv\Scripts\python.exe -m ruff check . -> All checks passed!
+.venv\Scripts\python.exe -m pytest -q    -> 674 passed, 6 xfailed
+```
+
+Citation gate on fakes: all four invalid modes emptied + reference unchanged → E01-A1 PASS; VALID stored with its
+own Evidence → E01-A2 PASS; worker storing as emitted → E01-A1 FAIL; refused matrix report → `PRECONDITION_NOT_MET`.
+E01-A3/A4 stay INCONCLUSIVE until US2. Remaining strict xfail (6): E-02 registration/preflight (T057, 2) and four
+planned modules (T047, T055, T057, T058). Guards (H-03/E-03/N-02 digests, parent `15cef078…`) unchanged.
+
 ## Sandbox diagnostics
 
 (none yet — Phase 8)
@@ -162,17 +191,10 @@ repositories before continuing; read this review entry with the corrected fixtur
 
 ## 세션 인계 (2026-10-07, 자율 진행 세션)
 
-- 마지막 완료: Phase 2 foundation T012~T021 (`d5a99a3`, 보성 `0cc6481` 위로 rebase). 결정 ID-004-04~10.
-- WhyYou: PR #6 병합 확인(`42aaaba`, 보성 검토 보완 `3423f16` 포함). 로컬 `bosung/controlproof-n02-integration`을
-  `42aaaba`로 fast-forward하고 checkout. scoring.py/report.py blob이 고정값과 같음(재계산 사본 유효).
-- 진행 중: Phase 4 US1 (T030~T043). 설계 메모:
-  - Spec 004 seed는 기준마다 면접관 질문 turn(target_criterion_id) + 지원자 최종 turn + 자막 구간을 넣는다
-    (WhyYou `_criterion_answers_by_criterion`은 질문 turn 뒤의 지원자 turn만 답변으로 묶는다; N-02 probe에는 질문
-    turn이 없어 보고서가 `partial`이었다). SD-4에서 실측 확인.
-  - WhyYou observer는 N-02 lane만 receipt로 남긴다(`runtime/controlproof_consent.py` `LANES`). Spec 004 판정은 receipt에
-    의존하지 않고 DB의 보고서 존재로 판단하며, 보고서가 없으면 INCONCLUSIVE(`PRECONDITION_NOT_MET`). WhyYou observer에
-    Spec 004 lane을 추가하는 것은 PROPOSED(판정에 불필요, WhyYou local/test 변경).
-  - 재사용: `engine/adapters/whyyou/n02_seed.py`의 `_insert_row`, `_delete_dependents`, `_delete_row`,
-    `N02CredentialStore`; `protected_processing.py`의 outbox INSERT 형식과 trace_id 형식.
-- 건너뛴 PROPOSED: 없음(위 observer 확장은 의존 작업 없음).
-- 다음 작업: T030(실패 시험) → T035 → T036 …
+- 마지막 완료: Phase 4 US1 T030~T043 (Phase 2 `d5a99a3` 위). 결정 ID-004-11~15.
+- WhyYou: PR #6 병합(`42aaaba`), 로컬 `bosung/controlproof-n02-integration` = `42aaaba`, clean. WhyYou 변경 없음.
+- 진행 중: 없음.
+- 건너뛴 PROPOSED: 없음. ID-004-14(observer에 Spec 004 lane 추가)는 비차단 제안.
+- 다음 작업: Phase 5 US2 T044(실패 시험)부터. 실행기는 `engine/executors/e01.py`의 `_US2_PENDING` 자리에
+  removal/probe 단계를 넣고, mutation adapter는 `engine/adapters/whyyou/evidence_mutation.py`(T047),
+  capability는 `_SPEC004_COMPOSED`의 `spec004_mutation` 항목을 조립하면 READY가 된다.

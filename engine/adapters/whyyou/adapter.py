@@ -1,4 +1,4 @@
-"""Composition root for the WhyYou H-03 adapter set."""
+"""Composition root for the WhyYou adapter set (H-03, E-03, N-02, Spec 004 E-01 citation path)."""
 
 from __future__ import annotations
 
@@ -15,10 +15,13 @@ from engine.adapters.whyyou.decisions import WhyYouDecisionAdapter
 from engine.adapters.whyyou.effects import WhyYouEffectAdapter
 from engine.adapters.whyyou.environment import WhyYouEnvironmentAdapter
 from engine.adapters.whyyou.fault import WhyYouFaultAdapter
+from engine.adapters.whyyou.model_emission import WhyYouModelEmissionAdapter
 from engine.adapters.whyyou.n02_seed import N02CredentialStore, WhyYouN02SeedAdapter
 from engine.adapters.whyyou.protected_processing import WhyYouProtectedProcessingAdapter
 from engine.adapters.whyyou.queue import WhyYouQueueAdapter
+from engine.adapters.whyyou.report_records import WhyYouSpec004ReportAdapter
 from engine.adapters.whyyou.seed import WhyYouSeedAdapter
+from engine.adapters.whyyou.spec004_seed import WhyYouSpec004SeedAdapter
 from engine.adapters.whyyou.state import WhyYouStateAdapter
 from engine.config import Settings
 from engine.models import TargetSnapshot
@@ -66,6 +69,12 @@ def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]
         consent_adapter=n02_consent,
         processing_adapter=n02_processing,
     )
+    # Spec 004 lanes keep their own applicant credentials; consent reuses the N-02 protocol.
+    spec004_credentials = N02CredentialStore()
+    spec004_seed = WhyYouSpec004SeedAdapter(settings, credentials=spec004_credentials)
+    spec004_consent = WhyYouConsentAdapter(settings, credentials=spec004_credentials)
+    spec004_reports = WhyYouSpec004ReportAdapter(settings)
+    spec004_emissions = WhyYouModelEmissionAdapter(settings)
     capability = WhyYouCapabilityProbe(
         settings,
         client,
@@ -76,6 +85,11 @@ def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]
         n02_processing=n02_processing,
         n02_consent=n02_consent,
         n02_fault=n02_fault,
+        spec004={
+            "spec004_seed": spec004_seed,
+            "spec004_reports": spec004_reports,
+            "spec004_emissions": spec004_emissions,
+        },
     )
     target = WhyYouTargetAdapter(client, capability)
     adapters = AdapterSet(
@@ -98,5 +112,10 @@ def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]
         n02_causality=n02_causality,
         n02_fault=n02_fault,
         n02_observer=n02_processing,
+        spec004_seed=spec004_seed,
+        spec004_consent=spec004_consent,
+        spec004_requests=spec004_reports,
+        spec004_records=spec004_reports,
+        spec004_emissions=spec004_emissions,
     )
     return adapters, client

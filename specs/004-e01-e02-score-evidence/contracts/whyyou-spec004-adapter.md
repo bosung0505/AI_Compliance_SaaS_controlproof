@@ -72,7 +72,7 @@ allowlist query(현재 회사·Run 소유 세션 한정):
 
 ### `read_report_api(subject, phase)` / `read_timeline_api(subject, phase)`
 
-회사 토큰으로 `GET /v1/company/interview-sessions/{session_id}/report`, `.../timeline`을 호출하고 data-model §7
+회사 토큰으로 `GET /v1/interview-sessions/{session_id}/report`, `.../timeline`을 호출하고 data-model §7
 projection을 만든다. 계약에 없는 응답 필드는 이름만 `unknown_fields`에 넣는다. playback URL은 상태만 남긴다.
 
 ## EvidenceMutationAdapter

@@ -22,6 +22,7 @@ from typing import Any
 from uuid import NAMESPACE_URL, UUID, uuid4, uuid5
 
 from engine.adapters.base import AdapterResult
+from engine.config import fixture_digest
 from engine.judges.e02_scoring import (
     COMMUNICATION_SEPARATED_CONFIG_VERSION,
     PINNED_SOURCES,
@@ -30,6 +31,7 @@ from engine.judges.e02_scoring import (
     report_aggregate,
 )
 from engine.models import (
+    SPEC004_FIXTURE_ID,
     ChangeInjection,
     ChangeInjectionKind,
     ChangeInjectionState,
@@ -46,6 +48,7 @@ from engine.models import (
     ReportRecordSnapshot,
     RestoreAction,
     StoredAxisProjection,
+    TargetSnapshot,
     TranscriptSegmentProjection,
     canonical_json_bytes,
     sha256_bytes,
@@ -784,3 +787,15 @@ class FakeSpec004Adapters:
             first = PINNED_SOURCES[0]["path"]
             shas[first] = hashlib.sha1(b"drifted").hexdigest()
         return AdapterResult(True, "BLOB_SHAS_READ", {"blob_shas": shas})
+
+
+def use_spec004_fixture(adapters) -> None:
+    """Point the fake target snapshot at `spec004-report-v1` (E-01/E-02 readiness requires it)."""
+    original = adapters.target.snapshot
+    adapters.target.snapshot = TargetSnapshot.model_validate(
+        original.model_dump(mode="json", exclude={"target_version"})
+        | {
+            "model_fixture_id": SPEC004_FIXTURE_ID,
+            "model_fixture_digest": fixture_digest(SPEC004_FIXTURE_ID),
+        }
+    )

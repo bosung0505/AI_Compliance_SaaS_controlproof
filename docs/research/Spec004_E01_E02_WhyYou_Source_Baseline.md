@@ -45,7 +45,7 @@
   `integration/i_014_report_scoring_inputs.py`).
 - `evidence.transcript_segment_id`에는 `transcript_segments`로의 외래키가 없다. 외래키는 `report_items`로만
   있다(`d_001_reporting.py` 120~145). 따라서 자막 구간이 삭제·교체돼도 DB 수준에서는 Evidence 행이 남는다.
-- **보고서 조회 응답(미확인 1의 코드 부분)**: `GET /v1/company/interview-sessions/{session_id}/report`는
+- **보고서 조회 응답(미확인 1의 코드 부분)**: `GET /v1/interview-sessions/{session_id}/report`는
   세션의 최신 보고서를 읽어 `_report_view`로 내보낸다(`reporting/api/company_routes.py` 401~435, 211~305).
   읽기 경로 `_report_from_row`는 `reports`·`report_items`·`evidence`만 읽고 `transcript_segments`를 읽지 않는다
   (`reporting/repositories/postgres.py` 818~898). 응답의 Evidence 항목은 `transcript_segment_id`를 그대로

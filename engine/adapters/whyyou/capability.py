@@ -5,8 +5,10 @@ from __future__ import annotations
 import hashlib
 import json
 import os
+from collections.abc import Mapping
 from datetime import UTC, datetime
 from pathlib import Path
+from typing import Any
 from uuid import UUID
 
 from sqlalchemy import create_engine, text
@@ -24,8 +26,8 @@ from engine.adapters.whyyou.queue import (
     QueueContractError,
     WhyYouQueueAdapter,
 )
-from engine.config import Settings
-from engine.models import ReadinessStatus
+from engine.config import Settings, fixture_digest
+from engine.models import SPEC004_FIXTURE_ID, ReadinessStatus
 
 CAPABILITY_VERSIONS = {
     "target.version.read": "v1",
@@ -68,6 +70,47 @@ CAPABILITY_VERSIONS = {
     "consent.fault.inject": "v1",
     "consent.fault.receipt.read": "v1",
     "consent.fault.restore": "v1",
+    # Spec 004 (T042). Mutation and criteria-version probes stay RUNNER_NOT_READY until
+    # their adapters are composed (T047, T055).
+    "model.fixture.read": "v1",
+    "spec004.lanes.seed": "v1",
+    "spec004.lanes.teardown": "v1",
+    "report.generation.request": "v1",
+    "report.processing.receipts.read": "v1",
+    "report.records.read": "v1",
+    "report.api.read": "v1",
+    "timeline.api.read": "v1",
+    "model.emission.read": "v1",
+    "evidence.segment.remove": "v1",
+    "evidence.segment.restore": "v1",
+    "report.axes.probe_write": "v1",
+    "report.axes.probe_restore": "v1",
+    "criteria.version.create": "v1",
+    "criteria.version.publish": "v1",
+    "criteria.version.read": "v1",
+    "scoring.rule.source.read": "v1",
+}
+
+_SPEC004_COMPOSED = {
+    "spec004.lanes.seed": ("spec004_seed", "database"),
+    "spec004.lanes.teardown": ("spec004_seed", "database"),
+    "report.generation.request": ("spec004_reports", "database"),
+    "report.processing.receipts.read": ("spec004_reports", "database"),
+    "report.records.read": ("spec004_reports", "database"),
+    "report.api.read": ("spec004_reports", "/v1/interview-sessions/{session_id}/report"),
+    "timeline.api.read": (
+        "spec004_reports",
+        "/v1/interview-sessions/{session_id}/timeline",
+    ),
+    "model.emission.read": ("spec004_emissions", "observer"),
+    "evidence.segment.remove": ("spec004_mutation", "database"),
+    "evidence.segment.restore": ("spec004_mutation", "database"),
+    "report.axes.probe_write": ("spec004_mutation", "database"),
+    "report.axes.probe_restore": ("spec004_mutation", "database"),
+    "criteria.version.create": ("spec004_versions", "/v1/positions/{position_id}/competency-model-versions"),
+    "criteria.version.publish": ("spec004_versions", "database"),
+    "criteria.version.read": ("spec004_versions", "database"),
+    "scoring.rule.source.read": ("spec004_scoring_source", "observer"),
 }
 
 
@@ -84,6 +127,7 @@ class WhyYouCapabilityProbe:
         n02_processing: WhyYouProtectedProcessingAdapter | None = None,
         n02_consent: WhyYouConsentAdapter | None = None,
         n02_fault: WhyYouConsentFaultAdapter | None = None,
+        spec004: Mapping[str, Any] | None = None,
     ) -> None:
         self.settings = settings
         self.client = client
@@ -94,6 +138,7 @@ class WhyYouCapabilityProbe:
         self.n02_processing = n02_processing
         self.n02_consent = n02_consent
         self.n02_fault = n02_fault
+        self.spec004 = dict(spec004 or {})
         self._openapi_paths: set[str] | None = None
 
     @property
@@ -126,6 +171,20 @@ class WhyYouCapabilityProbe:
                     )
                 self.environment.capture_environment()
                 return _ready(capability, "canonical local environment snapshot is available")
+            if capability == "model.fixture.read":
+                snapshot = self.client.capture_target_snapshot()
+                if (
+                    snapshot.model_fixture_id != SPEC004_FIXTURE_ID
+                    or snapshot.model_fixture_digest != fixture_digest(SPEC004_FIXTURE_ID)
+                ):
+                    return _not_ready(
+                        capability,
+                        "the target does not run the spec004-report-v1 fixture",
+                        "start the local/test stack with CONTROLPROOF_MODEL_FIXTURE_ID=spec004-report-v1",
+                    )
+                return _ready(capability, "spec004-report-v1 fixture identity matches")
+            if capability in _SPEC004_COMPOSED:
+                return self._spec004(capability)
             if capability in {"n02.subjects.seed", "n02.subjects.teardown"}:
                 return self._database(capability)
             if capability in {"consent.policy.read", "consent.commit.write"}:
@@ -355,6 +414,26 @@ class WhyYouCapabilityProbe:
             response.raise_for_status()
             self._openapi_paths = set(response.json().get("paths", {}))
         return self._openapi_paths
+
+    def _spec004(self, capability: str) -> CapabilityProbeResult:
+        component, check = _SPEC004_COMPOSED[capability]
+        if self.spec004.get(component) is None:
+            return _not_ready(
+                capability,
+                f"Spec 004 {component} adapter is not composed",
+                f"compose the Spec 004 {component} adapter",
+            )
+        if check == "database":
+            return self._database(capability)
+        if check == "observer":
+            if not self.settings.observer_root.is_dir():
+                return _not_ready(
+                    capability,
+                    "observer root is not readable",
+                    "create CONTROLPROOF_OBSERVER_ROOT shared with the local WhyYou stack",
+                )
+            return _ready(capability, "observer root is readable")
+        return self._route(capability, check)
 
     def _route(self, capability: str, route: str) -> CapabilityProbeResult:
         if route not in self._paths():
