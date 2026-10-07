@@ -25,12 +25,16 @@ def e02():
 
 
 def _publish(fake, position, key):
-    created = fake.create_version(position_id=position, body=e02_version_body(key), idempotency_key=key * 8)
+    created = fake.create_version(
+        position_id=position, body=e02_version_body(key), idempotency_key=key * 8
+    )
     fake.publish_version(
         version_id=created.data["version_id"], row_version=1, idempotency_key=key * 8
     )
     phase = "V1_PUBLISHED" if key == "v1" else "V2_PUBLISHED"
-    return fake.latest_published(position_id=position, snapshot_phase=phase), created.data["version_id"]
+    return fake.latest_published(position_id=position, snapshot_phase=phase), created.data[
+        "version_id"
+    ]
 
 
 def _report(fake, lane, phase):
@@ -58,18 +62,27 @@ def _journey(**options):
     second_record, second_read = _report(fake, second, "POST_CHANGE")
     post_record, post_read = _report(fake, first, "POST_CHANGE")
     return {
-        "v1": v1, "v2": v2, "v2_id": v2_id,
-        "pre_record": pre_record, "pre_read": pre_read,
-        "post_record": post_record, "post_read": post_read,
-        "second_record": second_record, "second_read": second_read,
+        "v1": v1,
+        "v2": v2,
+        "v2_id": v2_id,
+        "pre_record": pre_record,
+        "pre_read": pre_read,
+        "post_record": post_record,
+        "post_read": post_read,
+        "second_record": second_record,
+        "second_read": second_read,
     }
 
 
 def _a2(j):
     return e02().judge_e02_unchanged(
-        v2=j["v2"], published_v2_id=j["v2_id"], second=j["second_record"],
-        pre_record=j["pre_record"], post_record=j["post_record"],
-        pre_read=j["pre_read"], post_read=j["post_read"],
+        v2=j["v2"],
+        published_v2_id=j["v2_id"],
+        second=j["second_record"],
+        pre_record=j["pre_record"],
+        post_record=j["post_record"],
+        pre_read=j["pre_read"],
+        post_read=j["post_read"],
     )
 
 
@@ -171,8 +184,53 @@ def test_a3_float_tolerance_and_integer_exactness() -> None:
     numerator = j["post_record"].scoring_inputs["numerator"]
     within = _tamper_inputs(j["post_record"], "numerator", numerator + 1e-12)
     assert _a3(j, first=_recompute(within, j["post_read"])).status is AssertionStatus.PASS
-    shifted = j["post_record"].model_copy(update={"overall_score": j["post_record"].overall_score + 1})
+    shifted = j["post_record"].model_copy(
+        update={"overall_score": j["post_record"].overall_score + 1}
+    )
     assert _a3(j, first=_recompute(shifted, j["post_read"])).status is AssertionStatus.FAIL
+
+
+@pytest.mark.parametrize("target", ["stored", "api"])
+def test_a3_contributions_match_by_criterion_id_when_row_order_differs(target) -> None:
+    j = _journey()
+    record, read = j["post_record"], j["post_read"]
+    if target == "stored":
+        record = _tamper_inputs(
+            record, "criteria", list(reversed(record.scoring_inputs["criteria"]))
+        )
+    else:
+        read = _tamper_read(read, lambda body: body["scoring_breakdown"]["contributions"].reverse())
+    result = _recompute(record, read)
+    assert all(item.equal for item in result.comparisons)
+    assert _a3(j, first=result).status is AssertionStatus.PASS
+
+
+@pytest.mark.parametrize("target", ["stored", "api"])
+@pytest.mark.parametrize("mutation", ["value", "missing", "duplicate", "wrong_id"])
+def test_a3_reordered_contributions_still_detect_wrong_values_or_criterion_membership(
+    target, mutation
+) -> None:
+    j = _journey()
+    record, read = j["post_record"], j["post_read"]
+
+    def change(items):
+        items.reverse()
+        if mutation == "value":
+            items[0]["contribution"] += 1
+        elif mutation == "missing":
+            items.pop()
+        elif mutation == "duplicate":
+            items[1] = copy.deepcopy(items[0])
+        else:
+            items[0]["criterion_id" if target == "stored" else "key"] = str(uuid4())
+
+    if target == "stored":
+        inputs = copy.deepcopy(record.scoring_inputs)
+        change(inputs["criteria"])
+        record = record.model_copy(update={"scoring_inputs": inputs})
+    else:
+        read = _tamper_read(read, lambda body: change(body["scoring_breakdown"]["contributions"]))
+    assert _a3(j, first=_recompute(record, read)).status is AssertionStatus.FAIL
 
 
 def test_a3_absent_report_is_inconclusive() -> None:

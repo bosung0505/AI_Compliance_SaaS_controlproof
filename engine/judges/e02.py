@@ -147,7 +147,11 @@ def judge_e02_unchanged(
             expected,
             ("FR-031",),
         )
-    if not (_present(pre_record) and _present(post_record)) or pre_read is None or post_read is None:
+    if (
+        not (_present(pre_record) and _present(post_record))
+        or pre_read is None
+        or post_read is None
+    ):
         return _result(
             "E02-A2",
             AssertionStatus.INCONCLUSIVE,
@@ -157,7 +161,10 @@ def judge_e02_unchanged(
             ("FR-031",),
         )
     record_equal = pre_record.state_digest == post_record.state_digest
-    read_equal = (pre_read.status_code, pre_read.report) == (post_read.status_code, post_read.report)
+    read_equal = (pre_read.status_code, pre_read.report) == (
+        post_read.status_code,
+        post_read.report,
+    )
     actual = {"record_equal": record_equal, "read_equal": read_equal, "second_bound_to_v2": True}
     if record_equal and read_equal:
         return _result(
@@ -211,6 +218,23 @@ def _items(record: ReportRecordSnapshot) -> list[dict[str, Any]]:
     ]
 
 
+def _equal_contributions(expected: Any, observed: Any) -> bool:
+    """Compare criterion contributions by identity without discarding duplicates or fields."""
+    for values in (expected, observed):
+        if not isinstance(values, (list, tuple)):
+            return False
+        if not all(
+            isinstance(item, dict) and isinstance(item.get("criterion_id"), str) for item in values
+        ):
+            return False
+        if len({item["criterion_id"] for item in values}) != len(values):
+            return False
+    return _equal(
+        sorted(expected, key=lambda item: item["criterion_id"]),
+        sorted(observed, key=lambda item: item["criterion_id"]),
+    )
+
+
 def _contributions(value: Aggregate) -> list[dict[str, Any]]:
     return [
         {
@@ -258,7 +282,11 @@ def recompute(
                 field_path=f"scoring_inputs.{name}",
                 expected=value,
                 observed=stored.get(name),
-                equal=_equal(value, stored.get(name)),
+                equal=(
+                    _equal_contributions(value, stored.get(name))
+                    if name == "criteria"
+                    else _equal(value, stored.get(name))
+                ),
             )
         )
     comparisons.append(
@@ -291,7 +319,11 @@ def recompute(
                 field_path=f"report.scoring_breakdown.{name}",
                 expected=expected,
                 observed=observed,
-                equal=_equal(expected, observed),
+                equal=(
+                    _equal_contributions(expected, observed)
+                    if name == "contributions"
+                    else _equal(expected, observed)
+                ),
             )
         )
     served = {str(item.get("criterion_id")): item for item in body.get("items") or ()}
