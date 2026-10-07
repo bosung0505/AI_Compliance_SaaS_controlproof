@@ -4,10 +4,10 @@
 
 - Implementation foundation: in progress
 - Initial actual N-02 Run: `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`, sealed and `VERIFIED`; overall `RESTORE_FAILED` / `INCONCLUSIVE`
-- Evidence-gated product remediation: `PENDING_T080_CLASSIFICATION`; no product change. No valid
-  child Run yet: T084 attempt 2 child `e2e8e71d-3ba0-402e-a914-6cf26268582b` sealed `INVALID`
-  and `RESTORE_FAILED` (ID-003-13~16); further T084 attempts wait for the ID-003-14 and ID-003-16
-  design decisions
+- Evidence-gated product remediation: T083 and T082 `REQUIRED` and implemented as WhyYou patches on
+  a personal branch (PR #5 for T083); no valid child Run yet (attempt 2 `INVALID`/`RESTORE_FAILED`).
+  Sandbox diagnostic Runs with every fix applied reach A1~A4 and A6 PASS and A5/A7 `INCONCLUSIVE`
+  (ID-003-18); T084 attempt 3 is next
 
 This log records implementation choices that cannot be inferred from Tasks alone.
 The first actual Run is sealed. A direct assertion FAIL is a preserved observation,
@@ -84,9 +84,9 @@ not by itself proof that a WhyYou product boundary accepted processing.
 |---|---|---|---|
 | T080 | A5~A7 or runner/restore ownership | Yes | `PROPOSED` `RUNNER_OR_OBSERVER_DEFECT`; ID-003-09, file-scope approval pending |
 | T081 | document analysis | Yes | `NOT_REQUIRED` proposed; parent A2 PASS (ID-003-09) |
-| T082 | recording | Yes | `NOT_REQUIRED` proposed; parent A3 PASS (ID-003-09) |
+| T082 | recording | Yes | `REQUIRED` (implementer judgment, delegated 2026-10-07): sandbox Runs created sessions for unconsented applicants once the strategy fixture was valid; `authorize_start` never checked consent. WhyYou patch on the personal branch (ID-003-18) |
 | T083 | AI assessment/reporting | Yes | `REQUIRED` (review relayed by the operator on 2026-10-05): attempt 2 start receipts for unconsented subjects; WhyYou patch on a personal branch (ID-003-17); child confirmation pending |
-| T084 | child retest or parent reverify | Yes | No valid child yet: attempt 1 aborted before sealing (ID-003-11, ID-003-12); attempt 2 sealed `INVALID`/`RESTORE_FAILED` (ID-003-13~16); paused for review |
+| T084 | child retest or parent reverify | Yes | No valid child yet: attempt 1 aborted before sealing (ID-003-11, ID-003-12); attempt 2 sealed `INVALID`/`RESTORE_FAILED` (ID-003-13~16); runner fixes complete, attempt 3 next (ID-003-18) |
 
 ### ID-003-03 — First Run root-cause audit remains open
 
@@ -401,6 +401,12 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
 - Tests: `tests/contract/test_n02_seed_adapter.py` — EXPECTED RED 1 failed/5 passed for the guide;
   extended for `interview_level`, RED again; then 6 passed. Linux full regression 453 passed apart
   from a pre-existing flaky verifier test (see `validation.md`); Ruff check PASS.
+- Continued 2026-10-07 (same class, found on the sandbox target): the seeded position carried
+  `status="open"` (WhyYou `PositionStatus` is draft|active|closed), so every position read failed
+  and submission authorization stayed 403 after consent; the recording overlay's strategy carried
+  `time_budget={}` (WhyYou requires `total_seconds > 0`), so session creation returned 403
+  "interview strategy is unavailable". Fixed to `"active"` and `{"total_seconds": 600}`; each with a
+  RED test first. Both 403s had been reported as `CONSENT_REQUIRED` (ID-003-16 finding 3).
 
 ### ID-003-16 — Several N-02 assertions cannot be reached on the real target
 
@@ -480,3 +486,44 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
 - Open item: the H-03 pending-report seed creates no consent record, so on a target with this
   WhyYou change an H-03 report request is refused. Before any further H-03 run on that target, the
   H-03 seed needs an active consent that includes `ai_assessment` (not changed here).
+
+### ID-003-18 — Consented lanes are driven through the product flow
+
+- Date: 2026-10-07
+- Task: T080, T082, T084 (resolves ID-003-16 finding 1 under the review direction)
+- Requirement/assertion: N02-A3, N02-A5, N02-A6, N02-A7
+- Status: `CONFIRMED` direction (review of 2026-10-05: prove the full product flow, `INCONCLUSIVE`
+  where evidence stays insufficient); implemented
+- Decision: a consented lane (NORMAL_ORDER, and CONSENT_FAULT_RECOVERY after its retried consent)
+  runs the paths as RECORDING → AI_ASSESSMENT → DOCUMENT_ANALYSIS and the runner drives each to its
+  result: recording = real equipment check, session create, media upload intent, PUT, confirmation;
+  assessment = the runner's report event on that session; document = upload intent, PUT, submission
+  registration. Product prerequisites the isolated target cannot derive (a ready strategy, which
+  needs AI document analysis; final turns, recording assets and transcript segments on the real
+  session) are inserted as fixtures, reported as fixture effect ids, and removed with the lane.
+  Order matters on WhyYou: one session per invitation (`uq_interview_sessions_invitation`) and a
+  registered submission makes session start demand a finished analysis.
+- Evidence: driven lanes record the created session and sanitized step outcomes
+  (`equipment-check:201`, `request:201`, `media-intent:201`, `upload:200`, `confirm:201`;
+  `request:201`, `upload:200`, `register:202`). Results count only what the attempt newly produced;
+  analysis rows are results only when `ready`/`partial`.
+- Target findings while doing this (sandbox diagnostic Runs, not official): with a valid strategy
+  fixture the target created interview sessions for unconsented applicants (A3 and A6 FAIL,
+  session effects), because `authorize_start` checked strategy and analysis state but never
+  consent → T082 `REQUIRED`, implemented as a WhyYou patch (failing tests first). The runner now
+  keeps sealing when the target holds the invitation's one session: the fault-lane assessment
+  fixture attaches to it and a lane whose recording request created no session targets it.
+- Known limits: document results need the target's LLM analysis, which the isolated target blocks,
+  so A5 and A7 end `INCONCLUSIVE` ("DOCUMENT_ANALYSIS events missing") until the model substitute
+  covers analysis (not proposed); every 401/403 is still labelled `CONSENT_REQUIRED` because the
+  target returns no reason; the recovered lane's causal events are not written to
+  `causal-events.jsonl`; recording uploads leave objects in the local object store.
+- Tests: contract tests for driven attempts, prerequisites, target-session fallback and
+  new-only results, each EXPECTED RED first; fakes updated; Linux full regression 466 passed; Ruff
+  check PASS. WhyYou T082: 3 new tests RED then GREEN; unit suite 453 passed plus the pre-existing
+  failure.
+- Sandbox diagnostic Runs (isolated target: PostgreSQL 16 + pgvector, moto for S3/SQS, WhyYou API
+  and four workers, AI endpoints loopback): Run 7 `f0309ee5-…` A3/A6/A7 FAIL (session leak) and a
+  false A5 PASS from a fixture strategy counted as a result (fixed); Run 8 `6b53b1b1-…` A5
+  `INCONCLUSIVE`, A3/A6/A7 FAIL; Run 9 `405f62b6-…` with T082: A1~A4 and A6 PASS, A5/A7
+  `INCONCLUSIVE`, restore SUCCEEDED, bundle `VERIFIED`, verdict `INCONCLUSIVE`.
