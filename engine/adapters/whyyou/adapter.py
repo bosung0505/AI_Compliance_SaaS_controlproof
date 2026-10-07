@@ -14,6 +14,7 @@ from engine.adapters.whyyou.consent_fault import WhyYouConsentFaultAdapter
 from engine.adapters.whyyou.decisions import WhyYouDecisionAdapter
 from engine.adapters.whyyou.effects import WhyYouEffectAdapter
 from engine.adapters.whyyou.environment import WhyYouEnvironmentAdapter
+from engine.adapters.whyyou.evidence_mutation import WhyYouEvidenceMutationAdapter
 from engine.adapters.whyyou.fault import WhyYouFaultAdapter
 from engine.adapters.whyyou.model_emission import WhyYouModelEmissionAdapter
 from engine.adapters.whyyou.n02_seed import N02CredentialStore, WhyYouN02SeedAdapter
@@ -75,6 +76,7 @@ def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]
     spec004_consent = WhyYouConsentAdapter(settings, credentials=spec004_credentials)
     spec004_reports = WhyYouSpec004ReportAdapter(settings)
     spec004_emissions = WhyYouModelEmissionAdapter(settings)
+    spec004_mutation = WhyYouEvidenceMutationAdapter(settings)
     capability = WhyYouCapabilityProbe(
         settings,
         client,
@@ -89,6 +91,7 @@ def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]
             "spec004_seed": spec004_seed,
             "spec004_reports": spec004_reports,
             "spec004_emissions": spec004_emissions,
+            "spec004_mutation": spec004_mutation,
         },
     )
     target = WhyYouTargetAdapter(client, capability)
@@ -117,5 +120,6 @@ def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]
         spec004_requests=spec004_reports,
         spec004_records=spec004_reports,
         spec004_emissions=spec004_emissions,
+        spec004_mutation=spec004_mutation,
     )
     return adapters, client

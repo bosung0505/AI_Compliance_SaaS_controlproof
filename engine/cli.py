@@ -315,6 +315,16 @@ def _cleanup_confirm(args: argparse.Namespace) -> int:
         )
         if not safe:
             raise CliContractError("N02_SAFE_STATE_NOT_CONFIRMED", "N-02 target safety probe did not pass")
+    elif args.subject in _SPEC004_BLOCK_SUBJECTS:
+        profile = _SPEC004_BLOCK_SUBJECTS[args.subject]
+        injections = _spec004_cleanup_injections(settings.run_root, blocks, args, profile)
+        runtime = create_runtime(settings, _profile_scenario_path(profile))
+        mutation = getattr(runtime.adapters, "spec004_mutation", None)
+        safe = mutation is not None and mutation.target_safe(injections=injections)
+        if not safe:
+            raise CliContractError(
+                "SPEC004_SAFE_STATE_NOT_CONFIRMED", "Spec 004 change injections are not restored"
+            )
     else:
         runtime = create_runtime(settings, args.scenario_file or _default_scenario())
         safe = runtime.adapters.fault.target_safe(subject_ref=args.subject)
@@ -329,6 +339,47 @@ def _cleanup_confirm(args: argparse.Namespace) -> int:
         as_json=args.json,
     )
     return 0
+
+
+_SPEC004_BLOCK_SUBJECTS = {
+    "e01-citation-evidence": ExecutionProfile.E01_CITATION_EVIDENCE_V1,
+    "e02-scoring-freeze": ExecutionProfile.E02_SCORING_FREEZE_V1,
+}
+
+
+def _spec004_cleanup_injections(
+    run_root: Path, blocks: RestoreBlockStore, args: argparse.Namespace, profile: ExecutionProfile
+) -> list[dict[str, Any]]:
+    """The blocked Run's recorded change injections, from its own verified sealed bundle."""
+    block_path = blocks.path_for(args.target, args.subject)
+    if not block_path.is_file():
+        raise FileNotFoundError("no Spec 004 restore block exists")
+    try:
+        block = json.loads(block_path.read_text(encoding="utf-8"))
+        run_id = str(UUID(str(block["run_id"])))
+        bundle = run_root / run_id
+        if (
+            block.get("target_id") != args.target
+            or block.get("subject_ref") != args.subject
+            or verify_bundle(bundle)["bundle_status"] != "VERIFIED"
+        ):
+            raise ValueError("Spec 004 block or parent bundle is invalid")
+        run = json.loads((bundle / "run.json").read_text(encoding="utf-8"))
+        if any(
+            (
+                run.get("run_id") != run_id,
+                run.get("target_id") != args.target,
+                run.get("execution_profile") != profile.value,
+                run.get("state") != RunState.RESTORE_FAILED.value,
+            )
+        ):
+            raise ValueError("blocked parent is not the Spec 004 restore failure")
+        lines = (bundle / "change-injections.jsonl").read_text(encoding="utf-8").splitlines()
+        return [json.loads(line) for line in lines if line.strip()]
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise CliContractError(
+            "SPEC004_CLEANUP_PARENT_INVALID", "Spec 004 blocked parent is invalid"
+        ) from exc
 
 
 def _n02_cleanup_subject(

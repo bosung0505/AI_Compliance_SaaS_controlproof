@@ -150,6 +150,30 @@ own Evidence → E01-A2 PASS; worker storing as emitted → E01-A1 FAIL; refused
 E01-A3/A4 stay INCONCLUSIVE until US2. Remaining strict xfail (6): E-02 registration/preflight (T057, 2) and four
 planned modules (T047, T055, T057, T058). Guards (H-03/E-03/N-02 digests, parent `15cef078…`) unchanged.
 
+## Phase 5 — US2 removal gate (T044~T051)
+
+| Task | Change | Tests |
+|---|---|---|
+| T044 | `tests/contract/test_spec004_evidence_mutation_adapter.py` (RED: 6 failed, ImportError) | 6 GREEN after T047 |
+| T045 | `tests/unit/test_judge_e01_removal.py` (RED: 18 failed, AttributeError) | 18 GREEN after T049 |
+| T046 | `tests/integration/test_e01_removal_restore.py` (RED: 5 failed) | 7 GREEN after T048 |
+| T047 | `engine/adapters/whyyou/evidence_mutation.py`, composed in `adapter.py` | T044, composition 4 |
+| T048 | removal/restore/probe steps, always-run restores in `engine/executors/e01.py` (ID-004-17/19) | T046, T034 |
+| T049 | E01-A3/A4 and D1 exposure in `engine/judges/e01.py` (ID-004-16) | T045 |
+| T050 | Spec 004 `cleanup-confirm` in `engine/cli.py` (ID-004-18) | new `test_cleanup_confirm_spec004.py` 2 (RED first: 2 failed) |
+| T051 | this record | — |
+
+```text
+.venv/Scripts/python.exe -m ruff check . -> All checks passed!
+.venv/Scripts/python.exe -m pytest -q    -> 708 passed, 5 xfailed
+```
+
+Removal gate on fakes: each H-4 indicator PASS; baseline P1 shape (score and citation kept) FAIL; restore digest
+mismatch or probe restore failure → `RESTORE_FAILED`, INCONCLUSIVE and block; exception, cancellation and deadline
+all restore and tear down; D1 recorded without affecting the verdict. With a fake exposing indicator `score_null`,
+an E-01 Run is PASS. Remaining strict xfail (5): E-02 registration/preflight (T057, 2) and three modules (T055,
+T057, T058).
+
 ## Sandbox diagnostics
 
 (none yet — Phase 8)
@@ -191,10 +215,9 @@ repositories before continuing; read this review entry with the corrected fixtur
 
 ## 세션 인계 (2026-10-07, 자율 진행 세션)
 
-- 마지막 완료: Phase 4 US1 T030~T043 (Phase 2 `d5a99a3` 위). 결정 ID-004-11~15.
+- 마지막 완료: Phase 5 US2 T044~T051. 결정 ID-004-16~19.
 - WhyYou: PR #6 병합(`42aaaba`), 로컬 `bosung/controlproof-n02-integration` = `42aaaba`, clean. WhyYou 변경 없음.
 - 진행 중: 없음.
 - 건너뛴 PROPOSED: 없음. ID-004-14(observer에 Spec 004 lane 추가)는 비차단 제안.
-- 다음 작업: Phase 5 US2 T044(실패 시험)부터. 실행기는 `engine/executors/e01.py`의 `_US2_PENDING` 자리에
-  removal/probe 단계를 넣고, mutation adapter는 `engine/adapters/whyyou/evidence_mutation.py`(T047),
-  capability는 `_SPEC004_COMPOSED`의 `spec004_mutation` 항목을 조립하면 READY가 된다.
+- 다음 작업: Phase 6 US3 T052(실패 시험)부터. 기준 버전 API 경로는 `/v1/positions/{id}/competency-model-versions`
+  (`company_routes.py`, prefix `/v1`)로 계약의 `/v1/company/...`와 다르다 — T055에서 ID-004-13처럼 정정.

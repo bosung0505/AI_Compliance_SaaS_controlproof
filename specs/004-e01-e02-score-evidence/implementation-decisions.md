@@ -181,3 +181,38 @@ E-01 executor runs the citation steps; E01-A3/A4 are `PRECONDITION_NOT_MET` INCO
 records `NOT_RUN` until US2, so an E-01 Run cannot PASS before Phase 5. Spec 004 consent reuses
 `WhyYouConsentAdapter` with a separate credential store. Tests point the fake target at the spec004 fixture with
 `use_spec004_fixture` (fake target defaults stay h03 for earlier profiles).
+
+## Phase 5 US2 implementation (T044~T051), 2026-10-07
+
+Status: `CONFIRMED`. No judgement rule changed; ID-004-16 fills a gap without widening PASS or FAIL.
+
+### ID-004-16 — Affected item changed without an H-4 indicator is INCONCLUSIVE (T049)
+
+E01-A3 lists PASS (an indicator on every affected axis/item) and FAIL (P1: same score and citation as PRE_REMOVAL;
+an unaffected item changed; POST_REMOVAL 5xx). An affected item that changed but shows none of the four
+indicators fits neither. It is reported INCONCLUSIVE (`INSUFFICIENT_EVIDENCE`, detail `INDICATOR_AMBIGUOUS`), the
+same treatment as `unknown_fields`: the scenario needs a revision before such a shape can be judged.
+
+### ID-004-17 — Storage probe writes three modes in WhyYou's stored axis shape (T048)
+
+E01-D1 writes three axes on the probe lane's single item: `EMPTY` (no citation), `NONEXISTENT` (the Run's absent
+UUID) and `OTHER_APPLICANT` (the reference report's Evidence ID). `OTHER_CRITERION` is not written: the probe lane has
+one criterion, so there is no second item of the same report to cite. Each written axis carries `axis`, `label`,
+`score`, `rationale` and `quoted_evidence_ids` because WhyYou `_restored_axes` drops entries without `rationale`.
+Exposure is recorded per mode in `storage-probe.json`; it is never an assertion and never changes the verdict.
+
+### ID-004-18 — Spec 004 cleanup-confirm lives in `engine/cli.py` (T050)
+
+Before T050 a block on `e01-citation-evidence`/`e02-scoring-freeze` fell through to the H-03 `fault.target_safe`
+probe (new test RED). `cleanup-confirm` now accepts a Spec 004 subject only when the block names a verified sealed
+parent of that profile in `RESTORE_FAILED`, and `spec004_mutation.target_safe` re-reads every recorded change
+injection read-only and finds its pre-change digest. `engine/execution.py` needed no change (the executor writes
+the block itself, as N-02 does). H-03 and N-02 cleanup paths are unchanged.
+
+### ID-004-19 — Removal restore order and step failures (T048)
+
+The removal is restored right after the POST_REMOVAL read (scenario step order), before the storage probe, and
+again in a `finally` if still applied. An adapter exception in a step is recorded as a step fact and leaves the
+dependent assertion INCONCLUSIVE; cancellation runs restores and teardown, then propagates. Reads past the Run
+deadline are skipped; restores and teardown are not. Only restore and teardown calls count toward the 120 s
+restore budget.

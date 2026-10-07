@@ -1,6 +1,7 @@
 """T042 — E-01 citation-path capability composition and readiness (FR-001).
 
-The mutation capabilities stay RUNNER_NOT_READY with an operator action until T047 composes them.
+T047 composes the mutation capabilities; criteria-version ones stay RUNNER_NOT_READY with an operator action
+until T055 composes them.
 """
 
 from __future__ import annotations
@@ -26,15 +27,16 @@ def test_citation_path_adapters_are_composed(settings) -> None:
         "spec004_requests",
         "spec004_records",
         "spec004_emissions",
+        "spec004_mutation",
     ):
         assert getattr(adapters, name) is not None, name
     # Spec 004 lanes never share the N-02 credential store.
     assert adapters.spec004_consent is not adapters.n02_consent
 
 
-def test_uncomposed_mutation_capability_names_an_operator_action(settings) -> None:
+def test_uncomposed_criteria_capability_names_an_operator_action(settings) -> None:
     adapters, _ = create_whyyou_adapter(settings)
-    result = adapters.capability.probe("evidence.segment.remove")
+    result = adapters.capability.probe("criteria.version.create")
     assert result.status is ReadinessStatus.RUNNER_NOT_READY
     assert result.operator_action
 

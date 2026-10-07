@@ -70,8 +70,8 @@ CAPABILITY_VERSIONS = {
     "consent.fault.inject": "v1",
     "consent.fault.receipt.read": "v1",
     "consent.fault.restore": "v1",
-    # Spec 004 (T042). Mutation and criteria-version probes stay RUNNER_NOT_READY until
-    # their adapters are composed (T047, T055).
+    # Spec 004 (T042, T047). Criteria-version and scoring-source probes stay RUNNER_NOT_READY
+    # until their adapters are composed (T055).
     "model.fixture.read": "v1",
     "spec004.lanes.seed": "v1",
     "spec004.lanes.teardown": "v1",

@@ -134,17 +134,17 @@ receipt가 없거나 다르면 INCONCLUSIVE인지 확인한다.
 
 ### Tests for User Story 2 — write first
 
-- [ ] T044 [P] [US2] Add mutation adapter contract tests: segment ownership and no cross-lane reference, delete affects one row, absence on a separate connection, reinsert digest equality, digest mismatch → `RESTORE_FAILED`, axis JSON write/restore touching only `axis_assessments`, foreign rows untouched, in `tests/contract/test_spec004_evidence_mutation_adapter.py` [FR-013, FR-020, FR-022, FR-041, EV4-09]
-- [ ] T045 [P] [US2] Add E01-A3/A4 judge tests: each of the four H-4 indicators PASS, unchanged score/citation FAIL (P1), unaffected item changed FAIL, POST_REMOVAL 5xx FAIL, removal unconfirmed or `unknown_fields` INCONCLUSIVE, A4 PASS/FAIL, restore failure precedence, D1 not affecting verdict or exit code, in `tests/unit/test_judge_e01_removal.py` [FR-013, FR-020~022, E01-A3, E01-A4, E01-D1]
-- [ ] T046 [P] [US2] Add restore integration tests: always-run restore on exception, timeout and cancellation; block on unsafe restore; restore budget counts only restore work (ID-003-19) in `tests/integration/test_e01_removal_restore.py` [FR-022, FR-041, SC-002]
+- [X] T044 [P] [US2] Add mutation adapter contract tests: segment ownership and no cross-lane reference, delete affects one row, absence on a separate connection, reinsert digest equality, digest mismatch → `RESTORE_FAILED`, axis JSON write/restore touching only `axis_assessments`, foreign rows untouched, in `tests/contract/test_spec004_evidence_mutation_adapter.py` [FR-013, FR-020, FR-022, FR-041, EV4-09]
+- [X] T045 [P] [US2] Add E01-A3/A4 judge tests: each of the four H-4 indicators PASS, unchanged score/citation FAIL (P1), unaffected item changed FAIL, POST_REMOVAL 5xx FAIL, removal unconfirmed or `unknown_fields` INCONCLUSIVE, A4 PASS/FAIL, restore failure precedence, D1 not affecting verdict or exit code, in `tests/unit/test_judge_e01_removal.py` [FR-013, FR-020~022, E01-A3, E01-A4, E01-D1]
+- [X] T046 [P] [US2] Add restore integration tests: always-run restore on exception, timeout and cancellation; block on unsafe restore; restore budget counts only restore work (ID-003-19) in `tests/integration/test_e01_removal_restore.py` [FR-022, FR-041, SC-002]
 
 ### Implementation for User Story 2
 
-- [ ] T047 [US2] Implement `EvidenceMutationAdapter` in `engine/adapters/whyyou/evidence_mutation.py` and compose the `evidence.segment.remove/restore` and `report.axes.probe_write/probe_restore` capabilities in `engine/adapters/whyyou/adapter.py`; E-01 preflight reaches 18/18 only after this task [FR-001, FR-013, FR-020, FR-022, EV4-09]
-- [ ] T048 [US2] Add removal, restore, storage-probe and probe-restore steps with always-run cleanup to `engine/executors/e01.py` [FR-013, FR-020~022, FR-041]
-- [ ] T049 [US2] Implement E01-A3/A4 and the E01-D1 diagnostic projection in `engine/judges/e01.py` [E01-A3, E01-A4, E01-D1]
-- [ ] T050 [US2] Extend `engine/execution.py` only where needed so an unsafe Spec 004 restore writes the block for subject `e01-citation-evidence`/`e02-scoring-freeze` and `cleanup-confirm` accepts matching read-only evidence; keep H-03/N-02 behavior [FR-022, FR-041, SC-002]
-- [ ] T051 [US2] Run T044~T046 and the implementation tests; record the removal gate in `specs/004-e01-e02-score-evidence/validation.md` [FR-020~022, E01-A3, E01-A4, EV4-05, EV4-09]
+- [X] T047 [US2] Implement `EvidenceMutationAdapter` in `engine/adapters/whyyou/evidence_mutation.py` and compose the `evidence.segment.remove/restore` and `report.axes.probe_write/probe_restore` capabilities in `engine/adapters/whyyou/adapter.py`; E-01 preflight reaches 18/18 only after this task [FR-001, FR-013, FR-020, FR-022, EV4-09]
+- [X] T048 [US2] Add removal, restore, storage-probe and probe-restore steps with always-run cleanup to `engine/executors/e01.py` [FR-013, FR-020~022, FR-041]
+- [X] T049 [US2] Implement E01-A3/A4 and the E01-D1 diagnostic projection in `engine/judges/e01.py` [E01-A3, E01-A4, E01-D1]
+- [X] T050 [US2] Extend `engine/execution.py` only where needed so an unsafe Spec 004 restore writes the block for subject `e01-citation-evidence`/`e02-scoring-freeze` and `cleanup-confirm` accepts matching read-only evidence; keep H-03/N-02 behavior [FR-022, FR-041, SC-002]
+- [X] T051 [US2] Run T044~T046 and the implementation tests; record the removal gate in `specs/004-e01-e02-score-evidence/validation.md` [FR-020~022, E01-A3, E01-A4, EV4-05, EV4-09]
 
 **Checkpoint**: 근거 제거·복원과 진단 노출을 판정할 수 있다. 실제 WhyYou 결과는 Phase 9를 기다린다.
 
