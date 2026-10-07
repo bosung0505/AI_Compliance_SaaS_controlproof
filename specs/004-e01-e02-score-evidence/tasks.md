@@ -28,10 +28,10 @@ description: "Spec 004 E-01·E-02 점수 근거·평가 기준 보존 검증의 
 
 **Purpose**: Spec 004 local/test 설정, 결정론 fixture와 구현 기록 뼈대를 준비한다.
 
-- [ ] T001 Add secret-free Spec 004 variable names (`CONTROLPROOF_MODEL_FIXTURE_ID=spec004-report-v1` example, shared observer root, scoring-source pin override disabled by default) to `.env.example` [FR-001, FR-003, FR-034]
-- [ ] T002 [P] Create deterministic builders for the six lanes, criterion markers and codes, emission receipts, citation cases, report record/read snapshots for every phase, change injections, version snapshots, frozen input sets, recompute records and PASS/FAIL/INCONCLUSIVE facts in `tests/fixtures/spec004.py` [FR-010~013, FR-020~022, FR-030~034, EV4-01~EV4-10]
-- [ ] T003 [P] Copy the WhyYou `eec8f70` scoring test cases from `../gbsa_aws/backend/tests/unit/reporting/test_weighted_scoring.py` into a data file `tests/fixtures/whyyou_scoring_vectors.json` with the source path and blob SHA in its header; read only, no WhyYou change [FR-033, FR-034]
-- [ ] T004 [P] Create implementation-time record templates (source SHAs, commands, sandbox diagnostics, Run IDs, manifest digests, conditional remediation) in `specs/004-e01-e02-score-evidence/validation.md` and `specs/004-e01-e02-score-evidence/implementation-decisions.md`; do not claim an unexecuted result [FR-050, SC-005]
+- [X] T001 Add secret-free Spec 004 variable names (`CONTROLPROOF_MODEL_FIXTURE_ID=spec004-report-v1` example, shared observer root, scoring-source pin override disabled by default) to `.env.example` [FR-001, FR-003, FR-034]
+- [X] T002 [P] Create deterministic builders for the six lanes, criterion markers and codes, emission receipts, citation cases, report record/read snapshots for every phase, change injections, version snapshots, frozen input sets, recompute records and PASS/FAIL/INCONCLUSIVE facts in `tests/fixtures/spec004.py` [FR-010~013, FR-020~022, FR-030~034, EV4-01~EV4-10]
+- [X] T003 [P] Copy the WhyYou `eec8f70` scoring test cases from `../gbsa_aws/backend/tests/unit/reporting/test_weighted_scoring.py` into a data file `tests/fixtures/whyyou_scoring_vectors.json` with the source path and blob SHA in its header; read only, no WhyYou change [FR-033, FR-034]
+- [X] T004 [P] Create implementation-time record templates (source SHAs, commands, sandbox diagnostics, Run IDs, manifest digests, conditional remediation) in `specs/004-e01-e02-score-evidence/validation.md` and `specs/004-e01-e02-score-evidence/implementation-decisions.md`; do not claim an unexecuted result [FR-050, SC-005]
 
 ---
 
@@ -44,13 +44,16 @@ description: "Spec 004 E-01·E-02 점수 근거·평가 기준 보존 검증의 
 
 ### Foundation tests — write first and confirm failure
 
-- [ ] T005 [P] Add model tests for both profiles, `E01LaneId`/`E02LaneId`, `LaneCriterion` rules (matrix code order, `OTHER_APPLICANT` argument provenance, absent `NONEXISTENT` UUID, mandatory E-02 scores), `ModelEmissionReceipt`, `CitationCase`, report record/read snapshots, `ChangeInjection` lifecycle, `CriteriaVersionSnapshot`, `FrozenInputSet` and `RecomputeRecord` in `tests/unit/test_models_spec004.py` [FR-002, FR-012, FR-020~022, FR-030~034, FR-041]
-- [ ] T006 [P] Add scenario v4 contract tests for both canonical profiles: assertion/diagnostic IDs, per-profile EV4 subsets, lanes, capability sets (18 and 16), ordered steps, always-run set, timing values, single allowed fixture, `scoring-source-pinned` precondition and rejection of forbidden steps; v1/v2/v3 loading unchanged in `tests/contract/test_scenario_profile_v4.py` [FR-040, FR-043, SC-003]
-- [ ] T007 [P] Add bundle-profile tests for `controlproof.bundle-profile.spec004.v1`: required files per profile, EV4 mapping, missing/unregistered/tampered files, Spec 001~003 bundles still verifying in `tests/contract/test_bundle_profile_spec004.py` [FR-042, SC-004, EV4-01~EV4-10]
-- [ ] T008 [P] Add CLI/profile registry tests for `PROFILE_REQUIRED`/`PROFILE_MISMATCH` on E-01/E-02, registry dispatch, unchanged H-03/E-03/N-02 selection, and non-READY preflight leaving no Run directory, subject row, version or report request in `tests/contract/test_cli_spec004_profile.py` [FR-001, FR-043]
-- [ ] T009 [P] Add scoring-copy tests against `tests/fixtures/whyyou_scoring_vectors.json` plus `None` exclusion, zero weight total, missing axis key = 1.0, communication-separated config, zero denominator and the H-2 boundary cases 72.5→72 and 73.5→74 in `tests/unit/test_e02_scoring_copy.py` [FR-033, FR-034, E02-A3]
-- [ ] T010 [P] Extend the security corpus with report summary/observation/rationale/uncertainty/follow-up text, question/answer/transcript text, criterion description body, playback URL and Idempotency-Key in `tests/unit/test_redaction_security.py` [FR-042, SC-004]
-- [ ] T011 [P] Extend `tests/contract/test_package_layout.py` to load the new Spec 004 modules and add `tests/integration/test_spec003_v3_regression.py` proving the sealed N-02 fixtures and profile still execute and verify unchanged [FR-043]
+- [X] T005 [P] Add model tests for both profiles, `E01LaneId`/`E02LaneId`, `LaneCriterion` rules (matrix code order, `OTHER_APPLICANT` argument provenance, absent `NONEXISTENT` UUID, mandatory E-02 scores), `ModelEmissionReceipt`, `CitationCase`, report record/read snapshots, `ChangeInjection` lifecycle, `CriteriaVersionSnapshot`, `FrozenInputSet` and `RecomputeRecord` in `tests/unit/test_models_spec004.py` [FR-002, FR-012, FR-020~022, FR-030~034, FR-041]
+- [X] T006 [P] Add scenario v4 contract tests for both canonical profiles: assertion/diagnostic IDs, per-profile EV4 subsets, lanes, capability sets (18 and 16), ordered steps, always-run set, timing values, single allowed fixture, `scoring-source-pinned` precondition and rejection of forbidden steps; v1/v2/v3 loading unchanged in `tests/contract/test_scenario_profile_v4.py` [FR-040, FR-043, SC-003]
+- [X] T007 [P] Add bundle-profile tests for `controlproof.bundle-profile.spec004.v1`: required files per profile, EV4 mapping, missing/unregistered/tampered files, Spec 001~003 bundles still verifying in `tests/contract/test_bundle_profile_spec004.py` [FR-042, SC-004, EV4-01~EV4-10]
+- [X] T008 [P] Add CLI/profile registry tests for `PROFILE_REQUIRED`/`PROFILE_MISMATCH` on E-01/E-02, registry dispatch, unchanged H-03/E-03/N-02 selection, and non-READY preflight leaving no Run directory, subject row, version or report request in `tests/contract/test_cli_spec004_profile.py` [FR-001, FR-043]
+- [X] T009 [P] Add scoring-copy tests against `tests/fixtures/whyyou_scoring_vectors.json` plus `None` exclusion, zero weight total, missing axis key = 1.0, communication-separated config, zero denominator and the H-2 boundary cases 72.5→72 and 73.5→74 in `tests/unit/test_e02_scoring_copy.py` [FR-033, FR-034, E02-A3]
+- [X] T010 [P] Extend the security corpus with report summary/observation/rationale/uncertainty/follow-up text, question/answer/transcript text, criterion description body, playback URL and Idempotency-Key in `tests/unit/test_redaction_security.py` [FR-042, SC-004]
+- [X] T011 [P] Extend `tests/contract/test_package_layout.py` to load the new Spec 004 modules and add `tests/integration/test_spec003_v3_regression.py` proving the sealed N-02 fixtures and profile still execute and verify unchanged [FR-043]
+
+T005~T011 RED tests are strict `xfail` with the intended exception (ID-004-01); each reason names the task that
+removes its marker in the same change that turns it green. 113 RED, 15 new guards PASS (`validation.md`).
 
 ### Foundation implementation
 
@@ -76,16 +79,16 @@ description: "Spec 004 E-01·E-02 점수 근거·평가 기준 보존 검증의 
 
 **Independent Test**: WhyYou 단위 시험만으로 다섯 모드, 표식 없음 = `h03-report-v1`, 세션 경계 기억, receipt를 검증한다.
 
-- [ ] T022 [WY] Create `yeonwoo/controlproof-e01-e02-fixture` from `eec8f70` in `../gbsa_aws`, confirm clean state and record branch/HEAD in `specs/004-e01-e02-score-evidence/validation.md` [FR-001]
+- [X] T022 [WY] Create `yeonwoo/controlproof-e01-e02-fixture` from `eec8f70` in `../gbsa_aws`, confirm clean state and record branch/HEAD in `specs/004-e01-e02-score-evidence/validation.md` [FR-001]
 T023~T025 edit the same WhyYou test file, so run them in order (not in parallel). They can run alongside Phase 2.
 
-- [ ] T023 [WY] Add failing tests for marker parsing, the five modes, `score=`, no marker = `h03-report-v1` output, empty answers, `MARKER_INVALID`, unknown fixture ID startup rejection and unchanged `h03-report-v1` digest in `../gbsa_aws/backend/tests/unit/runtime/test_controlproof_model_substitute.py` [FR-010, FR-012, SC-007]
-- [ ] T024 [WY] Add failing tests for `OTHER_CRITERION` memory in the same test file: same-call UUIDv7 timestamp guard, refusal across calls (`MODE_SOURCE_MISSING`), 256-entry bound, and `OTHER_APPLICANT` using only the marker argument, never memory [FR-012]
-- [ ] T025 [WY] Add failing tests for emission receipts in the same test file: fields, atomic write under `{observer_root}/model/`, no write without observer root, write failure not blocking the response, no question/answer/criterion text [FR-010, FR-042]
-- [ ] T026 [WY] Implement fixture `spec004-report-v1` (identity/digest, marker parser, modes, scores, bounded memory with timestamp guard, health fixture reporting) in `../gbsa_aws/backend/src/interview_evidence/runtime/controlproof_model_substitute.py` [FR-010, FR-012, SC-007]
-- [ ] T027 [WY] Implement the emission receipt writer in the same file [FR-010, FR-042]
-- [ ] T028 [WY] Run the scoped WhyYou tests, the `backend/tests/unit/reporting` and `backend/tests/unit/runtime` suites and `ruff check` on changed files; record counts and the known pre-existing failure in `specs/004-e01-e02-score-evidence/validation.md` [FR-010]
-- [ ] T029 [WY] Push the branch to remote `fork` and open a PR with base `bosung/controlproof-n02-integration`; record PR number and head SHA in `specs/004-e01-e02-score-evidence/validation.md`. Merging is the reviewer's decision; Phases 8~9 use the PR head or the merged base, whichever the reviewer designates [Dependencies]
+- [X] T023 [WY] Add failing tests for marker parsing, the five modes, `score=`, no marker = `h03-report-v1` output, empty answers, `MARKER_INVALID`, unknown fixture ID startup rejection and unchanged `h03-report-v1` digest in `../gbsa_aws/backend/tests/unit/runtime/test_controlproof_model_substitute.py` [FR-010, FR-012, SC-007]
+- [X] T024 [WY] Add failing tests for `OTHER_CRITERION` memory in the same test file: same-call UUIDv7 timestamp guard, refusal across calls (`MODE_SOURCE_MISSING`), 256-entry bound, and `OTHER_APPLICANT` using only the marker argument, never memory [FR-012]
+- [X] T025 [WY] Add failing tests for emission receipts in the same test file: fields, atomic write under `{observer_root}/model/`, no write without observer root, write failure not blocking the response, no question/answer/criterion text [FR-010, FR-042]
+- [X] T026 [WY] Implement fixture `spec004-report-v1` (identity/digest, marker parser, modes, scores, bounded memory with timestamp guard, health fixture reporting) in `../gbsa_aws/backend/src/interview_evidence/runtime/controlproof_model_substitute.py` [FR-010, FR-012, SC-007]
+- [X] T027 [WY] Implement the emission receipt writer in the same file [FR-010, FR-042]
+- [X] T028 [WY] Run the scoped WhyYou tests, the `backend/tests/unit/reporting` and `backend/tests/unit/runtime` suites and `ruff check` on changed files; record counts and the known pre-existing failure in `specs/004-e01-e02-score-evidence/validation.md` [FR-010]
+- [X] T029 [WY] Push the branch to remote `fork` and open a PR with base `bosung/controlproof-n02-integration`; record PR number and head SHA in `specs/004-e01-e02-score-evidence/validation.md`. Merging is the reviewer's decision; Phases 8~9 use the PR head or the merged base, whichever the reviewer designates [Dependencies]
 
 **Checkpoint**: 인용 모드 fixture가 단위 시험으로 검증되고 PR이 열려 있다. 제품 코드 변경 없음.
 

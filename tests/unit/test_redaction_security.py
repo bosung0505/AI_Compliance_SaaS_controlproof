@@ -64,6 +64,36 @@ def test_uuid_is_not_corrupted_by_phone_redaction(value):
     assert redact(value) == value
 
 
+# T010 (Spec 004): report, interview and criterion free text must never reach a bundle in clear; Spec 004
+# projections carry `*_sha256` and `*_length` instead (FR-042). The raw-field names below are the ones a
+# Spec 004 projection must never carry. Generic keys such as `summary`/`rationale` are deliberately not
+# listed: existing judgement artifacts use them for ControlProof's own wording. RED until T018 extends
+# `redact` (strict xfail, ID-004-01).
+@pytest.mark.xfail(strict=True, raises=AssertionError, reason="RED until T018 redacts Spec 004 text fields")
+@pytest.mark.parametrize(
+    "payload,forbidden",
+    [
+        ({"report_summary": "합성 보고서 요약 원문"}, "합성 보고서 요약 원문"),
+        ({"item_observation": "합성 관찰 원문"}, "합성 관찰 원문"),
+        ({"axis_rationale": "합성 축 사유 원문"}, "합성 축 사유 원문"),
+        ({"item_uncertainty": "합성 불확실성 원문"}, "합성 불확실성 원문"),
+        ({"follow_up_question": "합성 후속 질문 원문"}, "합성 후속 질문 원문"),
+        ({"question_text": "합성 질문 원문"}, "합성 질문 원문"),
+        ({"transcript_text": "합성 자막 원문"}, "합성 자막 원문"),
+        ({"criterion_description": "[controlproof-spec004 mode=VALID] 합성 기준 설명"}, "합성 기준 설명"),
+        ({"playback_url": "http://localhost:4566/media/final.mp4"}, "final.mp4"),
+    ],
+)
+def test_spec004_free_text_corpus_is_redacted(payload, forbidden):
+    serialized = json.dumps(redact(payload), ensure_ascii=False)
+    assert forbidden not in serialized
+
+
+def test_spec004_text_digests_survive_redaction():
+    digests = {"summary_sha256": "7" * 64, "summary_length": 32, "rationale_sha256": "8" * 64}
+    assert redact(digests) == digests
+
+
 def test_full_database_projection_is_not_persisted_as_an_allowlisted_effect():
     projected = redact(
         {
