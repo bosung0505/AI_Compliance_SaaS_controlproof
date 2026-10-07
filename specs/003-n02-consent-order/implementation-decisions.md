@@ -534,3 +534,15 @@ Safe-state proof must be specific to the blocked N-02 Run and subject: owned con
   false A5 PASS from a fixture strategy counted as a result (fixed); Run 8 `6b53b1b1-…` A5
   `INCONCLUSIVE`, A3/A6/A7 FAIL; Run 9 `405f62b6-…` with T082: A1~A4 and A6 PASS, A5/A7
   `INCONCLUSIVE`, restore SUCCEEDED, bundle `VERIFIED`, verdict `INCONCLUSIVE`.
+
+## T090 — Conditional branches and the verdict distinction
+
+| Task | Outcome | Evidence |
+|---|---|---|
+| T080 | Done: every parent FAIL classified (ID-003-09~18); A4~A7 of the parent were runner/observer defects, the recording and assessment boundary gaps surfaced later on the sandbox target and child | this document, `validation.md` |
+| T081 | `NOT_REQUIRED`: document path denied before consent in parent and child (A2 PASS) | parent and child `assertions.json` |
+| T082 | `REQUIRED` and done: `authorize_start` checked no consent; consent check added on the WhyYou personal branch (`be81ebc`) | sandbox Runs 7~8, child A3/A6 PASS |
+| T083 | `REQUIRED` and done: report handler started assessment without consent; refusal receipt and consent check added (PR #5) | attempt 2 receipts, child A4/A6 PASS |
+| T084 | Done: child `7b59237e-0a96-403a-9add-28b91011e950` COMPLETED/VERIFIED | Run ledger |
+
+Implementation verdict: the N-02 runner, judge, verifier and bundle contract are complete for this profile; every known runner defect found by actual Runs is fixed and regression-tested (484 tests). Target verdict for WhyYou at `be81ebc`: consent gates hold on all three protected boundaries after T082/T083, failed consent is atomic and recoverable; the consented processing order is proven for recording and assessment and remains `INCONCLUSIVE` for document analysis because the isolated target cannot complete LLM analysis. Nothing here certifies N-01, N-03, AWS or legal compliance.
