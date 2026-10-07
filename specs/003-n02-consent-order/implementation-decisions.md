@@ -5,9 +5,11 @@
 - Implementation foundation: in progress
 - Initial actual N-02 Run: `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`, sealed and `VERIFIED`; overall `RESTORE_FAILED` / `INCONCLUSIVE`
 - Evidence-gated product remediation: T083 and T082 `REQUIRED` and implemented as WhyYou patches on
-  a personal branch (PR #5 for T083); no valid child Run yet (attempt 2 `INVALID`/`RESTORE_FAILED`).
-  Sandbox diagnostic Runs with every fix applied reach A1~A4 and A6 PASS and A5/A7 `INCONCLUSIVE`
-  (ID-003-18); T084 attempt 3 is next
+  a personal branch (PR #5). T084 attempt 3 child `7b59237e-0a96-403a-9add-28b91011e950` is the
+  evidence-backed child: `COMPLETED`, `VERIFIED`, verdict `INCONCLUSIVE` with A1~A4 and A6 PASS and
+  A5/A7 `INCONCLUSIVE` (the isolated target cannot produce the document analysis result). The
+  product verdict is therefore: consent gates hold on all three boundaries after T082/T083; the
+  consented processing order is proven for recording and assessment and unproven for documents
 
 This log records implementation choices that cannot be inferred from Tasks alone.
 The first actual Run is sealed. A direct assertion FAIL is a preserved observation,
@@ -86,7 +88,7 @@ not by itself proof that a WhyYou product boundary accepted processing.
 | T081 | document analysis | Yes | `NOT_REQUIRED` proposed; parent A2 PASS (ID-003-09) |
 | T082 | recording | Yes | `REQUIRED` (implementer judgment, delegated 2026-10-07): sandbox Runs created sessions for unconsented applicants once the strategy fixture was valid; `authorize_start` never checked consent. WhyYou patch on the personal branch (ID-003-18) |
 | T083 | AI assessment/reporting | Yes | `REQUIRED` (review relayed by the operator on 2026-10-05): attempt 2 start receipts for unconsented subjects; WhyYou patch on a personal branch (ID-003-17); child confirmation pending |
-| T084 | child retest or parent reverify | Yes | No valid child yet: attempt 1 aborted before sealing (ID-003-11, ID-003-12); attempt 2 sealed `INVALID`/`RESTORE_FAILED` (ID-003-13~16); runner fixes complete, attempt 3 next (ID-003-18) |
+| T084 | child retest or parent reverify | Yes | No valid child yet: attempt 1 aborted before sealing (ID-003-11, ID-003-12); attempt 2 sealed `INVALID`/`RESTORE_FAILED`; attempt 3 child `7b59237e-…` `COMPLETED`/`VERIFIED`, `INCONCLUSIVE` (A1~A4, A6 PASS; A5/A7 `INCONCLUSIVE`) |
 
 ### ID-003-03 — First Run root-cause audit remains open
 
