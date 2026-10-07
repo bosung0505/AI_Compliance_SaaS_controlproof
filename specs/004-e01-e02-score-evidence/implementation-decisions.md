@@ -352,3 +352,38 @@ embedder object. Fix `77df3137aaf61003d4679f20276333b5eac2c290` merged into `bos
 at `ce8d8620d2b2fec7f448ae312cf13334b408c01a`; main unchanged. See validation continuation for commands and limits.
 This closes the wiring change, not SD-2/SD-3 or an actual E-02 verdict: T074/T075 remain pending, official Runs
 remain NOT_RUN. ID-004-30 / P1 and ID-004-31 are unchanged.
+
+## Phase 8 continuation decisions (2026-10-07)
+
+### ID-004-31 — Update: Run-owned report and search projection cleanup (CONFIRMED, resolved)
+
+T078 adds transactionally scoped deletion of worker-created reports whose company/session IDs come from the
+adapter's stored Run seed rows, before the FK-catalog seed walk. Report FK descendants and the no-FK
+`assistant_retrieval_documents` projections are deleted only for those company/report IDs. No caller-supplied
+unregistered session is a deletion root. Failure preserves rows, ownership and credential entries for retry.
+RED first, then transaction-backed ownership/rollback tests and real PostgreSQL E-01/E-02 zero-residue checks
+PASS (validation continuation). Other-Run/company data and protected position/version digests survive.
+Historical residue was handled separately by artifact-owned IDs; sealed evidence was not rewritten.
+
+### ID-004-32 — Contribution order is presentation, criterion identity is the comparison key (CONFIRMED)
+
+Live SD-2 exposed equal keyed values in different array orders. T078 compares only `scoring_inputs.criteria`
+and API `scoring_breakdown.contributions` by unique string criterion_id, checking every field/value with the
+existing exact integer and 1e-9 float rules. Missing/duplicate/wrong IDs and changed values still FAIL; raw
+observed order is preserved. Other arrays keep positional equality. FR-033 arithmetic and pinned rule-copy
+blobs are unchanged. New recompute records declare `CRITERION_ID_V2`; absent policy means `POSITIONAL_V1`,
+unknown policy is invalid. The verifier applies the declared rule only to the two named field/target pairs.
+This keeps the original positional FAIL bundle VERIFIED unchanged. The intermediate judge/verifier mismatch
+bundle stays INVALID; a new diagnostic proves the corrected judge+verifier together. RED/GREEN and live
+source/manifest mapping are in validation. This is runner comparison alignment, not a relaxed score verdict.
+
+### ID-004-33 — Synthetic recording locator follows the tenant contract (CONFIRMED)
+
+SD-1 supporting timeline GET returned 500: the synthetic `controlproof/{asset_id}` key violated WhyYou's
+existing tenant prefix guard. Change only the seed recording key and its matching transcript audio key to
+`companies/{company_id}/controlproof/{asset_id}`. The IDs remain Run/lane-owned; no real media upload or
+WhyYou product change is needed. Existing seed test gains tenant-prefix and audio/video-link assertions;
+EXPECTED RED then scoped GREEN. New diagnostic timeline reads are 200 with 2/1/2 entries across removal and
+restore. ID-004-28 is now measured; its error visibility behavior remains. P1/E01-A3 FAIL remains unchanged,
+and ID-004-30 stays PROPOSED until the first official E-01 result is sealed. See validation for preserved 500
+bundle and new Run. These changes stay in the T035/T036/T018/T058/T067 owning files under T078.

@@ -2,12 +2,10 @@
 
 ## Current status
 
-- Workflow stage: Implement T001~T071 done (Phases 1~7 and the Phase 8 retest machinery); Phase 8 diagnostics T072,
-  T073, T076, T077 recorded; ID-004-29 option (a) merged, T074/T075 re-diagnostics pending; T078 partial.
-  Next task: T074.
+- Workflow stage: Implement T001~T071 done; Phase 8 T072~T078 complete (diagnostic only). Next: T079, fresh preflights on clean committed sources; T080/T081 require approval.
 - WhyYou local/test fixture (Phase 3, T022~T029): PR jhkim0602/gbsa_aws#6 reviewed, fixed and merged into `bosung/controlproof-n02-integration` at `42aaaba206ced4288c8ee477b73f5f1ccf078bf3`; main unchanged.
-- Latest WhyYou integration head: `ce8d8620d2b2fec7f448ae312cf13334b408c01a` (PR #7, ID-004-29 report-embedder wiring); diagnostic report generation has not yet been rechecked.
-- Sandbox diagnostics: partial, diagnostic only (see "Sandbox diagnostics"). Actual E-01/E-02 Runs: none (`NOT_RUN`).
+- Latest WhyYou integration head: `ce8d8620d2b2fec7f448ae312cf13334b408c01a` (PR #7, ID-004-29 report-embedder wiring); live E-02 diagnostic report generation and cleanup confirmed (see Phase 8 continuation below).
+- Sandbox diagnostics: complete. E-02 A1~A3 PASS; E-01 A1/A2/A4 PASS, A3 FAIL (P1). Diagnostic results do not replace official verdicts. Actual E-01/E-02 Runs: none (`NOT_RUN`).
 - AWS: `NOT_RUN`
 - Claim scope: `EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`
 
@@ -343,3 +341,103 @@ repositories before continuing; read this review entry with the corrected fixtur
   **NOT_RUN**. T074/T075 must confirm live diagnostic behavior; ID-004-31 / T078 remains open. ID-004-30 / P1
   product correction remains PROPOSED until the first official E-01 result is sealed. Main and existing evidence
   were not modified. Historical handoff and diagnostic entries above describe their original checkpoints.
+
+## Phase 8 continuation — SD-2/SD-3 and runner corrections (2026-10-07)
+
+T074/T075/T078 complete; **diagnostic only**. Official E-01/E-02 and AWS remain **NOT_RUN**.
+WhyYou source for every Run below: `ce8d8620d2b2fec7f448ae312cf13334b408c01a`, clean clone of
+`bosung/controlproof-n02-integration`. No WhyYou source/product change in this continuation.
+ControlProof branch: `yeonwoo/004-e01-e02-score-evidence`; clean committed sources per row below.
+
+### Isolation and execution
+
+- Fresh dedicated project `controlproof-spec004-sd-20261007`: PostgreSQL 16+pgvector (loopback 15434),
+  Moto S3/SQS (loopback 14567), WhyYou API (loopback 18084), four actual worker children. Existing WhyYou DB,
+  containers, `.env` and original untracked evidence were preserved. Fixed `spec004-report-v1` and synthetic
+  credentials only; external AI disabled, provider endpoints loopback. No real AWS/GCP keys used.
+- Moto image pinned to `motoserver/moto@sha256:91fd602a21f49cf9eb82fdf474015a3c131d40104c8297ea6a2ca920708ae32c`.
+  Migration + local infrastructure bootstrap succeeded; API `/v1/me` 200. Clean clone avoids changing or hiding
+  the original checkout's untracked evidence. The separate diagnostic root is outside either Git repository.
+- Preflight E-02 READY **16/16**, scoring source **MATCH**; E-01 READY **18/18**. These are diagnostic-source
+  preflights, not the final T079 record. Standard target ID remains `whyyou-local`; separation is by DB,
+  processes and roots. An initial harness-only noncanonical ID gave 15/16 and was corrected before any Run.
+- Harness commands: `sandbox.py init`, `start`, `bootstrap`, `preflight E-02`, `preflight E-01`,
+  `diagnostic E-02` (three Runs), `diagnostic E-01` (two Runs), and `verify <Run ID>`.
+  They call `python -m engine.cli run/preflight E-0N --profile <canonical profile> --target whyyou-local --json`;
+  diagnostic Runs additionally use `--label diag-sd-post-embedder-cleanup` and an isolated Run root.
+  API startup was retried after one connection refusal. Windows stdout decoding was corrected to UTF-8;
+  a missing JSON line after a CLI error caused StopIteration in the scratch harness, corrected with durable
+  sentinel ownership journaling and exit cleanup. None of these alter sealed evidence.
+
+### Immutable diagnostic ledger
+
+| Run ID | Scenario / ControlProof source | Result / bundle | Journey seconds (budget 540) | Manifest SHA-256 |
+|---|---|---|---:|---|
+| `5faf7349-dc83-4926-a817-2ebe354f9e4a` | E-02 / `517ff3f8f37e58345b36c9a6ec09e2836b3f874f` | FAIL / VERIFIED (including reverify after policy fix) | 25.038276 | `499d785f42e2bc9ea1986f4af07aa886b875c9204a9f54f10e2d36c24f7563a6` |
+| `571892e5-179d-41b9-8989-19af3f987d69` | E-02 / `613d172ebefaeb2c1fa32051e775ec64c9de389d` | judgement PASS / INVALID; CLI exit 1, verify exit 5 (never a verified PASS) | 23.772613 | `aaf455562994e52bcf3af3d91f6e1673e8fb62bbbdde849d92c77cac8ac9ef01` |
+| `e637f455-c480-412a-87fa-fca6ac8fcde2` | E-02 / `0629fc48dc6781798b9adabe6bdbd99ad96895bd` | PASS / VERIFIED | 23.610941 | `67c786a964a08899bae66253ae8195815b94957aeff697348a06d73f626b9b59` |
+| `0ca479ca-498d-4c44-a72a-7871adc8d8ef` | E-01 / `0629fc48dc6781798b9adabe6bdbd99ad96895bd` | FAIL / VERIFIED; timeline 500 | 34.613072 | `5f2a4686ba09d8aa3c5ec95ce0fad29ddeb632454aaa180be65c2dc2cf3e0a8d` |
+| `9855c988-af83-4348-a9a4-da13aadb783d` | E-01 / `8a6ee1b341dd217f569427852ea8602ed59f666a` | FAIL / VERIFIED; timeline 200 | 27.605838 | `00792998c69c8d69e7b50333f8414f6cf3b970237a66c733fc2e65e0c5712d4c` |
+
+- First E-02: A1/A2 PASS, A3 FAIL. Values were equal by criterion ID, but stored/API contribution arrays had
+  different orders. Preserve that FAIL and its positional comparison evidence. Reverification with the final
+  verifier remains VERIFIED; no file in that bundle changed.
+- Second E-02: judge used keyed comparison, but verifier still used positional comparison. Its sealed bundle
+  is INVALID (despite PASS in judgement.json); retained without relabelling or editing. The next Run uses an
+  explicit comparison policy version and verifies. This is a runner failure, not a WhyYou PASS claim.
+- Final E-02: A1/A2/A3 PASS. Product API published v1 then v2; the second report uses v2 ID/weights. Recompute:
+  72.5 → 72 and 73.5 → 74 (Python banker rounding, denominator 1). The first report ID/state digest and frozen
+  inputs are identical before/after v2 publish. Stored score and API integer score comparisons remain exact;
+  float tolerance remains 1e-9. Only criteria/contributions arrays compare by unique criterion_id; missing,
+  duplicate or substituted IDs, changed fields/values and other ordered lists are not relaxed (ID-004-32).
+- Final E-01: A1/A2/A4 PASS, A3 FAIL. D1 remains diagnostic only. After tenant-scoped media seed correction,
+  timeline GETs are 200 with 2 → 1 → 2 entries (remove/reinsert). Report GET stays 200 and its citing scores
+  remain visible after segment removal: P1 persists. No pre-fix to WhyYou; ID-004-30/T085 still PROPOSED,
+  conditional on the first sealed official result. Prior 500 responses remain visible in the prior bundle.
+- All five diagnostic restores SUCCEEDED. Final E-02 restore 0.204463 s, internal bundle verify 0.276615 s,
+  independent verify 2.000 s; command wall 32.141 s. Final E-01 restore 0.488300 s, internal verify 0.268086 s,
+  independent verify 1.875 s; command wall 33.859 s. All satisfy 120/60/540/600-second limits.
+
+### Cleanup and preservation evidence
+
+- ID-004-31: reports have no FK to session; assistant search projections also have no FK to report. Delete only
+  reports for registered Run-owned company/session IDs, their FK dependents and company/report-scoped search
+  projections, in the seed teardown transaction. Failure rolls back all rows and preserves ownership/credentials
+  for retry. Other-company and other-Run report data survive the contract test.
+- Live checks show zero `reports`, `report_items`, `evidence`, `assistant_retrieval_documents`, `positions`,
+  `competency_model_versions`, `interview_sessions` after final maintenance. Protected non-Run position/version
+  digests match before/after both scenarios; each newly journalled sentinel teardown succeeds.
+- The first two diagnostic Runs left 12 search projections before the projection fix. Maintenance removed only
+  those four artifact-owned report IDs with company scope; manifest bytes stayed unchanged. A scratch-harness
+  interruption left one synthetic sentinel (outside tested Runs); ownership was recovered from its full UUID
+  in the synthetic position title, deterministic IDs and synthetic email, then its seed alone was torn down.
+  Two scratch rehydration attempts returned SEED_NOT_OWNED without DB changes before registration was corrected.
+- Raw records and bundles remain local at workspace `.pr-review/20261007/spec004-sandbox/`:
+  `archive/spec004-diagnostics/`, `step2-final-audit.json`, `owned-orphan-cleanup.json`,
+  `interrupted-sentinel-cleanup.json`, `sentinel-*.json`, command stdout/stderr/result journals. No new raw
+  evidence, credentials or synthetic environment secrets are committed. Cleanup record hashes:
+  `owned-orphan-cleanup.json` = `b28c41d336716c947f88e569a2babdbdfa123ac4fdfb0f3c9a5a6f9d159b3964`;
+  `interrupted-sentinel-cleanup.json` = `d5ff90ae174f335e9a79915330f7ad8bda61bae99f96abe2cdabd8e2615f8cd9`.
+- After diagnostics, the 14 owned API/worker process-tree members and only the dedicated Docker project were
+  stopped. DB volume, containers, logs, harness and evidence remain. Restart using that project's compose up,
+  `sandbox.py init` (recreates in-memory Moto infrastructure), `start`, `bootstrap` before fresh preflights.
+
+### Tests and gates (ControlProof .venv Python)
+
+| Command / scope | Result |
+|---|---|
+| Seed cleanup tests before implementation (two new cases in `test_spec004_seed_adapter.py`) | EXPECTED RED: 2 failed; Run-owned reports remained, injected report-delete failure was never reached. Two initial fixture setup errors were corrected before meaningful RED. |
+| Seed + E-02 orchestration + Spec 004 orchestration | 22 passed |
+| Contribution-order tests (`test_judge_e02.py -k contribution`) before keyed fix | EXPECTED RED: 2 failed, 8 passed, 9 deselected; reordered equivalent arrays failed; eight corruption cases remained FAIL. |
+| Judge / scoring-copy / E-02 orchestration / bundle links | 53 passed |
+| Versioned bundle tests (five new cases in `test_spec004_bundle_links.py`) before verifier fix | EXPECTED RED: 1 failed, 4 passed, 8 deselected; valid keyed record rejected by positional verifier. |
+| Search-projection teardown tests before projection fix | EXPECTED RED: 2 failed, 8 deselected; orphan projection remained. |
+| `pytest tests/contract/test_spec004_seed_adapter.py tests/unit/test_judge_e02.py tests/unit/test_e02_scoring_copy.py tests/integration/test_spec004_bundle_links.py tests/contract/test_bundle_profile_spec004.py -q` | 71 passed (17.10 s) |
+| Tenant media seed test before fix (`test_spec004_seed_adapter.py -k seed_question`) | EXPECTED RED: 1 failed, 9 deselected; media key outside company prefix. |
+| `pytest tests/contract/test_spec004_seed_adapter.py tests/integration/test_spec004_orchestration.py -q` | 14 passed (3.79 s); preceding command had one nonexistent test path and ran no tests, then corrected. |
+| `python -m pytest -q` at final source `8a6ee1b` | **793 passed** (289.49 s). Earlier full-suite attempt was interrupted before completion when the live timeline seed defect was identified; no result claimed for it. One complete Phase 8 full regression. |
+| `python -m ruff check .`; `git diff --check` | PASS |
+
+Next: **T079** on newly committed clean sources, then separately approved initial official T080/T081,
+source/result freeze T082 and evidence-based classification/remediation T083~T090, then Phase 10 closure.
+Spec 004 is **not Complete**. No main changes, checkpoint rewrites or official Runs occurred in this step.

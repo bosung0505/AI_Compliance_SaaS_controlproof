@@ -35,7 +35,7 @@ without actual validation or an explicit truthful non-execution status. Update V
 ## Repository safety
 
 - ControlProof feature work stays on its feature branch.
-- WhyYou integration uses `jhkim0602/gbsa_aws` branch `bosung/controlproof-n02-integration` (`42aaaba`) or a personal
+- WhyYou integration uses `jhkim0602/gbsa_aws` branch `bosung/controlproof-n02-integration` (`ce8d862`) or a personal
   branch based on it. Never commit or push ControlProof work directly to WhyYou `main`.
 - Inspect both repositories' branch, HEAD and dirty state before an actual Run.
 - Never commit `.env`, credentials, production data, `.controlproof/`, or `runs/`.
@@ -47,11 +47,9 @@ without actual validation or an explicit truthful non-execution status. Update V
 
 ## Current next feature
 
-Spec 004 is E-01·E-02: AI scores must not be stored or shown without valid evidence, and a report must freeze its
-scoring inputs so later criteria changes cannot restate it. Work on ControlProof branch `004-e01-e02-score-evidence`
-against WhyYou `bosung/controlproof-n02-integration` (`42aaaba`, fixture PR #6 merged). Tasks T001~T071 are implemented
-and Phase 8 diagnostics T072, T073, T076, T077 are recorded (diagnostic, not official). The next task is T074: E-02
-diagnostics are blocked until the WhyYou report-embedder fix in ID-004-29 is merged, which is also a precondition of the
-official E-02 Run. Official E-01/E-02 Runs are `NOT_RUN`. Start from the "세션 인계" section of the Spec 004 validation.
-Use every artifact under `specs/004-e01-e02-score-evidence/` and the Spec 004 source baseline. Do not pre-fix a suspected
-WhyYou report-read defect (prediction P1) before sealing the first factual actual-Run result.
+Spec 004 is E-01·E-02: scores require valid evidence and reports freeze scoring inputs. Active ControlProof
+branch is `yeonwoo/004-e01-e02-score-evidence`; WhyYou is `bosung/controlproof-n02-integration` (`ce8d862`, PR #7
+merged). T001~T078 complete, including Phase 8 diagnostics and runner corrections (ID-004-31~33). Diagnostic
+E-02 A1~A3 PASS; E-01 A1/A2/A4 PASS and A3 FAIL (P1). Official E-01/E-02 and AWS remain `NOT_RUN`. Next T079:
+fresh preflights on clean committed sources; T080/T081 require approval. Read the latest Phase 8 continuation
+in validation. Spec 004 is not Complete. Do not pre-fix P1 before sealing the first official E-01 result.

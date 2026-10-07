@@ -8,7 +8,7 @@
 
 - 상태 기준일: 2026-10-07
 - 전달 기준 브랜치: ControlProof `003-n02-consent-order`, WhyYou `bosung/controlproof-n02-integration`(`eec8f70`).
-  현재 기능 Spec 004의 작업 브랜치는 ControlProof `004-e01-e02-score-evidence`다.
+  현재 기능 Spec 004의 작업 브랜치는 ControlProof `yeonwoo/004-e01-e02-score-evidence`다.
   PR #1과 WhyYou PR #5의 base를 각각 이 브랜치로 변경했으며, main 병합은 사용자가 명시적으로 금지했다.
   PR 병합 뒤 두 전달 브랜치를 pull한다. 실제 Run의 source SHA는 검증 원장의 당시 값으로 유지한다.
 - 이 문서가 설명하는 범위: Spec 001·002 전체, Spec 003 T001~T093 기록과 2026-10-07 PR 검토 보완
@@ -28,7 +28,7 @@
 | Spec 003 | 구현·actual validation 기록 완료, PR 검토 보완 | T001~T093 기록 완료. child `7b59237e…`는 INCONCLUSIVE. PR 검토에서 복구 시간 오판, A7 재시도 증거 누락, H-03 동의 전제조건을 추가 보완했다(ID-003-19). 최신 자동 회귀 결과는 validation의 PR review closure 참조. Spec 전체 Complete는 아직 선언하지 않는다. |
 | N-02 최초 actual Run | 봉인·검증 완료, 제품 판정 미종결 | 부모 `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`: A1~A3 PASS, A4~A7 개별 FAIL, 전체 `INCONCLUSIVE` (`RESTORE_FAILED` 우선). 19개 파일 bundle `VERIFIED`는 무결성 확인이며 빠진 관찰 사실의 증명은 아니다. 원본 verdict와 bundle은 변경하지 않는다. |
 | N-02 child Run (T084 attempt 3) | 봉인·검증 완료, 제품 판정 `INCONCLUSIVE` | child `7b59237e-0a96-403a-9add-28b91011e950`: A1~A4·A6 PASS, A5·A7 `INCONCLUSIVE`, 복구 `SUCCEEDED`, 차단 없음, 21개 파일 bundle `VERIFIED`, 부모 manifest 불변. 동의 전 세 경계 차단과 장애 원자성·복구는 입증됐고, 동의 뒤 처리 순서는 녹화·AI 평가만 입증됐다. 문서 분석 결과는 격리 대상이 LLM 분석을 못 해서 미입증이다. attempt 1·2(중단·INVALID/RESTORE_FAILED)는 보존된 실행기 결함 증거다. |
-| Spec 004 | 구현 T001~T071 완료, 진단 일부, 공식 Run `NOT_RUN` | E-01·E-02 실행기·판정·bundle·CLI·retest 구현(자동 회귀 통과). WhyYou fixture PR #6 병합(`42aaaba`). 진단(공식 아님): E-01은 P1 확인(E01-A3 FAIL 예상), E-02는 WhyYou 보고서 embedder 연결 때문에 보고서가 생성되지 않음(ID-004-29). 다음 작업 T074. 자세한 것은 Spec 004 validation "세션 인계". |
+| Spec 004 | T001~T078 완료, 공식 Run `NOT_RUN` | Phase 8 진단 완료: E-02 A1~A3 PASS(72/74), E-01 A1/A2/A4 PASS·A3 FAIL(P1). WhyYou PR #7 병합(`ce8d862`), 실행기 정리·비교·타임라인 seed 보완(ID-004-31~33). 다음 T079. 최신 Spec 004 validation의 Phase 8 continuation 참조. |
 | Spec 005 | 계획 확정·미착수 | 웹 워크벤치·12개 시나리오 카탈로그·보고서와 웹 UX 검토를 구현·검증한다. |
 | 실제 AWS | `NOT_RUN` | AWS SQS·ECS·IAM·CloudWatch·운영 네트워크는 검증하지 않았다. |
 | ControlProof 웹 워크벤치 | 미구현 | 현재 결과 확인과 재현은 CLI·JSON·봉인 bundle을 사용한다. |
@@ -220,7 +220,7 @@ H-01·H-02·N-01·N-03의 실제 완주는 V4의 목표 상한이다. Spec 005�
 
 | 저장소 | 사용 브랜치 | 역할 |
 |---|---|---|
-| `bosung0505/AI_Compliance_SaaS_controlproof` | `004-e01-e02-score-evidence` | Spec 001~003 기반(병합된 `003-n02-consent-order`)과 현재 기능 Spec 004 |
+| `bosung0505/AI_Compliance_SaaS_controlproof` | `yeonwoo/004-e01-e02-score-evidence` | Spec 001~003 기반(병합된 `003-n02-consent-order`)과 현재 기능 Spec 004 |
 | `jhkim0602/gbsa_aws` | `bosung/controlproof-n02-integration` | WhyYou local/test 전용 N-02 observer·fault hook; product guard 변경 전 최초 사실 시험 대상 |
 
 현재 브랜치와 원격의 일치 여부는 아래 명령으로 확인한다. Spec 002 최종 actual-stack에서 검증한
@@ -455,7 +455,7 @@ PASS로 바꾸지 않는다. 자동 fixture PASS, API/작업자 readiness, bundl
 ## 12. 다음 작업 순서
 
 Spec 003 Implement와 actual validation(T001~T093)은 끝났고 PR #1(`d0c0e5b`)과 WhyYou PR #5(`eec8f70`)는 병합됐다.
-현재 기능은 Spec 004(`004-e01-e02-score-evidence`, WhyYou `bosung/controlproof-n02-integration` `42aaaba`)이며 아래 4번이
+현재 기능은 Spec 004(`yeonwoo/004-e01-e02-score-evidence`, WhyYou `bosung/controlproof-n02-integration` `ce8d862`)이며 아래 4번이
 진행 중이다. 1~3번은 Spec 003에 남은 항목이다.
 
 1. **PR과 검토:** `yeonwoo/003-t080-t085` → `003-n02-consent-order` PR을 만든다. 보성은 ID-003-13~18의
@@ -466,14 +466,16 @@ Spec 003 Implement와 actual validation(T001~T093)은 끝났고 PR #1(`d0c0e5b`)
 3. **후속 한계 처리(선택):** 문서 분석 결과까지 입증하려면 WhyYou 고정 모델을 문서 분석·전략 생성 작업까지
    확장해야 한다(제품 코드 변경, 미승인). H-03 seed에 동의 행을 넣기 전에는 T083이 적용된 대상에서 H-03을
    재실행하지 않는다.
-4. **Spec 004 (현재, 보성 인계):** T001~T071 완료(커밋 `0cbb7c9`까지), Phase 8 진단 T072·T073·T076·T077 완료.
-   - SD-1: 근거 제거 뒤 보고서 조회가 그대로다(P1 확인, 진단). T085 수정안은 ID-004-30(PROPOSED, H-4 지표 범위).
-   - E-02 진단 차단: WhyYou `runtime/worker.py:922`가 보고서 처리기에 `aws.embedder`를 넘겨 요건 검색이 실제
-     embedding을 부른다. 수정안 (a) `embedder=report_embedder` 한 줄 + 대체 켜짐/꺼짐 시험 2개 + 통합 브랜치 PR
-     (ID-004-29). **공식 E-02 Run은 이 수정 병합이 전제다.** 병합 뒤 SD-2·SD-3(T074·T075) 재실행.
-   - 그다음 T078 나머지(ID-004-31 teardown 잔존 보고서) → Phase 9 T080~(quickstart §6·§7·§8).
-   - 열린 PROPOSED: ID-004-29(추천 a), ID-004-30, ID-004-14 (b). 진단 Run은 공식이 아니며 공식 E-01·E-02 Run은 `NOT_RUN`.
-   - 연우 PC 한정 환경(5433, `.env` 수동 로드, `.pyd` 우회)은 Spec 004 validation "세션 인계"에 구분해 적었다.
+4. **Spec 004 (현재):** `yeonwoo/004-e01-e02-score-evidence`에서 T001~T078 완료. WhyYou `ce8d862`(PR #7) 기준.
+   - 진단 E-02: A1~A3 PASS, 72/74 및 첫 보고서 불변. 진단 E-01: A1/A2/A4 PASS, A3 FAIL(P1), 타임라인 2→1→2.
+   - ID-004-31~33 실행기 보완 완료: Run 소유 보고서·검색 사본 정리, 기준 ID별 비교/버전별 봉인 검증, 회사별 합성 녹화 경로.
+   - 전체 회귀 793 passed, ruff PASS. 실패/INVALID 진단 원본은 보존됐고 새 Run으로 확인했다.
+   - 다음 T079: 두 저장소 최신 작업 브랜치를 받고 clean HEAD로 두 preflight 재확인 → 승인 후 최초 공식 T080/T081
+     → T082 결과 고정 → T083~T090 분류·필요한 수정/child → Phase 10 converge. 공식 E-01/E-02와 AWS는 NOT_RUN,
+     Spec 004는 미완료. P1 수정(T085, ID-004-30)은 최초 공식 FAIL 봉인 후에만 진행한다.
+   - 열린 PROPOSED: ID-004-30, ID-004-14 (b). ID-004-29 연결 수정과 ID-004-31 정리는 완료됐다.
+   - 로컬 진단 증거/환경 재기동 정보는 validation의 최신 continuation. 원본 증거는 Git 전달 대상이 아니다.
+   - 연우 PC 한정 환경(5433, `.env` 수동 로드, `.pyd` 우회)은 과거 세션 인계에 구분돼 있다.
 
 ## 13. 문서 유지 규칙
 
