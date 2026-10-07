@@ -278,3 +278,20 @@ returned as `cross_reference_errors`, `redaction_violations` and `recompute_reex
 The matrix covers behaviour built in Phases 4~6 (executors and `judge_spec004_run`), so it had no RED state; it is a
 regression guard. The other Phase 7 tests were RED first: T062 3 and T063 7 (missing projection fields), T064 8
 (tampered and re-sealed bundles still VERIFIED), T068 4 (no cross-reference result before T067).
+
+## Phase 8 retest machinery (T070~T071), 2026-10-07
+
+Status: `CONFIRMED`. Sandbox diagnostics T072~T078 were not started (out of this session's scope).
+
+### ID-004-27 — Spec 004 retest lineage (T071)
+
+- A Spec 004 parent with an active `e01-citation-evidence`/`e02-scoring-freeze` block is refused; a `RESTORE_FAILED`
+  parent additionally needs the `cleanup-confirm` maintenance record (`maintenance/<parent>.json`).
+- The child inherits the parent scenario snapshot and profile, uses the same target, and has no queue topology. Its
+  lanes, position and versions come from its own Run ID; any reused invitation/applicant/position/session ID refuses
+  the child.
+- `retest-diff.json` adds a `spec004` section: model fixture before/after, scoring-rule-source digest before/after,
+  lane manifest digests and reused identities. `retest-link.json` carries the parent bundle digest and parent
+  judgement SHA-256. Both are linked to EV4-10; verify reuses the Spec 003 retest-link checker with `EV4-10`
+  (label `spec004-retest`), so a child is valid only while its parent bundle verifies unchanged.
+- `cli retest` gives Spec 004 children a local environment snapshot with AWS/N-01/N-03 scope and no queue capture.

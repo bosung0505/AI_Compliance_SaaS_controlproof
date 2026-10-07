@@ -13,6 +13,8 @@ from engine.evidence import verify_bundle
 from engine.lifecycle import RestoreBlockStore
 from engine.models import (
     SPEC003_UNVERIFIED_SCOPE,
+    SPEC004_PROFILES,
+    SPEC004_UNVERIFIED_SCOPE,
     TERMINAL_RUN_STATES,
     ExecutionProfile,
     FaultVariant,
@@ -60,6 +62,8 @@ def prepare_retest(
     if parent_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
         if parent_run.state is RunState.RESTORE_FAILED or parent_run.manual_cleanup_required:
             cleanup_confirmation = _verified_n02_cleanup(directory, parent_run, cleanup_evidence)
+    elif parent_profile in SPEC004_PROFILES:
+        _spec004_cleanup_resolved(directory, parent_run)
     elif parent_run.state is RunState.RESTORE_FAILED or parent_run.manual_cleanup_required:
         raise RetestError("retest parent does not prove safe cleanup")
     if parent_run.run_id == child_run_id:
@@ -86,6 +90,20 @@ def prepare_retest(
             child_environment=child_environment,
             child_queue=child_queue,
             cleanup_confirmation=cleanup_confirmation,
+        )
+    if parent_profile in SPEC004_PROFILES:
+        return _prepare_spec004_retest(
+            directory=directory,
+            parent_run=parent_run,
+            parent_manifest=parent_manifest,
+            parent_digest=parent_digest,
+            parent_target=parent_target,
+            child_run_id=child_run_id,
+            child_target=child_target,
+            child_scenario_version=child_scenario_version,
+            child_scenario_digest=child_scenario_digest,
+            child_environment=child_environment,
+            child_queue=child_queue,
         )
     parent_subjects = _read(directory / "subjects.json")
     if not isinstance(parent_subjects, list) or len(parent_subjects) != 1:
@@ -572,3 +590,183 @@ def _diff(before: Any, after: Any, path: str = "") -> list[dict[str, Any]]:
 
 def _read(path: Path) -> Any:
     return json.loads(path.read_text(encoding="utf-8"))
+
+
+# --- Spec 004 (E-01/E-02) retest lineage (T071) ----------------------------------------------------
+
+SPEC004_BLOCK_SUBJECTS = {
+    ExecutionProfile.E01_CITATION_EVIDENCE_V1: "e01-citation-evidence",
+    ExecutionProfile.E02_SCORING_FREEZE_V1: "e02-scoring-freeze",
+}
+_SPEC004_IDENTITIES = ("invitation_id", "applicant_id", "position_id", "interview_session_id")
+
+
+def _spec004_cleanup_resolved(directory: Path, parent_run: Run) -> None:
+    profile = parent_run.execution_profile
+    blocks = RestoreBlockStore(directory.parent)
+    if blocks.blocked(parent_run.target_id, SPEC004_BLOCK_SUBJECTS[profile]):
+        raise RetestError("Spec 004 retest refused: unresolved restore block")
+    if parent_run.state is RunState.RESTORE_FAILED or parent_run.manual_cleanup_required:
+        confirmation = directory.parent / "maintenance" / f"{parent_run.run_id}.json"
+        if not confirmation.is_file():
+            raise RetestError("Spec 004 retest refused: restore block was never confirmed")
+
+
+def _prepare_spec004_retest(
+    *,
+    directory: Path,
+    parent_run: Run,
+    parent_manifest: dict[str, Any],
+    parent_digest: str,
+    parent_target: TargetSnapshot,
+    child_run_id: UUID,
+    child_target: TargetSnapshot,
+    child_scenario_version: str,
+    child_scenario_digest: str,
+    child_environment: TargetEnvironmentSnapshot | None,
+    child_queue: QueueTopologySnapshot | None,
+) -> tuple[Run, str, dict[str, Any]]:
+    if child_target.target_id != parent_run.target_id:
+        raise RetestError("Spec 004 retest must use the same target")
+    if (
+        child_scenario_version != parent_run.scenario_version
+        or child_scenario_digest != parent_run.scenario_digest
+    ):
+        raise RetestError("Spec 004 retest must inherit the parent scenario snapshot")
+    if child_queue is not None:
+        raise RetestError("Spec 004 retest has no Spec 002 queue topology")
+    if child_environment is None or (
+        child_environment.target_id != child_target.target_id
+        or set(child_environment.unverified_scope) != SPEC004_UNVERIFIED_SCOPE
+    ):
+        raise RetestError("Spec 004 retest requires a local environment snapshot of the target")
+    try:
+        parent_environment = TargetEnvironmentSnapshot.model_validate(
+            _read(directory / "environment.snapshot.json")
+        )
+        parent_lanes = _read(directory / "spec004-lanes.json")["lanes"]
+    except (OSError, KeyError, TypeError, ValueError) as exc:
+        raise RetestError("Spec 004 parent comparison facts are unreadable") from exc
+    target_changes = _diff(parent_target.identity(), child_target.identity())
+    environment_changes = _diff(
+        parent_environment.model_dump(mode="json", exclude={"captured_at", "snapshot_digest"}),
+        child_environment.model_dump(mode="json", exclude={"captured_at", "snapshot_digest"}),
+    )
+    fixture_before = {
+        "id": parent_run.model_fixture_id,
+        "digest": parent_run.model_fixture_digest,
+    }
+    fixture_after = {
+        "id": child_target.model_fixture_id,
+        "digest": child_target.model_fixture_digest,
+    }
+    profile = parent_run.execution_profile
+    diff = {
+        "schema_version": "controlproof.retest-diff.v1",
+        "parent_run_id": str(parent_run.run_id),
+        "child_run_id": str(child_run_id),
+        "scenario": {
+            "before": {"version": parent_run.scenario_version, "digest": parent_run.scenario_digest},
+            "after": {"version": child_scenario_version, "digest": child_scenario_digest},
+            "changed": False,
+        },
+        "target": {
+            "before_digest": parent_target.target_version,
+            "after_digest": child_target.target_version,
+            "changed_fields": target_changes,
+        },
+        "execution_profile": {"before": profile.value, "after": profile.value, "changed": False},
+        "environment": {
+            "before_digest": parent_environment.snapshot_digest,
+            "after_digest": child_environment.snapshot_digest,
+            "changed": bool(environment_changes),
+            "changed_fields": environment_changes,
+        },
+        "queue_topology": None,
+        "spec004": {
+            "model_fixture": {
+                "before": fixture_before,
+                "after": fixture_after,
+                "changed": fixture_before != fixture_after,
+            },
+            "scoring_rule_source": {
+                "before_digest": parent_run.scoring_rule_source_digest,
+                "after_digest": None,
+                "changed": None,
+            },
+            "lanes": {
+                "before_lane_manifest_digest": parent_run.lane_manifest_digest,
+                "after_lane_manifest_digest": None,
+                "reused_identities": None,
+            },
+        },
+        "created_at": utcnow().isoformat(),
+    }
+    link = RetestLink(
+        parent_run_id=parent_run.run_id,
+        child_run_id=child_run_id,
+        changed_dimensions={
+            "scenario": False,
+            "target_paths": [item["path"] for item in target_changes],
+            "environment": bool(environment_changes),
+            "model_fixture": fixture_before != fixture_after,
+            "scoring_rule_source": None,
+        },
+        reason=f"WhyYou 수정 후 {parent_run.scenario_id} 독립 Run 재시험",
+    )
+    origin = next(
+        (row for row in parent_manifest.get("files", []) if row.get("path") == "judgement.json"),
+        None,
+    )
+    if not isinstance(origin, dict) or not origin.get("sha256"):
+        raise RetestError("Spec 004 parent judgement origin file is missing")
+    records = {
+        "link": link.model_dump(mode="json")
+        | {"parent_bundle_digest": parent_digest, "parent_judgement_sha256": origin["sha256"]},
+        "diff": diff,
+        "_spec004_parent": {"lanes": parent_lanes},
+    }
+    return parent_run, parent_digest, records
+
+
+def finalize_spec004_retest_records(
+    records: dict[str, Any], *, child_run: Run, child_lanes: tuple[Any, ...]
+) -> None:
+    """Fill the lane and scoring-source comparisons from the actual child Run."""
+    try:
+        parent_lanes = records["_spec004_parent"]["lanes"]
+        diff = records["diff"]["spec004"]
+        changed = records["link"]["changed_dimensions"]
+    except (KeyError, TypeError) as exc:
+        raise RetestError("Spec 004 retest comparison context is invalid") from exc
+    if any(lane.run_id != child_run.run_id for lane in child_lanes):
+        raise RetestError("Spec 004 child lanes must belong to the child Run")
+    reused = sorted(
+        {
+            f"{name}:{lane[name]}"
+            for lane in parent_lanes
+            for name in _SPEC004_IDENTITIES
+        }
+        & {
+            f"{name}:{getattr(lane, name)}"
+            for lane in child_lanes
+            for name in _SPEC004_IDENTITIES
+        }
+    )
+    if reused:
+        raise RetestError("Spec 004 child reused parent subject identities")
+    before = diff["scoring_rule_source"]["before_digest"]
+    diff["scoring_rule_source"].update(
+        {
+            "after_digest": child_run.scoring_rule_source_digest,
+            "changed": before != child_run.scoring_rule_source_digest,
+        }
+    )
+    diff["lanes"].update(
+        {
+            "after_lane_manifest_digest": child_run.lane_manifest_digest,
+            "reused_identities": reused,
+        }
+    )
+    changed["scoring_rule_source"] = diff["scoring_rule_source"]["changed"]
+    records.pop("_spec004_parent", None)

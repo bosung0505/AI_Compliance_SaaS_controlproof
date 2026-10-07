@@ -268,11 +268,17 @@ def _retest(args: argparse.Namespace) -> int:
                 child_environment.model_dump(mode="json", exclude={"snapshot_digest"})
                 | {"unverified_scope": sorted(SPEC003_UNVERIFIED_SCOPE)}
             )
+        elif parent_profile in SPEC004_PROFILES:
+            child_environment = TargetEnvironmentSnapshot.model_validate(
+                child_environment.model_dump(mode="json", exclude={"snapshot_digest"})
+                | {"unverified_scope": sorted(SPEC004_UNVERIFIED_SCOPE)}
+            )
     child_queue = (
         runtime.adapters.queue.capture_topology()
         if parent_profile not in {
             ExecutionProfile.H03_MINIMAL_V1,
             ExecutionProfile.N02_CONSENT_ORDER_V1,
+            *SPEC004_PROFILES,
         }
         else None
     )

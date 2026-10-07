@@ -209,8 +209,8 @@ v2가 아니면 INCONCLUSIVE인지 확인한다.
 
 ### Retest (US5) — tests first
 
-- [ ] T070 [P] [US5] Add retest tests for both profiles: inherited scenario/profile, fresh lanes/position/versions, new Run ID, target/fixture/scoring-source diff, parent read-only digest, refusal on unresolved block in `tests/integration/test_spec004_retest_lineage.py` [FR-050, FR-052, SC-005]
-- [ ] T071 [US5] Extend `engine/retest.py` and the retest branch of `engine/cli.py` for E-01/E-02 without modifying parent files [FR-052]
+- [X] T070 [P] [US5] Add retest tests for both profiles: inherited scenario/profile, fresh lanes/position/versions, new Run ID, target/fixture/scoring-source diff, parent read-only digest, refusal on unresolved block in `tests/integration/test_spec004_retest_lineage.py` [FR-050, FR-052, SC-005]
+- [X] T071 [US5] Extend `engine/retest.py` and the retest branch of `engine/cli.py` for E-01/E-02 without modifying parent files [FR-052]
 
 ### Sandbox diagnostics
 

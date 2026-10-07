@@ -1559,7 +1559,12 @@ def _verify_spec003_facts(directory: Path, result: dict[str, Any]) -> None:
 
 
 def _verify_spec003_retest_link(
-    directory: Path, run: dict[str, Any], result: dict[str, Any]
+    directory: Path,
+    run: dict[str, Any],
+    result: dict[str, Any],
+    *,
+    evidence_id: str = "EV3-10",
+    label: str = "n02-retest",
 ) -> None:
     """A child is valid only while its sealed parent and comparison files remain intact."""
     try:
@@ -1572,9 +1577,9 @@ def _verify_spec003_retest_link(
         parent_manifest = json.loads((parent_dir / "manifest.json").read_text(encoding="utf-8"))
         parent_run = json.loads((parent_dir / "run.json").read_text(encoding="utf-8"))
     except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError):
-        result["mismatched_files"].append("n02-retest:unreadable-link")
+        result["mismatched_files"].append(f"{label}:unreadable-link")
         return
-    required = manifest.get("required_evidence", {}).get("EV3-10", [])
+    required = manifest.get("required_evidence", {}).get(evidence_id, [])
     if (
         parent_id == child_id
         or parent_run.get("parent_run_id") == child_id
@@ -1592,10 +1597,10 @@ def _verify_spec003_retest_link(
             None,
         )
     ):
-        result["mismatched_files"].append("n02-retest:parent-link")
+        result["mismatched_files"].append(f"{label}:parent-link")
         return
     if verify_bundle(parent_dir, require_all_evidence=False)["bundle_status"] != "VERIFIED":
-        result["mismatched_files"].append("n02-retest:parent-invalid")
+        result["mismatched_files"].append(f"{label}:parent-invalid")
 
 
 def _verify_spec003_pass_assertions(
@@ -1994,6 +1999,11 @@ def _verify_spec004_facts(
     result["recompute_reexecution"] = "NOT_APPLICABLE"
     _spec004_redaction(directory, profile, result)
     try:
+        run = json.loads((directory / "run.json").read_text(encoding="utf-8"))
+        if run.get("parent_run_id"):
+            _verify_spec003_retest_link(
+                directory, run, result, evidence_id="EV4-10", label="spec004-retest"
+            )
         lanes = _spec004_lane_refs(directory, errors)
         for row in _spec004_rows(directory, "change-injections.jsonl"):
             if row.get("state") == "RESTORED" and (

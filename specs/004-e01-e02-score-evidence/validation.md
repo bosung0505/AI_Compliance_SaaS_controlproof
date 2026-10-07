@@ -222,6 +222,20 @@ status; E-02 shows v1/v2, first-report unchanged, second-report binding and per-
 the claim boundary, `limitations` and `unverified_scope` AWS/N-01/N-03. Preflight reports 18/18 (E-01) and 16/16
 (E-02) and writes nothing; exit codes 0/2/3/5/6 as contracted; no automatic retest.
 
+## Phase 8 — retest machinery (T070~T071)
+
+| Task | Change | Tests |
+|---|---|---|
+| T070 | `tests/integration/test_spec004_retest_lineage.py` (RED: 3 failed; profile-inheritance case is a guard) | 4 GREEN after T071 |
+| T071 | `engine/retest.py` Spec 004 branch, executor retest records, verify link, `cli retest` (ID-004-27) | T070, new CLI retest test (RED without the CLI change) |
+
+```text
+.venv/Scripts/python.exe -m ruff check . -> All checks passed!
+.venv/Scripts/python.exe -m pytest -q    -> 775 passed
+```
+
+Sandbox diagnostics T072~T078 and every official Run remain NOT_RUN.
+
 ## Sandbox diagnostics
 
 (none yet — Phase 8)
@@ -261,10 +275,10 @@ PR #6 merged into `bosung/controlproof-n02-integration` at
 sandbox/official Run source snapshot, not the superseded `3dfa10c` fixture head. Fetch/pull both
 repositories before continuing; read this review entry with the corrected fixture contract.
 
-## 세션 인계 (2026-10-07, 자율 진행 세션)
+## 세션 인계 (2026-10-07, 자율 진행 세션 종료)
 
-- 마지막 완료: Phase 7 US4 T061~T069. 결정 ID-004-24~26.
+- 마지막 완료: T071 (Phase 3~7 전체와 Phase 8의 retest T070~T071). 결정 ID-004-11~27.
 - WhyYou: PR #6 병합(`42aaaba`), 로컬 `bosung/controlproof-n02-integration` = `42aaaba`, clean. WhyYou 변경 없음.
 - 진행 중: 없음.
 - 건너뛴 PROPOSED: 없음. ID-004-14(observer에 Spec 004 lane 추가)는 비차단 제안.
-- 다음 작업: Phase 8 T070(retest 실패 시험) → T071. T072 이후 sandbox 진단은 이번 범위 밖.
+- 다음 작업: T072 격리 sandbox 구성(Phase 8 진단). 로컬 스택 기동·DB 쓰기가 필요해 사용자 승인 뒤 시작.

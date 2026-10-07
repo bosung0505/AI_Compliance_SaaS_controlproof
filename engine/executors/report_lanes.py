@@ -38,6 +38,7 @@ from engine.models import (
     utcnow,
 )
 from engine.readiness import evaluate_readiness
+from engine.retest import RetestError, finalize_spec004_retest_records
 from engine.scenario import ScenarioDefinition
 
 PRECONDITION_NOT_MET = "PRECONDITION_NOT_MET"
@@ -262,9 +263,17 @@ class Spec004LaneExecutor:
         retest_records: dict[str, Any] | None = None,
         run_id: UUID | None = None,
     ):
-        del retest_records
         if readiness.status.value != "READY" or readiness.target_snapshot is None:
             raise RuntimeError(f"Run refused: {readiness.status.value}")
+        if retest_records is not None:
+            link = retest_records.get("link", {})
+            if (
+                parent_run_id is None
+                or run_id is None
+                or link.get("parent_run_id") != str(parent_run_id)
+                or link.get("child_run_id") != str(run_id)
+            ):
+                raise RetestError("Spec 004 child Run requires matching parent and child IDs")
         if self.adapters.spec004_seed is None or self.adapters.spec004_records is None:
             raise Spec004ExecutionError("Spec 004 adapters are not composed")
         blocks = RestoreBlockStore(self.run_root)
@@ -340,6 +349,10 @@ class Spec004LaneExecutor:
             run_state=state,
             decided_at=ended_at,
         )
+        if retest_records is not None:
+            finalize_spec004_retest_records(
+                retest_records, child_run=run, child_lanes=tuple(outcome["lanes"])
+            )
         writer = EvidenceBundleWriter(self.run_root, run)
         documents = {
             "run.json": run.model_dump(mode="json"),
@@ -367,6 +380,11 @@ class Spec004LaneExecutor:
         for evidence_id, files in SPEC004_REQUIRED_FILE_LINKS[self.profile].items():
             for name in sorted(files):
                 writer.link_file_evidence(evidence_id, name)
+        if retest_records is not None:
+            writer.write_json("retest-link.json", retest_records["link"], redact_first=False)
+            writer.write_json("retest-diff.json", retest_records["diff"], redact_first=False)
+            writer.link_file_evidence("EV4-10", "retest-link.json")
+            writer.link_file_evidence("EV4-10", "retest-diff.json")
         writer.link_intrinsic_evidence("EV4-10", "sealed-manifest")
         writer.seal()
         verify_started = self.clock.now()

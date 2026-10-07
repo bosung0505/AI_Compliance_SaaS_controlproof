@@ -114,3 +114,16 @@ def test_show_and_verify_project_e02(runtime, capsys) -> None:
     recompute.write_text(json.dumps(document), encoding="utf-8")
     code, _ = _call(capsys, "verify", run["run_id"], "--run-root", str(runtime.run_root))
     assert code == 5
+
+
+def test_retest_creates_an_independent_child(runtime, capsys) -> None:
+    runtime.state["fake"] = FakeSpec004Adapters()
+    code, parent = _call(capsys, "run", "E-01", "--profile", PROFILES["E-01"], "--target", "whyyou-local")
+    assert code == 3
+    parent_manifest = (runtime.run_root / parent["run_id"] / "manifest.json").read_bytes()
+    runtime.state["fake"] = FakeSpec004Adapters(removal_indicator="score_null")
+    code, child = _call(capsys, "retest", parent["run_id"], "--target", "whyyou-local")
+    assert code == 0, child
+    assert child["command"] == "retest" and child["parent_run_id"] == parent["run_id"]
+    assert child["run_id"] != parent["run_id"]
+    assert (runtime.run_root / parent["run_id"] / "manifest.json").read_bytes() == parent_manifest
