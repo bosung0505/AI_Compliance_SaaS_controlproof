@@ -174,6 +174,30 @@ all restore and tear down; D1 recorded without affecting the verdict. With a fak
 an E-01 Run is PASS. Remaining strict xfail (5): E-02 registration/preflight (T057, 2) and three modules (T055,
 T057, T058).
 
+## Phase 6 — US3 E-02 gate (T052~T060)
+
+| Task | Change | Tests |
+|---|---|---|
+| T052 | `tests/contract/test_spec004_criteria_version_adapter.py` (RED: 6 failed, ImportError) | 6 GREEN after T055 |
+| T053 | `tests/unit/test_judge_e02.py` (RED: 9 failed, ImportError) | 9 GREEN after T058 (fake fix ID-004-21) |
+| T054 | `tests/integration/test_e02_orchestration.py` (RED: 8 failed) | 8 GREEN after T057/T059 |
+| T055 | `engine/adapters/whyyou/criteria_versions.py` (routes ID-004-20) | T052 |
+| T056 | `scenarios/E-02.yaml` (snapshot digest `e6e0c56e…`) | v4 loader |
+| T057 | `engine/executors/e02.py`, runner registration (ID-004-23) | T054, T008 E-02 2 |
+| T058 | `engine/judges/e02.py`, `engine/judge.py` facade (ID-004-22) | T053 |
+| T059 | E-02 composition and `scoring.rule.source.read` drift probe | composition 4 (RED first: 2 failed) |
+| T060 | this record | — |
+
+```text
+.venv/Scripts/python.exe -m ruff check . -> All checks passed!
+.venv/Scripts/python.exe -m pytest -q    -> 736 passed
+```
+
+E-02 gate on fakes: full journey PASS with the second applicant bound to v2; first report changed → E02-A2 FAIL;
+stored/served overall off by one → E02-A3 FAIL; wrong v2 binding → E02-A2 `PRECONDITION_NOT_MET`; teardown failure
+or other positions changed → `RESTORE_FAILED` and block; scoring source drift → `RUNNER_NOT_READY` before any write.
+No strict xfail remains.
+
 ## Sandbox diagnostics
 
 (none yet — Phase 8)
@@ -215,9 +239,8 @@ repositories before continuing; read this review entry with the corrected fixtur
 
 ## 세션 인계 (2026-10-07, 자율 진행 세션)
 
-- 마지막 완료: Phase 5 US2 T044~T051. 결정 ID-004-16~19.
+- 마지막 완료: Phase 6 US3 T052~T060. 결정 ID-004-20~23.
 - WhyYou: PR #6 병합(`42aaaba`), 로컬 `bosung/controlproof-n02-integration` = `42aaaba`, clean. WhyYou 변경 없음.
 - 진행 중: 없음.
 - 건너뛴 PROPOSED: 없음. ID-004-14(observer에 Spec 004 lane 추가)는 비차단 제안.
-- 다음 작업: Phase 6 US3 T052(실패 시험)부터. 기준 버전 API 경로는 `/v1/positions/{id}/competency-model-versions`
-  (`company_routes.py`, prefix `/v1`)로 계약의 `/v1/company/...`와 다르다 — T055에서 ID-004-13처럼 정정.
+- 다음 작업: Phase 7 T061(실패 시험)부터.

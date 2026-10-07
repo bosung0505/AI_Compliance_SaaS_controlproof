@@ -27,6 +27,7 @@ from engine.adapters.whyyou.queue import (
     WhyYouQueueAdapter,
 )
 from engine.config import Settings, fixture_digest
+from engine.judges.e02_scoring import PINNED_SOURCES
 from engine.models import SPEC004_FIXTURE_ID, ReadinessStatus
 
 CAPABILITY_VERSIONS = {
@@ -70,8 +71,7 @@ CAPABILITY_VERSIONS = {
     "consent.fault.inject": "v1",
     "consent.fault.receipt.read": "v1",
     "consent.fault.restore": "v1",
-    # Spec 004 (T042, T047). Criteria-version and scoring-source probes stay RUNNER_NOT_READY
-    # until their adapters are composed (T055).
+    # Spec 004 (T042, T047, T059).
     "model.fixture.read": "v1",
     "spec004.lanes.seed": "v1",
     "spec004.lanes.teardown": "v1",
@@ -107,10 +107,16 @@ _SPEC004_COMPOSED = {
     "evidence.segment.restore": ("spec004_mutation", "database"),
     "report.axes.probe_write": ("spec004_mutation", "database"),
     "report.axes.probe_restore": ("spec004_mutation", "database"),
-    "criteria.version.create": ("spec004_versions", "/v1/positions/{position_id}/competency-model-versions"),
-    "criteria.version.publish": ("spec004_versions", "database"),
+    "criteria.version.create": (
+        "spec004_versions",
+        "/v1/positions/{position_id}/competency-model-versions",
+    ),
+    "criteria.version.publish": (
+        "spec004_versions",
+        "/v1/competency-model-versions/{version_id}/publish",
+    ),
     "criteria.version.read": ("spec004_versions", "database"),
-    "scoring.rule.source.read": ("spec004_scoring_source", "observer"),
+    "scoring.rule.source.read": ("spec004_scoring_source", "scoring"),
 }
 
 
@@ -425,6 +431,8 @@ class WhyYouCapabilityProbe:
             )
         if check == "database":
             return self._database(capability)
+        if check == "scoring":
+            return self._scoring_source(capability)
         if check == "observer":
             if not self.settings.observer_root.is_dir():
                 return _not_ready(
@@ -434,6 +442,23 @@ class WhyYouCapabilityProbe:
                 )
             return _ready(capability, "observer root is readable")
         return self._route(capability, check)
+
+    def _scoring_source(self, capability: str) -> CapabilityProbeResult:
+        source = self.spec004["spec004_scoring_source"].read_blob_shas()
+        if not source.ok:
+            return _not_ready(
+                capability,
+                f"{source.code}: WhyYou scoring source blobs are not readable",
+                "point WHYYOU_REPO_PATH at the clean WhyYou checkout",
+            )
+        pinned = {item["path"]: item["blob_sha"] for item in PINNED_SOURCES}
+        if dict(source.data.get("blob_shas") or {}) != pinned:
+            return _not_ready(
+                capability,
+                "SCORING_RULE_SOURCE_DRIFT: WhyYou scoring.py/report.py differ from the pinned copy",
+                "review the scoring change and re-pin engine/judges/e02_scoring.py",
+            )
+        return _ready(capability, "WhyYou scoring sources equal the pinned recompute copy")
 
     def _route(self, capability: str, route: str) -> CapabilityProbeResult:
         if route not in self._paths():

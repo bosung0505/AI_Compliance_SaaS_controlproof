@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 from engine.adapters.base import AdapterResult, AdapterSet, Clock
 from engine.evidence import EvidenceBundleWriter
 from engine.executors.e01 import E01Executor
+from engine.executors.e02 import E02Executor
 from engine.executors.e03_after import E03AfterExecutor
 from engine.executors.e03_before import E03BeforeExecutor
 from engine.executors.h03_dlq import H03DlqExecutor
@@ -918,6 +919,7 @@ PROFILE_REGISTRY.register(ExecutionProfile.E03_AFTER_V2, E03AfterExecutor)
 PROFILE_REGISTRY.register(ExecutionProfile.E03_BEFORE_V2, E03BeforeExecutor)
 PROFILE_REGISTRY.register(ExecutionProfile.N02_CONSENT_ORDER_V1, N02Executor)
 PROFILE_REGISTRY.register(ExecutionProfile.E01_CITATION_EVIDENCE_V1, E01Executor)
+PROFILE_REGISTRY.register(ExecutionProfile.E02_SCORING_FREEZE_V1, E02Executor)
 
 
 def build_profile_runner(

@@ -12,7 +12,7 @@ import pytest
 
 from engine import cli
 from engine.models import ExecutionProfile
-from engine.runner import PROFILE_REGISTRY, UnregisteredExecutionProfile, build_profile_runner
+from engine.runner import PROFILE_REGISTRY, build_profile_runner
 from engine.scenario import ScenarioDefinition
 from tests.contract.test_scenario_profile_v4 import E01, E02, payload
 from tests.fixtures.fake_adapters import FakeClock, make_adapters
@@ -66,12 +66,7 @@ def test_spec004_profiles_cannot_cross_scenarios(scenario_id: str, profile: str)
     "profile",
     [
         "E01_CITATION_EVIDENCE_V1",
-        pytest.param(
-            "E02_SCORING_FREEZE_V1",
-            marks=pytest.mark.xfail(
-                strict=True, raises=AssertionError, reason="RED until T057 registers the executor"
-            ),
-        ),
+        "E02_SCORING_FREEZE_V1",
     ],
 )
 def test_spec004_profiles_have_registered_executors(profile: str) -> None:
@@ -82,15 +77,7 @@ def test_spec004_profiles_have_registered_executors(profile: str) -> None:
     "spec",
     [
         pytest.param(E01, id="E-01"),
-        pytest.param(
-            E02,
-            id="E-02",
-            marks=pytest.mark.xfail(
-                strict=True,
-                raises=UnregisteredExecutionProfile,
-                reason="RED until T057 registers the executor",
-            ),
-        ),
+        pytest.param(E02, id="E-02"),
     ],
 )
 def test_non_ready_preflight_leaves_no_side_effects(tmp_path, spec) -> None:

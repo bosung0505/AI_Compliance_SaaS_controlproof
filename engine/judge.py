@@ -10,6 +10,7 @@ from uuid import UUID
 
 # Additive Spec 002 evaluator; imported here so callers can retain the public judge facade.
 from engine.judges.e01 import judge_e01_citations, judge_e01_removal, judge_e01_restore
+from engine.judges.e02 import judge_e02_frozen, judge_e02_recompute, judge_e02_unchanged
 from engine.judges.h03_dlq import judge_h03_decisions, judge_h03_dlq
 from engine.judges.n02 import judge_n02_bypass
 from engine.models import (
@@ -34,6 +35,9 @@ __all__ = [
     "judge_e01_citations",
     "judge_e01_removal",
     "judge_e01_restore",
+    "judge_e02_frozen",
+    "judge_e02_recompute",
+    "judge_e02_unchanged",
     "judge_h03",
     "judge_h03_decisions",
     "judge_h03_dlq",

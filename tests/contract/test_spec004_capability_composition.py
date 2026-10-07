@@ -1,7 +1,7 @@
 """T042 — E-01 citation-path capability composition and readiness (FR-001).
 
-T047 composes the mutation capabilities; criteria-version ones stay RUNNER_NOT_READY with an operator action
-until T055 composes them.
+T047 composes the mutation capabilities and T059 the criteria-version and scoring-source ones; the scoring-source
+probe is RUNNER_NOT_READY with `SCORING_RULE_SOURCE_DRIFT` when WhyYou's blobs differ from the pinned copy.
 """
 
 from __future__ import annotations
@@ -28,16 +28,20 @@ def test_citation_path_adapters_are_composed(settings) -> None:
         "spec004_records",
         "spec004_emissions",
         "spec004_mutation",
+        "spec004_versions",
+        "spec004_scoring_source",
     ):
         assert getattr(adapters, name) is not None, name
     # Spec 004 lanes never share the N-02 credential store.
     assert adapters.spec004_consent is not adapters.n02_consent
 
 
-def test_uncomposed_criteria_capability_names_an_operator_action(settings) -> None:
+def test_scoring_source_drift_is_not_ready_with_an_operator_action(settings) -> None:
     adapters, _ = create_whyyou_adapter(settings)
-    result = adapters.capability.probe("criteria.version.create")
+    adapters.spec004_scoring_source._git = lambda _args: "0" * 40
+    result = adapters.capability.probe("scoring.rule.source.read")
     assert result.status is ReadinessStatus.RUNNER_NOT_READY
+    assert "SCORING_RULE_SOURCE_DRIFT" in result.detail
     assert result.operator_action
 
 

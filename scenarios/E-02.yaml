@@ -1,0 +1,109 @@
+schema_version: controlproof.scenario.v4
+scenario_id: E-02
+version: 1.0.0
+execution_profile: E02_SCORING_FREEZE_V1
+bundle_profile_contract: controlproof.bundle-profile.spec004.v1
+applicable_assertion_ids: [E02-A1, E02-A2, E02-A3]
+lanes:
+  - E02_FIRST_APPLICANT
+  - E02_SECOND_APPLICANT
+title: 평가 입력·기준 동결과 과거 리포트 보존
+control_intent: >-
+  보고서가 생성 당시의 점수 입력·가중치·버전을 스스로 보존해, 새 평가 기준 버전을 발행하고 다른 지원자를
+  처리한 뒤에도 과거 보고서가 바뀌지 않고 저장된 입력만으로 총점을 다시 계산할 수 있는지 검증한다.
+
+required_capabilities:
+  target.version.read: v1
+  target.environment.read: v1
+  model.fixture.read: v1
+  spec004.lanes.seed: v1
+  spec004.lanes.teardown: v1
+  consent.policy.read: v1
+  consent.commit.write: v1
+  consent.state.read: v1
+  report.generation.request: v1
+  report.processing.receipts.read: v1
+  report.records.read: v1
+  report.api.read: v1
+  criteria.version.create: v1
+  criteria.version.publish: v1
+  criteria.version.read: v1
+  scoring.rule.source.read: v1
+
+preconditions:
+  - {precondition_id: source-clean, kind: TARGET, description: both checkouts are clean and WhyYou is not main}
+  - {precondition_id: fixture-spec004, kind: TARGET, description: the API and every worker run fixed model spec004-report-v1}
+  - {precondition_id: scoring-source-pinned, kind: TARGET, description: scoring.py and report.py blobs equal the copy baseline}
+
+steps:
+  - {step_id: capture-environment, phase: BASELINE, action: target.environment.read, outputs: [target.environment], evidence_requirements: [EV4-01]}
+  - {step_id: capture-capabilities, phase: BASELINE, action: spec004.capabilities.read, outputs: [capabilities], evidence_requirements: [EV4-01]}
+  - {step_id: capture-scoring-rule-source, phase: BASELINE, action: scoring.rule.source.read, outputs: [rule.source], evidence_requirements: [EV4-01, EV4-08]}
+  - {step_id: seed-e02-position, phase: BASELINE, action: spec004.lanes.seed, outputs: [position], evidence_requirements: [EV4-02]}
+  - {step_id: create-publish-v1, phase: BASELINE, action: criteria.version.publish, outputs: [version.v1], evidence_requirements: [EV4-06]}
+  - {step_id: seed-first-applicant, phase: BASELINE, action: spec004.lanes.seed, outputs: [lane.first], evidence_requirements: [EV4-02]}
+  - {step_id: commit-first-consent, phase: BASELINE, action: consent.commit.write, outputs: [consent.first], evidence_requirements: [EV4-02]}
+  - {step_id: request-first-report, phase: BASELINE, action: report.generation.request, outputs: [report.first], evidence_requirements: [EV4-04]}
+  - {step_id: capture-pre-change, phase: BASELINE, action: report.records.read, outputs: [first.pre_change], evidence_requirements: [EV4-04, EV4-07]}
+  - {step_id: recompute-first-report, phase: BASELINE, action: report.records.read, outputs: [recompute.first], evidence_requirements: [EV4-08]}
+  - {step_id: create-publish-v2, phase: INJECTED, action: criteria.version.publish, outputs: [version.v2], evidence_requirements: [EV4-06, EV4-09]}
+  - {step_id: capture-version-change, phase: INJECTED, action: criteria.version.read, outputs: [version.latest], evidence_requirements: [EV4-06]}
+  - {step_id: seed-second-applicant, phase: INJECTED, action: spec004.lanes.seed, outputs: [lane.second], evidence_requirements: [EV4-02]}
+  - {step_id: commit-second-consent, phase: INJECTED, action: consent.commit.write, outputs: [consent.second], evidence_requirements: [EV4-02]}
+  - {step_id: request-second-report, phase: INJECTED, action: report.generation.request, outputs: [report.second], evidence_requirements: [EV4-04]}
+  - {step_id: capture-second-report, phase: INJECTED, action: report.records.read, outputs: [second.generated], evidence_requirements: [EV4-04, EV4-07]}
+  - {step_id: capture-post-change, phase: INJECTED, action: report.records.read, outputs: [first.post_change], evidence_requirements: [EV4-04, EV4-07]}
+  - {step_id: recompute-second-report, phase: INJECTED, action: report.records.read, outputs: [recompute.second], evidence_requirements: [EV4-08]}
+  - {step_id: compare-first-report, phase: INJECTED, action: report.api.read, outputs: [first.compare], evidence_requirements: [EV4-04, EV4-07]}
+  - step_id: teardown-e02-position
+    phase: RECOVERED
+    action: spec004.lanes.teardown
+    outputs: [position.removed]
+    evidence_requirements: [EV4-09]
+    always_run: true
+  - step_id: verify-other-positions-unchanged
+    phase: RECOVERED
+    action: criteria.version.read
+    outputs: [other.positions]
+    evidence_requirements: [EV4-09]
+    always_run: true
+
+assertions:
+  - {assertion_id: E02-A1, description: the first report preserves its frozen input set, expectation: {frozen: MATCHES_V1}, required_observation_keys: [first.pre_change, version.v1], required_evidence_ids: [EV4-04, EV4-06, EV4-07], source_requirements: [FR-030, FR-033]}
+  - {assertion_id: E02-A2, description: publishing a new version leaves the earlier report unchanged, expectation: {first_report: UNCHANGED}, required_observation_keys: [first.pre_change, first.post_change, version.v2], required_evidence_ids: [EV4-04, EV4-06, EV4-07, EV4-09], source_requirements: [FR-031, FR-032]}
+  - {assertion_id: E02-A3, description: recomputing from stored inputs reproduces stored and served scores, expectation: {comparisons: ALL_EQUAL}, required_observation_keys: [recompute.first, recompute.second], required_evidence_ids: [EV4-04, EV4-08], source_requirements: [FR-033, FR-034]}
+
+required_evidence:
+  - {evidence_id: EV4-01, description: scenario target environment fixture capability and scoring source snapshot, artifact_types: [VERSION_SNAPSHOT, CAPABILITY_SNAPSHOT]}
+  - {evidence_id: EV4-02, description: position lanes subjects criteria markers and fixture digests, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV4-04, description: report records before and after the version change, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV4-06, description: criteria version snapshots and the other positions digest, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV4-07, description: frozen input sets and report reads, artifact_types: [STATE_SNAPSHOT, HTTP_EXCHANGE]}
+  - {evidence_id: EV4-08, description: recompute records with rule source blob SHAs, artifact_types: [STATE_SNAPSHOT]}
+  - {evidence_id: EV4-09, description: version change injection teardown and other positions check, artifact_types: [RECOVERY_RECORD]}
+  - {evidence_id: EV4-10, description: assertion results judgement and sealed manifest, artifact_types: [JUDGEMENT, MANIFEST]}
+
+timing_policy:
+  poll_seconds: 2
+  environment_restore_deadline_seconds: 120
+  run_deadline_seconds: 540
+  bundle_verify_deadline_seconds: 60
+  stability_consecutive: 3
+  stability_seconds: 4
+  expected_queue: {}
+
+restore_policy:
+  mandatory: true
+  action: teardown-run-owned-position
+  report_processing_result_field: change_injection_restore_status
+
+observation_comparators: {}
+source_requirements: [FR-030, FR-031, FR-032, FR-033, FR-034, FR-041]
+allowed_model_fixtures:
+  spec004-report-v1: e15ec3790b64b2fba10e0caa9372f08c917edbbaa99ce308076952b838668b3f
+excluded_scope:
+  - AWS
+  - N-01
+  - N-03
+  - published-version-direct-update
+  - human-review-score-change

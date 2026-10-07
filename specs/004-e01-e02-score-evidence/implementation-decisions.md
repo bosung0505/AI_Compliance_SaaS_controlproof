@@ -216,3 +216,39 @@ again in a `finally` if still applied. An adapter exception in a step is recorde
 dependent assertion INCONCLUSIVE; cancellation runs restores and teardown, then propagates. Reads past the Run
 deadline are skipped; restores and teardown are not. Only restore and teardown calls count toward the 120 s
 restore budget.
+
+## Phase 6 US3 implementation (T052~T060), 2026-10-07
+
+Status: `CONFIRMED`. No judgement rule changed.
+
+### ID-004-20 — Criteria-version routes and criterion IDs (T055)
+
+The adapter contract named `/v1/company/positions/{id}/competency-model-versions`, `/v1/company/competency-model-
+versions/{id}/publish` and `If-Match`. WhyYou registers both under `APIRouter(prefix="/v1")` without `/company`, and
+publish reads `If-Match-Version` (`company_management/api/company_routes.py`). The contract now names the real routes
+and header. The version view (`CompetencyModelVersionView`) omits `criterion_id`, so the adapter reads criterion IDs
+for the latest published version from `evaluation_criteria` read-only; the other-positions digest is read the same
+way from `competency_model_versions`.
+
+### ID-004-21 — The fake's "report mutates after change" option was a no-op (T053)
+
+`FakeSpec004Adapters(report_mutates_after_change=True)` set each criterion weight to `100 - w`, which leaves the H-2
+v1 weights (50/50) unchanged, so the E02-A2 FAIL test passed as PASS. The fake now adds 1 to each weight. Test
+infrastructure only.
+
+### ID-004-22 — E02-A2's binding precondition uses the published v2 ID (T058)
+
+"The second report is bound to v2" is checked against the version ID returned by the v2 publish call, not only
+against `latest_published`, so a target that serves an older version as latest (fake `second_version_binding_wrong`)
+is `PRECONDITION_NOT_MET` rather than a silent PASS.
+
+### ID-004-23 — E-02 restore, drift and recompute details (T057, T059)
+
+- The v2 publication is the change injection (`CRITERIA_VERSION_PUBLISH`, restore `TEARDOWN`); its pre/post digest
+  is the other positions' version projection. Teardown failure or a changed digest is `RESTORE_FAILED` and blocks
+  `e02-scoring-freeze`.
+- `SCORING_RULE_SOURCE_DRIFT` is checked twice before any write: by the `scoring.rule.source.read` capability probe
+  (real target) and by `E02Executor.preflight` (so fakes and the CLI refuse identically).
+- `API_ITEM_AVERAGE_SCORE` is recomputed from the stored axes minus those WhyYou's report read drops (a score without
+  a citation, `_restored_axes`); E-02 VALID axes always cite, so this matters only for unexpected target data.
+- `scoring_rule_source_digest` = sha256 of the rule copy ID, the pinned sources and the blob SHAs read in the Run.

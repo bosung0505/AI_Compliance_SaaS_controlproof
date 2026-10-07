@@ -726,7 +726,8 @@ class FakeSpec004Adapters:
         if self.report_mutates_after_change and version["version_number"] > 1:
             for key, report in self.reports.items():
                 for item in report["items"]:
-                    item["criterion_weight"] = 100.0 - item["criterion_weight"]
+                    # Not 100 - w: v1 is 50/50, which that would leave unchanged.
+                    item["criterion_weight"] = item["criterion_weight"] + 1.0
                 self._freeze_scores(key)
         return AdapterResult(
             True, "VERSION_PUBLISHED", {"version_id": version_id, "row_version": 2}

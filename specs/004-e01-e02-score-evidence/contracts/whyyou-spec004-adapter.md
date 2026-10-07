@@ -97,19 +97,19 @@ Run 소유 항목의 `axis_assessments` JSON만 UPDATE하고 원래 JSON digest�
 
 ### `create_version(position_id, body, idempotency_key)`
 
-`POST /v1/company/positions/{position_id}/competency-model-versions`. body 고정 항목: `job_requirements` 1개 이상,
+`POST /v1/positions/{position_id}/competency-model-versions`(`Idempotency-Key`). body 고정 항목: `job_requirements` 1개 이상,
 `criteria`(code, name, description(표식 포함), weight 합 100, verification_guide, required 등 대상 스키마 필수 필드),
 `prohibited_topics=[]`, `interview_duration_minutes=30`, `interview_level=junior`, `axis_weights`(비우거나 다섯 축 합 100).
 201이면 버전 ID·row_version을, 422면 sanitized detail 코드를 반환한다.
 
 ### `publish_version(version_id, row_version, idempotency_key)`
 
-`POST /v1/company/competency-model-versions/{version_id}/publish`, `If-Match`에 row_version. 200이면 status·
+`POST /v1/competency-model-versions/{version_id}/publish`, `If-Match-Version`에 row_version. 200이면 status·
 published_at을 반환한다.
 
 ### `read_versions(position_id)` / `latest_published(position_id)`
 
-`GET /v1/company/positions/{position_id}/competency-model-versions`에서 data-model §9 projection과, `status=published` 중
+`GET /v1/positions/{position_id}/competency-model-versions`에서 data-model §9 projection(버전 view에 criterion ID가 없어 기준 ID는 DB 읽기 전용 조회)과, `status=published` 중
 `version_number` 최대인 버전을 반환한다(WhyYou 초대 규칙과 같은 선택).
 
 ### `other_positions_digest(company)`

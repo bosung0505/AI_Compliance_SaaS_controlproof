@@ -159,18 +159,18 @@ v2가 아니면 INCONCLUSIVE인지 확인한다.
 
 ### Tests for User Story 3 — write first
 
-- [ ] T052 [P] [US3] Add criteria-version adapter contract tests: create body (job requirement, 30 minutes, weights 100, axis weights, markers), 201/422 mapping, publish with `If-Match`, `latest_published` = published with max `version_number`, `other_positions_digest`, scoring blob read, no token in output, in `tests/contract/test_spec004_criteria_version_adapter.py` [FR-031, FR-034, EV4-06]
-- [ ] T053 [P] [US3] Add E02 judge tests: A1 missing field and weight mismatch FAIL; A2 unchanged PASS, changed FAIL, second report not on v2 INCONCLUSIVE; A3 mismatch on each of the five comparison targets FAIL, float tolerance `1e-9`, integer exactness, in `tests/unit/test_judge_e02.py` [FR-030~033, E02-A1~E02-A3]
-- [ ] T054 [P] [US3] Add the E-02 journey on fakes (v1 publish → first report → v2 publish → latest-published seed → second report → compare/recompute → Run-owned teardown with other positions unchanged; restore failure path) in `tests/integration/test_e02_orchestration.py` [FR-031, FR-032, FR-041, SC-002]
+- [X] T052 [P] [US3] Add criteria-version adapter contract tests: create body (job requirement, 30 minutes, weights 100, axis weights, markers), 201/422 mapping, publish with `If-Match`, `latest_published` = published with max `version_number`, `other_positions_digest`, scoring blob read, no token in output, in `tests/contract/test_spec004_criteria_version_adapter.py` [FR-031, FR-034, EV4-06]
+- [X] T053 [P] [US3] Add E02 judge tests: A1 missing field and weight mismatch FAIL; A2 unchanged PASS, changed FAIL, second report not on v2 INCONCLUSIVE; A3 mismatch on each of the five comparison targets FAIL, float tolerance `1e-9`, integer exactness, in `tests/unit/test_judge_e02.py` [FR-030~033, E02-A1~E02-A3]
+- [X] T054 [P] [US3] Add the E-02 journey on fakes (v1 publish → first report → v2 publish → latest-published seed → second report → compare/recompute → Run-owned teardown with other positions unchanged; restore failure path) in `tests/integration/test_e02_orchestration.py` [FR-031, FR-032, FR-041, SC-002]
 
 ### Implementation for User Story 3
 
-- [ ] T055 [US3] Implement `CriteriaVersionAdapter` and `ScoringSourceAdapter` in `engine/adapters/whyyou/criteria_versions.py` [FR-031, FR-034, EV4-01, EV4-06]
-- [ ] T056 [P] [US3] Create the canonical `scenarios/E-02.yaml` with the H-2 score markers and weights from `plan.md` [FR-031, FR-040]
-- [ ] T057 [US3] Implement `engine/executors/e02.py` on top of `engine/executors/report_lanes.py` and register it in `engine/runner.py` [FR-030~032, FR-041]
-- [ ] T058 [US3] Implement E02-A1~A3 in `engine/judges/e02.py` using `engine/judges/e02_scoring.py`, and register it in `engine/judge.py` [FR-030~034, E02-A1~E02-A3]
-- [ ] T059 [US3] Compose E-02 capabilities and the preflight scoring-source check (`SCORING_RULE_SOURCE_DRIFT`) in `engine/adapters/whyyou/adapter.py` [FR-001, FR-034]
-- [ ] T060 [US3] Run T052~T054 and the implementation tests; record the E-02 gate in `specs/004-e01-e02-score-evidence/validation.md` [FR-030~034, E02-A1~E02-A3, EV4-06~EV4-08]
+- [X] T055 [US3] Implement `CriteriaVersionAdapter` and `ScoringSourceAdapter` in `engine/adapters/whyyou/criteria_versions.py` [FR-031, FR-034, EV4-01, EV4-06]
+- [X] T056 [P] [US3] Create the canonical `scenarios/E-02.yaml` with the H-2 score markers and weights from `plan.md` [FR-031, FR-040]
+- [X] T057 [US3] Implement `engine/executors/e02.py` on top of `engine/executors/report_lanes.py` and register it in `engine/runner.py` [FR-030~032, FR-041]
+- [X] T058 [US3] Implement E02-A1~A3 in `engine/judges/e02.py` using `engine/judges/e02_scoring.py`, and register it in `engine/judge.py` [FR-030~034, E02-A1~E02-A3]
+- [X] T059 [US3] Compose E-02 capabilities and the preflight scoring-source check (`SCORING_RULE_SOURCE_DRIFT`) in `engine/adapters/whyyou/adapter.py` [FR-001, FR-034]
+- [X] T060 [US3] Run T052~T054 and the implementation tests; record the E-02 gate in `specs/004-e01-e02-score-evidence/validation.md` [FR-030~034, E02-A1~E02-A3, EV4-06~EV4-08]
 
 **Checkpoint**: E-02 동결·불변·재계산을 자동 fixture에서 판정할 수 있다.
 

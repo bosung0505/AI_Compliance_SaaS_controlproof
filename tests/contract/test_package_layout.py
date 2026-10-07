@@ -31,9 +31,9 @@ def test_spec003_profile_modules_are_importable():
         "engine.executors.e01",
         "engine.judges.e01",
         "engine.adapters.whyyou.evidence_mutation",
-        pytest.param("engine.adapters.whyyou.criteria_versions", marks=_red_until("T055")),
-        pytest.param("engine.executors.e02", marks=_red_until("T057")),
-        pytest.param("engine.judges.e02", marks=_red_until("T058")),
+        "engine.adapters.whyyou.criteria_versions",
+        "engine.executors.e02",
+        "engine.judges.e02",
         "seeds.spec004_subjects",
     ],
 )
