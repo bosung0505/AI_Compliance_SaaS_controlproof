@@ -2,7 +2,7 @@
 
 ## Current status
 
-- Workflow stage: Implement T001~T071 done; Phase 8 T072~T078 complete (diagnostic only). Next: T079, fresh preflights on clean committed sources; T080/T081 require approval.
+- Workflow stage: T001~T079 done, including Phase 8 diagnostics and fresh clean-source preflights. Next: separately approved initial official T080/T081. Spec 004 remains incomplete.
 - WhyYou local/test fixture (Phase 3, T022~T029): PR jhkim0602/gbsa_aws#6 reviewed, fixed and merged into `bosung/controlproof-n02-integration` at `42aaaba206ced4288c8ee477b73f5f1ccf078bf3`; main unchanged.
 - Latest WhyYou integration head: `ce8d8620d2b2fec7f448ae312cf13334b408c01a` (PR #7, ID-004-29 report-embedder wiring); live E-02 diagnostic report generation and cleanup confirmed (see Phase 8 continuation below).
 - Sandbox diagnostics: complete. E-02 A1~A3 PASS; E-01 A1/A2/A4 PASS, A3 FAIL (P1). Diagnostic results do not replace official verdicts. Actual E-01/E-02 Runs: none (`NOT_RUN`).
@@ -441,3 +441,55 @@ ControlProof branch: `yeonwoo/004-e01-e02-score-evidence`; clean committed sourc
 Next: **T079** on newly committed clean sources, then separately approved initial official T080/T081,
 source/result freeze T082 and evidence-based classification/remediation T083~T090, then Phase 10 closure.
 Spec 004 is **not Complete**. No main changes, checkpoint rewrites or official Runs occurred in this step.
+
+## T079 — clean-source official readiness gate (2026-10-07)
+
+Preparation only; **no official Run or retest executed**. E-01/E-02 and AWS remain **NOT_RUN**.
+The completed gate was recorded at `2026-10-07T12:38:11.872332+00:00`.
+
+| Source | Branch | HEAD during preflight | State |
+|---|---|---|---|
+| ControlProof | `yeonwoo/004-e01-e02-score-evidence` | `ae6cfe093de85f54ecfd7db75adff8320e488748` | clean, matches fetched remote HEAD |
+| WhyYou | `bosung/controlproof-n02-integration` | `ce8d8620d2b2fec7f448ae312cf13334b408c01a` | clean execution checkout, same as original/fetched remote HEAD |
+
+Original WhyYou checkout retains its previously untracked `.controlproof/` evidence. No tracked changes;
+those files were not hidden, deleted or committed. API/workers execute the previously established clean clone
+at workspace `.pr-review/20261007/spec004-sandbox/whyyou-clean/`. Both main branches remain unchanged.
+
+| Command (ControlProof .venv Python, quickstart §6) | Exit | Readiness | Capabilities | Duration |
+|---|---:|---|---|---:|
+| `python -m engine.cli preflight E-01 --profile E01_CITATION_EVIDENCE_V1 --target whyyou-local --json` | 0 | READY | 18/18 | 4.281 s |
+| `python -m engine.cli preflight E-02 --profile E02_SCORING_FREEZE_V1 --target whyyou-local --json` | 0 | READY | 16/16 | 5.407 s |
+
+- Both: `LOCAL_EMULATED`, AWS `NOT_RUN`, fixture `spec004-report-v1`, digest
+  `e15ec3790b64b2fba10e0caa9372f08c917edbbaa99ce308076952b838668b3f`.
+- E-02 scoring source: **MATCH**, both pinned blobs present. E-01 has no scoring-source requirement.
+- Reused only the dedicated PostgreSQL/Moto project (loopback 15434/14567); bootstrapped Moto infrastructure
+  after restart, then started API (18084) and four real worker children with the same synthetic configuration.
+  API `/v1/me` 200; preflight includes the live API/worker readiness and AI isolation contracts.
+- Fresh observer/fault roots: `.pr-review/20261007/spec004-sandbox/t079-observers/` and `t079-faults/`.
+  Intended official Run root: workspace `cp-local/spec004-official/runs/`; separate from all diagnostic bundles.
+  No UUID Run directory exists before/after. Positions, versions, interview sessions, reports, report items,
+  evidence and assistant projections remain **0 → 0**. No report request or change injection was submitted.
+- Startup recovery: the scratch startup helper initially ran under ControlProof's venv, which lacks WhyYou's
+  `cryptography`; it failed before creating services. The preflights attempted before startup completed returned
+  RUNNER_NOT_READY: E-01 10/18 (exit 2, 22.063 s), E-02 8/16 (exit 2, 25.578 s). These are readiness failures,
+  not WhyYou verdicts. Reran the helper in the existing WhyYou venv; infrastructure exit 0 (3.706 s), API 200,
+  then both final preflights above succeeded. No dependency installation or product-source edit was needed.
+  Initial records remain in `t079/` and `t079-preflight-E-0N.stdout/.stderr/.result.json`; final records use a
+  separate timestamp directory so failed preparation history is preserved.
+- Final local records: workspace `.pr-review/20261007/spec004-sandbox/t079/preflight-20261007T123801056715Z/`:
+  `preflight-E-01.json`, `preflight-E-02.json`, `readiness-summary.json`. Preflight payload SHA-256:
+  E-01 `ce0c167f3496c15a6bac76f46f7c74b016e5b38c524af1a87daba7d70a96e578`;
+  E-02 `947c81e5ec9cebe6342d80a56b9590bf62d9739fa50b9e606b64db5f8000d3a4`.
+- Dedicated API/workers/containers remain running for the next approved step. Process roots/logs are recorded
+  in `t079/processes.json` and `t079/api.log`, `workers.log`; synthetic credentials stay in process memory.
+- Changed only this validation and tasks record. No implementation changes or regression rerun; the Phase 8
+  full gate remains 793 passed / ruff PASS. Global state docs will be synchronized at Phase 9 end. This record
+  commit changes documentation only; the listed source SHAs describe the actual preflight checkpoints.
+
+Next: T080/T081, exactly one initial official Run per scenario with show/verify and immutable source/result
+records, then T082. Quickstart §6 requires explicit approval for official execution; this step authorizes and
+completes only the T079 preparation gate. E01-A3 FAIL/P1 remains expected from diagnostics. No P1 product
+change is applied before sealing the first official result. Actual Run setup must capture its current clean
+source SHA again; this preflight is not a permanent readiness guarantee or an official verdict.

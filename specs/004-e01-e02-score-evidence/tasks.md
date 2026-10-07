@@ -242,7 +242,11 @@ are in validation. Next T079; official E-01/E-02 and AWS remain NOT_RUN.
 
 ### Actual-stack first truth gate
 
-- [ ] T079 [US5] On clean committed ControlProof and WhyYou branches (WhyYou = T029 head or the merged base), run both preflights from `quickstart.md`; record source SHAs, readiness, capability counts, fixture ID, scoring-source status and AWS `NOT_RUN` in `validation.md`; create no Run unless READY and approved [FR-001, FR-034, SC-006]
+- [X] T079 [US5] On clean committed ControlProof and WhyYou branches (WhyYou = T029 head or the merged base), run both preflights from `quickstart.md`; record source SHAs, readiness, capability counts, fixture ID, scoring-source status and AWS `NOT_RUN` in `validation.md`; create no Run unless READY and approved [FR-001, FR-034, SC-006]
+  - 2026-10-07: ControlProof `ae6cfe0` / WhyYou clean checkout `ce8d862`, remote heads match.
+    E-01 READY 18/18; E-02 READY 16/16 and scoring source MATCH (2 pinned blobs). Fixed fixture
+    `spec004-report-v1`, LOCAL_EMULATED, AWS NOT_RUN. No Run directory or subject/report rows created.
+    Raw preflights and startup-only NOT_READY attempts retained; see validation T079 entry.
 - [ ] T080 [US5] With approval, execute exactly one initial E-01 actual Run before any WhyYou product change; run show/verify; record Run ID, A1~A4, D1, restore status, timing and manifest SHA-256 in `validation.md` [FR-040~042, FR-050, SC-001~SC-004]
 - [ ] T081 [US5] With approval, execute exactly one initial E-02 actual Run; run show/verify; record the same facts in `validation.md` [FR-040~042, FR-050, SC-001~SC-004]
 - [ ] T082 [US5] Freeze the T080/T081 source/result mapping in `specs/004-e01-e02-score-evidence/traceability.md`; document every FAIL, INCONCLUSIVE and unavailable fact without changing the sealed bundles [FR-050]
