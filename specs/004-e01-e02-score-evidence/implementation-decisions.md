@@ -3,8 +3,9 @@
 ## Status
 
 - Implementation: Phase 1 (T001~T004) done; Phase 2 failing tests (T005~T011) written; implementation from T012 not started.
-- WhyYou local/test fixture: `spec004-report-v1` on `yeonwoo/controlproof-e01-e02-fixture` `3dfa10c`, PR
-  jhkim0602/gbsa_aws#6 (open). No WhyYou product code changed.
+- WhyYou local/test fixture: `spec004-report-v1`, reviewed/fixed source `3423f16`, PR
+  jhkim0602/gbsa_aws#6 merged into `bosung/controlproof-n02-integration` at `42aaaba` (ID-004-03).
+  No WhyYou product code or main changed.
 - Actual E-01/E-02 Runs: none. Sandbox diagnostics: none.
 
 This log records implementation choices that cannot be inferred from Tasks alone. The first actual Run of each
@@ -59,3 +60,25 @@ observation, not by itself proof that a WhyYou product boundary is defective.
 | T086 | approved T085 fix | pending | |
 | T087 | other target defect | pending | |
 | T088 | child retest | pending | |
+
+### ID-004-03 — PR #6 review: explicit report-request memory scope
+
+- Date: 2026-10-07
+- Task: T024/T026/T028/T029; FR-012, SC-007
+- Status: `CONFIRMED`; operator authorized fixes, feature-branch merge and push
+- Source: WhyYou PR #6 initial head `3dfa10c`; fixed head `3423f167664273152078faeb1b91d0324b98a2f4`
+- Finding: a shared UUIDv7 millisecond is not a report identity. Memory crossed company/request
+  boundaries and interleaved requests overwrote one another. Incomplete markers also bypassed
+  MARKER_INVALID or were accepted without the required separator.
+- Decision: key the bounded memory by `(company_id, request_id, criterion_id)`. The existing
+  messaging worker sets request_id to the report-request Outbox event ID and passes the same
+  context through all criterion assessments. Keep the UUIDv7 timestamp as an additional stale
+  retry check. Detect malformed marker prefixes and return h03 output with MARKER_INVALID.
+- Alternatives: new marker scope fields or product payload changes are unnecessary; the existing
+  context already carries the explicit request boundary. Timestamp-only identity rejected.
+- Safety/compatibility: only local/test substitute and tests change; no product code, marker
+  syntax, fixture identity/digest, raw receipt publication, external AI call or actual Run changes.
+- Verification: 5 EXPECTED RED / 48 PASS, then 53 model PASS; scoped 177 PASS; full unit 488 PASS
+  plus the known baseline repository-guard failure. Commands and durations are in validation.md.
+- The fixed merged WhyYou integration HEAD is the target source for later sandbox/official Runs;
+  these Runs still require their own readiness and approval gates.

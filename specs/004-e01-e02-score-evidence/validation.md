@@ -4,7 +4,7 @@
 
 - Workflow stage: Implement started. Phase 1 (T001~T004) done; Phase 2 failing tests (T005~T011) written and
   confirmed RED for the intended reasons; Phase 2 implementation (T012~T021) not started.
-- WhyYou local/test fixture (Phase 3, T022~T029): done; PR jhkim0602/gbsa_aws#6 open.
+- WhyYou local/test fixture (Phase 3, T022~T029): PR jhkim0602/gbsa_aws#6 reviewed, fixed and merged into `bosung/controlproof-n02-integration` at `42aaaba206ced4288c8ee477b73f5f1ccf078bf3`; main unchanged.
 - Sandbox diagnostics: none. Actual E-01/E-02 Runs: none (`NOT_RUN`).
 - AWS: `NOT_RUN`
 - Claim scope: `EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`
@@ -28,7 +28,7 @@ baseline above is not an actual-Run source claim.
 |---|---|---|---|---|
 | Setup | T001~T004 | file review, `ruff check tests/fixtures/spec004.py`, fixture sanity (v1 72, v2 74) | PASS | < 1 minute |
 | Foundation tests (RED) | T005~T011 | scoped pytest with and without `--runxfail`; full `pytest -q` | 113 strict xfail for the intended reason; 15 new guards PASS | ~1 minute |
-| WhyYou fixture | T022~T029 | see below | PASS (PR open) | — |
+| WhyYou fixture | T022~T029 | original and PR review records below | 53 model / 177 scoped PASS after review; merged at `42aaaba` | See review record |
 
 ## WhyYou fixture `spec004-report-v1` (T022~T029)
 
@@ -104,3 +104,34 @@ redaction survival, N-02 v3 execute/verify, sealed parent `15cef078…` manifest
 ## Actual Run ledger
 
 (none yet — Phase 9; requires preflight READY and explicit approval)
+
+## WhyYou PR #6 review fixes — 2026-10-07 (ID-004-03)
+
+The user authorized fix, push and merge only into `bosung/controlproof-n02-integration`; main
+is forbidden. Initial PR head `3dfa10c9cf34f26b499e32652f310447e5a119db`; fixed head
+`3423f167664273152078faeb1b91d0324b98a2f4`. This entry supersedes the original timestamp-only
+memory description without replacing its historical test results.
+
+| Command / gate | Result |
+|---|---|
+| `python -m pytest -q backend/tests/unit/runtime/test_controlproof_model_substitute.py --tb=short` before code changes | EXPECTED RED: 5 failed / 48 passed in 0.72 s; company/request leakage, interleaved memory overwrite, missing closing bracket and missing marker separator |
+| Same command after changes | 53 passed in 0.61 s |
+| `python -m pytest -q backend/tests/unit/integration/test_submission_interview_consent.py backend/tests/unit/reporting backend/tests/unit/runtime backend/tests/integration/test_controlproof_fault_hook_safety.py --tb=short` | 177 passed in 4.29 s |
+| `python -m pytest -q backend/tests/unit --tb=short` | 488 passed / 1 failed in 21.23 s; only known baseline `test_no_module_imports_another_lanes_private_package` |
+| `ruff check` and `ruff format --check` on both WhyYou changed files; `git diff --check` | PASS |
+| `git diff --exit-code eec8f70 HEAD -- <baseline guard's violating source files>` | PASS; recruiting_assistant/api.py, recruiting_assistant/application.py and runtime/worker.py are unchanged from the base |
+
+Memory now requires matching company and report-request UUIDs, with the timestamp only an
+additional stale-retry check. The reporting worker's context already identifies the Outbox event;
+no new marker or product payload is needed. Invalid marker prefixes keep h03 output and emit
+MARKER_INVALID. Existing h03 identity/health/output and target consent guards remain covered.
+
+Only the substitute and its unit test changed in WhyYou. ControlProof updates are Spec 004
+contract/tasks/decision/validation records only; no ControlProof implementation or whole-suite
+rerun for this documentation change. Sandbox and actual E-01/E-02 Runs remain NOT_RUN.
+
+PR #6 merged into `bosung/controlproof-n02-integration` at
+`42aaaba206ced4288c8ee477b73f5f1ccf078bf3` (fixed source `3423f16`). WhyYou main remains
+`cc8bf556b75f563f01cbf0487e28c555125077e7`. Use this merged integration HEAD for the later
+sandbox/official Run source snapshot, not the superseded `3dfa10c` fixture head. Fetch/pull both
+repositories before continuing; read this review entry with the corrected fixture contract.
