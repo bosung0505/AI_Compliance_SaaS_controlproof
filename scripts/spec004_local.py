@@ -185,7 +185,12 @@ def process_snapshot() -> list[dict]:
         "| ConvertTo-Json -Compress"
     )
     output = subprocess.check_output(["powershell", "-NoProfile", "-Command", command], text=True)
-    return json.loads(output)
+    # Windows native diagnostics can be appended to an otherwise valid JSON line.
+    for line in output.splitlines():
+        if line.lstrip().startswith(("[", "{")):
+            rows = json.loads(line)
+            return rows if isinstance(rows, list) else [rows]
+    raise RuntimeError("Process inventory did not contain JSON")
 
 
 def start(state: dict):
@@ -296,8 +301,12 @@ def start(state: dict):
                 stderr=subprocess.STDOUT,
                 creationflags=subprocess.CREATE_NO_WINDOW,
             )
+        # Preserve the directly owned PID even if process inventory fails during startup.
+        state["pending_process"] = {"name": name, "pid": process.pid}
+        (root / "state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
         info = next(row for row in process_snapshot() if row["ProcessId"] == process.pid)
         state["processes"][name] = info
+        state.pop("pending_process")
         (root / "state.json").write_text(json.dumps(state, indent=2), encoding="utf-8")
     for _ in range(45):
         try:
@@ -318,6 +327,10 @@ def start(state: dict):
 
 
 def stop(state: dict):
+    if state.get("pending_process"):
+        raise RuntimeError(
+            "Startup process inventory incomplete; inspect pending PID before stopping"
+        )
     snapshot = process_snapshot()
     selected = {}
     roots = {row["ProcessId"]: row for row in state.get("processes", {}).values()}

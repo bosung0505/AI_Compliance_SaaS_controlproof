@@ -79,3 +79,22 @@ def test_checked_git_rejects_main_and_user_env_before_startup(tmp_path, monkeypa
     (tmp_path / ".env").write_text("credential=synthetic")
     with pytest.raises(RuntimeError, match="without .env"):
         local.checked_git(tmp_path)
+
+
+def test_process_inventory_ignores_trailing_native_diagnostic(monkeypatch):
+    monkeypatch.setattr(
+        local.subprocess,
+        "check_output",
+        lambda *args, **kwargs: (
+            '[{"ProcessId": 7, "ParentProcessId": 1, "Created": "synthetic-time"}]\n'
+            "ANOMALY: native diagnostic\n"
+        ),
+    )
+    assert local.process_snapshot() == [
+        {"ProcessId": 7, "ParentProcessId": 1, "Created": "synthetic-time"}
+    ]
+
+
+def test_incomplete_process_inventory_requires_inspection_before_stop():
+    with pytest.raises(RuntimeError, match="inspect pending PID"):
+        local.stop({"pending_process": {"name": "api", "pid": 7}})

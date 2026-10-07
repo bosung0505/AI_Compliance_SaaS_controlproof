@@ -910,3 +910,19 @@ security corpus remains intentionally in tests. Newly staged files and reproduct
 scanned before closure. Command/result journals: workspace .pr-review/20261008/closure/, outside Git.
 SC-001 reason wording and SC-006 team-PC versus T097 second-checkout inconsistency were presented for owner
 clarification; no completion-criterion change applied without that response. Spec 004 remains incomplete.
+
+### T092 portability correction before reproduction
+
+Clean checkpoint cfff091 and WhyYou 374b122 were cloned to a separate pair of feature checkouts, with
+existing Python 3.12.12/3.14.3 dependencies reused as documented. Fresh dedicated Docker project/schema/queues
+initialized, but Windows process-inventory stdout appended a native ANOMALY line to valid JSON. Startup
+failed at parsing before any Run, not at target execution. API PID 4228 and launcher 33536 were identified
+by command/creation time; child stopped and parent exited, then only the reproduction project was stopped.
+Logs/volumes retained; no original services, DB or sealed evidence changed.
+
+Correction limited to scripts/spec004_local.py: parse the valid JSON inventory line and preserve a pending
+owned PID in state before inventory lookup; stop refuses an incomplete inventory until inspected. Added
+two regression/safety cases. New test insertion briefly caused a test-scope NameError, corrected immediately.
+Scoped setup gate 10 passed in 5.70 s; ruff PASS. Full 939 gate not repeated: engine/security code unchanged
+since that gate; only the observed setup portability issue and its tests changed. Next clean checkpoint
+contains this correction for T092/T097. Do not claim 941 full-suite PASS; only 939 full + 10 scoped are proven.
