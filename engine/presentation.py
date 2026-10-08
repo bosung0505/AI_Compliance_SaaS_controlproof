@@ -6,6 +6,8 @@ import json
 from pathlib import Path
 from typing import Any
 
+import yaml
+
 from engine.models import (
     SPEC004_PROFILES,
     AssertionStatus,
@@ -13,6 +15,7 @@ from engine.models import (
     Judgement,
     Run,
     ScenarioProfile,
+    sha256_bytes,
 )
 
 CLAIM_SCOPE = "EXECUTED_SCENARIO_AND_EVIDENCE_ONLY"
@@ -118,6 +121,7 @@ def load_bundle_summary(bundle: Path) -> dict[str, Any]:
         "inconclusive_assertions": inconclusive,
         "assertions": assertions,
         "evidence_links": _evidence_links(manifest, by_artifact),
+        "evidence_index": evidence_index(directory, manifest, judgement),
         "environment_restore_status": environment_restore,
         "report_processing_recovery": report_recovery,
         "implementation_status": run.implementation_status.value,
@@ -422,6 +426,126 @@ def _evidence_links(
                 linked.append(by_artifact[artifact_id])
         result[evidence_id] = linked
     return result
+
+
+def evidence_index(directory: Path, manifest: dict[str, Any], judgement: Judgement) -> dict[str, Any]:
+    """Resolve every evidence reference to a `<run_root>/…` file with SHA-256, size and MIME (R-011).
+
+    Reference forms: Spec 001 bare artifact IDs, `artifact:`, `file:`, `intrinsic:sealed-manifest` and cross-run
+    objects (resolved through the sibling origin bundle's manifest). `by_assertion` is the assertion's own
+    `artifact_ids` together with the references of its `required_evidence_ids` in the sealed scenario snapshot.
+    """
+    run_id = directory.name
+    files: list[dict[str, Any]] = []
+    by_ref: dict[str, dict[str, Any]] = {}
+    by_path: dict[str, str] = {}
+
+    def add(ref: str, record: dict[str, Any], bundle_id: str) -> dict[str, Any]:
+        if ref not in by_ref:
+            by_ref[ref] = {
+                "ref": ref,
+                "relative_path": f"<run_root>/{bundle_id}/{record.get('path')}",
+                "sha256": record.get("sha256"),
+                "size_bytes": record.get("size_bytes"),
+                "mime_type": record.get("mime_type"),
+                "evidence_requirement_ids": [],
+            }
+            files.append(by_ref[ref])
+        return by_ref[ref]
+
+    for record in manifest.get("files", []):
+        if not isinstance(record, dict) or not isinstance(record.get("path"), str):
+            continue
+        ref = f"artifact:{record['artifact_id']}" if record.get("artifact_id") else f"file:{record['path']}"
+        add(ref, record, run_id)
+        by_path[record["path"]] = ref
+
+    def resolve(reference: Any) -> tuple[str, dict[str, Any] | None]:
+        if isinstance(reference, dict):
+            origin = str(reference.get("origin_run_id"))
+            ref = f"run:{origin}/artifact:{reference.get('artifact_id')}"
+            if ref in by_ref:
+                return ref, by_ref[ref]
+            try:
+                origin_manifest = _read_json(directory.parent / origin / "manifest.json")
+            except (OSError, ValueError):
+                return ref, None
+            for record in origin_manifest.get("files", []):
+                if (
+                    isinstance(record, dict)
+                    and record.get("artifact_id") == reference.get("artifact_id")
+                    and record.get("sha256") == reference.get("artifact_digest")
+                ):
+                    return ref, add(ref, record, origin)
+            return ref, None
+        if not isinstance(reference, str):
+            return str(reference), None
+        if reference == "intrinsic:sealed-manifest":
+            if reference not in by_ref:
+                payload = (directory / "manifest.json").read_bytes()
+                record = {
+                    "path": "manifest.json",
+                    "sha256": sha256_bytes(payload),
+                    "size_bytes": len(payload),
+                    "mime_type": "application/json",
+                }
+                add(reference, record, run_id)
+            return reference, by_ref[reference]
+        if reference.startswith("file:"):
+            ref = by_path.get(reference.removeprefix("file:"), reference)
+            return ref, by_ref.get(ref)
+        if reference.startswith("intrinsic:"):
+            return reference, None
+        ref = f"artifact:{reference.removeprefix('artifact:')}"
+        return ref, by_ref.get(ref)
+
+    by_requirement: dict[str, list[str]] = {}
+    incomplete: set[str] = set()
+    unresolved: list[dict[str, Any]] = []
+    for evidence_id, references in manifest.get("required_evidence", {}).items():
+        linked: list[str] = []
+        for reference in references if isinstance(references, list) else ():
+            ref, entry = resolve(reference)
+            if entry is None:
+                unresolved.append({"requirement_id": evidence_id, "ref": ref})
+                incomplete.add(evidence_id)
+                continue
+            if ref not in linked:
+                linked.append(ref)
+            if evidence_id not in entry["evidence_requirement_ids"]:
+                entry["evidence_requirement_ids"].append(evidence_id)
+        by_requirement[evidence_id] = linked
+
+    requirements = _snapshot_requirements(directory)
+    by_assertion: dict[str, dict[str, Any]] = {}
+    for result in judgement.assertion_results:
+        refs = {f"artifact:{item}" for item in result.artifact_ids if f"artifact:{item}" in by_ref}
+        missing = []
+        for evidence_id in requirements.get(result.assertion_id, []):
+            refs.update(by_requirement.get(evidence_id, []))
+            if not by_requirement.get(evidence_id) or evidence_id in incomplete:
+                missing.append(evidence_id)
+        by_assertion[result.assertion_id] = {"refs": sorted(refs), "missing_requirement_ids": missing}
+    return {
+        "files": files,
+        "by_requirement": by_requirement,
+        "by_assertion": by_assertion,
+        "unresolved_refs": unresolved,
+    }
+
+
+def _snapshot_requirements(directory: Path) -> dict[str, list[str]]:
+    try:
+        snapshot = yaml.safe_load((directory / "scenario.snapshot.yaml").read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return {}
+    definition = snapshot.get("definition", snapshot) if isinstance(snapshot, dict) else {}
+    assertions = definition.get("assertions", []) if isinstance(definition, dict) else []
+    return {
+        str(item.get("assertion_id")): [str(value) for value in item.get("required_evidence_ids", [])]
+        for item in assertions
+        if isinstance(item, dict)
+    }
 
 
 def _effect_differences(effects: list[dict[str, Any]]) -> dict[str, Any]:
