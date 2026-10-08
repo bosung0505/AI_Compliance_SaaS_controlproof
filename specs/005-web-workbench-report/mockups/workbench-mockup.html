@@ -1,0 +1,429 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>ControlProof 워크벤치 목업 (DEMO DATA · MOCK)</title>
+<style>
+  :root {
+    --ink: #1d2433; --muted: #5b6475; --line: #d9dee8; --bg: #f6f7fa; --card: #ffffff;
+    --pass: #1f7a3d; --pass-bg: #e6f4ea; --fail: #b3261e; --fail-bg: #fdecea;
+    --inc: #8a5a00; --inc-bg: #fff4d6; --notrun: #4a5160; --notrun-bg: #eef0f4;
+    --ntt: #5b3a99; --ntt-bg: #efe8fb; --rnr: #9a4a00; --rnr-bg: #ffe9d6;
+    --ready: #1f5f99; --ready-bg: #e3effa; --demo: #6b1d1d;
+  }
+  * { box-sizing: border-box; }
+  body { margin: 0; font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+         color: var(--ink); background: var(--bg); font-size: 14px; line-height: 1.55; }
+  .demo-banner { position: sticky; top: 0; z-index: 10; background: var(--demo); color: #fff; text-align: center;
+                 padding: 6px 12px; font-weight: 700; letter-spacing: .04em; }
+  .demo-banner small { font-weight: 400; opacity: .9; margin-left: 8px; }
+  header { background: var(--card); border-bottom: 1px solid var(--line); padding: 10px 20px; }
+  header h1 { margin: 0 0 6px; font-size: 18px; }
+  header .target { color: var(--muted); font-size: 13px; }
+  nav { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+  nav button { border: 1px solid var(--line); background: #fff; padding: 7px 12px; border-radius: 6px; cursor: pointer;
+               font: inherit; }
+  nav button[aria-selected="true"] { background: var(--ink); color: #fff; border-color: var(--ink); }
+  main { max-width: 1180px; margin: 0 auto; padding: 18px 20px 60px; }
+  section.screen { display: none; }
+  section.screen.active { display: block; }
+  h2 { font-size: 17px; margin: 18px 0 8px; }
+  h3 { font-size: 15px; margin: 16px 0 6px; }
+  .card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 10px 0; }
+  .grid { display: grid; gap: 10px; }
+  .grid.c2 { grid-template-columns: repeat(auto-fit, minmax(320px, 1fr)); }
+  .grid.c4 { grid-template-columns: repeat(auto-fit, minmax(170px, 1fr)); }
+  table { width: 100%; border-collapse: collapse; background: var(--card); }
+  th, td { border-bottom: 1px solid var(--line); padding: 7px 8px; text-align: left; vertical-align: top; }
+  th { background: #eef1f6; font-size: 13px; }
+  .muted { color: var(--muted); }
+  .mono { font-family: Consolas, "D2Coding", monospace; font-size: 12.5px; word-break: break-all; }
+  .pill { display: inline-flex; align-items: center; gap: 5px; border-radius: 999px; padding: 2px 10px 2px 7px;
+          font-size: 12.5px; font-weight: 700; border: 1.5px solid currentColor; white-space: nowrap; }
+  .pill .ic { font-weight: 900; }
+  .s-pass { color: var(--pass); background: var(--pass-bg); }
+  .s-fail { color: var(--fail); background: var(--fail-bg); }
+  .s-inc  { color: var(--inc); background: var(--inc-bg); border-style: dashed; }
+  .s-notrun { color: var(--notrun); background: var(--notrun-bg); border-style: dotted; }
+  .s-ntt  { color: var(--ntt); background: var(--ntt-bg); border-radius: 4px; }
+  .s-rnr  { color: var(--rnr); background: var(--rnr-bg); border-radius: 4px; }
+  .s-ready { color: var(--ready); background: var(--ready-bg); border-radius: 4px; }
+  .s-usage { color: #333; background: #fff; border-radius: 4px; border-style: double; border-width: 3px; }
+  .s-restore { color: #fff; background: #7a2e00; border-color: #7a2e00; border-radius: 4px; }
+  .s-integrity { color: #fff; background: #3d3d3d; border-color: #3d3d3d; border-radius: 4px; }
+  .counts .num { font-size: 26px; font-weight: 800; }
+  .legend td { font-size: 13px; }
+  .note { border-left: 4px solid var(--ready); background: #f0f6fd; padding: 8px 12px; margin: 8px 0; }
+  .warn { border-left: 4px solid var(--fail); background: #fdf1f0; padding: 8px 12px; margin: 8px 0; }
+  .limit { border-left: 4px solid var(--inc); background: #fff9e8; padding: 8px 12px; margin: 8px 0; }
+  .cmd { background: #1d2433; color: #e8edf7; padding: 10px 12px; border-radius: 6px; position: relative; }
+  .cmd button { position: absolute; right: 8px; top: 8px; font: inherit; font-size: 12px; cursor: pointer; }
+  .tool { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+  .tool button, .tool label { font: inherit; }
+  .btn { border: 1px solid var(--ink); background: var(--ink); color: #fff; padding: 6px 12px; border-radius: 6px; cursor: pointer; }
+  .btn.sec { background: #fff; color: var(--ink); }
+  details { margin: 6px 0; }
+  details summary { cursor: pointer; font-weight: 700; }
+  .steps li { margin: 3px 0; }
+  .side { display: grid; grid-template-columns: 1fr 1fr; gap: 12px; }
+  @media (max-width: 800px) { .side { grid-template-columns: 1fr; } }
+  .rep-item { display: inline-block; min-width: 2.6em; font-weight: 800; color: var(--ready); }
+  textarea { width: 100%; min-height: 70px; font: inherit; }
+  .hidden { display: none; }
+</style>
+</head>
+<body>
+<div class="demo-banner" role="note">DEMO DATA · MOCK <small>합성 데이터로 만든 화면 검토용 목업입니다. 실제 실행·판정·증적이 아닙니다.</small></div>
+<header>
+  <h1>ControlProof 검증 워크벤치 <span class="muted">— 목업</span></h1>
+  <div class="target">검증 대상: <b>WhyYou</b> 시험 환경 · 대상 버전 표시 예 <span class="mono">demo-374b122</span> ·
+    실행 환경 <b>LOCAL_EMULATED</b> · 실제 AWS <b>NOT_RUN</b> · 주장 범위: 실행한 시나리오와 확보한 증적</div>
+  <nav role="tablist" aria-label="화면 선택">
+    <button role="tab" data-screen="s1" aria-selected="true">① 워크벤치</button>
+    <button role="tab" data-screen="s2" aria-selected="false">② 시나리오 상세·실행</button>
+    <button role="tab" data-screen="s3" aria-selected="false">③ 실행 결과·증적</button>
+    <button role="tab" data-screen="s4" aria-selected="false">④ 재시험 비교·보고서</button>
+  </nav>
+</header>
+
+<main>
+<!-- ====================================================== ① 워크벤치 -->
+<section id="s1" class="screen active" aria-label="워크벤치">
+  <h2>검증 현황 (12개 시나리오 관리 · 5개 실제 실행 대상 · 4개 NOT_RUN · 3개 NO_TEST_TARGET)</h2>
+  <p class="muted">숫자는 봉인 기록과 범위표에서 읽은 값입니다(목업에서는 고정 값). 화면은 판정을 계산하지 않습니다.</p>
+
+  <div class="grid c4 counts">
+    <div class="card"><span class="pill s-pass"><span class="ic">✔</span>PASS 통과</span><div class="num">4</div>
+      <div class="muted">H-03 · E-03 · E-01(재시험) · E-02</div></div>
+    <div class="card"><span class="pill s-fail"><span class="ic">✖</span>FAIL 실패</span><div class="num">0</div>
+      <div class="muted">최근 결과 기준. 보존된 최초 FAIL은 계보에서 봅니다.</div></div>
+    <div class="card"><span class="pill s-inc"><span class="ic">?</span>판정 불가 INCONCLUSIVE</span><div class="num">4</div>
+      <div class="muted">NO_TEST_TARGET 3 (A-01~A-03)<br>INSUFFICIENT_EVIDENCE 1 (N-02)<br>ACCESS_LIMITED 0 · EVIDENCE_CONFLICT 0</div></div>
+    <div class="card"><span class="pill s-notrun"><span class="ic">○</span>미실행 NOT_RUN</span><div class="num">4</div>
+      <div class="muted">H-01 · H-02 · N-01 · N-03 (이번 범위에서 실행하지 않음)</div></div>
+  </div>
+
+  <div class="card">
+    <div class="tool">
+      <b>필터</b>
+      <label><input type="checkbox" data-filter="runnable"> 실행 가능(READY)</label>
+      <label><input type="checkbox" data-filter="failed"> 실패·재시험 필요</label>
+      <label><input type="checkbox" data-filter="inconclusive"> 판정 불가</label>
+      <span class="muted" id="filterNote"></span>
+      <span style="flex:1"></span>
+      <button class="btn" id="preflightBtn" title="웹에서 시작할 수 있는 유일한 동작">준비 상태 확인</button>
+      <button class="btn sec" data-go="s4">보고서 열기 →</button>
+    </div>
+    <div id="preflightResult" class="note hidden"></div>
+    <table id="catalog" aria-label="12개 시나리오">
+      <thead><tr><th>통제</th><th>ID</th><th>질문</th><th>대상 존재</th><th>준비 상태 (확인 시각)</th><th>실행 방식</th><th>최근 결과</th><th></th></tr></thead>
+      <tbody></tbody>
+    </table>
+  </div>
+
+  <div class="grid c2">
+    <div class="card">
+      <h3>재시험이 필요한 실패</h3>
+      <p>현재 0건입니다. 보존된 최초 FAIL과 그 재시험:</p>
+      <ul>
+        <li>E-01: 최초 <span class="pill s-fail"><span class="ic">✖</span>FAIL</span> <span class="mono">demo-run-e01-0001</span> →
+          재시험 <span class="pill s-pass"><span class="ic">✔</span>PASS</span> <span class="mono">demo-run-e01-0002</span>
+          <button class="btn sec" data-go="s4">비교 보기</button></li>
+        <li>H-03: 최초 FAIL <span class="mono">demo-run-h03-0001</span> → 재시험 PASS <span class="mono">demo-run-h03-0002</span></li>
+        <li>E-03: 최초 FAIL <span class="mono">demo-run-e03-0001</span> → 재시험 PASS <span class="mono">demo-run-e03-0002</span></li>
+      </ul>
+    </div>
+    <div class="card legend">
+      <h3>상태 읽는 법</h3>
+      <table>
+        <tr><td><span class="pill s-inc"><span class="ic">?</span>판정 불가</span></td><td>실행했거나 대상을 확인했지만 결론을 낼 수 없음. 사유 코드가 항상 붙습니다.</td></tr>
+        <tr><td><span class="pill s-notrun"><span class="ic">○</span>미실행</span></td><td>정의는 있으나 실제로 실행하지 않음. 실패도 통과도 아닙니다.</td></tr>
+        <tr><td><span class="pill s-ntt"><span class="ic">∅</span>NO_TEST_TARGET</span></td><td>WhyYou에 시험할 기능이 없음. ControlProof가 만들지 않습니다.</td></tr>
+        <tr><td><span class="pill s-rnr"><span class="ic">⚙</span>RUNNER_NOT_READY</span></td><td>대상 기능은 있으나 ControlProof 실행기가 준비되지 않음.</td></tr>
+        <tr><td><span class="pill s-ready"><span class="ic">●</span>READY</span></td><td>준비 상태 확인을 통과함(확인 시각 기준).</td></tr>
+        <tr><td><span class="pill s-usage"><span class="ic">!</span>확인 도구 오류</span></td><td>준비 상태가 아니라 확인 요청 자체가 잘못됨(사용법 오류).</td></tr>
+      </table>
+    </div>
+  </div>
+</section>
+
+<!-- ====================================================== ② 시나리오 상세 -->
+<section id="s2" class="screen" aria-label="시나리오 상세·실행">
+  <div class="tool">
+    <b>시나리오</b>
+    <button class="btn" data-detail="e01">E-01 (실제 실행)</button>
+    <button class="btn sec" data-detail="h01">H-01 (NOT_RUN)</button>
+    <button class="btn sec" data-detail="a01">A-01 (NO_TEST_TARGET)</button>
+  </div>
+
+  <div id="d-e01">
+    <h2>E-01 근거 인용 없는 점수 저장·노출 차단 <span class="pill s-ready"><span class="ic">●</span>READY</span>
+      <span class="muted">확인 2026-10-08 10:12 (demo)</span></h2>
+    <div class="grid c2">
+      <div class="card"><h3>의도</h3><p>AI가 낸 점수가 근거가 되는 답변 인용 없이 저장되거나 보이지 않는지, 근거가 사라지면 그 점수가 정상처럼 보이지 않는지 확인합니다.</p>
+        <h3>보호 대상</h3><p>지원자 평가 점수와 그 근거(면접 답변 구간). AI 점수는 참고 정보이며 최종 채용 결정은 권한 있는 사람이 합니다.</p>
+        <h3>정책 근거</h3><p>내부 통제 "근거 없는 AI 점수 금지"(MVP 범위 V4 §10.10). 특정 법 조문 대응은 법률 검토 전이라 표시하지 않습니다.</p>
+        <h3>WhyYou에서의 구현 위치</h3><p>면접이 끝난 뒤 리포트를 만드는 단계에서 AI가 인용한 답변이 실제 그 지원자·그 기준의 답변인지 확인하는 곳, 그리고 회사 담당자가 리포트를 여는 화면.</p></div>
+      <div class="card"><h3>전제조건</h3><ul><li>두 저장소가 깨끗하고 WhyYou가 운영 브랜치가 아님</li><li>시험용 고정 모델로 리포트를 만들도록 설정됨</li><li>외부 AI 호출이 차단됨</li></ul>
+        <h3>합성 데이터와 대조군</h3><ul><li>합성 지원자 4명(인용 시험·근거 제거·저장소 진단·대조군)</li><li>대조군: 정상 인용만 하는 참조 지원자 — 시험 전후 리포트가 바뀌지 않아야 함</li></ul>
+        <h3>시험 조건과 복구</h3><ul><li>잘못된 인용 4종(빈 인용·없는 근거·다른 지원자 근거·다른 기준 근거)을 고정 모델이 냄</li><li>저장 뒤 근거가 되는 답변 구간 하나를 시험 중에만 제거 → 같은 값으로 복원하고 일치 확인</li><li>모든 합성 데이터는 실행 끝에 정리</li></ul></div>
+    </div>
+    <div class="card"><h3>실행 단계</h3>
+      <ol class="steps"><li>기준선: 환경·준비 상태 기록, 합성 지원자 준비, 동의 기록, 리포트 요청</li>
+        <li>주입: 잘못된 인용 리포트 생성 → 인용 결과 수집 → 근거 구간 제거 → 리포트 다시 조회</li>
+        <li>복구: 근거 구간 복원(항상 실행) → 복원 일치 확인 → 대조군 리포트 재확인 → 합성 데이터 정리(항상 실행)</li></ol></div>
+    <div class="card"><h3>기대 결과와 판정 규칙</h3>
+      <table><thead><tr><th>규칙</th><th>기대 결과</th><th>필수 증적</th></tr></thead><tbody>
+        <tr><td>E01-A1</td><td>잘못된 인용 4종은 점수 없이 비워지고, 대조군 리포트는 변하지 않는다</td><td>준비 기록, 인용 결과, 리포트 기록</td></tr>
+        <tr><td>E01-A2</td><td>정상 인용은 그 항목의 근거와 함께 점수가 저장된다</td><td>인용 결과, 리포트 기록</td></tr>
+        <tr><td>E01-A3</td><td>근거가 제거되면 그 점수는 "근거 확인 불가"로 보인다</td><td>제거 전·후 리포트 조회, 변경·복원 기록</td></tr>
+        <tr><td>E01-A4</td><td>근거를 복원하면 리포트 조회가 원래대로 돌아온다</td><td>복원 후 조회, 복원 일치 기록</td></tr>
+      </tbody></table>
+      <p class="muted">진단 E01-D1(저장소 직접 쓰기 노출)은 기록만 하고 판정에 쓰지 않습니다.</p></div>
+    <div class="card"><h3>수동 단계</h3><ul><li>공식 실행 전 사람의 실행 승인</li><li>복구 실패 시 사람이 정리를 확인(명령줄)</li></ul></div>
+    <div class="card"><h3>실행 안내 <span class="muted">(웹은 실행을 시작하지 않습니다 · D-018)</span></h3>
+      <div class="limit">전제: ① 준비 상태 READY(확인 시각 확인) ② 같은 대상의 다른 실행이 잠금을 잡고 있지 않음 ③ 이전 복구 실패로 남은 차단이 없음 ④ 사람의 실행 승인. 실행 중 실패해도 복구 단계는 항상 실행됩니다.</div>
+      <div class="cmd mono" id="cmd1">python -m engine.cli run E-01 --profile E01_CITATION_EVIDENCE_V1 --target whyyou-local --label &lt;라벨&gt; --json<button data-copy="cmd1">복사</button></div>
+      <p class="muted">재시험: <span class="mono">python -m engine.cli retest &lt;최초 실행 ID&gt; --target whyyou-local --label &lt;라벨&gt; --json</span> · 이전 실행:
+        <button class="btn sec" data-go="s3">최초 실행 열기</button> <button class="btn sec" data-go="s4">재시험 비교</button></p></div>
+  </div>
+
+  <div id="d-h01" class="hidden">
+    <h2>H-01 권한 없는 주체가 최종 결정을 확정할 수 없는가 <span class="pill s-notrun"><span class="ic">○</span>미실행 NOT_RUN</span></h2>
+    <div class="card"><p><b>실행 방식</b>: 이번 MVP 범위에서 실행하지 않음. <b>대상 존재</b>: 있음(WhyYou에 최종 결정 기능 있음). <b>준비 상태</b>:
+      <span class="pill s-rnr"><span class="ic">⚙</span>RUNNER_NOT_READY</span> — ControlProof 실행기를 만들지 않았습니다.</p>
+      <h3>왜 실행하지 않았나</h3><p>2주 MVP 실제 실행 대상은 H-03·E-03·N-02·E-01·E-02 다섯 개입니다(범위표, D-013·D-014).</p>
+      <h3>실행하려면</h3><p>별도 후속 Spec 또는 제품 책임자의 명시적 범위 변경이 먼저 필요합니다.</p>
+      <div class="note">이 항목에는 실행 버튼·진행률·통과 표시가 없습니다. 미실행은 실패도 통과도 아닙니다.</div></div>
+  </div>
+
+  <div id="d-a01" class="hidden">
+    <h2>A-01 이의제기 접수 경로와 접수 확인이 있는가 <span class="pill s-ntt"><span class="ic">∅</span>판정 불가: NO_TEST_TARGET</span></h2>
+    <div class="card"><p><b>대상 존재</b>: 없음. <b>준비 상태</b>: <span class="pill s-ntt"><span class="ic">∅</span>NO_TEST_TARGET</span></p>
+      <h3>대상 기능 부재 근거</h3><p>WhyYou 시험 버전에 지원자가 결과에 이의를 제기하는 접수 화면이나 처리 경로가 없습니다. (조사 자료: 대상 버전의 화면·경로 조사 기록 — 목업에서는 자리만 표시)</p>
+      <h3>ControlProof의 처리</h3><p>ControlProof는 이의제기 기능을 새로 만들지 않으며 실행한 것처럼 꾸미지 않습니다.</p>
+      <h3>기능이 생기면</h3><p>자동으로 PASS가 되지 않습니다. NO_TEST_TARGET을 해제하고 새 Spec에서 시험 방법과 증적을 다시 정합니다.</p>
+      <div class="note">이 항목에는 실행 버튼·진행률·통과 표시가 없습니다. "대상 없음"은 실행기 미준비(RUNNER_NOT_READY)와 다릅니다.</div></div>
+  </div>
+</section>
+
+<!-- ====================================================== ③ 실행 결과·증적 -->
+<section id="s3" class="screen" aria-label="실행 결과·증적">
+  <h2>E-01 최초 실행 <span class="mono">demo-run-e01-0001</span>
+    <span class="pill s-fail"><span class="ic">✖</span>FAIL</span></h2>
+  <div class="grid c2">
+    <div class="card"><table>
+      <tr><th>실행 ID</th><td class="mono">demo-run-e01-0001</td></tr>
+      <tr><th>시나리오·프로필</th><td>E-01 · E01_CITATION_EVIDENCE_V1 · 정의 1.0.0</td></tr>
+      <tr><th>대상 버전</th><td class="mono">demo-ce8d862 (수정 전)</td></tr>
+      <tr><th>실행 시각</th><td>2026-10-08 09:30–09:31 (demo)</td></tr>
+      <tr><th>실행 상태</th><td>COMPLETED</td></tr>
+      <tr><th>복구</th><td><span class="pill s-pass"><span class="ic">✔</span>SUCCEEDED</span> 복구 0.2초 / 예산 120초 · 수동 정리 필요 없음</td></tr>
+      <tr><th>봉인 무결성</th><td><span class="pill s-pass"><span class="ic">✔</span>VERIFIED</span> <span class="mono">demo-sha256-7f3a…c19e</span></td></tr>
+    </table></div>
+    <div class="card"><h3>비개발자용 설명</h3>
+      <p><b>무엇이 실패했나</b>: 점수의 근거가 된 면접 답변을 지운 뒤에도 회사 화면의 리포트가 그 점수를 그대로, 근거가 있는 것처럼 보여 줬습니다.</p>
+      <p><b>예상 영향</b>: 검토자가 확인할 수 없는 근거에 기대 점수를 믿을 수 있습니다.</p>
+      <p><b>누락 증적</b>: 없음. 판정에 필요한 증적은 모두 확보했습니다.</p>
+      <p><b>판정 사유</b>: 규칙 E01-A3의 기대(근거 확인 불가 표시)와 관찰(점수·인용 그대로)이 다릅니다. FAIL에는 사유 코드 대신 기대·관찰·설명을 붙입니다.</p></div>
+  </div>
+
+  <div class="card"><h3>단계별 진행과 시험 조건</h3>
+    <ol class="steps">
+      <li>기준선 — 환경·준비 상태 기록 ✔, 합성 지원자 준비 ✔, 리포트 생성 ✔</li>
+      <li>주입 — <b>적용</b>: 잘못된 인용 4종 생성 ✔ · <b>적용</b>: 근거 답변 구간 1개 제거 ✔ · 리포트 재조회 ✔</li>
+      <li>복구 — <b>해제</b>: 근거 구간 복원 ✔(값 일치) · 대조군 재확인 ✔ · 합성 데이터 정리 ✔(남은 데이터 0)</li>
+    </ol></div>
+
+  <div class="card">
+    <div class="tool"><h3 style="margin:0">규칙별 결과</h3><span style="flex:1"></span>
+      <label><input type="checkbox" id="failOnly"> 실패 규칙만 보기</label></div>
+    <table id="assertions"><thead><tr><th>규칙</th><th>기대</th><th>관찰</th><th>결과</th><th>증적</th></tr></thead><tbody>
+      <tr data-status="PASS"><td>E01-A1</td><td>잘못된 인용 4종은 점수 없이 비워짐 · 대조군 불변</td><td>4종 모두 비워짐 · 대조군 동일</td><td><span class="pill s-pass"><span class="ic">✔</span>PASS</span></td><td>인용 결과, 리포트 기록</td></tr>
+      <tr data-status="PASS"><td>E01-A2</td><td>정상 인용은 근거와 함께 저장</td><td>점수 72 · 같은 항목의 근거 1건</td><td><span class="pill s-pass"><span class="ic">✔</span>PASS</span></td><td>인용 결과, 리포트 기록</td></tr>
+      <tr data-status="FAIL"><td>E01-A3</td><td>근거 제거 뒤 점수는 "근거 확인 불가"</td><td>제거 전·후 조회가 같음(점수 72, 인용 그대로)</td><td><span class="pill s-fail"><span class="ic">✖</span>FAIL</span></td><td>제거 전·후 조회, 변경 기록</td></tr>
+      <tr data-status="PASS"><td>E01-A4</td><td>복원 뒤 조회가 원래대로</td><td>복원 후 조회 = 제거 전</td><td><span class="pill s-pass"><span class="ic">✔</span>PASS</span></td><td>복원 후 조회, 복원 일치 기록</td></tr>
+    </tbody></table></div>
+
+  <div class="card"><h3>증적</h3>
+    <table><thead><tr><th>이름</th><th>형식</th><th>크기</th><th>SHA-256</th><th>수집 단계</th><th>연결 규칙</th></tr></thead><tbody>
+      <tr><td>인용 결과와 고정 모델 출력</td><td>기록 목록</td><td>4.1 KB</td><td class="mono">demo-sha256-1a2b…01</td><td>주입</td><td>A1, A2</td></tr>
+      <tr><td>리포트 저장 기록(제거 전·후)</td><td>기록 목록</td><td>9.8 KB</td><td class="mono">demo-sha256-3c4d…02</td><td>기준선·주입</td><td>A1~A4</td></tr>
+      <tr><td>회사 화면 리포트 조회(제거 전·후·복원 후)</td><td>기록 목록</td><td>12.3 KB</td><td class="mono">demo-sha256-5e6f…03</td><td>주입·복구</td><td>A3, A4</td></tr>
+      <tr><td>변경 주입·복원 기록</td><td>기록 목록</td><td>1.2 KB</td><td class="mono">demo-sha256-7a8b…04</td><td>주입·복구</td><td>A3, A4</td></tr>
+      <tr><td>판정과 봉인 목록</td><td>문서</td><td>2.0 KB</td><td class="mono">demo-sha256-9c0d…05</td><td>복구</td><td>전체</td></tr>
+    </tbody></table>
+    <details><summary>개발자용 원본 정보 펼치기</summary>
+      <p class="muted">봉인 파일 이름과 원본 위치(경로는 run root 기준 상대 경로만 표시):</p>
+      <p class="mono">demo-run-e01-0001/report-reads.jsonl · report-records.jsonl · citation-cases.jsonl · change-injections.jsonl · manifest.json</p>
+      <p class="mono">E01-A3 actual: {"indicators": {}, "unexposed": ["demo-item-1"], "changed_without_indicator": []}</p>
+    </details></div>
+
+  <div class="grid c2">
+    <div class="card"><h3>수정 메모</h3>
+      <div class="note">메모는 봉인 기록과 분리된 별도 기록입니다. 판정·증적·무결성 값은 바뀌지 않습니다. (목업: 저장하지 않음)</div>
+      <label>작성자 <input type="text" placeholder="이름"></label>
+      <textarea placeholder="예: 리포트 조회가 제거된 근거를 확인 불가로 표시하도록 수정 요청"></textarea></div>
+    <div class="card"><h3>무결성 실패 예시</h3>
+      <p><span class="pill s-integrity"><span class="ic">⛔</span>무결성 실패</span> <span class="mono">demo-run-x-0099</span></p>
+      <p>봉인 뒤 파일 1개가 바뀌었습니다(<span class="mono">report-reads.jsonl</span> 해시 불일치). 이 기록의 판정은 사실로 표시하지 않습니다.</p>
+      <p><span class="pill s-restore"><span class="ic">⚠</span>복구 실패 RESTORE_FAILED</span> 예: 대상 서비스의 FAIL이 아니라 실행 안전 문제입니다. 수동 정리 확인이 필요합니다.</p></div>
+  </div>
+</section>
+
+<!-- ====================================================== ④ 재시험 비교·보고서 -->
+<section id="s4" class="screen" aria-label="재시험 비교·보고서">
+  <h2>E-01 재시험 비교</h2>
+  <div class="side">
+    <div class="card"><h3>최초 실행 <span class="pill s-fail"><span class="ic">✖</span>FAIL</span></h3>
+      <p class="mono">demo-run-e01-0001</p><p>대상 버전 <span class="mono">demo-ce8d862</span> (수정 전)</p></div>
+    <div class="card"><h3>재시험 <span class="pill s-pass"><span class="ic">✔</span>PASS</span></h3>
+      <p class="mono">demo-run-e01-0002 · 부모: demo-run-e01-0001</p><p>대상 버전 <span class="mono">demo-374b122</span> (수정 후)</p></div>
+  </div>
+  <div class="card">
+    <p><span class="pill s-pass"><span class="ic">✔</span>부모 기록 불변 확인</span> 재시험 기록에 남은 부모 무결성 값과 지금 부모 기록이 같습니다
+      (<span class="mono">demo-sha256-7f3a…c19e</span>). 최초 FAIL은 지워지거나 바뀌지 않았습니다.</p>
+    <h3>수정 내용</h3><p>WhyYou 리포트 조회가 근거 답변 구간이 없는 근거를 "확인 불가"로 표시하도록 수정(저장된 점수는 바꾸지 않음). — demo 설명</p>
+    <h3>바뀐 차원</h3>
+    <table><tr><th>차원</th><th>최초</th><th>재시험</th><th>변화</th></tr>
+      <tr><td>대상 commit</td><td class="mono">demo-ce8d862</td><td class="mono">demo-374b122</td><td>바뀜</td></tr>
+      <tr><td>시나리오 정의</td><td>1.0.0</td><td>1.0.0</td><td>같음</td></tr>
+      <tr><td>고정 모델 fixture</td><td>spec004-report-v1</td><td>spec004-report-v1</td><td>같음</td></tr>
+      <tr><td>실행 환경</td><td>LOCAL_EMULATED</td><td>LOCAL_EMULATED</td><td>같음</td></tr></table>
+    <h3>규칙별 이전·이후</h3>
+    <table><tr><th>규칙</th><th>최초</th><th>재시험</th><th>이전 증적</th><th>이후 증적</th></tr>
+      <tr><td>E01-A1</td><td><span class="pill s-pass"><span class="ic">✔</span>PASS</span></td><td><span class="pill s-pass"><span class="ic">✔</span>PASS</span></td><td class="mono">demo-sha256-1a2b…01</td><td class="mono">demo-sha256-b1b2…11</td></tr>
+      <tr><td>E01-A2</td><td><span class="pill s-pass"><span class="ic">✔</span>PASS</span></td><td><span class="pill s-pass"><span class="ic">✔</span>PASS</span></td><td class="mono">demo-sha256-1a2b…01</td><td class="mono">demo-sha256-b1b2…11</td></tr>
+      <tr><td>E01-A3</td><td><span class="pill s-fail"><span class="ic">✖</span>FAIL</span></td><td><span class="pill s-pass"><span class="ic">✔</span>PASS</span></td><td class="mono">demo-sha256-5e6f…03</td><td class="mono">demo-sha256-c3c4…13</td></tr>
+      <tr><td>E01-A4</td><td><span class="pill s-pass"><span class="ic">✔</span>PASS</span></td><td><span class="pill s-pass"><span class="ic">✔</span>PASS</span></td><td class="mono">demo-sha256-5e6f…03</td><td class="mono">demo-sha256-c3c4…13</td></tr></table>
+    <p>결과 변화: E01-A3 FAIL → PASS. 남은 실패: 없음. 재시험은 웹에서 시작하지 않습니다(명령: <span class="mono">python -m engine.cli retest &lt;최초 실행 ID&gt; …</span>).</p>
+  </div>
+
+  <h2>결과 보고서 <span class="muted">(한 화면 · 번호는 V4 §8.7 [R1~R13]과 §12.4 [C1~C9] 점검용)</span></h2>
+  <div class="card">
+    <p><span class="rep-item">R1</span><b>검증 대상과 버전</b>: WhyYou 시험 환경, 대상 commit 표시 예 <span class="mono">demo-374b122</span>(E-01 최초 실행은 <span class="mono">demo-ce8d862</span>).</p>
+    <p><span class="rep-item">R2</span><b>검증 목적과 범위</b>: AI 채용 서비스의 통제 4종이 실제로 작동하는지 합성 시나리오로 시험하고 그 증적을 남깁니다.</p>
+    <blockquote class="note">ControlProof MVP는 12개 시나리오를 한 화면에서 관리한다. 이 가운데 5개는 실제 실행과 증적을 제공하고, 4개는 이번 실행 범위 밖인 <b>NOT_RUN</b>, 3개는 대상 기능이 없는 <b>NO_TEST_TARGET</b>로 사실대로 구분한다.</blockquote>
+    <p><span class="rep-item">R3</span><b>합성 데이터 사용</b>: 모든 지원자·답변은 합성 데이터입니다. 실제 개인정보를 쓰지 않았습니다.</p>
+    <p><span class="rep-item">R4</span><b>통제 4종과 시나리오 12개 상태</b>:</p>
+    <table id="repCatalog"><thead><tr><th>통제</th><th>ID</th><th>상태</th></tr></thead><tbody></tbody></table>
+    <p><span class="rep-item">R5</span><span class="rep-item">C1</span><b>요약</b>: <span class="pill s-pass"><span class="ic">✔</span>PASS 4</span> <span class="pill s-fail"><span class="ic">✖</span>FAIL 0</span>
+      <span class="pill s-inc"><span class="ic">?</span>판정 불가 4 (NO_TEST_TARGET 3 · INSUFFICIENT_EVIDENCE 1)</span> <span class="pill s-notrun"><span class="ic">○</span>미실행 4</span></p>
+    <p><span class="rep-item">R6</span><b>시나리오별 기대·관찰</b>: E-01 최초 — A3 기대 "근거 확인 불가", 관찰 "점수·인용 그대로" → FAIL, 재시험 PASS. N-02 — A5·A7 판정 불가(격리 환경에서 문서 분석 결과를 입증하지 못함). (나머지는 결과 화면에서 시나리오별로)</p>
+    <p><span class="rep-item">R7</span><b>주요 실패와 영향</b>: E-01 최초 FAIL — 근거가 사라진 점수가 정상처럼 보여 검토자가 확인할 수 없는 근거를 믿을 위험. 수정 후 재시험 PASS.</p>
+    <p><span class="rep-item">R8</span><span class="rep-item">C2</span><b>증적 목록과 누락</b>: 실행마다 봉인 증적 목록과 SHA-256을 결과 화면에서 엽니다. 누락: N-02 문서 분석 결과 증적(판정 불가 사유).</p>
+    <p><span class="rep-item">R9</span><b>적용 정책·모델·프롬프트·평가기준 버전</b>: 고정 모델 fixture <span class="mono">spec004-report-v1</span>(E-01·E-02), 동의 정책 버전(N-02 기록), 평가기준 버전 v1→v2(E-02 기록). 표시 값은 demo.</p>
+    <p><span class="rep-item">R10</span><span class="rep-item">C5</span><b>최초 실행과 재시험 비교</b>: E-01 FAIL → PASS(위 비교), H-03·E-03 최초 FAIL → 재시험 PASS. 최초 기록은 모두 보존됩니다.</p>
+    <p><span class="rep-item">R11</span><b>WhyYou에 시험 목적으로 추가한 기능</b>: 시험용 고정 모델 대체물, 로컬 시험용 장애 주입·관찰 hook. 제품 기능이 아니라 시험 수단입니다.</p>
+    <p><span class="rep-item">R12</span><span class="rep-item">C8</span><b>검증하지 못한 영역</b>: H-01·H-02·N-01·N-03(미실행), A-01~A-03(대상 없음), 실제 AWS(NOT_RUN), 실제 AI 모델 품질, 다른 PC 재현(미검증, 같은 PC의 새 checkout 재현만 있음).</p>
+    <p><span class="rep-item">R13</span><span class="rep-item">C9</span><b>한계</b>: 이 결과는 실행한 시나리오와 확보한 증적에 한정되며 <b>법적 준수 전체를 인증하거나 보증하지 않습니다</b>.</p>
+    <div class="limit"><span class="rep-item">C3</span><b>AI 점수는 참고 정보입니다.</b> 점수로 합격·탈락을 자동 확정하지 않으며 최종 채용 결정은 권한 있는 사람이 합니다.
+      <span class="rep-item">C4</span>사람의 최종 결정과 판단 사유는 H-03 증적(결정 기록)에서 확인합니다.</div>
+    <p><span class="rep-item">C6</span><b>A-01~A-03</b>: <span class="pill s-ntt"><span class="ic">∅</span>NO_TEST_TARGET</span> — 신규 구현하지 않았고 실행하지 않았습니다.</p>
+    <p><span class="rep-item">C7</span><b>한 화면 보고서</b>: 이 화면이 전체 결과 보고서입니다(PDF 내보내기는 범위 밖).</p>
+    <div class="limit"><b>실행 한계</b>: 실행 환경 LOCAL_EMULATED · 실제 AWS NOT_RUN · 합성 데이터 · 외부 AI 차단 · 고정 모델 대체물(spec004-report-v1, h03-report-v1) · 다른 PC 재현 미검증.</div>
+  </div>
+</section>
+</main>
+
+<script>
+// Static demo data only. No verdict is computed here; every status below is copied from the
+// scope matrix (docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md) for the mockup.
+const SCENARIOS = [
+  { control: "고지·동의 (N)", id: "N-01", q: "PC·모바일에서 필수 AI 고지가 보이는가", target: "있음", ready: "RNR", mode: "NOT_RUN", result: "NOTRUN" },
+  { control: "고지·동의 (N)", id: "N-02", q: "동의 완료 전에 분석·녹화·평가가 시작되지 않는가", target: "있음", ready: "READY", mode: "실제 실행", result: "INC", reason: "INSUFFICIENT_EVIDENCE (A5·A7)" },
+  { control: "고지·동의 (N)", id: "N-03", q: "정책 버전·본문이 바뀌면 기존 동의가 무효화되는가", target: "있음", ready: "RNR", mode: "NOT_RUN", result: "NOTRUN" },
+  { control: "사람 결정 (H)", id: "H-01", q: "권한 없는 주체가 최종 결정을 확정할 수 없는가", target: "있음", ready: "RNR", mode: "NOT_RUN", result: "NOTRUN" },
+  { control: "사람 결정 (H)", id: "H-02", q: "AI 어시스턴트가 최종 채용 상태를 바꿀 수 없는가", target: "있음", ready: "RNR", mode: "NOT_RUN", result: "NOTRUN" },
+  { control: "사람 결정 (H)", id: "H-03", q: "리포트 생성 장애가 숨지 않고 사람 결정이 안전한가", target: "있음", ready: "READY", mode: "실제 실행 (2개 프로필)", result: "PASS", note: "최초 FAIL → 재시험 PASS" },
+  { control: "근거·기록 (E)", id: "E-01", q: "근거 인용 없는 점수가 저장·노출되지 않는가", target: "있음", ready: "READY", mode: "실제 실행", result: "PASS", note: "최초 FAIL → 재시험 PASS" },
+  { control: "근거·기록 (E)", id: "E-02", q: "평가 입력·기준이 동결되고 과거 결과가 보존되는가", target: "있음", ready: "READY", mode: "실제 실행", result: "PASS" },
+  { control: "근거·기록 (E)", id: "E-03", q: "장애·재시도에서 결정 이력이 누락·중복되지 않는가", target: "있음", ready: "READY", mode: "실제 실행 (2개 프로필)", result: "PASS", note: "최초 FAIL → 재시험 PASS" },
+  { control: "이의제기 (A)", id: "A-01", q: "이의제기 접수 경로와 접수 확인이 있는가", target: "없음", ready: "NTT", mode: "NO_TEST_TARGET", result: "NTT" },
+  { control: "이의제기 (A)", id: "A-02", q: "이의 접수 중 원 결정 진행이 멈추는가", target: "없음", ready: "NTT", mode: "NO_TEST_TARGET", result: "NTT" },
+  { control: "이의제기 (A)", id: "A-03", q: "접수부터 독립 재검토·통지까지 완주하는가", target: "없음", ready: "NTT", mode: "NO_TEST_TARGET", result: "NTT" },
+];
+const CHECKED_AT = "2026-10-08 10:12 (demo)";
+const PILL = {
+  PASS: '<span class="pill s-pass"><span class="ic">✔</span>PASS</span>',
+  INC: r => `<span class="pill s-inc"><span class="ic">?</span>판정 불가</span> <span class="muted">${r}</span>`,
+  NOTRUN: '<span class="pill s-notrun"><span class="ic">○</span>미실행 NOT_RUN</span>',
+  NTT: '<span class="pill s-ntt"><span class="ic">∅</span>판정 불가: NO_TEST_TARGET</span>',
+  READY: '<span class="pill s-ready"><span class="ic">●</span>READY</span>',
+  RNR: '<span class="pill s-rnr"><span class="ic">⚙</span>RUNNER_NOT_READY</span>',
+  NTTR: '<span class="pill s-ntt"><span class="ic">∅</span>NO_TEST_TARGET</span>',
+};
+function resultHtml(s) {
+  if (s.result === "PASS") return PILL.PASS + (s.note ? ` <span class="muted">${s.note}</span>` : "");
+  if (s.result === "INC") return PILL.INC(s.reason);
+  if (s.result === "NOTRUN") return PILL.NOTRUN;
+  return PILL.NTT;
+}
+function readyHtml(s) {
+  if (s.ready === "READY") return `${PILL.READY} <span class="muted">${CHECKED_AT}</span>`;
+  if (s.ready === "RNR") return `${PILL.RNR} <span class="muted">${CHECKED_AT}</span>`;
+  return PILL.NTTR;
+}
+function renderCatalog() {
+  const f = Object.fromEntries([...document.querySelectorAll("[data-filter]")].map(c => [c.dataset.filter, c.checked]));
+  const tbody = document.querySelector("#catalog tbody");
+  tbody.innerHTML = "";
+  let shown = 0;
+  for (const s of SCENARIOS) {
+    // Filters only hide rows using the copied status fields; nothing is re-judged.
+    if (f.runnable && s.ready !== "READY") continue;
+    if (f.failed && s.result !== "FAIL") continue; // latest FAIL only; preserved first FAILs live in lineage
+    if (f.inconclusive && !(s.result === "INC" || s.result === "NTT")) continue;
+    shown++;
+    const open = s.id === "E-01" ? '<button class="btn sec" data-go="s2" data-detail-go="e01">상세</button>'
+      : s.id === "H-01" ? '<button class="btn sec" data-go="s2" data-detail-go="h01">상세</button>'
+      : s.id === "A-01" ? '<button class="btn sec" data-go="s2" data-detail-go="a01">상세</button>' : "";
+    tbody.insertAdjacentHTML("beforeend",
+      `<tr><td>${s.control}</td><td><b>${s.id}</b></td><td>${s.q}</td><td>${s.target}</td><td>${readyHtml(s)}</td><td>${s.mode}</td><td>${resultHtml(s)}</td><td>${open}</td></tr>`);
+  }
+  document.getElementById("filterNote").textContent = `${shown}/12 표시`;
+  const rep = document.querySelector("#repCatalog tbody");
+  if (!rep.children.length) {
+    for (const s of SCENARIOS) rep.insertAdjacentHTML("beforeend", `<tr><td>${s.control}</td><td>${s.id}</td><td>${resultHtml(s)}</td></tr>`);
+  }
+}
+function show(id) {
+  document.querySelectorAll("section.screen").forEach(x => x.classList.toggle("active", x.id === id));
+  document.querySelectorAll("nav [data-screen]").forEach(b => b.setAttribute("aria-selected", String(b.dataset.screen === id)));
+  window.scrollTo(0, 0);
+}
+function detail(which) {
+  for (const k of ["e01", "h01", "a01"]) document.getElementById("d-" + k).classList.toggle("hidden", k !== which);
+  document.querySelectorAll("[data-detail]").forEach(b => b.classList.toggle("sec", b.dataset.detail !== which));
+}
+document.addEventListener("click", e => {
+  const t = e.target.closest("button");
+  if (!t) return;
+  if (t.dataset.screen) show(t.dataset.screen);
+  if (t.dataset.go) { show(t.dataset.go); if (t.dataset.detailGo) detail(t.dataset.detailGo); }
+  if (t.dataset.detail) detail(t.dataset.detail);
+  if (t.dataset.copy) {
+    const text = document.getElementById(t.dataset.copy).firstChild.textContent.trim();
+    (navigator.clipboard ? navigator.clipboard.writeText(text) : Promise.reject()).then(
+      () => { t.textContent = "복사됨"; }, () => { t.textContent = "직접 선택해 복사"; });
+  }
+  if (t.id === "preflightBtn") {
+    // Canned demo response: shows the shape of a readiness check, not a real one.
+    const box = document.getElementById("preflightResult");
+    box.classList.remove("hidden");
+    box.innerHTML = `<b>준비 상태 확인 결과 (demo)</b> · 확인 시각 2026-10-08 10:12 · E-01 ${PILL.READY} 18/18 · E-02 ${PILL.READY} 16/16 ·
+      H-01 ${PILL.RNR} (실행기 없음) · A-01 ${PILL.NTTR}<br>
+      <span class="pill s-usage"><span class="ic">!</span>확인 도구 오류</span> 예: 프로필을 지정하지 않은 요청은 "준비 안 됨"이 아니라 사용법 오류로 표시합니다.
+      <br><span class="muted">웹에서 시작할 수 있는 동작은 이 확인뿐입니다. 실행·재시험·정리 확인은 명령 안내를 따릅니다.</span>`;
+  }
+});
+document.querySelectorAll("[data-filter]").forEach(c => c.addEventListener("change", renderCatalog));
+document.getElementById("failOnly").addEventListener("change", e => {
+  document.querySelectorAll("#assertions tbody tr").forEach(r =>
+    r.classList.toggle("hidden", e.target.checked && r.dataset.status === "PASS"));
+});
+renderCatalog();
+</script>
+</body>
+</html>
