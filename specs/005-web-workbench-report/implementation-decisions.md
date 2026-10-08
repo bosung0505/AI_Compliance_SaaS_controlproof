@@ -45,3 +45,14 @@
 - zip은 원본을 열지 않고 임시 폴더로 풀어 검사했다(zip SHA-256은 검사 전후 같음). `t084-attempt1`·`t084-attempt2` 폴더에는 bundle이 없다
   (receipt·차단 파일만 있음).
 - zip 2개의 Run ID는 저장소 `.controlproof/runs`의 두 Run과 같다. 그래서 검사한 bundle 폴더는 8개, 서로 다른 Run은 6개다.
+
+## ID-005-06 — bundle verify 시험의 간헐 실패 (시험만 수정)
+
+- 원인: `tests/unit/test_bundle_verify.py`의 두 시험(`test_malformed_artifact_envelope_is_invalid_even_with_updated_file_hash`,
+  `test_artifact_dimensions_must_match_manifest_metadata`)이 manifest의 "첫 artifact"를 골랐다. manifest 파일 목록은 경로순이고 artifact
+  경로는 무작위 UUID라, H-03 fixture에서 첫 artifact가 JSON envelope이 아니라 PNG가 되는 경우가 있다(보고: Linux 865b0ed 30회 중 3회,
+  4c56d0e 30회 중 1회).
+- RED: PNG가 첫 artifact인 bundle을 나올 때까지 만들어 두 시험 함수를 직접 돌렸다 → 2개 모두 실패(AssertionError, JSONDecodeError).
+- 수정: 시험이 `mime_type == "application/json"`인 artifact를 명시적으로 고르게 했다(`_json_artifact_record`). 제품 코드는 그대로다. 같은
+  패턴을 저장소 시험 전체에서 찾았고 이 두 곳뿐이었다.
+- GREEN: 같은 강제 조건에서 2개 모두 통과. `pytest -q tests/unit/test_bundle_verify.py` 30회 반복 → 실패 0회(매회 9 passed, Windows).

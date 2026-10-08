@@ -34,6 +34,16 @@ def _rehash_file(manifest, bundle, relative_path):
     record["sha256"] = sha256_bytes(payload)
 
 
+def _json_artifact_record(manifest):
+    # Records are sorted by path and artifact paths are random UUIDs, so the first artifact can be the
+    # binary PNG; these tests edit a JSON envelope, so pick one explicitly.
+    return next(
+        item
+        for item in manifest["files"]
+        if item.get("artifact_id") and item["mime_type"] == "application/json"
+    )
+
+
 def test_verify_is_read_only_and_detects_changed_file(bundle):
     manifest_before = (bundle / "manifest.json").read_bytes()
     artifact = next((bundle / "artifacts").glob("*.json"))
@@ -67,7 +77,7 @@ def test_path_traversal_record_is_invalid_without_reading_outside(bundle, tmp_pa
 def test_malformed_artifact_envelope_is_invalid_even_with_updated_file_hash(bundle):
     manifest_path = bundle / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    record = next(item for item in manifest["files"] if item.get("artifact_id"))
+    record = _json_artifact_record(manifest)
     path = bundle / record["path"]
     path.write_text(json.dumps({"artifact_id": record["artifact_id"]}), encoding="utf-8")
     payload = path.read_bytes()
@@ -111,7 +121,7 @@ def test_manifest_run_id_must_match_run_record(bundle):
 def test_artifact_dimensions_must_match_manifest_metadata(bundle):
     manifest_path = bundle / "manifest.json"
     manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
-    record = next(item for item in manifest["files"] if item.get("artifact_id"))
+    record = _json_artifact_record(manifest)
     path = bundle / record["path"]
     envelope = json.loads(path.read_text(encoding="utf-8"))
     envelope["subject_ref"] = "different-subject"
