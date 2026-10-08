@@ -106,20 +106,20 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 
 ### Tests for User Story 2 — write first, confirm RED
 
-- [ ] T035 [P] [US2] Add unit tests for the run view: integrity first (`VERIFIED`·`INVALID`·`UNREADABLE`; non-VERIFIED → `verdict`/`assertions`/`evidence` null); verdict, assertion status and reason code copied verbatim; `RESTORE_FAILED` safety badge before the verdict; `ABORTED` shown as run state, never as a target verdict; restore seconds, deadline and within-deadline flag shown; `plain_meaning` without WhyYou internal, fixture or bundle file names; `record_origin`/`record_role`, in `tests/unit/test_web_readmodel_run.py` [FR-013~020, SC-002, R-003]
+- [X] T035 [P] [US2] Add unit tests for the run view: integrity first (`VERIFIED`·`INVALID`·`UNREADABLE`; non-VERIFIED → `verdict`/`assertions`/`evidence` null); verdict, assertion status and reason code copied verbatim; `RESTORE_FAILED` safety badge before the verdict; `ABORTED` shown as run state, never as a target verdict; restore seconds, deadline and within-deadline flag shown; `plain_meaning` without WhyYou internal, fixture or bundle file names; `record_origin`/`record_role`, in `tests/unit/test_web_readmodel_run.py` [FR-013~020, SC-002, R-003]
   - 노트(ID-005-01 결정, 2026-10-09): 무결성 시험 경우 3개를 넣는다. ① `ABORTED` + 필수 증적 링크 누락만 → "봉인 무결성 확인됨 +
     중단으로 빠진 증적 목록", `ABORTED` 상태를 먼저 표시 ② `COMPLETED` + 증적 링크 누락 → 무결성 실패 ③ 해시 불일치 → 무결성 실패.
     명령줄 `verify` 결과는 그대로다.
-- [ ] T036 [P] [US2] Add unit tests for the evidence viewer (text only, ≤256 KB, strict scan must pass, otherwise a reason; integrity-failed run → 422) and fix memos (`controlproof.fix-memo.v1`, author 1~80 chars, text 1~2000 chars, append only, strict scan before write, stored under `.controlproof/web/memos/`, bundle files and verify result unchanged), in `tests/unit/test_web_evidence_view.py` and `tests/unit/test_web_memos.py` [FR-015, FR-024, FR-031, R-008, R-009]
-- [ ] T037 [P] [US2] Add browser tests for the run screen at 1280px and 1024px (화면 공통 기준; plain explanation by default and developer details collapsed; failed-only toggle leaves only FAIL/INCONCLUSIVE rows; memo form labelled as separate from the sealed record; integrity-failure and restore-failure badges distinct from FAIL; click count workbench → result → evidence ≤3) in `tests/web/test_run_screen.py` [FR-013~020, SC-002, SC-003]
+- [X] T036 [P] [US2] Add unit tests for the evidence viewer (text only, ≤256 KB, strict scan must pass, otherwise a reason; integrity-failed run → 422) and fix memos (`controlproof.fix-memo.v1`, author 1~80 chars, text 1~2000 chars, append only, strict scan before write, stored under `.controlproof/web/memos/`, bundle files and verify result unchanged), in `tests/unit/test_web_evidence_view.py` and `tests/unit/test_web_memos.py` [FR-015, FR-024, FR-031, R-008, R-009]
+- [X] T037 [P] [US2] Add browser tests for the run screen at 1280px and 1024px (화면 공통 기준; plain explanation by default and developer details collapsed; failed-only toggle leaves only FAIL/INCONCLUSIVE rows; memo form labelled as separate from the sealed record; integrity-failure and restore-failure badges distinct from FAIL; click count workbench → result → evidence ≤3) in `tests/web/test_run_screen.py` [FR-013~020, SC-002, SC-003]
 
 ### Implementation for User Story 2
 
-- [ ] T038 [US2] Implement the run view in `engine/web/readmodel.py` using `verify_bundle`, `load_bundle_summary` and `evidence_index` (after T035 RED) [FR-013~019, R-003, R-011]
-- [ ] T039 [P] [US2] Implement fix memos in `engine/web/memos.py` (after T036 RED) [FR-024, R-008]
-- [ ] T040 [US2] Add routes `/runs/{run_id}`, `/runs/{run_id}/evidence`, `POST /runs/{run_id}/memos`, `/api/runs/{run_id}` in `engine/web/server.py` (after T036 RED) [FR-015, FR-024]
-- [ ] T041 [US2] Create `engine/web/templates/run.html` per the approved screen ③ (after T037 RED) [FR-013~020]
-- [ ] T042 [US2] Run the US2 gate and record it in `specs/005-web-workbench-report/validation.md` [SC-002, SC-003]
+- [X] T038 [US2] Implement the run view in `engine/web/readmodel.py` using `verify_bundle`, `load_bundle_summary` and `evidence_index` (after T035 RED) [FR-013~019, R-003, R-011]
+- [X] T039 [P] [US2] Implement fix memos in `engine/web/memos.py` (after T036 RED) [FR-024, R-008]
+- [X] T040 [US2] Add routes `/runs/{run_id}`, `/runs/{run_id}/evidence`, `POST /runs/{run_id}/memos`, `/api/runs/{run_id}` in `engine/web/server.py` (after T036 RED) [FR-015, FR-024]
+- [X] T041 [US2] Create `engine/web/templates/run.html` per the approved screen ③ (after T037 RED) [FR-013~020]
+- [X] T042 [US2] Run the US2 gate and record it in `specs/005-web-workbench-report/validation.md` [SC-002, SC-003]
 
 **Checkpoint**: 판정에서 원본 증적까지 끊김 없이 추적된다.
 
@@ -134,14 +134,14 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 
 ### Tests for User Story 3 — write first, confirm RED
 
-- [ ] T043 [P] [US3] Add unit tests for the report view: `items_present` R1~R13 and C1~C9 all true; `fixed_scope_sentence` equal to the matrix §2 quote; counts copied from catalog; AI-score principle and human-decision location; `test_only_additions`; `LOCAL_EMULATED`, AWS `NOT_RUN`, synthetic data, fixed model (name only in developer details), other-PC reproduction status, legal non-certification; forbidden phrases ("12개 검증 완료", "12개 PASS") absent, in `tests/unit/test_web_readmodel_report.py` [FR-025~029, SC-004]
-- [ ] T044 [P] [US3] Add browser tests for the report at 1280px and 1024px (화면 공통 기준; 22 item markers visible; DEMO report never mixes into ACTUAL counts) in `tests/web/test_report_screen.py` [FR-025~029, SC-004, SC-011]
+- [X] T043 [P] [US3] Add unit tests for the report view: `items_present` R1~R13 and C1~C9 all true; `fixed_scope_sentence` equal to the matrix §2 quote; counts copied from catalog; AI-score principle and human-decision location; `test_only_additions`; `LOCAL_EMULATED`, AWS `NOT_RUN`, synthetic data, fixed model (name only in developer details), other-PC reproduction status, legal non-certification; forbidden phrases ("12개 검증 완료", "12개 PASS") absent, in `tests/unit/test_web_readmodel_report.py` [FR-025~029, SC-004]
+- [X] T044 [P] [US3] Add browser tests for the report at 1280px and 1024px (화면 공통 기준; 22 item markers visible; DEMO report never mixes into ACTUAL counts) in `tests/web/test_report_screen.py` [FR-025~029, SC-004, SC-011]
 
 ### Implementation for User Story 3
 
-- [ ] T045 [US3] Implement the report view in `engine/web/readmodel.py` (after T043 RED) [FR-025~029]
-- [ ] T046 [US3] Add `/report`, `/api/report` routes in `engine/web/server.py` and create `engine/web/templates/report.html` per the approved screen ④ report part (after T044 RED) [FR-025~029]
-- [ ] T047 [US3] Run the US3 gate and record it in `specs/005-web-workbench-report/validation.md` [SC-004]
+- [X] T045 [US3] Implement the report view in `engine/web/readmodel.py` (after T043 RED) [FR-025~029]
+- [X] T046 [US3] Add `/report`, `/api/report` routes in `engine/web/server.py` and create `engine/web/templates/report.html` per the approved screen ④ report part (after T044 RED) [FR-025~029]
+- [X] T047 [US3] Run the US3 gate and record it in `specs/005-web-workbench-report/validation.md` [SC-004]
 
 **Checkpoint**: 비개발자가 한 화면에서 범위와 한계를 읽는다.
 

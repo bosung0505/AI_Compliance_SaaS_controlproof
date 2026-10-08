@@ -2,8 +2,8 @@
 
 ## Current status
 
-- Workflow stage: Implement. Phase 1·2(T001~T018)와 Phase 3 US1(T021~T034) 완료. T019(보성 PC 검사) 대기, T020(봉인 검사 v2 전환)과
-  Phase 4(US2) 이후는 시작 전. ID-005-01은 2026-10-09 결정됨.
+- Workflow stage: Implement. Phase 1·2(T001~T018), Phase 3 US1(T021~T034), Phase 4 US2(T035~T042), Phase 5 US3(T043~T047) 완료.
+  T019(보성 PC 검사) 대기, T020(봉인 검사 v2 전환)과 Phase 6(US4) 이후는 시작 전. ID-005-01은 2026-10-09 결정됨.
 - Actual validation(웹 PC 재실행)·사용성 검토: 아직 없음(`NOT_RUN`). AWS: `NOT_RUN`.
 - 이 문서는 시간순 기록이다. 실패·판정 불가 결과를 나중 결과로 덮어쓰지 않는다. 값·절대 경로·토큰은 쓰지 않는다.
 
@@ -89,11 +89,40 @@ git diff --check               -> 출력 없음
 
 - 기존 시험 기대값 변경 없음. 시험은 서버를 같은 프로세스의 스레드로 띄우고 끝에 모두 종료한다(남은 서버 프로세스 없음).
 
+### Phase 4 US2 · Phase 5 US3 RED → GREEN (2026-10-09)
+
+| 작업 | 시험 파일 | RED | GREEN | 바꾼 기존 기대값 |
+|---|---|---|---|---|
+| T035 → T038 | `tests/unit/test_web_readmodel_run.py` | 15 failed(`run` 없음) | 15 passed | 없음 |
+| T036 → T038·T040 | `tests/unit/test_web_evidence_view.py` | 7 failed | 7 passed | 없음 |
+| T036 → T039 | `tests/unit/test_web_memos.py` | 수집 단계 ImportError(`engine.web.memos` 없음) | 17 passed | 없음 |
+| T036·T040 | `tests/contract/test_web_http_us2.py`(경로·422·메모·보고서·필드 가림 없음) | 구현과 함께 추가 | 8 passed | 없음 |
+| T037 → T041 | `tests/web/test_run_screen.py` | 14 failed, 12 errors(화면 없음·콘솔 404) | 14 passed(1280·1024px 각 7) | 없음 |
+| T043 → T045 | `tests/unit/test_web_readmodel_report.py` | 10 failed(`report` 없음) | 10 passed | 없음 |
+| T044 → T046 | `tests/web/test_report_screen.py` | 6 failed, 2 errors | 6 passed(1280·1024px 각 3) | 없음 |
+| (ID-005-08) | `tests/unit/test_catalog_matrix_parity.py::test_explanation_texts_are_whole_values` | 이전 카탈로그에서 20곳 잘림 확인 | 8 passed(파일 전체) | 없음(시험 추가) |
+| (승인된 변경) | `tests/contract/test_web_http.py::test_route_table_has_no_run_retest_or_cleanup_start` | — | 18 passed(파일 전체) | POST 목록 `["/preflight"]` → `["/preflight", "/runs/{run_id}/memos"]`(연우 승인) |
+
+- ID-005-01 세 경우(T035): ① ABORTED + 필수 증적 링크 누락만 → 실행 상태 "중단(ABORTED)"을 먼저, "봉인 무결성 확인됨 + 중단으로 빠진 증적: EV-06, EV-07",
+  봉인 판정은 그대로 함께(대상 서비스 판정 아님) ② COMPLETED + 증적 링크 누락(EV-01, 재봉인 사본) → 무결성 실패, 판정·규칙·증적 없음 ③ 해시 불일치
+  (판정 파일 변경) → 무결성 실패. 세 경우 모두 명령줄 `verify_bundle` 결과는 그대로(① INVALID).
+- 브라우저: Playwright 기본 Chromium 없음 → 설치된 Edge 채널(154.0.4258.53). 시험이 띄운 서버는 fixture 끝에 모두 종료.
+
+### T042 US2 · T047 US3 gate (2026-10-09)
+
+```text
+.venv python -m pytest -q      -> 1133 passed, 1 xfailed in 208.35s   (US1 1055 + US2·US3 새 시험 78; xfailed = T020 대기)
+.venv python -m ruff check .   -> All checks passed!
+git diff --check               -> 출력 없음
+```
+
 ### 사용자 스토리 gate
 
 | Phase | 시험 | 결과 |
 |---|---|---|
 | Phase 3 US1 | T021~T026 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T034) |
+| Phase 4 US2 | T035~T037 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T042) |
+| Phase 5 US3 | T043~T044 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T047) |
 
 ### Actual validation (웹 PC 재실행, Phase 9)
 

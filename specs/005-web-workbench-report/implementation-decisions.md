@@ -71,3 +71,20 @@
   DEMO 준비 상태는 `prepare_web_demo.py`가 DEMO root 옆 `preflight/`에 쓴 합성 기록이다.
 - 시나리오 상세(②)·실행 결과(③)·비교·보고서(④) 탭과 "상세"·"보고서 열기"는 해당 사용자 스토리 전까지 비활성 표시다(없는 화면으로 이동하지 않음).
 - `/favicon.ico`는 204로 답한다(브라우저 콘솔 404 오류 방지).
+- (2026-10-09, US2·US3) 머리글의 주장 범위 문장 뒤 코드 `EXECUTED_SCENARIO_AND_EVIDENCE_ONLY`는 기본 문장에서 빼고 머리글의 "개발자용 정보" 펼치기로 옮겼다(FR-019).
+  ③ 결과·④ 보고서 탭과 워크벤치의 결과 링크·"보고서 열기"는 활성화했고, ② 상세와 ④의 재시험 비교는 계속 비활성 표시다.
+
+## ID-005-08 — 출력 경계와 겹친 필드 이름, 카탈로그 문장 잘림, 바꾼 기존 기대값 (US2·US3)
+
+- 필드 이름: 엔진 v1 redaction은 `display_name`·`name` 같은 키의 값을 개인정보로 보고 `[REDACTED]`로 바꾼다. 웹 출력은 모두 이 경계를 거치므로
+  계약의 `evidence[].display_name`은 `evidence_name`으로, 워크벤치 `target.name`은 `target.service`로 바꿨다(contracts/web-read-model.md·
+  data-model.md 반영). 세 뷰 JSON에 `[REDACTED]`가 없음을 시험으로 고정했다(`tests/contract/test_web_http_us2.py`).
+- 카탈로그 잘림(US1에서 생김): YAML 흐름 표기(`{text: …, source: …}`)에서 따옴표 없는 쉼표가 문장을 끊어 일부 설명이 잘려 있었다(20곳). 모든
+  `text` 값에 따옴표를 붙이고, 설명 항목이 `text`·`source`(·`status`) 외 키를 갖지 않는지 시험을 더했다(`test_explanation_texts_are_whole_values`).
+- 바꾼 기존 기대값 1개(연우 승인 2026-10-09): `tests/contract/test_web_http.py::test_route_table_has_no_run_retest_or_cleanup_start`의 POST 경로 목록을
+  `["/preflight"]` → `["/preflight", "/runs/{run_id}/memos"]`(contracts/web-http.md의 메모 경로). Run·재시험·정리 확인 시작 경로가 없다는 검사는 그대로다.
+- 실행 결과 화면: 복구 시간·예산 준수는 bundle에 기록된 값(`recovery.json` `restore_timing`)만 보이고, 기록이 없는 형식(H-03 Spec 001·002)은 "시간 기록 없음"이다
+  (웹이 계산하지 않음). 기대·관찰 원본 값과 봉인 파일 이름은 "원본 값"·"개발자용 원본 정보" 펼치기에만 둔다. DEMO 기록에는 메모를 받지 않는다.
+- 보고서의 고정 문구는 범위표 §2 인용문과 같은 글자(JSON 값)이며, 화면에서는 백틱으로 감싼 `NOT_RUN`·`NO_TEST_TARGET`을 굵은 글자로 보인다.
+- 서버는 POST 본문을 응답 전에 먼저 읽는다. 없는 POST 경로에 404를 본문을 읽지 않고 보내면 Windows 클라이언트가 연결 끊김(WinError 10053)을 보는
+  간헐 실패가 있었다(`test_web_http.py` 3회 중 1회). 수정 뒤 두 HTTP 시험 파일 10회 반복 실패 0회.
