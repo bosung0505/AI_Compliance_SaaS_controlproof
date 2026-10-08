@@ -1,0 +1,36 @@
+<!doctype html>
+<html lang="ko">
+<head>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1">
+<title>{% block title %}ControlProof 검증 워크벤치{% endblock %}{% if view.demo %} (DEMO DATA){% endif %}</title>
+<link rel="stylesheet" href="/static/workbench.css">
+</head>
+<body>
+{% macro badge(key, suffix="", count=None) -%}
+{%- set b = badges[key] -%}
+<span class="{{ b.css_class }}" data-badge="{{ b.key }}"{% if count is not none %} data-count-value="{{ count }}"{% endif %} title="{{ b.description }}"><span class="ic">{{ b.icon }}</span>{{ b.text }}{{ suffix }}</span>
+{%- endmacro %}
+{% if view.demo %}
+<div class="demo-banner" role="note">DEMO DATA <small>합성 데이터로 만든 화면입니다. 실제 실행·판정·증적이 아니며 실제 결과 개수·보고서에 섞이지 않습니다.</small></div>
+{% endif %}
+<header>
+  <h1>ControlProof 검증 워크벤치</h1>
+  <div class="target">검증 대상: <b>WhyYou</b> 시험 환경
+    · 대상 버전 {% if view.target and view.target.target_version %}<span class="mono">{{ view.target.target_version }}</span>{% else %}<span class="muted">확인 기록 없음</span>{% endif %}
+    · 실행 환경 <b>{{ view.environment_kind or "LOCAL_EMULATED" }}</b>
+    · 실제 AWS <b>{{ view.aws_deployment_status or "NOT_RUN" }}</b>
+    · 주장 범위: 실행한 시나리오와 확보한 증적 <span class="muted">({{ view.claim_scope or "EXECUTED_SCENARIO_AND_EVIDENCE_ONLY" }})</span></div>
+  <nav role="tablist" aria-label="화면 선택">
+    <a role="tab" href="{{ prefix }}/" aria-selected="{{ 'true' if active == 'workbench' else 'false' }}">① 워크벤치</a>
+    <span role="tab" aria-selected="false" aria-disabled="true" title="다음 단계에서 제공">② 시나리오 상세·실행</span>
+    <span role="tab" aria-selected="false" aria-disabled="true" title="다음 단계에서 제공">③ 실행 결과·증적</span>
+    <span role="tab" aria-selected="false" aria-disabled="true" title="다음 단계에서 제공">④ 재시험 비교·보고서</span>
+  </nav>
+</header>
+<main>
+{% block content %}{% endblock %}
+</main>
+<script src="/static/workbench.js"></script>
+</body>
+</html>

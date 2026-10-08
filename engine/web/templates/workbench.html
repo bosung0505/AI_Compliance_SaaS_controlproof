@@ -1,0 +1,114 @@
+{% extends "base.html" %}
+{% set active = "workbench" %}
+{% block content %}
+{% set counts = view.counts %}
+{% set members = view.count_members %}
+{% set treatments = view.treatment_counts %}
+<section aria-label="워크벤치">
+  <h2>검증 현황 (12개 시나리오 관리 · {{ treatments.EXECUTED }}개 실제 실행 대상 · {{ treatments.NOT_RUN }}개 NOT_RUN · {{ treatments.NO_TEST_TARGET }}개 NO_TEST_TARGET)</h2>
+  <p class="muted">{{ view.fixed_scope_sentence }} 숫자는 범위표·Validation에서 옮긴 공식 상태를 센 값이며, 이 화면은 판정을 계산하지 않습니다.</p>
+
+  <div class="grid c4 counts">
+    <div class="card" data-count="PASS">{{ badge("pass") }}<div class="num">{{ counts.PASS }}</div>
+      <div class="muted">{{ members.PASS | join(" · ") }}</div></div>
+    <div class="card" data-count="FAIL">{{ badge("fail") }}<div class="num">{{ counts.FAIL }}</div>
+      <div class="muted">최근 결과 기준. 보존된 최초 FAIL은 아래 계보에서 봅니다.</div></div>
+    <div class="card" data-count="INCONCLUSIVE"><span class="neutral-title">판정 불가 INCONCLUSIVE</span><div class="num">{{ counts.INCONCLUSIVE.total }}</div>
+      <div class="badges">
+        {% for code, ids in members.INCONCLUSIVE.items() if ids %}
+        <span>{{ badge({"INSUFFICIENT_EVIDENCE": "insufficient_evidence", "NO_TEST_TARGET": "reason_no_test_target", "ACCESS_LIMITED": "access_limited", "EVIDENCE_CONFLICT": "evidence_conflict"}[code], " " ~ counts.INCONCLUSIVE.by_reason[code], counts.INCONCLUSIVE.by_reason[code]) }} <span class="muted nowrap">{{ ids | join(" · ") }}</span></span>
+        {% endfor %}
+      </div>
+      <div class="muted">{% for code, ids in members.INCONCLUSIVE.items() if not ids %}{{ code }} {{ counts.INCONCLUSIVE.by_reason[code] }}{% if not loop.last %} · {% endif %}{% endfor %}</div></div>
+    <div class="card" data-count="NOT_RUN">{{ badge("not_run") }}<div class="num">{{ counts.NOT_RUN }}</div>
+      <div class="muted">{{ members.NOT_RUN | join(" · ") }} (이번 범위에서 실행하지 않음)</div></div>
+  </div>
+
+  <div class="card">
+    <div class="tool">
+      <b>필터</b>
+      <label><input type="checkbox" data-filter="runnable"> 실행 가능(READY)</label>
+      <label><input type="checkbox" data-filter="failed"> 실패·재시험 필요</label>
+      <label><input type="checkbox" data-filter="inconclusive"> 판정 불가</label>
+      <span class="spacer"></span>
+      <form method="post" action="/preflight" class="inline-form" data-testid="preflight-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="return_to" value="/">
+        <label>준비 상태 확인 대상
+          <select name="profile_choice" data-preflight-choice{% if view.demo %} disabled{% endif %}>
+            {% for entry in catalog.scenarios %}{% for profile in entry.profiles %}
+            <option value="{{ entry.id }}|{{ profile.execution_profile }}">{{ entry.id }} · {{ profile.execution_profile }}</option>
+            {% endfor %}{% endfor %}
+          </select></label>
+        <input type="hidden" name="scenario_id" value="">
+        <input type="hidden" name="execution_profile" value="">
+        <button class="btn" type="submit" title="웹에서 시작할 수 있는 유일한 동작"{% if view.demo %} disabled{% endif %}>준비 상태 확인</button>
+      </form>
+      <span class="btn sec disabled" aria-disabled="true" title="보고서 화면은 다음 단계에서 제공">보고서 열기 →</span>
+    </div>
+    {% if view.demo %}<p class="limit">DEMO DATA 화면에서는 준비 상태 확인을 실행하지 않습니다. 실제 기록 화면(<a href="/">/</a>)에서 실행하세요.</p>{% endif %}
+    <p>준비 상태 확인 시각: <b data-testid="common-checked-at">{{ view.readiness_checked_at | when if view.readiness_checked_at else "확인 기록 없음" }}</b>
+      <span class="muted">— 시각이 다른 줄만 그 줄에 따로 표시합니다. 실행·재시험·정리 확인은 명령줄 안내를 따릅니다.</span></p>
+    <table id="catalog" aria-label="12개 시나리오">
+      <thead><tr><th class="nowrap">ID</th><th>질문</th><th class="nowrap">대상 존재</th><th>준비 상태</th><th>실행 방식</th><th>최근 결과</th><th class="nowrap">상세</th></tr></thead>
+      <tbody>
+      {% for group in view.groups %}
+        <tr class="group" data-group="{{ group.control }}"><th colspan="7">{{ group.control_label }}</th></tr>
+        {% for row in group.scenarios %}
+        <tr class="scenario-row" data-id="{{ row.id }}" data-group="{{ group.control }}" data-readiness="{{ row.readiness.value or '' }}" data-result="{{ row.official.result }}">
+          <td class="scenario-id nowrap"><b>{{ row.id }}</b></td>
+          <td>{{ row.question }}</td>
+          <td class="nowrap">{{ "있음" if row.target_exists else "없음" }}</td>
+          <td>
+            {% if row.readiness.badge %}{{ badge(row.readiness.badge) }}{% else %}<span class="muted">{{ row.readiness.note }}</span>{% endif %}
+            {% if row.readiness.differs_from_common %}<span class="muted row-checked-at nowrap">확인 {{ row.readiness.checked_at | when }}</span>{% endif %}
+            {% if row.readiness.profiles | length > 1 %}
+            <div class="profiles muted">{% for item in row.readiness.profiles %}<span class="nowrap">{{ item.execution_profile }}: {{ item.value or ("확인 도구 오류" if item.badge == "tool_error" else "확인 기록 없음") }}</span>{% if not loop.last %} · {% endif %}{% endfor %}</div>
+            {% endif %}
+          </td>
+          <td>{{ row.execution_mode }}</td>
+          <td>
+            {% if row.official.result == "INCONCLUSIVE" %}<span class="neutral-title small">판정 불가</span> {% endif %}{{ badge(row.official.badge) }}
+            {% if row.official.note %}<span class="muted">{{ row.official.note }}</span>{% endif %}
+            <div class="muted">{{ row.official.summary }}</div>
+            {% for record in row.records_on_this_pc.official if record.integrity != "VERIFIED" %}
+            <div>{{ badge("integrity_failed") }} <span class="mono">{{ record.run_id | short_id }}</span></div>
+            {% endfor %}
+            {% if row.mismatch %}<div class="warn">봉인 기록 판정 {{ row.mismatch.bundle_verdict }}이(가) 공식 상태 {{ row.mismatch.catalog_result }}와 다릅니다 (<span class="mono">{{ row.mismatch.run_id | short_id }}</span>).</div>{% endif %}
+            {% if row.records_on_this_pc.note %}<div class="muted">{{ row.records_on_this_pc.note }} · 공식 기록: <span class="mono">{{ row.records_on_this_pc.validation_ref }}</span></div>{% endif %}
+            {% if row.records_on_this_pc.web_validation_runs %}<div class="muted">{{ "DEMO 기록" if view.demo else "이 PC 웹 검증 기록" }} {{ row.records_on_this_pc.web_validation_runs }}건(공식 상태와 별도)</div>{% endif %}
+          </td>
+          <td class="nowrap muted">—</td>
+        </tr>
+        {% endfor %}
+      {% endfor %}
+      </tbody>
+    </table>
+  </div>
+
+  <div class="grid c2">
+    <div class="card">
+      <h3>재시험이 필요한 실패</h3>
+      {% if view.retest_needed %}
+      <ul>{% for item in view.retest_needed %}<li>{{ item.scenario_id }}</li>{% endfor %}</ul>
+      {% else %}
+      <p>현재 없습니다. 보존된 최초 FAIL과 그 재시험:</p>
+      {% endif %}
+      <ul>
+        {% for item in view.preserved_first_failures %}
+        <li>{{ item.scenario_id }} <span class="muted">{{ item.execution_profile }}</span>: 최초 {{ badge(item.parent_badge) }} <span class="mono nowrap" title="{{ item.parent_run_id }}">{{ item.parent_run_id | short_id }}</span>
+          → 재시험 {{ badge(item.child_badge) }} <span class="mono nowrap" title="{{ item.child_run_id }}">{{ item.child_run_id | short_id }}</span></li>
+        {% endfor %}
+      </ul>
+    </div>
+    <div class="card legend">
+      <h3>상태 읽는 법</h3>
+      <table>
+        {% for item in badges.values() %}
+        <tr><td>{% if item.key == "inconclusive" %}<span class="neutral-title">판정 불가</span>{% else %}{{ badge(item.key) }}{% endif %}</td><td><span class="muted">{{ item.category }}</span> · {{ item.description }}</td></tr>
+        {% endfor %}
+      </table>
+    </div>
+  </div>
+</section>
+{% endblock %}

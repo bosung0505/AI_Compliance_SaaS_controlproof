@@ -1,0 +1,11 @@
+{% extends "base.html" %}
+{% set active = "" %}
+{% block title %}오류 · ControlProof{% endblock %}
+{% block content %}
+<section class="card warn" aria-label="오류">
+  <h2>요청을 처리하지 못했습니다</h2>
+  <p>{{ view.detail }}</p>
+  <p class="muted mono">{{ view.error_kind }} · {{ view.code }}</p>
+  <p><a href="/">워크벤치로 돌아가기</a></p>
+</section>
+{% endblock %}

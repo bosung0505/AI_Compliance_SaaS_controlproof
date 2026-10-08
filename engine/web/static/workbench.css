@@ -1,0 +1,80 @@
+/* ControlProof workbench. PC only: 1280px base, works down to 1024px (A-10). Shapes follow the badge table:
+   판정 = round, 준비 상태 = square, 실행 안전 = filled. Colour is never the only difference (icon + text + shape). */
+:root {
+  --ink: #1d2433; --muted: #5b6475; --line: #d9dee8; --bg: #f6f7fa; --card: #ffffff;
+  --pass: #1f7a3d; --pass-bg: #e6f4ea; --fail: #b3261e; --fail-bg: #fdecea;
+  --inc: #8a5a00; --inc-bg: #fff4d6; --notrun: #4a5160; --notrun-bg: #eef0f4;
+  --ntt: #5b3a99; --ntt-bg: #efe8fb; --rnr: #9a4a00; --rnr-bg: #ffe9d6;
+  --ready: #1f5f99; --ready-bg: #e3effa; --access: #45607a; --access-bg: #e8eef4;
+  --conflict: #b35c00; --conflict-bg: #fff0e0; --demo: #6b1d1d;
+}
+* { box-sizing: border-box; }
+body { min-width: 1024px; margin: 0; font-family: "Malgun Gothic", "Apple SD Gothic Neo", "Noto Sans KR", system-ui, sans-serif;
+       color: var(--ink); background: var(--bg); font-size: 14px; line-height: 1.55; }
+.demo-banner { position: sticky; top: 0; z-index: 10; background: var(--demo); color: #fff; text-align: center;
+               padding: 6px 12px; font-weight: 700; letter-spacing: .04em; }
+.demo-banner small { font-weight: 400; opacity: .9; margin-left: 8px; }
+header { background: var(--card); border-bottom: 1px solid var(--line); padding: 10px 20px; }
+header h1 { margin: 0 0 6px; font-size: 18px; }
+header .target { color: var(--muted); font-size: 13px; }
+nav { display: flex; gap: 6px; flex-wrap: wrap; margin-top: 8px; }
+nav [role=tab] { border: 1px solid var(--line); background: #fff; padding: 7px 12px; border-radius: 6px; color: var(--ink);
+                 text-decoration: none; }
+nav [role=tab][aria-selected=true] { background: var(--ink); color: #fff; border-color: var(--ink); }
+nav [role=tab][aria-disabled=true] { color: var(--muted); background: #f1f3f7; cursor: not-allowed; }
+main { max-width: 1280px; margin: 0 auto; padding: 18px 20px 60px; }
+h2 { font-size: 17px; margin: 18px 0 8px; }
+h3 { font-size: 15px; margin: 16px 0 6px; }
+.card { background: var(--card); border: 1px solid var(--line); border-radius: 8px; padding: 14px 16px; margin: 10px 0; }
+.grid { display: grid; gap: 10px; }
+.grid.c2 { grid-template-columns: minmax(0, 1fr) minmax(0, 1fr); }
+.grid.c4 { grid-template-columns: repeat(4, minmax(0, 1fr)); }
+table { width: 100%; border-collapse: collapse; background: var(--card); }
+th, td { border-bottom: 1px solid var(--line); padding: 7px 8px; text-align: left; vertical-align: top; }
+th { background: #eef1f6; font-size: 13px; }
+tr.group th { background: #dfe5ef; font-size: 13.5px; }
+.muted { color: var(--muted); }
+.mono { font-family: Consolas, "D2Coding", monospace; font-size: 12.5px; word-break: break-all; }
+.nowrap { white-space: nowrap; }
+.mono.nowrap { word-break: normal; }
+.hidden { display: none; }
+.spacer { flex: 1; }
+.counts .num { font-size: 26px; font-weight: 800; }
+.badges { display: flex; flex-direction: column; gap: 4px; margin-top: 4px; }
+.profiles { font-size: 12px; margin-top: 2px; }
+.note { border-left: 4px solid var(--ready); background: #f0f6fd; padding: 8px 12px; margin: 8px 0; }
+.warn { border-left: 4px solid var(--fail); background: #fdf1f0; padding: 6px 10px; margin: 6px 0; }
+.limit { border-left: 4px solid var(--inc); background: #fff9e8; padding: 8px 12px; margin: 8px 0; }
+.tool { display: flex; gap: 8px; flex-wrap: wrap; align-items: center; margin: 8px 0; }
+.tool label, .tool select, .tool button { font: inherit; }
+.inline-form { display: inline-flex; gap: 6px; align-items: center; flex-wrap: wrap; }
+.btn { border: 1px solid var(--ink); background: var(--ink); color: #fff; padding: 6px 12px; border-radius: 6px; cursor: pointer;
+       white-space: nowrap; font: inherit; }
+.btn.sec { background: #fff; color: var(--ink); }
+.btn:disabled, .btn.disabled { opacity: .5; cursor: not-allowed; }
+
+/* Badges: one table, one look per state. */
+.badge { display: inline-flex; align-items: center; gap: 5px; padding: 2px 10px 2px 7px; font-size: 12.5px; font-weight: 700;
+         border: 1.5px solid currentColor; white-space: nowrap; }
+.badge .ic { font-weight: 900; }
+.shape-round { border-radius: 999px; }
+.shape-square { border-radius: 4px; }
+.shape-filled { border-radius: 4px; color: #fff; }
+.tone-pass { color: var(--pass); background: var(--pass-bg); }
+.tone-fail { color: var(--fail); background: var(--fail-bg); }
+.tone-neutral { color: var(--ink); background: #fff; }
+.tone-not-run { color: var(--notrun); background: var(--notrun-bg); border-style: dotted; }
+.tone-insufficient { color: var(--inc); background: var(--inc-bg); border-style: dashed; }
+.tone-access { color: var(--access); background: var(--access-bg); }
+.shape-round.tone-access { border-style: dashed; }
+.tone-conflict { color: var(--conflict); background: var(--conflict-bg); border-style: dashed; }
+.tone-no-target { color: var(--ntt); background: var(--ntt-bg); }
+.tone-ready { color: var(--ready); background: var(--ready-bg); }
+.tone-runner { color: var(--rnr); background: var(--rnr-bg); }
+.tone-tool { color: #333; background: #fff; border-style: double; border-width: 3px; }
+.tone-restore { color: #fff; background: #7a2e00; border-color: #7a2e00; }
+.tone-integrity { color: #fff; background: #3d3d3d; border-color: #3d3d3d; }
+.neutral-title { display: inline-block; font-weight: 700; color: var(--ink); border: 1.5px solid var(--muted);
+                 border-radius: 4px; padding: 2px 10px; background: #fff; }
+.neutral-title.small { font-size: 12px; padding: 1px 6px; }
+.legend td { font-size: 13px; }
