@@ -127,3 +127,19 @@ def test_rule6_plain_text_has_no_internal_fixture_or_file_names(catalog) -> None
         for text in _plain_texts(entry):
             for word in FORBIDDEN_PLAIN:
                 assert word not in text, (entry["id"], word)
+
+
+def test_explanation_texts_are_whole_values(catalog) -> None:
+    """ID-005-08: an unquoted comma in a YAML flow mapping silently cut texts into extra keys."""
+
+    def walk(value):
+        if isinstance(value, dict):
+            if "text" in value:
+                assert set(value) <= {"text", "source", "status"}, value
+            for item in value.values():
+                walk(item)
+        elif isinstance(value, list):
+            for item in value:
+                walk(item)
+
+    walk(catalog)
