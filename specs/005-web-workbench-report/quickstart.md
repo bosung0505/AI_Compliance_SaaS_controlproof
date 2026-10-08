@@ -44,8 +44,10 @@
 
 0. 위험 4 보완(Spec 004 재시험 정리 확인 경로, FR-037)이 병합됐는지 확인한다.
 1. fixture `h03-report-v1`로 WhyYou를 띄운다(Spec 004 quickstart §3, fixture 전환은 Spec 004 quickstart의 전환 절).
-2. H-03 `H03_DLQ_V2` 실행(Spec 002 quickstart §7~§9). 새 checkout 조건을 갖췄으면 플레이북 §6 독립 재현 gate 기록으로도 남긴다.
-   **먼저 preflight와 이 한 건의 결과를 확인한다.** `374b122`에서 READY가 아니거나 공식 상태(PASS)와 다르면 멈추고 보성에게 보고한다(research R-015).
+2. H-03 `H03_DLQ_V2` 한 건을 `374b122`로 먼저 실행한다(Spec 002 quickstart §7~§9). 새 checkout 조건을 갖췄으면 "현재 통합 대상(`374b122`) 기준"
+   독립 재현 gate 기록으로도 남기고, 플레이북 §6의 원래 지정 commit과 다르다는 점을 함께 적는다.
+   결과가 공식 상태(PASS)와 다르면 원인을 먼저 분류한다. seed·실행기 결함이면 실패 시험부터 쓰고 고친 뒤 다시 실행한다. 대상 버전 문제면 멈추고,
+   `511ae9e`로 바꿀지는 보성이 정한다(research R-015, 보성 확인 2026-10-08).
 3. H-03 `H03_MINIMAL_V1`(Spec 001 quickstart), E-03 `E03_BEFORE_V2`, `E03_AFTER_V2`(Spec 002 quickstart §7~§9).
 4. N-02 `N02_CONSENT_ORDER_V1`(Spec 003 quickstart §6~§7). 결과는 웹 검증용이며 N-02 공식 상태는 Spec 003 converge를 따른다.
 5. fixture `spec004-report-v1`로 전환하고 API·작업자를 다시 띄운다.
@@ -72,5 +74,6 @@
 .venv 의 python -m scripts.scan_bundles --run-root <실제 run root> --out .controlproof/web/scan-before-v2.json
 ```
 
-보성은 자기 PC에서 같은 명령을 실행하고 보고서의 요약(bundle ID·파일 상대 경로·규칙·건수)만 Validation에 적는다. bundle은 옮기지 않는다.
+검사 스크립트가 생긴 뒤 보성이 자기 PC에서 같은 명령을 실행하고 보고서의 요약(bundle ID·파일 상대 경로·규칙·건수)만 전달하면 Validation에
+적는다. bundle은 옮기지 않는다.
 두 PC 결과를 기록한 뒤에만 봉인 시점 검사를 v2로 바꾼다.
