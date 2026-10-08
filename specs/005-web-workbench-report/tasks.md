@@ -26,9 +26,9 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 
 **Purpose**: 웹 패키지 뼈대, 합성 bundle fixture, 구현 기록 뼈대를 준비한다.
 
-- [ ] T001 Create the empty package `engine/web/__init__.py` and `engine/web/__main__.py` (prints usage only), and add `catalog/`, `engine/web/templates/`, `engine/web/static/` directories with a placeholder `README.md` each; record the starting regression count (`pytest -q`, `ruff check .`) in `specs/005-web-workbench-report/validation.md` [FR-032]
-- [ ] T002 [P] Create synthetic bundle builders for PASS, FAIL, INCONCLUSIVE (each reason code), RESTORE_FAILED, ABORTED, tampered (one file changed after seal), unreadable, a FAIL parent → PASS child → grandchild lineage with `retest-link.json`/`retest-diff.json`, and Spec 001- and Spec 002-format lineages, reusing `tests/fixtures/bundles/cases.json`, `tests/fixtures/spec003.py` and `tests/fixtures/spec004.py`, in `tests/fixtures/web_bundles.py` [FR-013~024, SC-002, SC-005]
-- [ ] T003 [P] Create implementation-time record templates (source SHAs, commands, scan reports, actual-validation Run IDs and manifest SHA-256, usability results) in `specs/005-web-workbench-report/validation.md` and `specs/005-web-workbench-report/implementation-decisions.md`; do not claim an unexecuted result [SC-011]
+- [X] T001 Create the empty package `engine/web/__init__.py` and `engine/web/__main__.py` (prints usage only), and add `catalog/`, `engine/web/templates/`, `engine/web/static/` directories with a placeholder `README.md` each; record the starting regression count (`pytest -q`, `ruff check .`) in `specs/005-web-workbench-report/validation.md` [FR-032]
+- [X] T002 [P] Create synthetic bundle builders for PASS, FAIL, INCONCLUSIVE (each reason code), RESTORE_FAILED, ABORTED, tampered (one file changed after seal), unreadable, a FAIL parent → PASS child → grandchild lineage with `retest-link.json`/`retest-diff.json`, and Spec 001- and Spec 002-format lineages, reusing `tests/fixtures/bundles/cases.json`, `tests/fixtures/spec003.py` and `tests/fixtures/spec004.py`, in `tests/fixtures/web_bundles.py` [FR-013~024, SC-002, SC-005]
+- [X] T003 [P] Create implementation-time record templates (source SHAs, commands, scan reports, actual-validation Run IDs and manifest SHA-256, usability results) in `specs/005-web-workbench-report/validation.md` and `specs/005-web-workbench-report/implementation-decisions.md`; do not claim an unexecuted result [SC-011]
 
 ---
 
