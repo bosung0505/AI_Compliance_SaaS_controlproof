@@ -107,7 +107,9 @@
 }
 ```
 
-`parent_unchanged=false`이거나 부모가 VERIFIED가 아니면 `lineage_problem`만 채우고 비교 항목은 `null`.
+`parent_unchanged=false`이거나 부모가 VERIFIED가 아니면 `lineage_problem`만 채우고 비교 항목은 `null`. 부모 무결성 값을 남기지 않은 이전
+형식 계보는 `parent_unchanged: null`, `parent_integrity_source: "NONE_LEGACY"`이며 계보 문제가 아니다(FR-023). 출처 값은
+`RETEST_LINK`(Spec 003·004), `CROSS_RUN_REFERENCE`(Spec 002), `NONE_LEGACY`(Spec 001).
 
 ## view = report
 

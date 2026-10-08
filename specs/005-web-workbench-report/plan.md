@@ -30,7 +30,8 @@
 
 **Project Type**: 기존 Python CLI 엔진 + 같은 패키지 안의 로컬 웹 서버(단일 프로젝트).
 
-**Performance Goals**: 화면 전환 2초 안(A-8). bundle 30개 이하에서 워크벤치 첫 표시 2초 안(verify 결과는 manifest `bundle_digest` 기준 캐시).
+**Performance Goals**: 화면 전환 2초 안(A-8). bundle 30개 이하에서 워크벤치 첫 표시 2초 안. verify 결과 캐시의 키는 manifest
+`bundle_digest`와 bundle 안 모든 파일의 (상대 경로, 크기, 수정 시각)이며, 하나라도 바뀌면 다시 verify한다(봉인 뒤 파일 변경을 놓치지 않음, FR-017).
 
 **Constraints**: `127.0.0.1` 전용, 로그인 없음, 외부 CDN·폰트·네트워크 없음, 판정 비재계산, 봉인 파일 불변, 화면·응답에 절대 경로·토큰·원문 없음.
 
@@ -76,6 +77,7 @@ verify"는 과거 판정을 바꾸지 않는다. (2) R-010의 `result_kind`·`er
 
 - `engine/web/server.py`: 서버 기동(포트 인자, 기본 8765), Host 검사, 토큰, 라우팅, 보안 헤더.
 - `engine/web/readmodel.py`: 카탈로그·실제 run root·DEMO root를 읽어 [contracts/web-read-model.md](./contracts/web-read-model.md)의 뷰를 만든다.
+  verify 캐시 키는 Performance Goals의 규칙을 따른다.
 - `engine/web/badges.py`: 상태 → 배지(이름·아이콘·모양·설명) 표 하나. 템플릿은 이 표만 쓴다(R-016).
 - `engine/web/preflight.py`: 하위 프로세스 실행·저장·해석(R-007).
 - `engine/web/memos.py`: 메모 추가·조회(R-008).

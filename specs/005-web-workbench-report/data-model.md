@@ -53,6 +53,7 @@
 | `parent_run_id` | `run.json` |
 
 규칙: `integrity != VERIFIED`면 `verdict`·`assertions`를 비운다. `run_state = RESTORE_FAILED`면 실행 안전 배지를 판정 배지보다 먼저 둔다.
+`run_state = ABORTED`면 실행 상태 "중단(ABORTED)"을 판정보다 먼저 보이고 대상 서비스 판정으로 표시하지 않는다(봉인 판정은 그대로 함께).
 
 ## 4. AssertionView
 
@@ -67,9 +68,11 @@ projection 문장에서 고르며 내부 이름·fixture·파일 이름 없음).
 
 ## 6. LineageView / ComparisonView
 
-`parent_run_id`, `child_run_id`, `parent_integrity`, `parent_unchanged`(링크의 `parent_bundle_digest` = 현재 부모 `bundle_digest`),
+`parent_run_id`, `child_run_id`, `parent_integrity`, `parent_unchanged`(`true`·`false`·`null`; 부모 무결성 값의 출처는 기록 형식에 따라 Spec 003·004 `retest-link.json`의 `parent_bundle_digest`,
+Spec 002 child manifest의 다른 Run 원본 참조 `bundle_digest`, Spec 001 형식은 없음 → `null`과 `parent_integrity_source: "NONE_LEGACY"`), `parent_integrity_source`,
 `changed_dimensions`(`retest-link.json` 그대로), `diff`(`retest-diff.json` 요약), `assertion_changes[]`(`assertion_id`, before, after,
-before_evidence, after_evidence), `remaining_failures[]`. 부모 검증 실패나 digest 불일치면 비교 대신 계보 문제를 보인다.
+before_evidence, after_evidence), `remaining_failures[]`. 부모 검증 실패나 digest 불일치(`false`)면 비교 대신 계보 문제를 보인다. `null`(이전 형식)은 계보 문제가 아니며 부모
+자체의 무결성 결과와 함께 "부모 불변 값 기록 없음(이전 형식)"을 보인다.
 
 ## 7. ReportView
 
