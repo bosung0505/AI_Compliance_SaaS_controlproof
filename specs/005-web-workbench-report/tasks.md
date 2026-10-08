@@ -107,6 +107,9 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 ### Tests for User Story 2 — write first, confirm RED
 
 - [ ] T035 [P] [US2] Add unit tests for the run view: integrity first (`VERIFIED`·`INVALID`·`UNREADABLE`; non-VERIFIED → `verdict`/`assertions`/`evidence` null); verdict, assertion status and reason code copied verbatim; `RESTORE_FAILED` safety badge before the verdict; `ABORTED` shown as run state, never as a target verdict; restore seconds, deadline and within-deadline flag shown; `plain_meaning` without WhyYou internal, fixture or bundle file names; `record_origin`/`record_role`, in `tests/unit/test_web_readmodel_run.py` [FR-013~020, SC-002, R-003]
+  - 노트(ID-005-01 결정, 2026-10-09): 무결성 시험 경우 3개를 넣는다. ① `ABORTED` + 필수 증적 링크 누락만 → "봉인 무결성 확인됨 +
+    중단으로 빠진 증적 목록", `ABORTED` 상태를 먼저 표시 ② `COMPLETED` + 증적 링크 누락 → 무결성 실패 ③ 해시 불일치 → 무결성 실패.
+    명령줄 `verify` 결과는 그대로다.
 - [ ] T036 [P] [US2] Add unit tests for the evidence viewer (text only, ≤256 KB, strict scan must pass, otherwise a reason; integrity-failed run → 422) and fix memos (`controlproof.fix-memo.v1`, author 1~80 chars, text 1~2000 chars, append only, strict scan before write, stored under `.controlproof/web/memos/`, bundle files and verify result unchanged), in `tests/unit/test_web_evidence_view.py` and `tests/unit/test_web_memos.py` [FR-015, FR-024, FR-031, R-008, R-009]
 - [ ] T037 [P] [US2] Add browser tests for the run screen at 1280px and 1024px (화면 공통 기준; plain explanation by default and developer details collapsed; failed-only toggle leaves only FAIL/INCONCLUSIVE rows; memo form labelled as separate from the sealed record; integrity-failure and restore-failure badges distinct from FAIL; click count workbench → result → evidence ≤3) in `tests/web/test_run_screen.py` [FR-013~020, SC-002, SC-003]
 
