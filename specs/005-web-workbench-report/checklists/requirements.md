@@ -13,7 +13,7 @@
 
 ## Requirement Completeness
 
-- [ ] No [NEEDS CLARIFICATION] markers remain
+- [x] No [NEEDS CLARIFICATION] markers remain
 - [x] Requirements are testable and unambiguous
 - [x] Success criteria are measurable
 - [x] Success criteria are technology-agnostic (no implementation details)
@@ -40,4 +40,6 @@
   as Assumptions A-6 and A-7 with their grounds.
 - Domain terms kept on purpose: status names and reason codes (D-011), SHA-256, preflight. They are product
   vocabulary in the Constitution, not implementation choices.
+- Clarify re-validation (2026-10-08): all five answers integrated (D-018); [NEEDS CLARIFICATION] 0, all
+  items pass (15/16 -> 16/16). Plan waits for the mockup UX review and product-owner approval.
 - Items marked incomplete require spec updates before `$speckit-clarify` or `$speckit-plan`.

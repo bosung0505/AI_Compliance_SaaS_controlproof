@@ -95,6 +95,19 @@
   전화, 서명 쿼리, 사용자 경로, 77~86)을 적용한다. `assert_redacted()`(279~290)는 바이트에서 Bearer·이메일·전화·사용자
   경로를 찾고 JSON 키를 검사한다(서명 쿼리는 검사하지 않음).
 
+### 1.6 H-03·E-03 공식 결과 (2026-10-08 Clarify 때 확인, 읽기만 함)
+
+- H-03 `H03_MINIMAL_V1`(Spec 001): 부모 `f738081a-5fb3-4f21-af22-685a12355096` FAIL(H03-A2·A3) 보존, 수정 후 child
+  `e42482c9-ba84-42c6-984d-209e0f80b7d8` PASS(H03-A1~A6), bundle VERIFIED(`specs/001-execution-evidence-h03/validation.md`
+  101~125, 판정 156~162).
+- H-03 `H03_DLQ_V2`(Spec 002): 최종 Run `ac025c2c-b941-4c4c-b737-d3d3e61deb0b` PASS(H03-A1~A9), 복구 SUCCEEDED, VERIFIED.
+  최초 FAIL 부모 `60b19e5a-6693-427b-bf87-039e45181cfc` 보존, 수정 후 child/grandchild PASS
+  (`specs/002-h03-e03-fault-expansion/validation.md` 333~이후 "최종 3-profile 결과"와 "최초 FAIL 보존과 재시험").
+- E-03 `E03_BEFORE_V2` 최종 Run `047fb27b-c50e-4e50-b43d-acc1c08623e9` PASS, `E03_AFTER_V2` 최종 Run
+  `4e3e424e-f9ab-43c0-a4d4-7a3741f8e3f0` PASS, 둘 다 복구 SUCCEEDED·VERIFIED. 최초 FAIL 부모
+  `e17e0af0-b46a-4022-93a4-a91a3247f16d` 보존(같은 절).
+- 세 결과 모두 한 PC의 `LOCAL_EMULATED`이며 bundle은 Git에 없다(§3). 다른 PC 독립 재현은 `PENDING_EXTERNAL_REPRODUCTION`.
+
 ## 2. 위험 (이번 Spec에서 고치지 않음, 웹 설계 입력)
 
 1. **절대 경로 노출**: `run`·`retest` 출력의 `bundle_path`는 절대 경로다(`engine/cli.py` 551). 출력 전 `redact()`가
@@ -141,7 +154,6 @@
 
 | 항목 | 확인 방법 |
 |---|---|
-| H-03·E-03 최신 공식 판정과 Run ID | Spec 001·002 validation의 마지막 closure를 읽어 카탈로그 데이터의 근거로 고정 |
 | 다른 PC Run bundle의 경로·redaction 상태 | 해당 PC에서 `verify`와 경로 스캔(이스케이프 경로 포함) |
 | 위험 4(Spec 004 retest 정리 경로)의 실제 동작 | 합성 RESTORE_FAILED 부모로 cleanup-confirm 뒤 retest 시험 |
 | 목업 프로토타입 승인 여부 | 제품 책임자 확인(Product Brief §12는 상세 기술 Spec 전 목업 확인을 요구) |
