@@ -84,6 +84,20 @@ SIGNED_QUERY_RE = re.compile(r"(?i)(X-Amz-Signature|signature|sig|token)=([^&\s]
 USER_PATH_RE = re.compile(
     r"(?i)(?:[A-Z]:[/\\]Users[/\\][^/\\\s]+|/Users/[^/\s]+|/home/[^/\s]+)"
 )
+# v2 (Spec 005, ID-005-02): one or more separators, including JSON-escaped `\\`. v1 stays the sealing scanner until T020.
+USER_PATH_RE_V2 = re.compile(
+    r"(?i)(?:[A-Z]:[/\\]+Users[/\\]+[^/\\\s\"]+|/Users/[^/\s\"]+|/home/[^/\s\"]+)"
+)
+REDACTION_V1 = "controlproof.redaction.v1"
+REDACTION_V2 = "controlproof.redaction.v2"
+SCANNED_SUFFIXES = {".json", ".jsonl", ".yaml", ".yml", ".txt"}
+_PATH_TAIL = r"[^\s\"'<>]*"
+_OTHER_ABSOLUTE_PATH_RE = re.compile(
+    r"(?<![A-Za-z0-9])[A-Za-z]:[/\\]" + _PATH_TAIL
+    + r"|\\\\[A-Za-z0-9._-]+\\" + _PATH_TAIL
+    + r"|(?<![\w.:/>])/(?:home|Users|tmp|var|etc|opt|mnt|srv|root|usr|private|Volumes|media)(?=[/\s\"']|$)"
+    + _PATH_TAIL
+)
 
 CANONICAL_FILES = {
     "run.json",
@@ -288,6 +302,65 @@ def assert_redacted(payload: bytes) -> None:
     for document in _json_documents(text):
         if _contains_unredacted_sensitive_field(document):
             raise ValueError("redaction scanner found prohibited secret or PII field")
+
+
+def scan_bytes(payload: bytes, *, profile: str = "v1") -> dict[str, int]:
+    """Count prohibited patterns per rule; never returns matched values. `v2` differs only in the user-path rule."""
+    text = payload.decode("utf-8", errors="ignore")
+    user_path = USER_PATH_RE_V2 if profile == "v2" else USER_PATH_RE
+    counts = {
+        "bearer": len(BEARER_RE.findall(text)),
+        "email": len(EMAIL_RE.findall(text)),
+        "phone": len(PHONE_RE.findall(text)),
+        "user_path": len(user_path.findall(text)),
+        "sensitive_key": sum(_count_sensitive_fields(document) for document in _json_documents(text)),
+    }
+    return {rule: count for rule, count in counts.items() if count}
+
+
+def scan_bytes_strict(payload: bytes) -> dict[str, int]:
+    return scan_bytes(payload, profile="v2")
+
+
+def _count_sensitive_fields(value: Any) -> int:
+    if isinstance(value, dict):
+        return sum(
+            int(_is_sensitive_key(str(key).casefold()) and item not in {None, REDACTED, HASHED})
+            + _count_sensitive_fields(item)
+            for key, item in value.items()
+        )
+    if isinstance(value, (list, tuple)):
+        return sum(_count_sensitive_fields(item) for item in value)
+    return 0
+
+
+def display_paths(value: Any, *, run_root: Path | None = None) -> Any:
+    """Output-boundary path policy (R-009): run-root paths become `<run_root>/…`, other absolute paths `[PATH]`."""
+    if isinstance(value, dict):
+        return {key: display_paths(item, run_root=run_root) for key, item in value.items()}
+    if isinstance(value, list):
+        return [display_paths(item, run_root=run_root) for item in value]
+    if isinstance(value, tuple):
+        return tuple(display_paths(item, run_root=run_root) for item in value)
+    if not isinstance(value, str):
+        return value
+    text = value
+    if run_root is not None:
+        text = _run_root_pattern(Path(run_root)).sub(
+            lambda match: "<run_root>" + match.group(1).replace("\\", "/"), text
+        )
+    text = _OTHER_ABSOLUTE_PATH_RE.sub("[PATH]", text)
+    return USER_PATH_RE_V2.sub("[PATH]", text)
+
+
+def _run_root_pattern(run_root: Path) -> re.Pattern[str]:
+    resolved = run_root.resolve()
+    forms = {str(run_root), run_root.as_posix(), str(resolved), resolved.as_posix()}
+    alternatives = "|".join(
+        re.escape(form.rstrip("/\\")) for form in sorted(forms, key=len, reverse=True) if form not in {"", "."}
+    )
+    flags = re.IGNORECASE if os.name == "nt" else 0
+    return re.compile(rf"(?:{alternatives})((?:[/\\]{_PATH_TAIL})?)(?![^\s\"'<>])", flags)
 
 
 def _is_sensitive_key(lowered: str) -> bool:
@@ -696,6 +769,8 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
         "mismatched_files": [],
         "unregistered_files": [],
         "verified_at": utcnow().isoformat(),
+        "redaction_profile": REDACTION_V1,
+        "strict_scan_findings": [],
     }
     try:
         manifest = json.loads(manifest_path.read_text(encoding="utf-8"))
@@ -710,7 +785,12 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
     if manifest.get("schema_version") != "controlproof.bundle.v1":
         result["mismatched_files"].append("manifest.json:schema_version")
     profile = _resolve_bundle_profile(directory, manifest, result)
-    digest_payload = {key: value for key, value in manifest.items() if key != "bundle_digest"}
+    redaction_profile = manifest.get("redaction_profile", REDACTION_V1)
+    if redaction_profile not in {REDACTION_V1, REDACTION_V2}:
+        result["mismatched_files"].append("manifest.json:redaction_profile")
+    else:
+        result["redaction_profile"] = redaction_profile
+    digest_payload ={key: value for key, value in manifest.items() if key != "bundle_digest"}
     if manifest.get("bundle_digest") != sha256_bytes(canonical_json_bytes(digest_payload)):
         result["mismatched_files"].append("manifest.json:bundle_digest")
     records = manifest.get("files")
@@ -744,6 +824,7 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
             "sha256"
         ):
             result["mismatched_files"].append(relative_path)
+        _scan_registered_file(relative_path, payload, redaction_profile, result)
         artifact_id = record.get("artifact_id")
         if artifact_id:
             if artifact_id in artifact_records:
@@ -832,6 +913,22 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
     result["missing_files"].sort()
     result["mismatched_files"].sort()
     return result
+
+
+def _scan_registered_file(
+    relative_path: str, payload: bytes, redaction_profile: str, result: dict[str, Any]
+) -> None:
+    """v2-sealed bundles are judged with v2; on v1 bundles v2 findings are reported only, never blocking (R-012)."""
+    if Path(relative_path).suffix.casefold() not in SCANNED_SUFFIXES:
+        return
+    findings = scan_bytes_strict(payload)
+    if redaction_profile == REDACTION_V2:
+        if findings:
+            result["mismatched_files"].append(f"{relative_path}:redaction")
+        return
+    result["strict_scan_findings"].extend(
+        {"path": relative_path, "rule": rule, "count": count} for rule, count in sorted(findings.items())
+    )
 
 
 def _verify_v1_evidence(
