@@ -1,0 +1,172 @@
+# Research: Spec 005 웹 워크벤치·12개 시나리오 카탈로그·결과 보고서
+
+입력: [spec.md](./spec.md)(Clarified 2026-10-08, 목업 조건부 승인), [승인 목업](./mockups/workbench-mockup.html)·
+[REVIEW.md](./mockups/REVIEW.md), [원천 기준선](../../docs/research/Spec005_Workbench_Report_Source_Baseline.md),
+`.specify/memory/constitution.md`, Decision Log D-011~D-014·D-017·D-018. 기준 source: ControlProof `3d2e89b`(문서) 위의
+엔진 `865b0ed`, WhyYou `374b122`.
+
+각 항목은 결정 · 이유 · 버린 대안 · 보성 확인 필요 여부 순서다. "보성 확인"은 기존 명령줄 계약이나 검증 의미에 닿아 Tasks 전에
+보성이 확인해야 하는 항목이다. 제품 의미를 바꾸는 선택은 하지 않았다.
+
+## R-001 웹 제공 방식
+
+- **결정**: 로컬 PC 전용 웹 서버를 Python 표준 라이브러리의 스레드 HTTP 서버로 띄우고 `127.0.0.1`에만 연결한다. 화면은 서버에서
+  기존 의존성인 템플릿 엔진(Jinja2 3.1)으로 그린다. 스타일은 파일 하나의 CSS, 스크립트는 필터·펼치기·복사·준비 상태 확인 제출에 필요한
+  작은 바닐라 JS만 둔다. 로그인은 없다(A-5). 실행은 `python -m engine.web`이며 기존 명령줄 진입점(`engine.cli`)은 바꾸지 않는다.
+- **이유**: 새 의존성이 0개다. 한 사용자·한 PC·읽기 위주라 비동기 서버나 SPA 빌드 도구가 필요 없다. 서버 렌더링이면 판정 로직이
+  브라우저 코드로 새지 않는다(FR-016, Product Brief §12). 목업도 정적 HTML이라 그대로 템플릿으로 옮길 수 있다.
+- **버린 대안**: 웹 프레임워크와 ASGI 서버(새 의존성 2개 이상, 이점 없음), 정적 사이트 생성(준비 상태 확인을 실행할 수 없음),
+  SPA 프레임워크(빌드 도구·패키지 관리자 추가, 판정 표시 로직이 클라이언트로 갈 위험).
+- **보성 확인**: 아니오.
+
+## R-002 로컬 보안 경계
+
+- **결정**: `127.0.0.1` 외 주소에 바인딩하는 옵션을 두지 않는다. 요청 `Host`가 `127.0.0.1:<port>`·`localhost:<port>`가 아니면 거부한다
+  (DNS rebinding 방지). 상태를 바꾸는 요청(준비 상태 확인, 수정 메모)은 POST만 받고, 서버 기동 때 만든 일회성 토큰을 폼에 넣어 확인한다.
+  응답에 `Content-Security-Policy: default-src 'self'`, `X-Content-Type-Options: nosniff`, `Cache-Control: no-store`를 붙인다.
+- **이유**: 로그인이 없으므로 같은 PC의 다른 웹 페이지가 로컬 서버를 호출하는 경로를 막아야 한다. 원격·다중 사용자 운영은 D-018 재검토 조건이다.
+- **버린 대안**: 로그인·권한(제외 범위), 아무 보호 없는 로컬 서버(브라우저의 교차 출처 요청에 노출).
+- **보성 확인**: 아니오.
+
+## R-003 읽기 경로와 판정 비재계산
+
+- **결정**: 웹의 읽기 계층(`engine/web/readmodel.py`)은 Run마다 기존 `verify_bundle`로 무결성을 먼저 확인하고, VERIFIED일 때만 기존
+  `load_bundle_summary`의 판정·assertion·reason code를 그대로 쓴다. INVALID·읽기 실패면 판정 대신 무결성 상태만 낸다(FR-017). 화면 계층과
+  템플릿에는 기대값·관찰값 비교, verdict 결정, 개수 계산 로직을 두지 않는다. 결과 개수는 카탈로그 데이터의 상태 값을 세는 단순 집계이며
+  판정을 만들지 않는다(FR-003·FR-016).
+- **이유**: 엔진이 이미 봉인·검증·projection을 갖고 있다(원천 기준선 §1.3·§1.4). 같은 경로를 쓰면 명령줄 `show`·`verify`와 화면이 같은
+  값을 보인다(SC-002).
+- **버린 대안**: 봉인 파일을 화면용으로 따로 파싱(엔진과 해석이 갈라짐), DB나 색인 저장소에 복제(무결성 원천이 둘이 됨).
+- **보성 확인**: 아니오.
+
+## R-004 run root 결정
+
+- **결정**: 우선순위는 `--run-root` 인자 > `CONTROLPROOF_RUN_ROOT` > `.controlproof/runs`(작업 디렉터리 기준)다. 웹과 명령줄 `show`·`verify`가
+  같은 규칙을 쓰도록 `show`·`verify`의 기본값을 이 규칙으로 바꾼다(지금은 환경 변수를 읽지 않음, 원천 기준선 §1.2). 합성 기록은 별도 root
+  `.controlproof/web-demo/runs`에 두고 웹은 두 root를 따로 읽는다. 화면에는 root를 절대 경로가 아니라 `실제 기록 root`·`DEMO DATA root`
+  이름으로만 보인다.
+- **이유**: 같은 PC에서 `run`과 `show`가 다른 root를 보는 혼란을 없앤다. 합성 기록을 다른 root에 두면 실제 개수·보고서에 섞일 수 없다(SC-011).
+- **버린 대안**: 웹만 환경 변수를 읽기(명령줄과 화면이 다른 기록을 볼 수 있음), 합성 기록을 같은 root에 표시 필드로 섞기(실수로 집계될 위험).
+- **보성 확인**: **예** — `show`·`verify`가 환경 변수를 읽게 되는 것은 기존 명령줄 동작 변경이다(인자를 주면 지금과 같다).
+
+## R-005 12개 카탈로그 데이터와 범위표 일치
+
+- **결정**: `catalog/mvp-scenarios.yaml`에 12개 항목을 둔다. 항목마다 ID·통제·질문·2주 MVP 처리(실제 실행·`NOT_RUN`·`NO_TEST_TARGET`)·
+  담당 Spec·실행 프로필 목록·공식 상태 요약과 근거 Validation(문서 경로와 Run ID·manifest SHA-256)·설명 자료(보호 대상, 정책 근거, 구현 위치,
+  합성 데이터와 대조군, 수동 단계, 미실행 사유·후속 조건 또는 부재 근거)와 각 설명의 출처를 둔다. 자동 시험이 범위표 §3 표를 읽어 ID·처리·
+  담당 Spec이 12/12 같은지, 개수가 5·4·3인지 확인한다. 범위표가 바뀌면 시험이 실패해 카탈로그 갱신을 강제한다.
+- **이유**: 12개와 상태는 지금 문서에만 있다(원천 기준선 §1.1). 데이터 파일 하나를 두되 범위표를 원천으로 두고 어긋남을 시험으로 막는다(FR-003).
+- **버린 대안**: 화면이 범위표 Markdown을 실행 중에 파싱(문서 형식 변경에 화면이 깨짐), 엔진 enum에 12개를 넣기(실행하지 않는 시나리오가
+  실행기 개념처럼 보임, Constitution II 혼동).
+- **보성 확인**: 아니오.
+
+## R-006 최근 결과와 공식 상태의 관계
+
+- **결정**: 화면의 "최근 결과"는 카탈로그의 공식 상태(해당 Spec Validation 기준)를 따른다. 실제 기록 root에 그 Run ID의 VERIFIED bundle이
+  있으면 연결하고, 없으면 "이 화면에 기록 없음"과 공식 기록 위치를 보인다. 웹 PC에서 다시 실행한 기록은 "Spec 005 웹 검증 기록"으로 따로
+  묶어 보이며 공식 상태를 바꾸지 않는다(D-018 추가 결정 3). bundle 판정이 카탈로그 공식 상태와 다르면 어긋남 배너를 띄운다.
+- **이유**: D-018이 재실행 기록의 지위를 웹 검증용으로 정했다. N-02 공식 상태는 Spec 003 converge가 정한다.
+- **버린 대안**: 가장 최근 시각의 bundle을 최근 결과로 사용(재현 Run이 공식 계보를 덮어씀).
+- **보성 확인**: 아니오(D-018 그대로).
+
+## R-007 웹의 준비 상태 확인 호출
+
+- **결정**: 웹은 같은 Python 해석기로 `python -m engine.cli preflight <ID> --profile <P> --target <T> --json`을 하위 프로세스로 실행한다.
+  한 번에 하나만 실행하고(서버 내부 잠금), 제한 시간은 120초다. 환경은 웹을 띄운 터미널의 환경을 그대로 넘긴다(ControlProof `.env`는 그 전에
+  각 PC 절차로 로드). 결과는 명령줄 JSON 그대로 `.controlproof/web/preflight/<ID>--<PROFILE>.json`(최신)과 `history.jsonl`(누적)에 저장하고,
+  화면은 payload의 `checked_at`을 확인 시각으로 쓴다. 해석은 종료 코드가 아니라 R-010의 `result_kind`·`error_kind`와 `readiness` 값으로 한다.
+  preflight는 Run 잠금을 잡지 않고 차단 파일을 바꾸지 않는다(차단이 있으면 엔진이 `RUNNER_NOT_READY`와 조치를 돌려줌, 원천 기준선 §1.4).
+- **이유**: 명령줄 계약 하나를 그대로 재사용해 화면과 명령줄의 준비 상태가 같다. 하위 프로세스면 대상 adapter 오류·시간 초과가 웹 서버를
+  멈추지 않고, WhyYou 연결 설정이 웹 프로세스에 머물지 않는다.
+- **버린 대안**: 엔진 함수를 웹 프로세스에서 직접 호출(설정·연결 객체가 서버에 남고 adapter 예외가 서버로 번짐), 준비 상태 확인을 웹에서
+  빼기(D-018과 다름), 결과를 메모리에만 두기(확인 시각 근거가 사라짐).
+- **보성 확인**: 아니오.
+
+## R-008 수정 메모 저장
+
+- **결정**: `.controlproof/web/memos/<run_id>.jsonl`에 한 줄씩 추가만 한다(수정·삭제 없음). 필드는 `schema_version`
+  (`controlproof.fix-memo.v1`), `memo_id`, `run_id`, `author`(자기 입력), `created_at`, `text`(최대 2000자). 저장 전 같은 redaction 검사를
+  통과해야 한다. bundle 디렉터리 밖이므로 봉인·verify 대상이 아니고, Git에도 들어가지 않는다(`.controlproof/` 무시 규칙).
+- **이유**: A-6과 FR-024. 봉인 bundle을 건드리지 않는 가장 단순한 기록이다.
+- **버린 대안**: bundle 안에 쓰기(봉인 위반), DB(새 의존성).
+- **보성 확인**: 아니오.
+
+## R-009 출력 경계 redaction (위험 1·2)
+
+- **결정**: (a) `USER_PATH_RE`가 드라이브 뒤 구분자 1개 이상과 JSON 이스케이프(`C:\\Users\\이름`)를 잡도록 고친다. (b) 화면과 명령줄 출력의
+  공통 마지막 단계에 경로 정책을 둔다: run root 안 경로는 `<run_root>/…` 상대 표기로, 그 밖의 절대 경로는 `[PATH]`로 바꾼다. (c) 명령줄
+  `run`·`retest` 출력의 `bundle_path` 키는 유지하되 값을 `<run_root>/<run_id>` 표기로 바꾼다. (d) 사람용 `show` 문장도 같은 경계를 거친다.
+  (e) 웹의 원본 증적 보기는 텍스트 형식만, 크기 제한(256 KB) 안에서, 경계 검사를 통과한 내용만 보인다.
+- **이유**: 위험 1·2가 SC-007에 직접 걸린다. 표시 단계 한 곳에서 막으면 화면·명령줄이 같은 규칙을 쓴다.
+- **버린 대안**: 화면에서만 가리기(명령줄 출력은 계속 노출), `bundle_path` 키 삭제(기존 소비자 깨짐).
+- **보성 확인**: **예** — `bundle_path` 값 형식이 바뀐다(키와 종료 코드는 같음). 보성 PC의 스크립트나 문서가 절대 경로를 기대하는지 확인 필요.
+
+## R-010 오류 구분 필드 (위험 5)
+
+- **결정**: 종료 코드 값은 바꾸지 않는다(D-018). 모든 `--json` 출력에 `result_kind`(`READINESS`·`RUN`·`PROJECTION`·`VERIFY`·
+  `CLEANUP`·`ERROR`)를 추가하고, `ERROR`에는 `error_kind`(`USAGE`·`CONTRACT`·`CONFIG`·`NOT_FOUND`·`RETEST`·`INTERRUPTED`·`UNEXPECTED`)를
+  둔다. 인자 해석 오류도 `--json`이 있으면 JSON 오류(`error_kind=USAGE`)로 내고 종료 코드 2는 그대로다. 준비 안 됨으로 끝난 `run`은
+  `command="run"`과 `result_kind="READINESS"`로 낸다. H-03 cleanup의 안전 실패는 traceback 대신 `error_kind=CONTRACT` JSON으로 낸다.
+- **이유**: 웹이 종료 코드 2를 사용법 오류와 준비 안 됨으로 구분할 수 없다(원천 기준선 §1.2). 필드 추가는 기존 소비자를 깨지 않는다.
+- **버린 대안**: 새 종료 코드(D-018이 금지), stderr 문구 파싱(불안정).
+- **보성 확인**: **예** — 준비 안 됨 `run` 출력의 `command` 값이 `"preflight"`에서 `"run"`으로 바뀐다. 이 값에 기대는 소비자가 있는지 확인.
+
+## R-011 증적 링크 해석 (위험 3)
+
+- **결정**: 엔진에 `evidence_index(bundle)`를 추가해 manifest의 `artifact:`·`file:`·`intrinsic:`·다른 Run 원본 참조를 모두 해석한다.
+  assertion별 증적은 (1) 그 assertion의 `artifact_ids`, (2) 봉인된 시나리오 snapshot에서 그 assertion의 `required_evidence_ids`에 걸린
+  manifest 참조의 합집합이다. 요구됐으나 해석되지 않는 참조는 누락으로 표시한다. 검토 projection에는 `evidence_index`를 덧붙이고 기존
+  `evidence_links` 키는 호환을 위해 둔다(`controlproof.review.v1`에 키 추가).
+- **이유**: Spec 003·004 bundle은 주로 `file:` 참조라 지금 projection의 증적 목록이 비거나 불완전하다(원천 기준선 §2 위험 3, FR-015·SC-003).
+- **버린 대안**: 웹에서 manifest를 따로 해석(엔진과 갈라짐), projection 버전 올리기(기존 소비자 깨짐 없이 키 추가로 충분).
+- **보성 확인**: 아니오.
+
+## R-012 스캐너 강화 전 기존 bundle 검사 (FR-036)
+
+- **결정**: 강화한 검사를 먼저 별도 함수(`scan_bytes_strict`)로 추가하고, `scripts/scan_bundles.py`가 run root의 각 bundle을 현재 검사와
+  강화 검사로 모두 검사해 차이 보고서(JSON, 파일 상대 경로·규칙·건수만, 값은 쓰지 않음)를 만든다. 순서: ① 이 PC의 bundle 검사·보고서 기록
+  → ② 보성이 자기 PC에서 같은 명령으로 검사하고 결과만 기록(bundle은 옮기지 않음) → ③ Validation에 차이 기록 → ④ 그 뒤 봉인 시점 검사를 강화
+  검사로 바꾼다. 새로 봉인한 manifest에는 `redaction_profile: controlproof.redaction.v2`를 적고, 표시가 없는 기존 bundle의 verify는 봉인 당시
+  검사(v1)로 판정하며 강화 검사 결과는 별도 비차단 필드 `strict_scan_findings`로만 보인다.
+- **이유**: 강화 검사를 소급 적용하면 이미 VERIFIED였던 공식 bundle이 INVALID로 바뀌어 검증 의미가 흔들린다. FR-036은 봉인 파일과 판정을 바꾸지
+  말고 차이만 기록하라고 했다.
+- **버린 대안**: verify에 바로 강화 검사 적용(과거 공식 bundle이 소급 INVALID), 기존 bundle 재봉인(봉인 위반).
+- **보성 확인**: **예** — verify 의미(봉인 시점 검사 버전 기준)와 보성 PC 검사 일정.
+
+## R-013 위험 4(Spec 004 재시험 정리 확인 경로)
+
+- **결정**: Spec 005 밖의 작은 보완(`yeonwoo/004-retest-maintenance-path` 같은 별도 브랜치)으로 `engine/retest.py`가 `run_root/blocks/maintenance`를
+  찾도록 고치고 실패 시험을 먼저 쓴다. Spec 005 actual validation 전에 병합한다(FR-037).
+- **이유**: D-018 결정 5. Spec 004 기능이며 웹과 무관하다.
+- **버린 대안**: Spec 005 안에서 수정(범위 혼합).
+- **보성 확인**: 아니오(결정됨). 병합 대상 브랜치만 보성이 정한다.
+
+## R-014 시험 전략과 성공 기준 측정
+
+- **결정**: 단위(카탈로그 일치, 경로 정책, 스캐너, 증적 색인, read model), 계약(명령줄 추가 필드·오류 JSON, 웹 HTTP·JSON 응답 형식, 오류 응답),
+  통합(합성 bundle 전 유형으로 네 화면 데이터), 화면(브라우저 자동화: 기존 Playwright, 1280·1024px, 탭·필터·배지·DEMO 표시·콘솔 오류 0·
+  가로 넘침 0)을 둔다. 브라우저 자동화는 Playwright Chromium을 쓰고, 설치가 막힌 PC는 설치된 Edge·Chrome 채널을 쓸 수 있다. SC 측정은
+  [plan.md](./plan.md) "성공 기준 측정"을 따른다. 사용성 검토(SC-008·SC-009)는 actual validation 기록으로 연 화면에서 태오가 진행한다.
+- **버린 대안**: 화면 시험 없이 HTML 문자열만 확인(배지 모양·가로 넘침·콘솔 오류를 못 봄).
+- **보성 확인**: 아니오.
+
+## R-015 actual validation 순서와 대상 버전
+
+- **결정**: 웹을 띄우는 PC에서 [quickstart.md](./quickstart.md) §5 순서로 7개 프로필을 실행한다. 각 Run 전 두 저장소 branch·HEAD·dirty를 기록한다.
+  fixture `h03-report-v1`: H-03 `H03_DLQ_V2`(새 checkout이면 플레이북 §6 독립 재현 gate 기록 겸용) → H-03 `H03_MINIMAL_V1` → E-03 BEFORE →
+  E-03 AFTER → N-02. fixture `spec004-report-v1`: E-02(`374b122`) → E-01 부모(`ce8d862`, FAIL 예상·봉인) → E-01 재시험(`374b122`). WhyYou 대상은
+  E-01 부모만 `ce8d862`이고 나머지는 `374b122`다. 공식 Run이 아니라 Spec 005 웹 검증 기록이다.
+- **이유**: D-018 결정 2·추가 결정 3. `ce8d862`에는 Spec 004 fixture(PR #6 병합 `42aaaba`)와 PR #7이 있고 PR #8(근거 확인 불가 표시)은 없다.
+- **위험**: H-03·E-03은 Spec 002에서 `bosung/controlproof-h03-integration`(`511ae9e`)으로 검증됐고, 동의 확인이 들어간 대상(T083 이후)에서는 H-03 seed에
+  동의 행이 필요하다. Spec 003 검토 보완(ID-003-19)이 seed에 동의 행을 넣었지만 그 뒤 실제 Run은 없다. 그래서 `374b122`에서 H-03·E-03이 READY·
+  PASS로 재현된다는 보장이 없다. 첫 단계로 두 프로필의 preflight와 진단 Run을 하고, 결과가 공식 상태와 다르면 멈추고 보고한다(대상을 몰래 바꾸지 않음).
+- **버린 대안**: H-03·E-03만 `511ae9e`로 실행(대상 버전이 둘로 갈라져 보고서의 "검증 대상과 버전"이 복잡해짐 — 필요하면 보성 결정으로만).
+- **보성 확인**: **예** — `374b122`에서 H-03·E-03을 재실행하는 것과, 재현이 안 될 때 `511ae9e`로 바꿀지 여부.
+
+## R-016 화면 구조와 상태 표시
+
+- **결정**: spec "승인된 화면 구조와 상태 이름" 절을 그대로 템플릿 구조와 배지 규칙으로 옮긴다(판정=둥근, 준비 상태=각진, 실행 안전=채움;
+  같은 상태는 모든 화면에서 같은 아이콘·글자·모양). 배지 정의는 서버 쪽 한 곳의 표에서 만든다(템플릿이 상태 이름으로 모양을 고르지 않음).
+  PC 전용, 1280px 기준, 1024px 이상 지원.
+- **이유**: Product Brief §12와 목업 승인 조건.
+- **보성 확인**: 아니오.
