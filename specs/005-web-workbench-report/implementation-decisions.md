@@ -55,3 +55,19 @@
 - 수정: 시험이 `mime_type == "application/json"`인 artifact를 명시적으로 고르게 했다(`_json_artifact_record`). 제품 코드는 그대로다. 같은
   패턴을 저장소 시험 전체에서 찾았고 이 두 곳뿐이었다.
 - GREEN: 같은 강제 조건에서 2개 모두 통과. `pytest -q tests/unit/test_bundle_verify.py` 30회 반복 → 실패 0회(매회 9 passed, Windows).
+
+## ID-005-07 — US1 워크벤치 표시 세부 (T023·T027·T029~T032)
+
+- 카탈로그 공식 기록: `records[]`의 `role`은 `parent`·`child`·`final`·`repeat`(새 checkout 재현)다. H-03의 Spec 001 기록처럼 시나리오 문서와 다른
+  Validation에 있는 기록은 기록마다 `validation_ref`를 둔다. manifest SHA-256은 Validation에 적힌 것만 옮겼다(Spec 001은 bundle digest만,
+  E-01 D1 child `ec0c895d…`는 없음).
+- 준비 상태 열: `NOT_RUN` 항목은 실행 프로필이 없어 카탈로그 값으로 `RUNNER_NOT_READY`, `NO_TEST_TARGET` 항목은 `NO_TEST_TARGET`을 보인다(승인 목업과
+  같음; 확인 시각 없음). 실제 실행 항목은 프로필별 최신 확인 저장본을 읽고, 프로필이 둘인 행(H-03·E-03)은 모든 프로필이 같으면 그 값,
+  아니면 카탈로그 순서에서 READY가 아닌 첫 프로필 값을 행 값으로 보이며 프로필별 값은 그 아래에 그대로 보인다. 확인 기록이 없으면 배지 없이
+  "확인 기록 없음"이다. 사용법 오류·시간 초과는 준비 상태 값이 아니라 "확인 도구 오류" 배지다.
+- 공통 확인 시각은 행 확인 시각 중 가장 늦은 값이고, 분 단위로 다른 행만 자기 시각을 보인다. 여러 프로필 행의 시각은 가장 이른 확인 시각이다.
+- 준비 상태 확인 폼은 카탈로그의 7개 프로필 중 하나를 고르고(`scenario_id`·`execution_profile`로 보냄) 끝나면 `return_to`(워크벤치 `/` 또는
+  `/scenarios/<ID>`)로 303한다. 서버도 카탈로그 프로필만 받는다(400). DEMO 화면에서는 버튼을 비활성화한다(실제 대상에 확인을 보내지 않음).
+  DEMO 준비 상태는 `prepare_web_demo.py`가 DEMO root 옆 `preflight/`에 쓴 합성 기록이다.
+- 시나리오 상세(②)·실행 결과(③)·비교·보고서(④) 탭과 "상세"·"보고서 열기"는 해당 사용자 스토리 전까지 비활성 표시다(없는 화면으로 이동하지 않음).
+- `/favicon.ico`는 204로 답한다(브라우저 콘솔 404 오류 방지).

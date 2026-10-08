@@ -2,8 +2,8 @@
 
 ## Current status
 
-- Workflow stage: Implement. Phase 1(T001~T003)·Phase 2 Foundation(T004~T018) 완료. T019(보성 PC 검사) 대기, T020(봉인 검사 v2 전환)과
-  Phase 3 이후는 시작 전.
+- Workflow stage: Implement. Phase 1·2(T001~T018)와 Phase 3 US1(T021~T034) 완료. T019(보성 PC 검사) 대기, T020(봉인 검사 v2 전환)과
+  Phase 4(US2) 이후는 시작 전. ID-005-01은 2026-10-09 결정됨.
 - Actual validation(웹 PC 재실행)·사용성 검토: 아직 없음(`NOT_RUN`). AWS: `NOT_RUN`.
 - 이 문서는 시간순 기록이다. 실패·판정 불가 결과를 나중 결과로 덮어쓰지 않는다. 값·절대 경로·토큰은 쓰지 않는다.
 
@@ -64,10 +64,36 @@ git diff --check               -> 출력 없음
   넣지 않았다. 범위 결정은 implementation-decisions ID-005-05.
 - 결론: 이 PC의 기존 bundle에는 v2에서 새로 걸리는 것이 없다. 보성 PC(T019) 결과는 아직 없다.
 
+### Phase 3 US1 RED → GREEN (2026-10-09)
+
+| 작업 | 시험 파일 | RED | GREEN | 바꾼 기존 기대값 |
+|---|---|---|---|---|
+| T021 → T027 | `tests/unit/test_catalog_matrix_parity.py` | 7 errors(카탈로그 파일 없음) | 7 passed | 없음 |
+| T022 → T028 | `tests/unit/test_web_badges.py` | 수집 단계 ImportError(`engine.web.badges` 없음) | 3 passed | 없음 |
+| T023 → T029 | `tests/unit/test_web_readmodel_workbench.py` | 수집 단계 ImportError(`readmodel`) | 10 passed | 없음 |
+| T024 → T030 | `tests/unit/test_web_preflight.py` | 수집 단계 ImportError(`preflight`) | 8 passed | 없음 |
+| T025 → T031 | `tests/contract/test_web_http.py` | 수집 단계 ImportError(`server`) | 18 passed | 없음 |
+| T026 → T032·T033 | `tests/web/test_workbench_screen.py` | 수집 단계 ImportError(`server`) | 20 passed(1280·1024px 각 10) | 없음 |
+
+- 명령: `.venv python -m pytest -q <파일>`. 브라우저 시험은 Playwright 기본 Chromium(headless shell)이 이 PC에 설치돼 있지 않아 설치된 Edge 채널
+  (`channel="msedge"`, 154.0.4258.53)로 실행했다(R-014). 시험이 띄운 서버는 시험 끝에 모두 종료했다(fixture shutdown).
+- 간헐 실패 수정(ID-005-06): `tests/unit/test_bundle_verify.py` 30회 반복 실패 0회.
+
+### T034 US1 gate (2026-10-09)
+
+```text
+.venv python -m pytest -q      -> 1055 passed, 1 xfailed in 432.81s   (Foundation 989 + US1 새 시험 66; xfailed = T020 대기)
+.venv python -m ruff check .   -> All checks passed!
+git diff --check               -> 출력 없음
+```
+
+- 기존 시험 기대값 변경 없음. 시험은 서버를 같은 프로세스의 스레드로 띄우고 끝에 모두 종료한다(남은 서버 프로세스 없음).
+
 ### 사용자 스토리 gate
 
 | Phase | 시험 | 결과 |
 |---|---|---|
+| Phase 3 US1 | T021~T026 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T034) |
 
 ### Actual validation (웹 PC 재실행, Phase 9)
 
