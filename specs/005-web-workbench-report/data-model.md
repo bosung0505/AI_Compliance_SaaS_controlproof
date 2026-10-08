@@ -63,7 +63,7 @@ projection 문장에서 고르며 내부 이름·fixture·파일 이름 없음).
 
 ## 5. EvidenceItem
 
-`ref`(`artifact:`·`file:`·`intrinsic:`·cross-run), `display_name`(사람용), `relative_path`(run root 기준, 개발자용), `mime_type`, `size_bytes`,
+`ref`(`artifact:`·`file:`·`intrinsic:`·cross-run), `evidence_name`(사람용; `display_name` 키는 엔진 redaction이 개인 표시 이름으로 가려서 쓰지 않음, ID-005-08), `relative_path`(run root 기준, 개발자용), `mime_type`, `size_bytes`,
 `sha256`, `phase`·`step_id`·`attempt`(있으면), `evidence_requirement_ids[]`, `viewable`(텍스트·256 KB 이하·경계 검사 통과).
 
 ## 6. LineageView / ComparisonView

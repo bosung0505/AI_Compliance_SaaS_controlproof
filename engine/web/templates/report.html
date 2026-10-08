@@ -1,0 +1,65 @@
+{% extends "base.html" %}
+{% set active = "report" %}
+{% block title %}결과 보고서 · ControlProof{% endblock %}
+{% macro item(code) -%}<span class="rep-item" data-item="{{ code }}">{{ code }}</span>{%- endmacro %}
+{% macro result_badge(row) -%}
+{%- if row.result == "INCONCLUSIVE" %}<span class="neutral-title small">판정 불가</span> {% endif %}{{ badge(row.badge) }}
+{%- endmacro %}
+{% block content %}
+{% set counts = view.counts %}
+<section aria-label="결과 보고서">
+  <h2>결과 보고서 <span class="muted">(한 화면 · 번호는 V4 §8.7 [R1~R13]과 §12.4 [C1~C9] 점검용)</span></h2>
+  <p class="muted">재시험 비교 화면은 다음 단계에서 제공합니다. 이 보고서의 최초 실행·재시험 계보(R10)는 공식 기록 목록입니다.</p>
+  <div class="card report">
+    <p>{{ item("R1") }}<b>검증 대상과 버전</b>: {{ view.target_and_versions.text }}{% if view.target_version_now %} <span class="muted">최근 준비 상태 확인의 대상 버전</span> <span class="mono">{{ view.target_version_now }}</span>{% endif %}</p>
+    <p>{{ item("R2") }}<b>검증 목적과 범위</b>: {{ view.purpose_and_scope.text }}</p>
+    <blockquote class="note" data-testid="fixed-scope-sentence">{% for part in view.fixed_scope_sentence.split("`") %}{% if loop.index is even %}<b>{{ part }}</b>{% else %}{{ part }}{% endif %}{% endfor %}</blockquote>
+    <p>{{ item("R3") }}<b>합성 데이터 사용</b>: {{ view.synthetic_data_notice.text }}</p>
+
+    <p>{{ item("R4") }}<b>통제 4종과 시나리오 12개 상태</b>:</p>
+    <table data-testid="report-catalog"><thead><tr><th class="nowrap">ID</th><th>질문</th><th>상태</th></tr></thead><tbody>
+    {% for group in view.groups %}
+      <tr class="group"><th colspan="3">{{ group.control_label }}</th></tr>
+      {% for row in view.catalog_status if row.control == group.control %}
+      <tr><td class="nowrap">{{ row.id }}</td><td>{{ row.question }}</td><td>{{ result_badge(row) }}{% if row.note %} <span class="muted">{{ row.note }}</span>{% endif %}</td></tr>
+      {% endfor %}
+    {% endfor %}
+    </tbody></table>
+
+    <p>{{ item("R5") }}{{ item("C1") }}<b>요약</b>: {{ badge("pass", " " ~ counts.PASS) }} {{ badge("fail", " " ~ counts.FAIL) }}
+      <span class="neutral-title">판정 불가 {{ counts.INCONCLUSIVE.total }}</span> =
+      {% for code, ids in view.count_members.INCONCLUSIVE.items() if ids %}{{ badge({"INSUFFICIENT_EVIDENCE": "insufficient_evidence", "NO_TEST_TARGET": "reason_no_test_target", "ACCESS_LIMITED": "access_limited", "EVIDENCE_CONFLICT": "evidence_conflict"}[code], " " ~ counts.INCONCLUSIVE.by_reason[code]) }}{% if not loop.last %} + {% endif %}{% endfor %}
+      {{ badge("not_run", " " ~ counts.NOT_RUN) }}</p>
+
+    <p>{{ item("R6") }}<b>시나리오별 기대·관찰</b>:</p>
+    <ul>{% for row in view.scenario_expectations %}<li>{{ row.scenario_id }} {{ result_badge(row) }} — {{ row.summary }}{% if row.note %} ({{ row.note }}){% endif %} <span class="muted">공식 기록: <span class="mono">{{ row.validation_ref }}</span></span></li>{% endfor %}</ul>
+
+    <p>{{ item("R7") }}<b>주요 실패와 영향</b>:</p>
+    <ul>{% for row in view.major_failures %}<li>{{ row.scenario_id }} <span class="muted">{{ row.execution_profile }}</span>: 최초 {{ badge(row.parent_badge) }} → 재시험 {{ badge(row.child_badge) }}. 영향: {{ row.impact }}</li>{% endfor %}</ul>
+
+    <p>{{ item("R8") }}{{ item("C2") }}<b>증적 목록과 누락</b>: 실행마다 봉인 증적 목록과 SHA-256을 결과 화면에서 엽니다.</p>
+    <table data-testid="evidence-summary"><thead><tr><th>시나리오</th><th>{{ "DEMO 기록" if view.demo else "이 PC의 기록" }}</th><th>공식 기록</th><th>누락</th></tr></thead><tbody>
+    {% for row in view.evidence_summary %}<tr><td>{{ row.scenario_id }}</td><td>{{ row.records_on_this_pc }}건</td><td>{{ "이 화면에 있음" if row.official_present else "이 화면에 기록 없음" }} · <span class="mono">{{ row.validation_ref }}</span></td><td>{{ row.missing | join(" ") or "없음" }}</td></tr>{% endfor %}
+    </tbody></table>
+
+    <p>{{ item("R9") }}<b>적용 정책·모델·프롬프트·평가기준 버전</b>: {{ view.versions.text }}</p>
+    <details data-testid="developer"><summary>개발자용 원본 정보</summary><p class="mono">model_fixture_id: {{ view.developer.model_fixtures | join(", ") }}</p></details>
+
+    <p>{{ item("R10") }}{{ item("C5") }}<b>최초 실행과 재시험 비교</b>: 최초 기록은 모두 보존됩니다.</p>
+    <ul>{% for row in view.lineages %}<li>{{ row.scenario_id }} <span class="muted">{{ row.execution_profile }}</span>: {{ badge(row.parent_badge) }} <span class="mono">{{ row.parent_run_id | short_id }}</span> → {{ badge(row.child_badge) }} <span class="mono">{{ row.child_run_id | short_id }}</span></li>{% endfor %}</ul>
+
+    <p>{{ item("R11") }}<b>WhyYou에 시험 목적으로 추가한 기능</b> <span class="muted">(제품 기능이 아니라 시험 수단)</span>:</p>
+    <ul>{% for row in view.test_only_additions %}<li>{{ row.text }}</li>{% endfor %}</ul>
+
+    <p>{{ item("R12") }}{{ item("C8") }}<b>검증하지 못한 영역</b>: {{ view.unverified_scope | join(" · ") }}. {{ view.other_pc_reproduction.text }}
+      <span class="muted">주장 범위: 실행한 시나리오와 확보한 증적</span></p>
+    <p>{{ item("R13") }}{{ item("C9") }}<b>한계</b>: <b>{{ view.legal_notice.text }}</b></p>
+
+    <div class="limit">{{ item("C3") }}<b>AI 점수는 참고 정보입니다.</b> {{ view.ai_score_principle.text }}
+      <br>{{ item("C4") }}{{ view.human_decision_location.text }}</div>
+    <p>{{ item("C6") }}<b>A-01~A-03</b>: {% for row in view.no_test_target %}{{ row.id }} {{ badge(row.badge) }} {% endfor %}— 신규 구현하지 않았고 실행하지 않았습니다.</p>
+    <p>{{ item("C7") }}<b>한 화면 보고서</b>: {{ view.one_screen_notice.text }}</p>
+    <div class="limit"><b>실행 한계</b>: {% for row in view.limitations %}{{ row.text }}{% if not loop.last %} · {% endif %}{% endfor %}</div>
+  </div>
+</section>
+{% endblock %}

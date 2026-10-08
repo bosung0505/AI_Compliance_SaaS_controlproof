@@ -24,7 +24,7 @@
 
 ```json
 {
-  "target": {"name": "WhyYou", "target_version": "<canonical target version 또는 null>"},
+  "target": {"service": "WhyYou", "target_version": "<canonical target version 또는 null>"},
   "readiness_checked_at": "2026-10-08T10:12:00+00:00",
   "counts": {
     "PASS": 4, "FAIL": 0, "NOT_RUN": 4,
@@ -80,7 +80,7 @@
   "conditions": [{"kind": "APPLIED|RELEASED", "label": "…"}],
   "assertions": [{"assertion_id": "E01-A3", "status": "FAIL", "reason_code": null, "expected": {}, "actual": {}, "detail": "…",
                   "plain_meaning": "…", "evidence_refs": ["file:report-reads.jsonl"], "missing_evidence_ids": []}],
-  "evidence": [{"ref": "file:report-reads.jsonl", "display_name": "회사 화면 리포트 조회", "relative_path": "<run_root>/<run_id>/report-reads.jsonl",
+  "evidence": [{"ref": "file:report-reads.jsonl", "evidence_name": "회사 화면 리포트 조회", "relative_path": "<run_root>/<run_id>/report-reads.jsonl",
                 "mime_type": "application/x-ndjson", "size_bytes": 12345, "sha256": "…", "phase": null, "evidence_requirement_ids": ["EV4-05"],
                 "viewable": true}],
   "restore": {"status": "SUCCEEDED", "seconds": 0.2, "deadline_seconds": 120, "manual_cleanup_required": false},

@@ -1,0 +1,23 @@
+{% extends "base.html" %}
+{% set active = "evidence" %}
+{% block title %}증적 · {{ view.evidence_name }} · ControlProof{% endblock %}
+{% block content %}
+<section aria-label="증적 원본">
+  <h2>증적: {{ view.evidence_name }}</h2>
+  <div class="card"><table class="kv">
+    <tr><th>이름</th><td>{{ view.evidence_name }}</td></tr>
+    <tr><th>형식</th><td>{{ view.mime_type | mime_label }} <span class="muted">({{ view.mime_type }})</span></td></tr>
+    <tr><th>크기</th><td>{{ view.size_bytes | size }}</td></tr>
+    <tr><th>SHA-256</th><td class="mono" data-testid="evidence-sha256">{{ view.sha256 }}</td></tr>
+    <tr><th>연결된 증적 요구</th><td>{{ view.evidence_requirement_ids | join(", ") or "—" }}</td></tr>
+  </table></div>
+  {% if view.viewable %}
+  <div class="card"><h3>원문</h3><pre class="evidence-text">{{ view.text }}</pre></div>
+  {% else %}
+  <div class="limit">{{ view.reason }}</div>
+  {% endif %}
+  <details class="card" data-testid="developer"><summary>개발자용 원본 정보 펼치기</summary>
+    <p class="mono">{{ view.ref }} → {{ view.relative_path }}</p></details>
+  <p><a href="{{ prefix }}/runs/{{ view.run_id }}">← 실행 결과로</a></p>
+</section>
+{% endblock %}

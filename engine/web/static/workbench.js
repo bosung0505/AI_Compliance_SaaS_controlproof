@@ -53,5 +53,14 @@
     }
   });
 
+  var failOnly = document.querySelector("[data-testid=fail-only]");
+  if (failOnly) {
+    failOnly.addEventListener("change", function () {
+      Array.prototype.forEach.call(document.querySelectorAll("tr.assertion-row"), function (row) {
+        row.classList.toggle("hidden", failOnly.checked && row.dataset.status === "PASS");
+      });
+    });
+  }
+
   applyFilters();
 }());

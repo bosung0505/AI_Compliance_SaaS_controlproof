@@ -78,3 +78,20 @@ tr.group th { background: #dfe5ef; font-size: 13.5px; }
                  border-radius: 4px; padding: 2px 10px; background: #fff; }
 .neutral-title.small { font-size: 12px; padding: 1px 6px; }
 .legend td { font-size: 13px; }
+a.btn { text-decoration: none; display: inline-block; }
+.dev-inline { display: inline-block; margin-left: 6px; font-size: 12px; }
+.dev-inline summary { font-weight: 400; color: var(--muted); }
+details summary { cursor: pointer; font-weight: 700; }
+.lead { display: flex; gap: 10px; flex-wrap: wrap; align-items: center; }
+.run-state { font-weight: 800; border: 2px solid var(--ink); border-radius: 4px; padding: 2px 10px; background: #fff; }
+.integrity-ok { font-weight: 700; color: var(--pass); }
+.kv th { width: 9em; white-space: nowrap; }
+.result-links { display: flex; gap: 8px; flex-wrap: wrap; margin-top: 2px; }
+.flush { margin: 0; }
+pre.raw, pre.evidence-text { white-space: pre-wrap; word-break: break-all; font-family: Consolas, "D2Coding", monospace;
+  font-size: 12px; background: #f3f5f9; padding: 8px; border-radius: 6px; max-height: 480px; overflow: auto; }
+.memo-form { display: grid; gap: 6px; max-width: 640px; }
+.memo-form input[type=text], .memo-form textarea { width: 100%; font: inherit; }
+.memo-form textarea { min-height: 70px; }
+.rep-item { display: inline-block; min-width: 2.6em; font-weight: 800; color: var(--ready); }
+.report p, .report li { margin: 6px 0; }

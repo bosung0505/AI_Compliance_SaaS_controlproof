@@ -44,7 +44,7 @@
         <input type="hidden" name="execution_profile" value="">
         <button class="btn" type="submit" title="웹에서 시작할 수 있는 유일한 동작"{% if view.demo %} disabled{% endif %}>준비 상태 확인</button>
       </form>
-      <span class="btn sec disabled" aria-disabled="true" title="보고서 화면은 다음 단계에서 제공">보고서 열기 →</span>
+      <a class="btn sec" data-testid="open-report" href="{{ prefix }}/report">보고서 열기 →</a>
     </div>
     {% if view.demo %}<p class="limit">DEMO DATA 화면에서는 준비 상태 확인을 실행하지 않습니다. 실제 기록 화면(<a href="/">/</a>)에서 실행하세요.</p>{% endif %}
     <p>준비 상태 확인 시각: <b data-testid="common-checked-at">{{ view.readiness_checked_at | when if view.readiness_checked_at else "확인 기록 없음" }}</b>
@@ -77,6 +77,7 @@
             {% if row.mismatch %}<div class="warn">봉인 기록 판정 {{ row.mismatch.bundle_verdict }}이(가) 공식 상태 {{ row.mismatch.catalog_result }}와 다릅니다 (<span class="mono">{{ row.mismatch.run_id | short_id }}</span>).</div>{% endif %}
             {% if row.records_on_this_pc.note %}<div class="muted">{{ row.records_on_this_pc.note }} · 공식 기록: <span class="mono">{{ row.records_on_this_pc.validation_ref }}</span></div>{% endif %}
             {% if row.records_on_this_pc.web_validation_runs %}<div class="muted">{{ "DEMO 기록" if view.demo else "이 PC 웹 검증 기록" }} {{ row.records_on_this_pc.web_validation_runs }}건(공식 상태와 별도)</div>{% endif %}
+            {% if row.result_links %}<div class="result-links">{% for link in row.result_links %}<a class="result-link nowrap" href="{{ prefix }}/runs/{{ link.run_id }}" title="{{ link.run_id }}">{{ "공식 기록" if link.role == "OFFICIAL" else ("DEMO 기록" if link.role == "DEMO" else "웹 검증 기록") }} <span class="mono">{{ link.run_id | short_id }}</span></a>{% endfor %}</div>{% endif %}
           </td>
           <td class="nowrap muted">—</td>
         </tr>

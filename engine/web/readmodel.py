@@ -9,6 +9,7 @@ from __future__ import annotations
 
 import json
 import threading
+import uuid
 from collections import Counter
 from datetime import UTC, datetime
 from pathlib import Path
@@ -16,14 +17,73 @@ from typing import Any
 
 import yaml
 
-from engine.evidence import verify_bundle
+from engine.evidence import scan_bytes_strict, sha256_bytes, verify_bundle
+from engine.presentation import load_bundle_summary
 from engine.web import badges
+from engine.web.memos import MemoStore
 from engine.web.preflight import ReadinessStore
 
 SCHEMA_VERSION = "controlproof.web.v1"
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "catalog" / "mvp-scenarios.yaml"
 REASON_CODES = ("INSUFFICIENT_EVIDENCE", "NO_TEST_TARGET", "ACCESS_LIMITED", "EVIDENCE_CONFLICT")
 NO_RECORD_NOTE = "이 화면에 기록 없음"
+VIEW_LIMIT_BYTES = 256 * 1024
+TEXT_MIME_TYPES = {"application/json", "application/x-ndjson", "application/yaml", "text/yaml"}
+RESULT_LINK_LIMIT = 5
+# Human names for sealed files (FR-015, FR-019); the file names themselves stay in developer details.
+DISPLAY_NAMES = {
+    "run.json": "실행 기록",
+    "judgement.json": "판정 기록",
+    "assertions.json": "규칙별 결과 기록",
+    "manifest.json": "봉인 목록",
+    "scenario.snapshot.yaml": "실행한 시나리오 정의",
+    "target.snapshot.json": "대상 버전 기록",
+    "environment.snapshot.json": "실행 환경 기록",
+    "subjects.json": "합성 대상 목록",
+    "faults.jsonl": "시험 조건 적용·해제 기록",
+    "observations.jsonl": "관찰 기록",
+    "checkpoints.jsonl": "단계 진행 기록",
+    "recovery.json": "복구 기록",
+    "effects.jsonl": "대상 서비스 상태 변화 기록",
+    "delivery-attempts.jsonl": "처리 재시도 기록",
+    "queue-topology.snapshot.json": "작업 대기열 구성 기록",
+    "terminal-failure.json": "최종 실패 표시 기록",
+    "retest-link.json": "재시험 부모 연결 기록",
+    "retest-diff.json": "재시험 변경 차원 기록",
+    "change-injections.jsonl": "변경 주입·복원 기록",
+    "citation-cases.jsonl": "인용 시험 결과",
+    "model-emissions.jsonl": "시험용 고정 모델 출력",
+    "report-reads.jsonl": "회사 화면 리포트 조회",
+    "report-records.jsonl": "리포트 저장 기록",
+    "storage-probe.json": "저장소 직접 쓰기 진단",
+    "spec004-capabilities.json": "준비 항목 기록",
+    "spec004-lanes.json": "합성 대상 경로 기록",
+    "policy-and-consent.json": "동의 정책과 동의 기록",
+    "causal-events.jsonl": "사건 순서 기록",
+    "causal-edges.jsonl": "사건 연결 기록",
+    "baseline-effects.jsonl": "기준선 상태 기록",
+    "bypass-attempts.jsonl": "우회 시도 기록",
+    "protected-effects.jsonl": "보호 대상 처리 기록",
+    "fault-receipts.jsonl": "장애 주입 수신 기록",
+}
+LIMITATION_LABELS = {
+    "FIXTURE_INTERVIEW_INPUT": "합성 면접 입력 사용",
+    "EXTERNAL_AI_BLOCKED": "외부 AI 호출 차단",
+    "FIXED_MODEL_SUBSTITUTE": "실제 AI 대신 시험용 고정 모델 사용",
+}
+ARTIFACT_NAMES = {"image/png": "화면 캡처", "application/json": "수집한 원본 기록"}
+
+
+class RunNotFound(LookupError):
+    """No sealed bundle with that Run ID in this root."""
+
+
+class EvidenceNotFound(LookupError):
+    """The reference is not an evidence entry of this Run."""
+
+
+class IntegrityBlocked(RuntimeError):
+    """The Run failed integrity, so its evidence is not shown (HTTP 422)."""
 
 
 def load_catalog(path: Path | None = None) -> dict[str, Any]:
@@ -87,6 +147,7 @@ class WorkbenchReader:
         readiness: ReadinessStore,
         origin: str = "ACTUAL",
         cache: VerifyCache | None = None,
+        memos: MemoStore | None = None,
     ) -> None:
         if origin not in {"ACTUAL", "DEMO"}:
             raise ValueError("origin must be ACTUAL or DEMO")
@@ -95,6 +156,7 @@ class WorkbenchReader:
         self.readiness = readiness
         self.origin = origin
         self.cache = cache or VerifyCache()
+        self.memos = memos
 
     def header(self, view: str) -> dict[str, Any]:
         return {
@@ -123,7 +185,7 @@ class WorkbenchReader:
             )
         return {
             **self.header("workbench"),
-            "target": {"name": "WhyYou", "target_version": self._target_version()},
+            "target": {"service": "WhyYou", "target_version": self._target_version()},
             "readiness_checked_at": common,
             "counts": _counts(rows),
             "count_members": _count_members(rows),
@@ -174,7 +236,14 @@ class WorkbenchReader:
                 "note": None if present or entry["mvp_treatment"] != "EXECUTED" else NO_RECORD_NOTE,
             },
             "mismatch": mismatch,
+            "result_links": self._result_links(official, local),
         }
+
+    def _result_links(self, official: list[dict[str, Any]], local: list[str]) -> list[dict[str, Any]]:
+        links = [{"run_id": item["run_id"], "role": "OFFICIAL"} for item in official]
+        role = "DEMO" if self.origin == "DEMO" else "WEB_VALIDATION"
+        links += [{"run_id": run_id, "role": role} for run_id in local if run_id not in {i["run_id"] for i in official}]
+        return links[:RESULT_LINK_LIMIT]
 
     def _readiness(self, entry: dict[str, Any]) -> dict[str, Any]:
         if entry["mvp_treatment"] == "NOT_RUN":
@@ -213,18 +282,19 @@ class WorkbenchReader:
         }
 
     def _bundles_by_scenario(self) -> dict[str, list[str]]:
-        found: dict[str, list[str]] = {}
+        """Run IDs per scenario in this root, newest first."""
+        found: dict[str, list[tuple[str, str]]] = {}
         if not self.run_root.is_dir():
-            return found
+            return {}
         for directory in sorted(self.run_root.iterdir()):
             if not (directory / "manifest.json").is_file():
                 continue
             try:
                 run = json.loads((directory / "run.json").read_text(encoding="utf-8"))
-                found.setdefault(str(run["scenario_id"]), []).append(directory.name)
+                found.setdefault(str(run["scenario_id"]), []).append((str(run.get("started_at") or ""), directory.name))
             except (OSError, ValueError, KeyError, TypeError):
                 continue
-        return found
+        return {key: [name for _, name in sorted(items, reverse=True)] for key, items in found.items()}
 
     def _target_version(self) -> str | None:
         versions = []
@@ -265,6 +335,314 @@ class WorkbenchReader:
                         }
                     )
         return lineages
+
+
+    # -- run view (US2) --------------------------------------------------------------------------------------------
+    def run(self, run_id: str) -> dict[str, Any]:
+        bundle = self._bundle(run_id)
+        record = _read_json(bundle / "run.json") or {}
+        state = record.get("state")
+        integrity = self._integrity(bundle, state)
+        verified = integrity["status"] == "VERIFIED"
+        view: dict[str, Any] = {
+            **self.header("run"),
+            "run": self._run_block(bundle, record),
+            "integrity": integrity,
+            "display_order": _display_order(integrity["status"], state),
+            "safety_badges": ["restore_failed"] if state == "RESTORE_FAILED" else [],
+            "verdict": None,
+            "assertions": None,
+            "evidence": None,
+            "steps": [],
+            "conditions": [],
+            "restore": None,
+            "limitations": [],
+            "memos": self.memos.list(run_id) if self.memos else [],
+            "memo_allowed": self.origin == "ACTUAL",
+            "developer": {"files": _manifest_paths(bundle), "problems": integrity["problems"]},
+        }
+        if not verified:
+            return view
+        summary = load_bundle_summary(bundle)
+        snapshot = _snapshot_definition(bundle)
+        index = summary["evidence_index"]
+        entry = self._catalog_entry(summary["scenario_id"])
+        failed = list(summary["failed_assertions"])
+        view["verdict"] = {
+            "value": summary["verdict"],
+            "reason_code": summary["reason_code"],
+            "summary": summary["summary"],
+            "badge": badges.result_badge(summary["verdict"], summary["reason_code"]).key,
+            "target_verdict": state not in {"ABORTED", "RESTORE_FAILED"},
+            "plain_meaning": _verdict_meaning(summary["verdict"], summary["reason_code"], failed, state),
+            "impact": (
+                ((entry or {}).get("explanation", {}).get("failure_impact") or {}).get("text")
+                if summary["verdict"] != "PASS" else None
+            ),
+            "missing_evidence": list(summary.get("missing_evidence") or []),
+        }
+        requirements = {item.get("assertion_id"): item for item in snapshot.get("assertions", []) if isinstance(item, dict)}
+        view["assertions"] = [
+            {
+                "assertion_id": item["assertion_id"],
+                "description": requirements.get(item["assertion_id"], {}).get("description"),
+                "status": item["status"],
+                "reason_code": item["reason_code"],
+                "badge": badges.result_badge(item["status"], item["reason_code"]).key,
+                "expected": item["expected"],
+                "actual": item["actual"],
+                "detail": item["detail"],
+                "source_requirements": item["source_requirements"],
+                "required_evidence_ids": list(requirements.get(item["assertion_id"], {}).get("required_evidence_ids", [])),
+                "evidence_refs": index["by_assertion"].get(item["assertion_id"], {}).get("refs", []),
+                "missing_evidence_ids": index["by_assertion"].get(item["assertion_id"], {}).get("missing_requirement_ids", []),
+                "plain_meaning": _assertion_meaning(item["status"], item["reason_code"]),
+            }
+            for item in summary["assertions"]
+        ]
+        linked_rules: dict[str, list[str]] = {}
+        for assertion_id, item in index["by_assertion"].items():
+            for ref in item["refs"]:
+                linked_rules.setdefault(ref, []).append(assertion_id)
+        phases = _manifest_phases(bundle)
+        view["evidence"] = [
+            {
+                **item,
+                "evidence_name": _display_name(item),
+                "phase": phases.get(item["ref"]),
+                "assertion_ids": sorted(linked_rules.get(item["ref"], [])),
+                **_viewability(self._evidence_path(bundle, item), item.get("mime_type")),
+            }
+            for item in index["files"]
+        ]
+        for item in view["evidence"]:
+            item.pop("text", None)
+        view["unresolved_refs"] = index["unresolved_refs"]
+        view["steps"] = [
+            {"phase": item.get("phase"), "step_id": item.get("step_id"), "always_run": bool(item.get("always_run"))}
+            for item in snapshot.get("steps", [])
+            if isinstance(item, dict)
+        ]
+        view["conditions"] = _conditions(bundle, record)
+        view["restore"] = _restore(bundle, record, summary, snapshot)
+        codes = list(summary.get("limitations") or [])
+        view["limitations"] = [LIMITATION_LABELS.get(code, code) for code in codes]
+        view["developer"]["limitation_codes"] = codes
+        view["unverified_scope"] = list(summary.get("unverified_scope") or [])
+        view["legal_scope_notice"] = summary.get("legal_scope_notice")
+        view["developer"].update(
+            {
+                "model_fixture_id": summary.get("model_fixture_id"),
+                "target_id": summary.get("target_id"),
+                "raw_actual": {item["assertion_id"]: item["actual"] for item in summary["assertions"]},
+                "missing_evidence_links": integrity["aborted_missing_evidence"],
+            }
+        )
+        return view
+
+    def evidence(self, run_id: str, ref: str) -> dict[str, Any]:
+        """One evidence entry; text only when it is text, at most 256 KB and passes the strict scan (R-009 e)."""
+        bundle = self._bundle(run_id)
+        record = _read_json(bundle / "run.json") or {}
+        if self._integrity(bundle, record.get("state"))["status"] != "VERIFIED":
+            raise IntegrityBlocked(run_id)
+        index = load_bundle_summary(bundle)["evidence_index"]
+        item = next((entry for entry in index["files"] if entry["ref"] == ref), None)
+        if item is None:
+            raise EvidenceNotFound(ref)
+        return {
+            **self.header("evidence"),
+            "run_id": run_id,
+            "ref": ref,
+            "evidence_name": _display_name(item),
+            "relative_path": item["relative_path"],
+            "mime_type": item.get("mime_type"),
+            "size_bytes": item.get("size_bytes"),
+            "sha256": item.get("sha256"),
+            "evidence_requirement_ids": item.get("evidence_requirement_ids", []),
+            **_viewability(self._evidence_path(bundle, item), item.get("mime_type")),
+        }
+
+    def _bundle(self, run_id: str) -> Path:
+        try:
+            canonical = str(uuid.UUID(str(run_id)))
+        except ValueError as exc:
+            raise RunNotFound(run_id) from exc
+        bundle = self.run_root / canonical
+        if canonical != run_id or not bundle.is_dir():
+            raise RunNotFound(run_id)
+        return bundle
+
+    def _evidence_path(self, bundle: Path, item: dict[str, Any]) -> Path | None:
+        relative = str(item.get("relative_path") or "").removeprefix("<run_root>/")
+        candidate = (self.run_root / relative).resolve()
+        root = self.run_root.resolve()
+        if root not in candidate.parents or not candidate.is_file():
+            return None
+        return candidate
+
+    def _integrity(self, bundle: Path, state: str | None) -> dict[str, Any]:
+        result = self.cache.verify(bundle)
+        if result["bundle_status"] == "VERIFIED":
+            return {"status": "VERIFIED", "problems": [], "aborted_missing_evidence": []}
+        problems = sorted(set(result.get("missing_files", [])) | set(result.get("mismatched_files", [])))
+        links_only = (
+            not result.get("mismatched_files")
+            and result.get("missing_files")
+            and all(item.startswith("evidence:") for item in result["missing_files"])
+        )
+        # ID-005-01: an ABORTED Run whose only problem is missing required-evidence links keeps its sealed integrity;
+        # the missing links are listed. The CLI verify result itself is unchanged.
+        relaxed_ok = (
+            state == "ABORTED"
+            and links_only
+            and verify_bundle(bundle, require_all_evidence=False)["bundle_status"] == "VERIFIED"
+        )
+        if relaxed_ok:
+            missing = sorted(item.split(":", 1)[1] for item in result["missing_files"])
+            return {"status": "VERIFIED", "problems": [], "aborted_missing_evidence": missing}
+        return {"status": integrity_of(result), "problems": problems, "aborted_missing_evidence": []}
+
+    def _run_block(self, bundle: Path, record: dict[str, Any]) -> dict[str, Any]:
+        manifest = bundle / "manifest.json"
+        official = {
+            item["run_id"]
+            for entry in self.catalog["scenarios"]
+            for item in entry["official_status"].get("records", [])
+        }
+        if self.origin == "DEMO":
+            role = "OTHER"
+        else:
+            role = "OFFICIAL" if bundle.name in official else "WEB_VALIDATION"
+        return {
+            "run_id": bundle.name,
+            "scenario_id": record.get("scenario_id"),
+            "scenario_version": record.get("scenario_version"),
+            "execution_profile": record.get("execution_profile") or "H03_MINIMAL_V1",
+            "target_version": record.get("target_version"),
+            "run_state": record.get("state"),
+            "started_at": record.get("started_at"),
+            "ended_at": record.get("ended_at"),
+            "record_origin": self.origin,
+            "record_role": role,
+            "parent_run_id": record.get("parent_run_id"),
+            "manifest_sha256": sha256_bytes(manifest.read_bytes()) if manifest.is_file() else None,
+        }
+
+    def _catalog_entry(self, scenario_id: str | None) -> dict[str, Any] | None:
+        return next((entry for entry in self.catalog["scenarios"] if entry["id"] == scenario_id), None)
+
+    # -- report view (US3) -----------------------------------------------------------------------------------------
+    def report(self) -> dict[str, Any]:
+        workbench = self.workbench()
+        rows = [row for group in workbench["groups"] for row in group["scenarios"]]
+        texts = self.catalog["report"]
+        bundles = self._bundles_by_scenario()
+        executed = [entry for entry in self.catalog["scenarios"] if entry["mvp_treatment"] == "EXECUTED"]
+        impacts = {
+            entry["id"]: (entry["explanation"].get("failure_impact") or {}).get("text") for entry in executed
+        }
+        lineages = workbench["preserved_first_failures"]
+        report: dict[str, Any] = {
+            **self.header("report"),
+            "fixed_scope_sentence": " ".join(
+                line.strip() for line in self.catalog["fixed_scope_sentence"].splitlines() if line.strip()
+            ),
+            "target_and_versions": texts["target_and_versions"],
+            "target_version_now": workbench["target"]["target_version"],
+            "purpose_and_scope": texts["purpose_and_scope"],
+            "synthetic_data_notice": texts["synthetic_data_notice"],
+            "catalog_status": [
+                {
+                    "id": row["id"],
+                    "control": row["control"],
+                    "question": row["question"],
+                    "result": row["official"]["result"],
+                    "reason_code": row["official"]["reason_code"],
+                    "badge": row["official"]["badge"],
+                    "note": row["official"]["note"],
+                }
+                for row in rows
+            ],
+            "groups": [
+                {"control": group["control"], "control_label": group["control_label"]} for group in workbench["groups"]
+            ],
+            "counts": workbench["counts"],
+            "count_members": workbench["count_members"],
+            "scenario_expectations": [
+                {
+                    "scenario_id": entry["id"],
+                    "result": entry["official_status"]["result"],
+                    "reason_code": entry["official_status"].get("reason_code"),
+                    "badge": badges.result_badge(
+                        entry["official_status"]["result"], entry["official_status"].get("reason_code")
+                    ).key,
+                    "note": entry["official_status"].get("note"),
+                    "summary": entry["official_status"]["summary"],
+                    "validation_ref": entry["official_status"]["validation_ref"],
+                }
+                for entry in executed
+            ],
+            "major_failures": [{**item, "impact": impacts.get(item["scenario_id"])} for item in lineages],
+            "evidence_summary": [
+                {
+                    "scenario_id": entry["id"],
+                    "records_on_this_pc": len(bundles.get(entry["id"], [])),
+                    "official_present": any(
+                        (self.run_root / item["run_id"]).is_dir() for item in entry["official_status"].get("records", [])
+                    ),
+                    "validation_ref": entry["official_status"]["validation_ref"],
+                    "missing": (
+                        [f"{entry['official_status'].get('note') or ''} {entry['official_status']['summary']}".strip()]
+                        if entry["official_status"].get("reason_code") == "INSUFFICIENT_EVIDENCE"
+                        else []
+                    ),
+                }
+                for entry in executed
+            ],
+            "versions": texts["versions"],
+            "lineages": lineages,
+            "test_only_additions": [{**item, "is_product_feature": False} for item in texts["test_only_additions"]],
+            "unverified_scope": list(texts["unverified_scope"]),
+            "other_pc_reproduction": texts["other_pc_reproduction"],
+            "limitations": list(texts["limitations"]),
+            "legal_notice": texts["legal_notice"],
+            "ai_score_principle": texts["ai_score_principle"],
+            "human_decision_location": texts["human_decision_location"],
+            "no_test_target": [
+                {"id": row["id"], "question": row["question"], "badge": row["official"]["badge"]}
+                for row in rows
+                if row["mvp_treatment"] == "NO_TEST_TARGET"
+            ],
+            "one_screen_notice": texts["one_screen_notice"],
+            "developer": {"model_fixtures": list(texts["model_fixtures"])},
+        }
+        present = {
+            "R1": report["target_and_versions"],
+            "R2": report["purpose_and_scope"] and report["fixed_scope_sentence"],
+            "R3": report["synthetic_data_notice"],
+            "R4": len(report["catalog_status"]) == 12,
+            "R5": report["counts"],
+            "R6": report["scenario_expectations"],
+            "R7": report["major_failures"],
+            "R8": report["evidence_summary"],
+            "R9": report["versions"],
+            "R10": report["lineages"],
+            "R11": report["test_only_additions"],
+            "R12": report["unverified_scope"],
+            "R13": report["legal_notice"],
+            "C1": report["counts"],
+            "C2": report["evidence_summary"],
+            "C3": report["ai_score_principle"],
+            "C4": report["human_decision_location"],
+            "C5": report["lineages"],
+            "C6": len(report["no_test_target"]) == 3,
+            "C7": report["one_screen_notice"],
+            "C8": report["unverified_scope"] and report["claim_scope"],
+            "C9": report["legal_notice"],
+        }
+        report["items_present"] = {key: bool(value) for key, value in present.items()}
+        return report
 
 
 def _profile_readiness(profile: str, record: dict[str, Any] | None) -> dict[str, Any]:
@@ -332,3 +710,140 @@ def _minute(value: str) -> str:
         return datetime.fromisoformat(value).astimezone(UTC).strftime("%Y-%m-%dT%H:%M")
     except ValueError:
         return value[:16]
+
+
+def _read_json(path: Path) -> Any:
+    try:
+        return json.loads(path.read_text(encoding="utf-8"))
+    except (OSError, ValueError):
+        return None
+
+
+def _snapshot_definition(bundle: Path) -> dict[str, Any]:
+    try:
+        snapshot = yaml.safe_load((bundle / "scenario.snapshot.yaml").read_text(encoding="utf-8"))
+    except (OSError, yaml.YAMLError):
+        return {}
+    if not isinstance(snapshot, dict):
+        return {}
+    definition = snapshot.get("definition", snapshot)
+    return definition if isinstance(definition, dict) else {}
+
+
+def _manifest_paths(bundle: Path) -> list[str]:
+    manifest = _read_json(bundle / "manifest.json") or {}
+    return [record.get("path") for record in manifest.get("files", []) if isinstance(record, dict)]
+
+
+def _manifest_phases(bundle: Path) -> dict[str, str]:
+    manifest = _read_json(bundle / "manifest.json") or {}
+    phases = {}
+    for record in manifest.get("files", []):
+        if isinstance(record, dict) and record.get("artifact_id") and record.get("phase"):
+            phases[f"artifact:{record['artifact_id']}"] = record["phase"]
+    return phases
+
+
+def _display_order(integrity: str, state: str | None) -> list[str]:
+    if integrity != "VERIFIED":
+        return ["integrity", "run_state"]
+    if state == "ABORTED":
+        return ["run_state", "integrity", "verdict"]
+    if state == "RESTORE_FAILED":
+        return ["safety", "integrity", "verdict"]
+    return ["integrity", "verdict"]
+
+
+def _verdict_meaning(verdict: str, reason_code: str | None, failed: list[str], state: str | None) -> str:
+    if state == "ABORTED":
+        return "실행이 중간에 중단돼 이 결과는 대상 서비스의 판정이 아닙니다. 봉인된 판정 값은 그대로 함께 보입니다."
+    if state == "RESTORE_FAILED":
+        return "복구가 끝나지 않은 실행 안전 문제입니다. 대상 서비스의 FAIL이 아니며 사람이 정리를 확인해야 합니다."
+    if verdict == "PASS":
+        return "기대 결과와 필수 증적이 모두 확인됐습니다."
+    if verdict == "FAIL":
+        return f"규칙 {', '.join(failed)}에서 실제 동작이 기대와 달랐습니다. 아래 규칙별 결과에서 기대와 관찰을 확인하세요."
+    reason = badges.result_badge("INCONCLUSIVE", reason_code)
+    return f"결론을 낼 수 없습니다. 사유: {reason.description}."
+
+
+def _assertion_meaning(status: str, reason_code: str | None) -> str:
+    if status == "PASS":
+        return "기대대로 관찰됐습니다."
+    if status == "FAIL":
+        return "기대와 관찰이 다릅니다."
+    return f"결론을 낼 수 없습니다: {badges.result_badge('INCONCLUSIVE', reason_code).description}."
+
+
+def _display_name(item: dict[str, Any]) -> str:
+    ref = item["ref"]
+    if ref == "intrinsic:sealed-manifest":
+        return "봉인 목록"
+    name = str(item.get("relative_path", "")).rsplit("/", 1)[-1]
+    if ref.startswith("file:"):
+        return DISPLAY_NAMES.get(name, "수집한 기록")
+    if ref.startswith("run:"):
+        return "이전 실행의 원본 기록"
+    return ARTIFACT_NAMES.get(str(item.get("mime_type")), "수집한 원본 기록")
+
+
+def _viewability(path: Path | None, mime_type: str | None) -> dict[str, Any]:
+    if path is None:
+        return {"viewable": False, "reason": "원본 파일을 찾을 수 없습니다.", "text": None}
+    if not (str(mime_type) in TEXT_MIME_TYPES or str(mime_type).startswith("text/")):
+        return {"viewable": False, "reason": f"텍스트 형식이 아니라 원문을 보이지 않습니다(형식: {mime_type}).", "text": None}
+    if path.stat().st_size > VIEW_LIMIT_BYTES:
+        return {"viewable": False, "reason": "256 KB를 넘어 화면에 원문을 보이지 않습니다.", "text": None}
+    payload = path.read_bytes()
+    findings = scan_bytes_strict(payload)
+    if findings:
+        rules = ", ".join(sorted(findings))
+        return {"viewable": False, "reason": f"경로·토큰·개인정보 검사에 걸려 원문을 보이지 않습니다(규칙: {rules}).", "text": None}
+    return {"viewable": True, "reason": None, "text": payload.decode("utf-8", errors="replace")}
+
+
+def _conditions(bundle: Path, record: dict[str, Any]) -> list[dict[str, Any]]:
+    """Applied and released test conditions as the bundle recorded them (no inference)."""
+    conditions = []
+    for line in _jsonl(bundle / "change-injections.jsonl"):
+        label = f"{line.get('kind')} ({line.get('lane_id')})"
+        if line.get("applied_at"):
+            conditions.append({"kind": "APPLIED", "label": label, "at": line["applied_at"]})
+        if line.get("restored_at"):
+            conditions.append({"kind": "RELEASED", "label": label, "at": line["restored_at"]})
+    if record.get("fault_ever_applied"):
+        conditions.append({"kind": "APPLIED", "label": "시험 조건(장애 주입) 적용", "at": None})
+    for line in _jsonl(bundle / "faults.jsonl"):
+        if line.get("environment_restore"):
+            conditions.append(
+                {"kind": "RELEASED", "label": f"환경 복구 시도 {line.get('attempt')}: {line['environment_restore']}", "at": None}
+            )
+    return conditions
+
+
+def _restore(bundle: Path, record: dict[str, Any], summary: dict[str, Any], snapshot: dict[str, Any]) -> dict[str, Any]:
+    timing = ((_read_json(bundle / "recovery.json") or {}).get("restore_timing")) or {}
+    policy = snapshot.get("timing_policy") or {}
+    return {
+        "status": summary.get("environment_restore_status"),
+        "seconds": timing.get("environment_restore_seconds"),
+        "deadline_seconds": timing.get("environment_restore_deadline_seconds", policy.get("environment_restore_deadline_seconds")),
+        "within_deadline": timing.get("environment_restore_within_deadline"),
+        "manual_cleanup_required": bool(record.get("manual_cleanup_required")),
+    }
+
+
+def _jsonl(path: Path) -> list[dict[str, Any]]:
+    try:
+        lines = path.read_text(encoding="utf-8").splitlines()
+    except OSError:
+        return []
+    rows = []
+    for line in lines:
+        try:
+            value = json.loads(line)
+        except ValueError:
+            continue
+        if isinstance(value, dict):
+            rows.append(value)
+    return rows

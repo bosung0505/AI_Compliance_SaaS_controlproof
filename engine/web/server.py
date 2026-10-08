@@ -22,8 +22,17 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from engine.evidence import display_paths, redact
 from engine.web import badges
+from engine.web.memos import MemoRejected, MemoStore
 from engine.web.preflight import PreflightBusy, PreflightRunner, ReadinessStore, UnknownProfile
-from engine.web.readmodel import SCHEMA_VERSION, VerifyCache, WorkbenchReader, load_catalog
+from engine.web.readmodel import (
+    SCHEMA_VERSION,
+    EvidenceNotFound,
+    IntegrityBlocked,
+    RunNotFound,
+    VerifyCache,
+    WorkbenchReader,
+    load_catalog,
+)
 
 BIND_ADDRESS = "127.0.0.1"
 PACKAGE = Path(__file__).resolve().parent
@@ -43,11 +52,22 @@ RETURN_TO = re.compile(r"^/(?:scenarios/[NHEA]-0\d)?$")
 ROUTES = (
     ("GET", "/", "workbench_html"),
     ("GET", "/api/workbench", "workbench_json"),
+    ("GET", "/runs/{run_id}", "run_html"),
+    ("GET", "/api/runs/{run_id}", "run_json"),
+    ("GET", "/runs/{run_id}/evidence", "evidence_html"),
+    ("GET", "/report", "report_html"),
+    ("GET", "/api/report", "report_json"),
     ("GET", "/demo/", "workbench_html"),
     ("GET", "/demo/api/workbench", "workbench_json"),
+    ("GET", "/demo/runs/{run_id}", "run_html"),
+    ("GET", "/demo/api/runs/{run_id}", "run_json"),
+    ("GET", "/demo/runs/{run_id}/evidence", "evidence_html"),
+    ("GET", "/demo/report", "report_html"),
+    ("GET", "/demo/api/report", "report_json"),
     ("GET", "/static/{name}", "static"),
     ("GET", "/favicon.ico", "favicon"),
     ("POST", "/preflight", "preflight"),
+    ("POST", "/runs/{run_id}/memos", "memo"),
 )
 
 ERRORS = {
@@ -55,6 +75,7 @@ ERRORS = {
     "CONTRACT": HTTPStatus.FORBIDDEN,
     "NOT_FOUND": HTTPStatus.NOT_FOUND,
     "BUSY": HTTPStatus.CONFLICT,
+    "INTEGRITY": HTTPStatus.UNPROCESSABLE_ENTITY,
     "UNEXPECTED": HTTPStatus.INTERNAL_SERVER_ERROR,
 }
 
@@ -77,6 +98,8 @@ class WebServer(ThreadingHTTPServer):
         )
         self.templates.filters["when"] = _when
         self.templates.filters["short_id"] = lambda value: f"{value[:8]}…" if value else ""
+        self.templates.filters["size"] = _size
+        self.templates.filters["mime_label"] = _mime_label
 
     @property
     def allowed_hosts(self) -> set[str]:
@@ -98,11 +121,12 @@ def make_server(
     catalog = catalog or load_catalog()
     cache = VerifyCache()
     actual_store = ReadinessStore(Path(state_dir) / "preflight")
+    memos = MemoStore(Path(state_dir) / "memos")
     demo_store = ReadinessStore(Path(demo_root).parent / "preflight")
     runner = preflight_runner or PreflightRunner(catalog, actual_store, target=target, cwd=REPO_ROOT)
     return WebServer(
         port,
-        actual=WorkbenchReader(catalog, run_root, readiness=actual_store, origin="ACTUAL", cache=cache),
+        actual=WorkbenchReader(catalog, run_root, readiness=actual_store, origin="ACTUAL", cache=cache, memos=memos),
         demo=WorkbenchReader(catalog, demo_root, readiness=demo_store, origin="DEMO", cache=cache),
         runner=runner,
         catalog=catalog,
@@ -126,6 +150,8 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _dispatch(self, method: str) -> None:
         path = urllib.parse.urlsplit(self.path).path
+        # Read a POST body before any answer: replying without reading it lets the client see a reset connection.
+        self._body = self._read_body() if method == "POST" else b""
         if self.headers.get("Host") not in self.server.allowed_hosts:
             self._error("CONTRACT", "HOST_NOT_ALLOWED", "허용되지 않은 Host입니다.", status=HTTPStatus.MISDIRECTED_REQUEST)
             return
@@ -157,6 +183,69 @@ class _Handler(BaseHTTPRequestHandler):
         reader = self._reader(path)
         view = _boundary(reader.workbench(), reader.run_root)
         self._html(HTTPStatus.OK, "workbench.html", view=view, prefix="/demo" if view["demo"] else "")
+
+    def _route_run_json(self, path: str, run_id: str) -> None:
+        reader = self._reader(path)
+        try:
+            view = reader.run(run_id)
+        except RunNotFound:
+            self._error("NOT_FOUND", "RUN_NOT_FOUND", "요청한 실행 기록이 없습니다.")
+            return
+        self._json(HTTPStatus.OK, _boundary(view, reader.run_root))
+
+    def _route_run_html(self, path: str, run_id: str) -> None:
+        reader = self._reader(path)
+        try:
+            view = _boundary(reader.run(run_id), reader.run_root)
+        except RunNotFound:
+            self._error("NOT_FOUND", "RUN_NOT_FOUND", "요청한 실행 기록이 없습니다.")
+            return
+        self._html(HTTPStatus.OK, "run.html", view=view, prefix="/demo" if view["demo"] else "")
+
+    def _route_evidence_html(self, path: str, run_id: str) -> None:
+        reader = self._reader(path)
+        ref = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("ref", [""])[0]
+        try:
+            view = _boundary(reader.evidence(run_id, ref), reader.run_root)
+        except RunNotFound:
+            self._error("NOT_FOUND", "RUN_NOT_FOUND", "요청한 실행 기록이 없습니다.")
+            return
+        except EvidenceNotFound:
+            self._error("NOT_FOUND", "EVIDENCE_NOT_FOUND", "요청한 증적이 이 실행 기록에 없습니다.")
+            return
+        except IntegrityBlocked:
+            self._error("INTEGRITY", "INTEGRITY_FAILED", "무결성 실패 기록의 증적 원본은 보이지 않습니다.")
+            return
+        self._html(HTTPStatus.OK, "evidence.html", view=view, prefix="/demo" if view["demo"] else "")
+
+    def _route_report_json(self, path: str) -> None:
+        reader = self._reader(path)
+        self._json(HTTPStatus.OK, _boundary(reader.report(), reader.run_root))
+
+    def _route_report_html(self, path: str) -> None:
+        reader = self._reader(path)
+        view = _boundary(reader.report(), reader.run_root)
+        self._html(HTTPStatus.OK, "report.html", view=view, prefix="/demo" if view["demo"] else "")
+
+    def _route_memo(self, path: str, run_id: str) -> None:
+        form = self._form()
+        if form is None:
+            self._error("USAGE", "FORM_INVALID", "요청 형식이 올바르지 않습니다.")
+            return
+        if not secrets.compare_digest(form.get("csrf_token", ""), self.server.csrf_token):
+            self._error("CONTRACT", "CSRF_TOKEN_MISMATCH", "요청 확인 값이 맞지 않습니다. 화면을 새로 고친 뒤 다시 시도하세요.")
+            return
+        reader = self.server.readers["ACTUAL"]
+        try:
+            reader.run(run_id)
+            reader.memos.add(run_id, author=form.get("author", ""), text=form.get("text", ""))
+        except RunNotFound:
+            self._error("NOT_FOUND", "RUN_NOT_FOUND", "요청한 실행 기록이 없습니다.")
+            return
+        except MemoRejected as rejected:
+            self._error("USAGE", "MEMO_REJECTED", str(rejected))
+            return
+        self._redirect(f"/runs/{run_id}#memos", HTTPStatus.SEE_OTHER)
 
     def _route_static(self, path: str, name: str) -> None:
         target = STATIC / name
@@ -195,14 +284,20 @@ class _Handler(BaseHTTPRequestHandler):
         self._redirect(return_to, HTTPStatus.SEE_OTHER)
 
     # -- responses -----------------------------------------------------------------------------------------------
-    def _form(self) -> dict[str, str] | None:
+    def _read_body(self) -> bytes | None:
         try:
             length = int(self.headers.get("Content-Length") or 0)
         except ValueError:
             return None
-        if length > MAX_FORM_BYTES:
+        if length < 0 or length > MAX_FORM_BYTES:
+            self.close_connection = True
             return None
-        body = self.rfile.read(length).decode("utf-8", errors="replace")
+        return self.rfile.read(length)
+
+    def _form(self) -> dict[str, str] | None:
+        if self._body is None:
+            return None
+        body = self._body.decode("utf-8", errors="replace")
         return {key: values[0] for key, values in urllib.parse.parse_qs(body).items()}
 
     def _wants_json(self) -> bool:
@@ -265,3 +360,17 @@ def _when(value: str | None) -> str:
         return datetime.fromisoformat(value).astimezone().strftime("%Y-%m-%d %H:%M")
     except ValueError:
         return value
+
+
+def _size(value: int | None) -> str:
+    if value is None:
+        return "기록 없음"
+    return f"{value} B" if value < 1024 else f"{value / 1024:.1f} KB"
+
+
+def _mime_label(value: str | None) -> str:
+    return {
+        "application/x-ndjson": "기록 목록",
+        "application/json": "문서",
+        "image/png": "이미지",
+    }.get(str(value), str(value))

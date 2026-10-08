@@ -149,8 +149,9 @@ def test_not_found_is_json_error(web) -> None:
 
 def test_route_table_has_no_run_retest_or_cleanup_start(web) -> None:
     routes = [(method, pattern) for method, pattern, _ in server.ROUTES]
-    # The only state-changing route of US1 is the readiness check (memos arrive with US2).
-    assert [pattern for method, pattern in routes if method == "POST"] == ["/preflight"]
+    # State-changing routes: the readiness check and fix memos (US2, contracts/web-http.md). Memos are not run actions.
+    # Changed expectation (2026-10-09, approved): US1 listed only "/preflight".
+    assert [pattern for method, pattern in routes if method == "POST"] == ["/preflight", "/runs/{run_id}/memos"]
     for _method, pattern in routes:
         assert not re.search(r"retest|cleanup|/run$|/run/", pattern), pattern
     for path in ("/run", "/retest", "/cleanup-confirm", "/runs/x/retest"):
