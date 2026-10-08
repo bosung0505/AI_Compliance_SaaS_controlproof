@@ -5,6 +5,7 @@ from __future__ import annotations
 import argparse
 import hashlib
 import json
+import os
 import sys
 from datetime import UTC, datetime
 from pathlib import Path
@@ -15,7 +16,7 @@ from pydantic import ValidationError
 
 from engine.adapters.whyyou.adapter import create_whyyou_adapter
 from engine.config import ConfigError, Settings
-from engine.evidence import redact, verify_bundle
+from engine.evidence import display_paths, redact, verify_bundle
 from engine.lifecycle import RestoreBlockStore
 from engine.models import (
     SPEC002_UNVERIFIED_SCOPE,
@@ -43,6 +44,9 @@ EXIT_FAIL = 3
 EXIT_INCONCLUSIVE = 4
 EXIT_INTEGRITY = 5
 EXIT_RESTORE = 6
+EXIT_ARGUMENTS = 2
+DEFAULT_RUN_ROOT = Path(".controlproof/runs")
+COMMANDS = ("preflight", "run", "show", "verify", "retest", "cleanup-confirm")
 
 
 class CliContractError(ValueError):
@@ -51,14 +55,54 @@ class CliContractError(ValueError):
         self.code = code
 
 
+class _UsageError(Exception):
+    def __init__(self, parser: argparse.ArgumentParser, message: str) -> None:
+        super().__init__(message)
+        self.parser = parser
+
+
+class _Parser(argparse.ArgumentParser):
+    """With `json_errors`, argument errors become `_UsageError` so `main` can answer in JSON (R-010).
+
+    Without it the parser behaves exactly like argparse (usage text on stderr, exit 2).
+    """
+
+    json_errors = False
+
+    def error(self, message: str):  # type: ignore[override]
+        if self.json_errors:
+            raise _UsageError(self, message)
+        super().error(message)
+
+
+class _JsonErrorParser(_Parser):
+    json_errors = True
+
+
 def create_runtime(settings: Settings, scenario_path: Path) -> RunOrchestrator:
     adapters, _client = create_whyyou_adapter(settings)
     return build_profile_runner(load(scenario_path), adapters, settings.run_root)
 
 
 def main(argv: list[str] | None = None) -> int:
-    parser = _parser()
-    args = parser.parse_args(argv)
+    tokens = list(sys.argv[1:] if argv is None else argv)
+    parser = _parser(json_errors="--json" in tokens)
+    try:
+        args = parser.parse_args(tokens)
+    except _UsageError as exc:
+        _emit(
+            {
+                "schema_version": SCHEMA_VERSION,
+                "command": next((token for token in tokens if token in COMMANDS), None),
+                "result_kind": "ERROR",
+                "error_kind": "USAGE",
+                "error": "USAGE",
+                "detail": str(exc),
+            },
+            as_json=True,
+            error=True,
+        )
+        raise SystemExit(EXIT_ARGUMENTS) from None
     try:
         return args.handler(args)
     except (
@@ -72,11 +116,14 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "schema_version": SCHEMA_VERSION,
                 "command": getattr(args, "command", None),
+                "result_kind": "ERROR",
+                "error_kind": _error_kind(exc),
                 "error": exc.code if isinstance(exc, CliContractError) else type(exc).__name__,
                 "detail": str(exc),
             },
             as_json=getattr(args, "json", False),
             error=True,
+            run_root=_bundle_run_root(args),
         )
         return EXIT_USAGE
     except KeyboardInterrupt:
@@ -84,6 +131,8 @@ def main(argv: list[str] | None = None) -> int:
             {
                 "schema_version": SCHEMA_VERSION,
                 "command": getattr(args, "command", None),
+                "result_kind": "ERROR",
+                "error_kind": "INTERRUPTED",
                 "error": "INTERRUPTED",
                 "detail": "사용자가 작업을 중단했습니다.",
             },
@@ -93,8 +142,30 @@ def main(argv: list[str] | None = None) -> int:
         return EXIT_INCONCLUSIVE
 
 
-def _parser() -> argparse.ArgumentParser:
-    parser = argparse.ArgumentParser(prog="controlproof")
+def _error_kind(exc: Exception) -> str:
+    if isinstance(exc, CliContractError):
+        return "CONTRACT"
+    if isinstance(exc, ConfigError):
+        return "CONFIG"
+    if isinstance(exc, FileNotFoundError):
+        return "NOT_FOUND"
+    if isinstance(exc, RetestError):
+        return "RETEST"
+    if isinstance(exc, (ValueError, ValidationError)):
+        return "CONTRACT"
+    return "UNEXPECTED"
+
+
+def _bundle_run_root(args: argparse.Namespace) -> Path:
+    """Run root rule for show/verify (R-004): --run-root > CONTROLPROOF_RUN_ROOT > .controlproof/runs."""
+    if getattr(args, "run_root", None) is not None:
+        return args.run_root
+    return Path(os.environ.get("CONTROLPROOF_RUN_ROOT") or DEFAULT_RUN_ROOT)
+
+
+def _parser(*, json_errors: bool = False) -> argparse.ArgumentParser:
+    # Subparsers are built with the parent's class, so the error mode reaches every subcommand.
+    parser = (_JsonErrorParser if json_errors else _Parser)(prog="controlproof")
     sub = parser.add_subparsers(dest="command", required=True)
 
     preflight = sub.add_parser("preflight")
@@ -148,7 +219,7 @@ def _scenario_args(parser: argparse.ArgumentParser) -> None:
 
 def _bundle_args(parser: argparse.ArgumentParser) -> None:
     parser.add_argument("run")
-    parser.add_argument("--run-root", type=Path, default=Path(".controlproof/runs"))
+    parser.add_argument("--run-root", type=Path)
     parser.add_argument("--json", action="store_true")
 
 
@@ -181,7 +252,7 @@ def _preflight(args: argparse.Namespace) -> int:
         _add_n02_paths(payload, runtime)
     if selected_profile in SPEC004_PROFILES:
         _add_spec004_readiness(payload, runtime, readiness)
-    _emit(payload, as_json=args.json)
+    _emit(payload, as_json=args.json, run_root=settings.run_root)
     return 0 if payload["readiness"] == ReadinessStatus.READY.value else EXIT_NOT_READY
 
 
@@ -191,13 +262,13 @@ def _run(args: argparse.Namespace) -> int:
     runtime = create_runtime(settings, scenario_path)
     _validate_runtime_selection(runtime, args.scenario_id, selected_profile)
     readiness = runtime.preflight(args.target)
-    payload = _readiness_payload(readiness, runtime.scenario)
+    payload = _readiness_payload(readiness, runtime.scenario, command="run")
     if selected_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
         _add_n02_paths(payload, runtime)
     if selected_profile in SPEC004_PROFILES:
         _add_spec004_readiness(payload, runtime, readiness)
     if payload["readiness"] != ReadinessStatus.READY.value:
-        _emit(payload, as_json=args.json)
+        _emit(payload, as_json=args.json, run_root=settings.run_root)
         return EXIT_NOT_READY
     run, judgement, bundle = runtime.execute(
         readiness,
@@ -207,20 +278,22 @@ def _run(args: argparse.Namespace) -> int:
     payload = _run_payload(run, judgement, bundle)
     if hasattr(runtime, "timing_report"):
         payload["timing"] = runtime.timing_report()
-    _emit(payload, as_json=args.json)
+    _emit(payload, as_json=args.json, run_root=settings.run_root)
     return _run_exit(run.state, judgement.verdict)
 
 
 def _show(args: argparse.Namespace) -> int:
-    bundle = _resolve_bundle(args.run, args.run_root)
+    run_root = _bundle_run_root(args)
+    bundle = _resolve_bundle(args.run, run_root)
     summary = load_bundle_summary(bundle)
     payload = _projection_payload("show", summary)
-    _emit(payload, as_json=args.json, human=render_human(summary))
+    _emit(payload, as_json=args.json, human=render_human(summary), run_root=run_root)
     return 0
 
 
 def _verify(args: argparse.Namespace) -> int:
-    bundle = _resolve_bundle(args.run, args.run_root)
+    run_root = _bundle_run_root(args)
+    bundle = _resolve_bundle(args.run, run_root)
     result = verify_bundle(bundle)
     run_id = _run_id_from_bundle(bundle)
     run_payload = json.loads((bundle / "run.json").read_text(encoding="utf-8"))
@@ -228,6 +301,7 @@ def _verify(args: argparse.Namespace) -> int:
     payload = {
         "schema_version": SCHEMA_VERSION,
         "command": "verify",
+        "result_kind": "VERIFY",
         "run_id": run_id,
         "execution_profile": run_payload.get("execution_profile") or "H03_MINIMAL_V1",
         "profile_contract": manifest.get("profile_contract"),
@@ -236,7 +310,7 @@ def _verify(args: argparse.Namespace) -> int:
         ),
         **result,
     }
-    _emit(payload, as_json=args.json)
+    _emit(payload, as_json=args.json, run_root=run_root)
     return 0 if result["bundle_status"] == "VERIFIED" else EXIT_INTEGRITY
 
 
@@ -251,13 +325,13 @@ def _retest(args: argparse.Namespace) -> int:
     runtime = create_runtime(settings, scenario_path)
     _validate_runtime_selection(runtime, parent_payload["scenario_id"], parent_profile)
     readiness = runtime.preflight(args.target)
-    readiness_payload = _readiness_payload(readiness, runtime.scenario)
+    readiness_payload = _readiness_payload(readiness, runtime.scenario, command="retest")
     if parent_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
         _add_n02_paths(readiness_payload, runtime)
     if parent_profile in SPEC004_PROFILES:
         _add_spec004_readiness(readiness_payload, runtime, readiness)
     if readiness_payload["readiness"] != ReadinessStatus.READY.value:
-        _emit(readiness_payload, as_json=args.json)
+        _emit(readiness_payload, as_json=args.json, run_root=settings.run_root)
         return EXIT_NOT_READY
     child_id = uuid4()
     child_environment = None
@@ -308,7 +382,7 @@ def _retest(args: argparse.Namespace) -> int:
         payload["timing"] = runtime.timing_report()
     payload["command"] = "retest"
     payload["parent_run_id"] = str(parent_run.run_id)
-    _emit(payload, as_json=args.json)
+    _emit(payload, as_json=args.json, run_root=settings.run_root)
     return _run_exit(run.state, judgement.verdict)
 
 
@@ -342,6 +416,8 @@ def _cleanup_confirm(args: argparse.Namespace) -> int:
     else:
         runtime = create_runtime(settings, args.scenario_file or _default_scenario())
         safe = runtime.adapters.fault.target_safe(subject_ref=args.subject)
+        if not safe and blocks.path_for(args.target, args.subject).exists():
+            raise CliContractError("H03_SAFE_STATE_NOT_CONFIRMED", "H-03 target safety probe did not pass")
     record = blocks.confirm_cleanup(
         args.target,
         args.subject,
@@ -349,8 +425,9 @@ def _cleanup_confirm(args: argparse.Namespace) -> int:
         target_safe=safe,
     )
     _emit(
-        {"schema_version": SCHEMA_VERSION, "command": "cleanup-confirm", **record},
+        {"schema_version": SCHEMA_VERSION, "command": "cleanup-confirm", "result_kind": "CLEANUP", **record},
         as_json=args.json,
+        run_root=settings.run_root,
     )
     return 0
 
@@ -466,12 +543,13 @@ def _n02_cleanup_subject(
         raise CliContractError("N02_CLEANUP_EVIDENCE_INVALID", "N-02 cleanup evidence or parent is invalid") from exc
 
 
-def _readiness_payload(readiness, scenario=None) -> dict[str, Any]:
+def _readiness_payload(readiness, scenario=None, *, command: str = "preflight") -> dict[str, Any]:
     profile = getattr(scenario, "execution_profile", None)
     is_versioned = profile is not None and profile is not ExecutionProfile.H03_MINIMAL_V1
     return {
         "schema_version": SCHEMA_VERSION,
-        "command": "preflight",
+        "command": command,
+        "result_kind": "READINESS",
         "scenario_id": readiness.scenario_id,
         "scenario_version": readiness.scenario_version,
         "execution_profile": profile.value if profile else ExecutionProfile.H03_MINIMAL_V1.value,
@@ -548,7 +626,7 @@ def _add_spec004_readiness(payload: dict[str, Any], runtime: Any, readiness: Any
 
 def _run_payload(run, judgement, bundle: Path) -> dict[str, Any]:
     summary = load_bundle_summary(bundle)
-    return {**_projection_payload("run", summary), "bundle_path": str(bundle)}
+    return {**_projection_payload("run", summary), "bundle_path": f"<run_root>/{run.run_id}"}
 
 
 def _scenario_selection(
@@ -611,6 +689,7 @@ def _projection_payload(command: str, summary: dict[str, Any]) -> dict[str, Any]
         "projection_schema_version": projection_schema,
         "schema_version": SCHEMA_VERSION,
         "command": command,
+        "result_kind": "PROJECTION" if command == "show" else "RUN",
     }
 
 
@@ -652,13 +731,16 @@ def _emit(
     as_json: bool,
     error: bool = False,
     human: str | None = None,
+    run_root: Path | None = None,
 ) -> None:
-    safe = redact(payload)
+    """Every output passes the path policy (R-009) before redaction, so run-root paths keep their `<run_root>` form."""
+    safe = redact(display_paths(payload, run_root=run_root))
     stream = sys.stderr if error and not as_json else sys.stdout
     if as_json:
         print(json.dumps(safe, ensure_ascii=False, sort_keys=True), file=stream)
     else:
-        print(human or safe.get("detail") or json.dumps(safe, ensure_ascii=False), file=stream)
+        text = redact(display_paths(human, run_root=run_root)) if human else None
+        print(text or safe.get("detail") or json.dumps(safe, ensure_ascii=False), file=stream)
 
 
 if __name__ == "__main__":
