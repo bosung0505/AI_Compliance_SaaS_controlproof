@@ -231,6 +231,42 @@ Run·재시험·cleanup-confirm은 하지 않았다. 환경을 띄워 7개 프�
   (작업 중 백업 사본은 삭제). 두 WhyYou checkout과 ControlProof의 `git status`는 비어 있다. 포트 5433·4566에는 Docker Desktop이 관리하는
   WSL 중계 프로세스(`wslrelay`)가 남아 있다(컨테이너는 없음). Docker Desktop 소유라 직접 종료하지 않았다. ce8d862 worktree는 공식 E-01 부모 Run용으로 남겨 둔다.
 
+#### Phase 9 준비 2차(공식 Run 아님, 2026-10-09)
+
+- 보성 승인(ID-005-10): PR 브랜치 선병합, T020을 T019보다 먼저.
+- PR #2 브랜치 합치기(T061 일부): `origin/yeonwoo/004-retest-maintenance-path`(`cebf067`)를 005에 `--no-ff`로 합쳤다(merge `b106b55`, 충돌 없음; 변경 4파일,
+  `engine/retest.py` 1줄). `tests/integration/test_spec004_retest_cleanup_path.py` 4 passed, 전체 `pytest -q` 1200 passed, 1 xfailed in 911.23s.
+  PR #2는 004에 아직 병합 전이다(병합되면 004를 다시 합친다).
+- T020 봉인 검사 v2 전환: 새 manifest에 `redaction_profile: controlproof.redaction.v2`, 작성기 쓰기 검사는 v2. T008 시험 6개 + 새 시험 1개 통과(strict-xfail 해제).
+  추적 부모 `15cef078…`은 VERIFIED·v1 유지. 전환 직후 기존 시험 4개가 준비 단계 이유로 실패해 멈추고 보고했고, 승인을 받아 준비 단계만 고쳤다(ID-005-10
+  "T020에 따른 시험 정리"). T019는 보성 검사 대기(ID-005-10).
+- 환경 보완(연우 승인 뒤 다운로드):
+  - Playwright Chromium: ControlProof `.venv` Python으로 `-m playwright install chromium` → Chrome Headless Shell 153.0.8010.12 설치, headless 실행 확인. 앱 제어 차단 없음.
+  - 회사 콘솔: Node v24.19.0, WhyYou checkout에서 `npm ci` 성공(npm 11이 esbuild 설치 스크립트를 `allowScripts`로 건너뜀). `npm run dev:company`로 Vite가 뜨고 HTTP 200,
+    끈 뒤 5173 대기 없음. `node_modules`는 git status에 나오지 않음. 앱 제어 차단 없음.
+  - quickstart §5: "대상 환경 띄우기와 fixture 전환" 절(방법 A `.env` 전환, 방법 B Spec 004 격리 도구의 사용 조건, 이 PC 한정 사항)을 더했다.
+- 정정(1차 기록): 1차 준비의 "API·작업자 프로세스 0개"는 틀렸다. 정지 확인이 `run_workers.py`·`uvicorn` 명령줄만 봤는데, 작업자 풀은 그와 다른 명령줄의
+  multiprocessing 자식 프로세스라 남아 있었다(1차에서 띄운 세 번의 작업자 풀, 각 4개). 2차에서 부모가 없어진 고아 프로세스 16개(2차의 실패한 첫 기동분 4개
+  포함)를 찾아 멈췄다. 이 고아 작업자의 heartbeat 때문에 N-02 preflight가 한 번 `an unmanaged worker attestation is active`로 막혔다. 이후 정지는 WhyYou
+  `.venv`의 모든 python 프로세스를 대상으로 하고 남은 수를 센다.
+- 2차 preflight(374b122는 WhyYou 기본 checkout, ce8d862는 worktree; 모두 dirty 없음):
+
+| 프로필 | 대상 commit | fixture | readiness | READY가 아닌 check |
+|---|---|---|---|---|
+| H03_DLQ_V2 | 374b122 | h03-report-v1 | READY | 없음 |
+| H03_MINIMAL_V1 | 374b122 | h03-report-v1 | READY | 없음 |
+| E03_BEFORE_V2 | 374b122 | h03-report-v1 | READY | 없음 |
+| E03_AFTER_V2 | 374b122 | h03-report-v1 | READY | 없음 |
+| N02_CONSENT_ORDER_V1 | 374b122 | h03-report-v1 | READY | 없음(고아 작업자 정리 뒤) |
+| E02_SCORING_FREEZE_V1 | 374b122 | spec004-report-v1 | READY 16/16, scoring_rule_source MATCH | 없음 |
+| E01_CITATION_EVIDENCE_V1 | 374b122 | spec004-report-v1 | READY 18/18 | 없음 |
+| E01_CITATION_EVIDENCE_V1(부모용) | ce8d862 worktree | spec004-report-v1 | READY 18/18 | 없음 |
+
+  - 같은 날 앞서 한 번 띄운 API가 그 기동 작업이 끝나며 같이 종료돼 연결 오류로 나온 preflight 결과는 환경 문제로 버리고 위 표에 넣지 않았다.
+- 환경 정리: WhyYou `.venv` python 프로세스 0개, 회사 콘솔 node 프로세스 0개, `docker compose down`(볼륨 2개 유지, 실행 컨테이너 0개), 8080·5173 대기 없음.
+  두 `.env`는 시작 전 값으로 되돌려 SHA-256이 같음(백업 사본 삭제). WhyYou 두 checkout의 git status는 비어 있다. ce8d862 worktree는 유지.
+- 2차 gate: `ruff check .` All checks passed · `pytest -q` 1202 passed in 763.80s(xfailed 0: T020 대기 시험이 통과로 바뀜, 새 시험 1개) · `git diff --check` 출력 없음.
+
 ### Actual validation (웹 PC 재실행, Phase 9)
 
 | 순서 | 시나리오·프로필 | WhyYou | ControlProof HEAD·dirty | preflight | Run ID | verdict / 복구 | manifest SHA-256 |
