@@ -111,3 +111,11 @@
   전환으로 기존 결과가 바뀌지 않는다(R-012, T017). 검사 스크립트(`scripts/scan_bundles.py`)는 v1·v2를 모두 계산하므로 보성 PC 검사는 나중에 받아
   기록해도 같은 정보를 준다.
 - 반영: tasks.md T019·T020·T061 노트와 의존 관계 문장.
+- T020 구현(2026-10-09): 새 bundle 작성기(`EvidenceBundleWriter`)의 쓰기 검사를 `assert_redacted_strict`(v1 규칙 + 강화된 사용자 경로)로 바꾸고, 새 manifest에
+  `redaction_profile: controlproof.redaction.v2`를 적는다. `redact()`의 사용자 경로 치환도 강화 정규식으로 바꿨다(자리표시 `[USER_ROOT]`는 같음).
+  `assert_redacted`(v1)와 기존 bundle을 읽는 verify 쪽 검사는 그대로라 표시 없는 기존 bundle은 v1로 판정된다(추적 부모 `15cef078…` VERIFIED·v1 유지).
+  artifact 기록의 `redaction_profile` 필드(`controlproof-redaction-v1`, artifact에 적용한 가림 함수 이름)는 봉인 검사 버전과 다른 값이라 바꾸지 않았다.
+- T020에 따른 시험 정리(연우 승인 2026-10-09): 새 bundle이 v2 표시를 갖게 되어, "봉인 뒤 파일을 더한 v1 bundle"을 만들려고 새 bundle을 복사하던 시험 4개
+  (`test_verify_redaction_profile` 2개, `test_web_evidence_view`의 검사 실패 원문 시험, `test_web_response_redaction`의 경로 든 증적 시험)의 준비 단계에서
+  복사본 manifest의 `redaction_profile`을 지워 실제로 표시 없는(v1) bundle을 만들게 했다. 검사 기대값은 그대로다. v2 표시 bundle에 경로를 더하면
+  INVALID라는 시험 1개를 더했고, T008의 "RED until T020" strict-xfail 표시를 뗐다.

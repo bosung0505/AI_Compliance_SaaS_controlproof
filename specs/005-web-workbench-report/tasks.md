@@ -59,8 +59,8 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 - [X] T017 Implement verify by seal-time scanner and `strict_scan_findings` in `engine/evidence.py`, still sealing with v1 (switch happens in T020) (after T008 RED) [FR-036, R-012]
 - [X] T018 Run the Foundation gate: full `pytest -q`, `ruff check .`, `git diff --check`; record RED→GREEN evidence for T004~T008 and changed expectations in `specs/005-web-workbench-report/validation.md` [FR-035]
 - [ ] T019 [HUMAN] Waiting task: after T012 exists, ask 보성 to run `scripts/scan_bundles.py` on his PC (bundles are not moved) and record only the received report summary in `specs/005-web-workbench-report/validation.md` [FR-036, R-012]
-  - 노트(ID-005-10, 2026-10-09): 보성 검사 대기. T020을 먼저 끝냈으며, 검사 스크립트가 v1·v2를 모두 계산하므로 보고서는 나중에 받아 기록한다.
-- [ ] T020 Switch sealing to v2 and write `redaction_profile: controlproof.redaction.v2` in new manifests in `engine/evidence.py`, after T016 is recorded (T019 may follow, ID-005-10); rerun T008 and the full regression [FR-036, R-012]
+  - 노트(ID-005-10, 2026-10-09): 보성 검사 대기(ID-005-10). T020을 먼저 끝냈으며, 검사 스크립트가 v1·v2를 모두 계산하므로 보고서는 나중에 받아 기록한다.
+- [X] T020 Switch sealing to v2 and write `redaction_profile: controlproof.redaction.v2` in new manifests in `engine/evidence.py`, after T016 is recorded (T019 may follow, ID-005-10); rerun T008 and the full regression [FR-036, R-012]
   - 노트(ID-005-10, 2026-10-09 보성 승인): T019보다 먼저 한다. 기존 bundle의 verify는 봉인 당시 검사(v1)로 판정하므로 결과가 바뀌지 않는다.
 
 **Checkpoint**: 출력 경계·증적 색인·출력 구분 필드가 준비됐다. 사용자 스토리를 시작할 수 있다.

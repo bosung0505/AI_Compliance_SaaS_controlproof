@@ -28,6 +28,7 @@ def _leaky_copy(built, root):
     shutil.copytree(built.bundle, target, dirs_exist_ok=True)
     manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
     manifest.pop("bundle_digest")
+    manifest.pop("redaction_profile", None)  # unmarked = sealed before T020 (v1); a leak then stays non-blocking
     payload = json.dumps({"p": "C:\\Users\\alice\\runs\\abc", "q": "/home/bob/x"}).encode()
     (target / "notes.json").write_bytes(payload)
     manifest["files"].append({"path": "notes.json", "mime_type": "application/json", "size_bytes": len(payload),

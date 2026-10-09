@@ -10,8 +10,6 @@ import json
 import shutil
 from pathlib import Path
 
-import pytest
-
 from engine.evidence import canonical_json_bytes, sha256_bytes, verify_bundle
 from tests.fixtures import web_bundles as wb
 
@@ -19,9 +17,11 @@ PARENT = Path(".controlproof/runs/15cef078-ee24-4f0e-91ef-381e0f7a1cc2")
 LEAK = json.dumps({"p": "C:\\Users\\alice\\runs\\abc"}).encode()
 
 
-def _reseal(directory: Path, *, extra: bytes | None = None, profile: str | None = None) -> None:
+def _reseal(directory: Path, *, extra: bytes | None = None, profile: str | None = None, unmark: bool = False) -> None:
     manifest = json.loads((directory / "manifest.json").read_text(encoding="utf-8"))
     manifest.pop("bundle_digest")
+    if unmark:  # since T020 fresh bundles are v2-marked; an unmarked copy stands for a bundle sealed before T020 (v1)
+        manifest.pop("redaction_profile", None)
     if extra is not None:
         (directory / "notes.json").write_bytes(extra)
         manifest["files"].append(
@@ -42,8 +42,9 @@ def _copy(tmp_path, built) -> Path:
 
 
 def test_unmarked_bundle_verifies_with_v1(tmp_path) -> None:
-    built = wb.h03_case(tmp_path / "runs", "pass")
-    result = verify_bundle(built.bundle)
+    copy = _copy(tmp_path, wb.h03_case(tmp_path / "runs", "pass"))
+    _reseal(copy, unmark=True)
+    result = verify_bundle(copy)
     assert result["bundle_status"] == "VERIFIED"
     assert result["redaction_profile"] == "controlproof.redaction.v1"
     assert result["strict_scan_findings"] == []
@@ -51,7 +52,7 @@ def test_unmarked_bundle_verifies_with_v1(tmp_path) -> None:
 
 def test_v2_findings_on_v1_bundle_are_non_blocking(tmp_path) -> None:
     copy = _copy(tmp_path, wb.h03_case(tmp_path / "runs", "pass"))
-    _reseal(copy, extra=LEAK)
+    _reseal(copy, extra=LEAK, unmark=True)
     result = verify_bundle(copy)
     assert result["bundle_status"] == "VERIFIED"
     assert result["strict_scan_findings"] == [{"path": "notes.json", "rule": "user_path", "count": 1}]
@@ -87,8 +88,16 @@ def test_tracked_parent_stays_verified() -> None:
     assert result["redaction_profile"] == "controlproof.redaction.v1"
 
 
-@pytest.mark.xfail(strict=True, reason="RED until T020 (sealing switches to v2)")
-def test_new_seals_write_v2(tmp_path) -> None:
+def test_fresh_v2_bundle_with_a_leak_is_invalid(tmp_path) -> None:
+    """Since T020 a new bundle carries the v2 marker, so a leak added after sealing is judged with v2."""
+    copy = _copy(tmp_path, wb.h03_case(tmp_path / "runs", "pass"))
+    _reseal(copy, extra=LEAK)
+    result = verify_bundle(copy)
+    assert (result["bundle_status"], result["redaction_profile"]) == ("INVALID", "controlproof.redaction.v2")
+    assert "notes.json:redaction" in result["mismatched_files"]
+
+
+def test_new_seals_write_v2(tmp_path) -> None:  # was strict-xfail "RED until T020"; T020 done (ID-005-10)
     built = wb.h03_case(tmp_path / "runs", "pass")
     manifest = json.loads((built.bundle / "manifest.json").read_text(encoding="utf-8"))
     assert manifest["redaction_profile"] == "controlproof.redaction.v2"

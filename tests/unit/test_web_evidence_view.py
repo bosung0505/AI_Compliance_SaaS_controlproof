@@ -28,6 +28,7 @@ def _with_extra_file(built, tmp_path, name, payload, mime="application/json"):
     shutil.copytree(built.bundle, target)
     manifest = json.loads((target / "manifest.json").read_text(encoding="utf-8"))
     manifest.pop("bundle_digest")
+    manifest.pop("redaction_profile", None)  # unmarked = sealed before T020 (v1); a leak then stays non-blocking
     (target / name).write_bytes(payload)
     manifest["files"].append({"path": name, "mime_type": mime, "size_bytes": len(payload), "sha256": sha256_bytes(payload)})
     manifest["files"].sort(key=lambda record: record["path"])

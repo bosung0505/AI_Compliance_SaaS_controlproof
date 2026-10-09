@@ -285,7 +285,7 @@ def redact(value: Any) -> Any:
         text = EMAIL_RE.sub("[SUBJECT_REF]", text)
         text = PHONE_RE.sub(REDACTED, text)
         text = SIGNED_QUERY_RE.sub(lambda match: f"{match.group(1)}={REDACTED}", text)
-        text = USER_PATH_RE.sub("[USER_ROOT]", text)
+        text = USER_PATH_RE_V2.sub("[USER_ROOT]", text)
         return text
     return value
 
@@ -361,6 +361,21 @@ def _run_root_pattern(run_root: Path) -> re.Pattern[str]:
     )
     flags = re.IGNORECASE if os.name == "nt" else 0
     return re.compile(rf"(?:{alternatives})((?:[/\\]{_PATH_TAIL})?)(?![^\s\"'<>])", flags)
+
+
+def assert_redacted_strict(payload: bytes) -> None:
+    """The seal-time scanner for new bundles (`controlproof.redaction.v2`, T020): v1 rules with the hardened user path."""
+    text = payload.decode("utf-8", errors="ignore")
+    if (
+        BEARER_RE.search(text)
+        or EMAIL_RE.search(text)
+        or PHONE_RE.search(text)
+        or USER_PATH_RE_V2.search(text)
+    ):
+        raise ValueError("redaction scanner found prohibited secret or PII pattern")
+    for document in _json_documents(text):
+        if _contains_unredacted_sensitive_field(document):
+            raise ValueError("redaction scanner found prohibited secret or PII field")
 
 
 def _is_sensitive_key(lowered: str) -> bool:
@@ -452,7 +467,7 @@ class EvidenceBundleWriter:
         self._ensure_mutable()
         projected = redact(value) if redact_first else value
         payload = canonical_json_bytes(projected)
-        assert_redacted(payload)
+        assert_redacted_strict(payload)
         path = _relative(self.directory, relative_path)
         atomic_write(path, payload)
         self._register(relative_path, payload, "application/json")
@@ -465,7 +480,7 @@ class EvidenceBundleWriter:
             "application/yaml",
             "application/x-ndjson",
         }:
-            assert_redacted(payload)
+            assert_redacted_strict(payload)
         path = _relative(self.directory, relative_path)
         atomic_write(path, payload)
         self._register(relative_path, payload, mime_type)
@@ -475,7 +490,7 @@ class EvidenceBundleWriter:
         self._ensure_mutable()
         projected = redact(value)
         payload = canonical_json_bytes(projected)
-        assert_redacted(payload)
+        assert_redacted_strict(payload)
         path = _relative(self.directory, relative_path)
         path.parent.mkdir(parents=True, exist_ok=True)
         with path.open("ab") as stream:
@@ -571,7 +586,7 @@ class EvidenceBundleWriter:
             }
         )
         payload = canonical_json_bytes(envelope)
-        assert_redacted(payload)
+        assert_redacted_strict(payload)
         path = _relative(self.directory, relative_path)
         atomic_write(path, payload)
         self._register(
@@ -722,6 +737,8 @@ class EvidenceBundleWriter:
             "sealed_at": utcnow().isoformat(),
             "files": [self._files[key] for key in sorted(self._files)],
             "required_evidence": self._required,
+            # T020: new bundles are sealed with the v2 scanner; verify judges each bundle by this value (none = v1).
+            "redaction_profile": REDACTION_V2,
         }
         if _is_spec002_profile(self.profile):
             manifest.update(
