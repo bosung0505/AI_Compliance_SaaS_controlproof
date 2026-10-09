@@ -102,3 +102,12 @@
   ④ 알려진 미검증 항목·시험 조건 종류는 카탈로그의 한국어 설명으로 보이고 원문은 개발자용 정보에 둔다. 대상 버전은 기록에 WhyYou commit이 있으면 짧은
   commit(7자)을 보이고 snapshot 해시는 개발자용 정보로 옮긴다.
 - 시험: `tests/unit/test_web_run_readability.py`, `tests/web/test_run_readability_screen.py`(1280·1024px). 기존 시험 기대값은 바꾸지 않는다.
+
+## ID-005-10 — PR 브랜치 선병합과 T020 선행 (보성 승인 2026-10-09 "추천안대로")
+
+- PR #2(Spec 004 재시험 정리 확인 경로, FR-037)가 004 브랜치에 병합되기 전에 PR 브랜치 `yeonwoo/004-retest-maintenance-path`(`cebf067`)를 005에 먼저
+  `--no-ff`로 합친다. PR은 그대로 두고, PR #2가 004에 병합되면 005에 004를 다시 합친다(T061은 그때 완료).
+- T020(봉인 검사 v2 전환)을 T019(보성 PC 검사)보다 먼저 한다. 기존 bundle의 verify는 manifest의 봉인 당시 검사 버전(표시 없음 = v1)으로 판정하므로
+  전환으로 기존 결과가 바뀌지 않는다(R-012, T017). 검사 스크립트(`scripts/scan_bundles.py`)는 v1·v2를 모두 계산하므로 보성 PC 검사는 나중에 받아
+  기록해도 같은 정보를 준다.
+- 반영: tasks.md T019·T020·T061 노트와 의존 관계 문장.

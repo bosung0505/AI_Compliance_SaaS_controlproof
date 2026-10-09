@@ -59,7 +59,9 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 - [X] T017 Implement verify by seal-time scanner and `strict_scan_findings` in `engine/evidence.py`, still sealing with v1 (switch happens in T020) (after T008 RED) [FR-036, R-012]
 - [X] T018 Run the Foundation gate: full `pytest -q`, `ruff check .`, `git diff --check`; record RED→GREEN evidence for T004~T008 and changed expectations in `specs/005-web-workbench-report/validation.md` [FR-035]
 - [ ] T019 [HUMAN] Waiting task: after T012 exists, ask 보성 to run `scripts/scan_bundles.py` on his PC (bundles are not moved) and record only the received report summary in `specs/005-web-workbench-report/validation.md` [FR-036, R-012]
-- [ ] T020 Switch sealing to v2 and write `redaction_profile: controlproof.redaction.v2` in new manifests in `engine/evidence.py`, only after T016 and T019 are recorded; rerun T008 and the full regression [FR-036, R-012]
+  - 노트(ID-005-10, 2026-10-09): 보성 검사 대기. T020을 먼저 끝냈으며, 검사 스크립트가 v1·v2를 모두 계산하므로 보고서는 나중에 받아 기록한다.
+- [ ] T020 Switch sealing to v2 and write `redaction_profile: controlproof.redaction.v2` in new manifests in `engine/evidence.py`, after T016 is recorded (T019 may follow, ID-005-10); rerun T008 and the full regression [FR-036, R-012]
+  - 노트(ID-005-10, 2026-10-09 보성 승인): T019보다 먼저 한다. 기존 bundle의 verify는 봉인 당시 검사(v1)로 판정하므로 결과가 바뀌지 않는다.
 
 **Checkpoint**: 출력 경계·증적 색인·출력 구분 필드가 준비됐다. 사용자 스토리를 시작할 수 있다.
 
@@ -208,6 +210,8 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 `READY` 확인, 사람 승인. 매 Run 뒤 `show`·`verify`, Run ID와 manifest SHA-256 기록.
 
 - [ ] T061 [HUMAN] Confirm the Spec 004 retest maintenance-path fix (FR-037, research R-013) is merged on `origin/yeonwoo/004-e01-e02-score-evidence`, merge it into `005-web-workbench-report` (stop on conflict), and record the commit in `specs/005-web-workbench-report/validation.md`; not merged as of 2026-10-08 [FR-037]
+  - 노트(ID-005-10, 2026-10-09): PR 브랜치 선병합(ID-005-10), PR #2 병합 대기. PR 브랜치 `yeonwoo/004-retest-maintenance-path`(`cebf067`)를 005에 먼저
+    합쳤다. PR #2가 004에 병합되면 005에 004를 다시 합치고 이 작업을 [X]로 한다.
 - [ ] T062 [HUMAN] Record both repositories' branch, HEAD and dirty state, start WhyYou `374b122` with fixture `h03-report-v1`, and record preflight for all five `h03-report-v1` profiles in `specs/005-web-workbench-report/validation.md` [FR-030, SC-011]
 - [ ] T063 [HUMAN] Run H-03 `H03_DLQ_V2` once at `374b122` first; record it also as the independent reproduction gate record "현재 통합 대상(`374b122`) 기준" with the note that playbook §6 named a different commit; if it differs from the official status, classify the cause before anything else: seed/runner defect → failing test first, then fix and rerun; target-version problem → stop and ask 보성 whether to use `511ae9e`, in `specs/005-web-workbench-report/validation.md` [FR-030, R-015]
 - [ ] T064 [HUMAN] Run H-03 `H03_MINIMAL_V1`, E-03 `E03_BEFORE_V2`, E-03 `E03_AFTER_V2` at `374b122` (each with state record and preflight first) and record them in `specs/005-web-workbench-report/validation.md` [FR-030]
@@ -245,7 +249,8 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 - Setup(T001~T003) → Foundational(T004~T018) → US1(T021~T034) → US2·US3·US4·US5(각각 US1 뒤, 서로 독립; 같은 `readmodel.py`·`server.py`를 고치므로 같은
   파일 작업은 순서대로) → Polish(T058~T060) → Actual Validation(T061~T069, 사람 승인) → US6(T070~T072) → Converge(T073~T076).
 - T019(보성 PC 검사, 대기)와 T020(검사 v2 전환)은 T012·T016 뒤이며 사용자 스토리를 막지 않는다. T020은 T069 전에 끝나야 한다(실제 기록이 v2로 봉인되도록).
-- T061(위험 4 병합 확인)은 T062보다 먼저다.
+  ID-005-10(2026-10-09)에 따라 T020을 T019보다 먼저 하고, T019는 보성 보고서를 받는 대로 기록한다.
+- T061(위험 4 병합 확인)은 T062보다 먼저다. ID-005-10에 따라 PR 브랜치를 먼저 합친 상태로 Phase 9를 시작할 수 있고, PR #2가 004에 병합되면 004를 다시 합친다.
 - US6(T071)은 T069의 실제 기록이 있어야 한다. T070은 언제든 준비할 수 있다.
 
 ### Parallel Opportunities
@@ -263,7 +268,7 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 
 ## Notes
 
-- 대기 작업: T019(보성 PC 검사, 스크립트 T012 뒤), T061(위험 4 병합, 2026-10-08 미병합), T071(태오 사용성 검토).
+- 대기 작업: T019(보성 PC 검사, 스크립트 T012 뒤; ID-005-10으로 T020 뒤에 받아도 됨), T061(PR 브랜치 선병합 완료, PR #2의 004 병합 대기), T071(태오 사용성 검토).
 - 첫 구현 작업은 T009(T004 RED 확인 뒤)다.
 
 ## Analysis (`$speckit-analyze`, 2026-10-08)
