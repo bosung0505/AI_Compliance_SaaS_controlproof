@@ -607,7 +607,7 @@ def _spec004_cleanup_resolved(directory: Path, parent_run: Run) -> None:
     if blocks.blocked(parent_run.target_id, SPEC004_BLOCK_SUBJECTS[profile]):
         raise RetestError("Spec 004 retest refused: unresolved restore block")
     if parent_run.state is RunState.RESTORE_FAILED or parent_run.manual_cleanup_required:
-        confirmation = directory.parent / "maintenance" / f"{parent_run.run_id}.json"
+        confirmation = blocks.root / "maintenance" / f"{parent_run.run_id}.json"
         if not confirmation.is_file():
             raise RetestError("Spec 004 retest refused: restore block was never confirmed")
 

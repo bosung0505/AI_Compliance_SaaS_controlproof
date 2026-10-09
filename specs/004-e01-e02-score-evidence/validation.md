@@ -1056,3 +1056,12 @@ an assumed other-PC success. Constitution closure check PASS, no exception.
 Converged — the implementation satisfies the spec, plan, and tasks. Spec004 Complete. Next feature:
 Spec005's own specification/implementation cycle, followed by review on feature branches. Main integration
 and the external-PC gate remain separate. This does not complete Spec003 or the whole MVP.
+
+## Post-closure fix — retest cleanup confirmation path (2026-10-08, ID-004-37)
+
+- Scope: one line in `engine/retest.py`; Spec 004 Complete status and all recorded Runs unchanged. Branch
+  `yeonwoo/004-retest-maintenance-path` from `865b0ed`, PR to `yeonwoo/004-e01-e02-score-evidence`.
+- RED → GREEN: `tests/integration/test_spec004_retest_cleanup_path.py` 4 failed before, 4 passed after.
+- Regression: `ruff check .` passed; `pytest -q` 947 passed.
+- Sealed-Run impact: none. No official Spec 004 Run or child was RESTORE_FAILED (all restore SUCCEEDED; retests used COMPLETED
+  parents), so no recorded result depended on the faulty path. No actual Run was executed for this fix.
