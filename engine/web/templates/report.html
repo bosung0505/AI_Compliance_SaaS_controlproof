@@ -9,7 +9,7 @@
 {% set counts = view.counts %}
 <section aria-label="결과 보고서">
   <h2>결과 보고서 <span class="muted">(한 화면 · 번호는 V4 §8.7 [R1~R13]과 §12.4 [C1~C9] 점검용)</span></h2>
-  <p class="muted">재시험 비교 화면은 다음 단계에서 제공합니다. 이 보고서의 최초 실행·재시험 계보(R10)는 공식 기록 목록입니다.</p>
+  <p class="muted">최초 실행·재시험 계보(R10)는 공식 기록 목록입니다. 재시험 기록이 이 화면의 기록 root에 있으면 "재시험 비교"로 엽니다.</p>
   <div class="card report">
     <p>{{ item("R1") }}<b>검증 대상과 버전</b>: {{ view.target_and_versions.text }}{% if view.target_commit_now %} <span class="muted">최근 준비 상태 확인의 대상 commit</span> <span class="mono">{{ view.target_commit_now }}</span>{% endif %}</p>
     <p>{{ item("R2") }}<b>검증 목적과 범위</b>: {{ view.purpose_and_scope.text }}</p>
@@ -46,7 +46,7 @@
     <details data-testid="developer"><summary>개발자용 원본 정보</summary><p class="mono">model_fixture_id: {{ view.developer.model_fixtures | join(", ") }}</p></details>
 
     <p>{{ item("R10") }}{{ item("C5") }}<b>최초 실행과 재시험 비교</b>: 최초 기록은 모두 보존됩니다.</p>
-    <ul>{% for row in view.lineages %}<li>{{ row.scenario_id }} <span class="muted">{{ row.execution_profile }}</span>: {{ badge(row.parent_badge) }} <span class="mono">{{ row.parent_run_id | short_id }}</span> → {{ badge(row.child_badge) }} <span class="mono">{{ row.child_run_id | short_id }}</span></li>{% endfor %}</ul>
+    <ul>{% for row in view.lineages %}<li>{{ row.scenario_id }} <span class="muted">{{ row.execution_profile }}</span>: {{ badge(row.parent_badge) }} <span class="mono">{{ row.parent_run_id | short_id }}</span> → {{ badge(row.child_badge) }} <span class="mono">{{ row.child_run_id | short_id }}</span>{% if row.child_present %} <a class="compare-link" href="{{ prefix }}/compare/{{ row.child_run_id }}">재시험 비교</a>{% endif %}</li>{% endfor %}</ul>
 
     <p>{{ item("R11") }}<b>WhyYou에 시험 목적으로 추가한 기능</b> <span class="muted">(제품 기능이 아니라 시험 수단)</span>:</p>
     <ul>{% for row in view.test_only_additions %}<li>{{ row.text }}</li>{% endfor %}</ul>

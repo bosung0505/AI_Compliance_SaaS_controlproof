@@ -354,6 +354,7 @@ class WorkbenchReader:
                             "child_run_id": final["run_id"],
                             "child_result": final["result"],
                             "child_badge": badges.result_badge(final["result"], None).key,
+                            "child_present": (self.run_root / final["run_id"]).is_dir(),
                         }
                     )
         return lineages
@@ -669,6 +670,113 @@ class WorkbenchReader:
                 }
             )
         return runs
+
+
+    # -- compare view (US5) --------------------------------------------------------------------------------------------
+    def compare(self, child_run_id: str) -> dict[str, Any]:
+        """Parent and child side by side; the parent digest the child recorded is checked against the parent now."""
+        child_bundle = self._bundle(child_run_id)
+        link = _read_json(child_bundle / "retest-link.json") or {}
+        child_record = _read_json(child_bundle / "run.json") or {}
+        parent_id = link.get("parent_run_id") or child_record.get("parent_run_id")
+        if not parent_id:
+            raise RunNotFound(child_run_id)
+        child_view = self.run(child_run_id)
+        try:
+            parent_view = self.run(str(parent_id))
+        except RunNotFound:
+            parent_view = None
+        recorded, source = _recorded_parent_digest(child_bundle, link, str(parent_id))
+        current = (_read_json(self.run_root / str(parent_id) / "manifest.json") or {}).get("bundle_digest")
+        parent_integrity = parent_view["integrity"]["status"] if parent_view else "UNREADABLE"
+        unchanged = None if recorded is None else (current == recorded)
+        problem = None
+        if parent_view is None:
+            problem = {"code": "PARENT_NOT_IN_ROOT", "detail": "부모 실행 기록이 이 화면의 기록 root에 없습니다."}
+        elif parent_integrity != "VERIFIED":
+            problem = {"code": "PARENT_NOT_VERIFIED", "detail": "부모 기록의 봉인 무결성을 확인하지 못했습니다."}
+        elif unchanged is False:
+            problem = {
+                "code": "PARENT_DIGEST_CHANGED",
+                "detail": "재시험 기록에 남은 부모 무결성 값과 지금 부모 기록의 값이 다릅니다.",
+            }
+        if child_view["integrity"]["status"] != "VERIFIED" and problem is None:
+            problem = {"code": "CHILD_NOT_VERIFIED", "detail": "재시험 기록의 봉인 무결성을 확인하지 못했습니다."}
+        entry = self._catalog_entry(child_record.get("scenario_id"))
+        template = next(
+            (
+                profile["retest_command"]
+                for profile in (entry or {}).get("profiles", [])
+                if profile["execution_profile"] == (child_record.get("execution_profile") or "H03_MINIMAL_V1")
+            ),
+            "python -m engine.cli retest {parent_run_id} --target {target} --label {label} --json",
+        )
+        memos = self.memos.list(child_run_id) if self.memos else []
+        view: dict[str, Any] = {
+            **self.header("compare"),
+            "parent": _compare_side(parent_view, str(parent_id)),
+            "child": _compare_side(child_view, child_run_id),
+            "parent_unchanged": unchanged,
+            "parent_integrity_source": source,
+            "recorded_parent_digest": recorded,
+            "current_parent_digest": current,
+            "lineage_problem": problem,
+            "lineage": self._lineage(child_run_id),
+            "fix_description": (
+                {"text": memos[-1]["text"], "source": "memo"}
+                if memos else {"text": link.get("reason"), "source": "retest_link"} if link.get("reason") else None
+            ),
+            "retest_command": template.format(parent_run_id=child_run_id, target=self.target, label="<라벨>"),
+            "changed_dimensions": None,
+            "assertion_changes": None,
+            "remaining_failures": None,
+            "developer": {"retest_diff": _read_json(child_bundle / "retest-diff.json"), "retest_link": link or None},
+        }
+        if problem is not None:
+            return view
+        view["changed_dimensions"] = link.get("changed_dimensions")
+        before = {item["assertion_id"]: item for item in parent_view["assertions"] or []}
+        after = {item["assertion_id"]: item for item in child_view["assertions"] or []}
+        evidence_before = {item["ref"]: item for item in parent_view["evidence"] or []}
+        evidence_after = {item["ref"]: item for item in child_view["evidence"] or []}
+        changes = []
+        for assertion_id in list(before) + [key for key in after if key not in before]:
+            old, new = before.get(assertion_id), after.get(assertion_id)
+            changes.append(
+                {
+                    "assertion_id": assertion_id,
+                    "before": old["status"] if old else None,
+                    "before_badge": old["badge"] if old else None,
+                    "after": new["status"] if new else None,
+                    "after_badge": new["badge"] if new else None,
+                    "changed": (old or {}).get("status") != (new or {}).get("status"),
+                    "before_evidence": _evidence_digests(old, evidence_before),
+                    "after_evidence": _evidence_digests(new, evidence_after),
+                }
+            )
+        view["assertion_changes"] = changes
+        view["remaining_failures"] = sorted(
+            item["assertion_id"] for item in changes if item["after"] in {"FAIL", "INCONCLUSIVE"}
+        )
+        return view
+
+    def _lineage(self, run_id: str) -> list[dict[str, Any]]:
+        chain, seen, current = [], set(), run_id
+        while current and current not in seen and (self.run_root / current).is_dir():
+            seen.add(current)
+            record = _read_json(self.run_root / current / "run.json") or {}
+            integrity = self._integrity(self.run_root / current, record.get("state"))["status"]
+            verdict = _bundle_verdict(self.run_root / current) if integrity == "VERIFIED" else None
+            chain.append(
+                {
+                    "run_id": current,
+                    "verdict": verdict,
+                    "badge": badges.result_badge(verdict, _bundle_reason(self.run_root / current)).key if verdict else None,
+                    "integrity": integrity,
+                }
+            )
+            current = record.get("parent_run_id")
+        return list(reversed(chain))
 
     # -- report view (US3) -----------------------------------------------------------------------------------------
     def report(self) -> dict[str, Any]:
@@ -1116,3 +1224,42 @@ def _definition(raw: dict[str, Any], source: str, run_id: str | None) -> dict[st
         "restore_policy": raw.get("restore_policy"),
         "excluded_scope": list(raw.get("excluded_scope", []) or []),
     }
+
+def _recorded_parent_digest(child: Path, link: dict[str, Any], parent_id: str) -> tuple[str | None, str]:
+    """The parent integrity value the child recorded: retest link (Spec 003·004), cross-run reference (Spec 002), none."""
+    if link.get("parent_bundle_digest"):
+        return link["parent_bundle_digest"], "RETEST_LINK"
+    manifest = _read_json(child / "manifest.json") or {}
+    for references in (manifest.get("required_evidence") or {}).values():
+        for reference in references if isinstance(references, list) else ():
+            if isinstance(reference, dict) and reference.get("origin_run_id") == parent_id and reference.get("bundle_digest"):
+                return reference["bundle_digest"], "CROSS_RUN_REFERENCE"
+    return None, "NONE_LEGACY"
+
+
+def _compare_side(view: dict[str, Any] | None, run_id: str) -> dict[str, Any]:
+    if view is None:
+        return {"run_id": run_id, "verdict": None, "badge": None, "integrity": "UNREADABLE", "target_version": None,
+                "target_commit": None}
+    verdict = view["verdict"]
+    return {
+        "run_id": run_id,
+        "verdict": verdict["value"] if verdict else None,
+        "badge": verdict["badge"] if verdict else None,
+        "integrity": view["integrity"]["status"],
+        "integrity_label": view["integrity_display"]["label"],
+        "target_version": view["run"]["target_version"],
+        "target_commit": view["run"]["target_commit"],
+        "scenario_version": view["run"]["scenario_version"],
+        "execution_profile": view["run"]["execution_profile"],
+    }
+
+
+def _evidence_digests(assertion: dict[str, Any] | None, evidence: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    if not assertion:
+        return []
+    return [
+        {"ref": ref, "label": evidence[ref]["evidence_name"], "sha256": evidence[ref]["sha256"]}
+        for ref in assertion["evidence_refs"]
+        if ref in evidence
+    ]

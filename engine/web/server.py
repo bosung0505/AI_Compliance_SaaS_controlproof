@@ -59,6 +59,8 @@ ROUTES = (
     ("GET", "/report", "report_html"),
     ("GET", "/scenarios/{scenario_id}", "scenario_html"),
     ("GET", "/api/scenarios/{scenario_id}", "scenario_json"),
+    ("GET", "/compare/{run_id}", "compare_html"),
+    ("GET", "/api/compare/{run_id}", "compare_json"),
     ("GET", "/api/report", "report_json"),
     ("GET", "/demo/", "workbench_html"),
     ("GET", "/demo/api/workbench", "workbench_json"),
@@ -68,6 +70,8 @@ ROUTES = (
     ("GET", "/demo/report", "report_html"),
     ("GET", "/demo/scenarios/{scenario_id}", "scenario_html"),
     ("GET", "/demo/api/scenarios/{scenario_id}", "scenario_json"),
+    ("GET", "/demo/compare/{run_id}", "compare_html"),
+    ("GET", "/demo/api/compare/{run_id}", "compare_json"),
     ("GET", "/demo/api/report", "report_json"),
     ("GET", "/static/{name}", "static"),
     ("GET", "/favicon.ico", "favicon"),
@@ -240,6 +244,24 @@ class _Handler(BaseHTTPRequestHandler):
             self._error("NOT_FOUND", "SCENARIO_NOT_FOUND", "카탈로그에 없는 시나리오입니다.")
             return
         self._html(HTTPStatus.OK, "scenario.html", view=view, prefix="/demo" if view["demo"] else "")
+
+    def _route_compare_json(self, path: str, run_id: str) -> None:
+        reader = self._reader(path)
+        try:
+            view = reader.compare(run_id)
+        except RunNotFound:
+            self._error("NOT_FOUND", "RETEST_NOT_FOUND", "요청한 재시험 기록이 없습니다.")
+            return
+        self._json(HTTPStatus.OK, _boundary(view, reader.run_root))
+
+    def _route_compare_html(self, path: str, run_id: str) -> None:
+        reader = self._reader(path)
+        try:
+            view = _boundary(reader.compare(run_id), reader.run_root)
+        except RunNotFound:
+            self._error("NOT_FOUND", "RETEST_NOT_FOUND", "요청한 재시험 기록이 없습니다.")
+            return
+        self._html(HTTPStatus.OK, "compare.html", view=view, prefix="/demo" if view["demo"] else "")
 
     def _route_report_json(self, path: str) -> None:
         reader = self._reader(path)

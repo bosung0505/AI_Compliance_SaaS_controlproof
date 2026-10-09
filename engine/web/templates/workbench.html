@@ -98,7 +98,7 @@
       <ul>
         {% for item in view.preserved_first_failures %}
         <li>{{ item.scenario_id }} <span class="muted">{{ item.execution_profile }}</span>: 최초 {{ badge(item.parent_badge) }} <span class="mono nowrap" title="{{ item.parent_run_id }}">{{ item.parent_run_id | short_id }}</span>
-          → 재시험 {{ badge(item.child_badge) }} <span class="mono nowrap" title="{{ item.child_run_id }}">{{ item.child_run_id | short_id }}</span></li>
+          → 재시험 {{ badge(item.child_badge) }} <span class="mono nowrap" title="{{ item.child_run_id }}">{{ item.child_run_id | short_id }}</span>{% if item.child_present %} <a class="compare-link" href="{{ prefix }}/compare/{{ item.child_run_id }}">비교 보기</a>{% endif %}</li>
         {% endfor %}
       </ul>
     </div>

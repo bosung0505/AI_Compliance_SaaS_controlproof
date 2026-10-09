@@ -175,14 +175,14 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 
 ### Tests for User Story 5 — write first, confirm RED
 
-- [ ] T053 [P] [US5] Add unit tests for the compare view: `parent_unchanged` from `retest-link.json` `parent_bundle_digest` vs current parent `bundle_digest`; `changed_dimensions` verbatim; assertion before/after with evidence; `lineage_problem` when the parent is not VERIFIED or digests differ; `parent_integrity_source` = `RETEST_LINK` (Spec 003·004), `CROSS_RUN_REFERENCE` (Spec 002) or `NONE_LEGACY` (Spec 001, `parent_unchanged: null`, parent's own integrity shown, not a lineage problem), in `tests/unit/test_web_readmodel_compare.py` [FR-021~023, SC-005]
-- [ ] T054 [P] [US5] Add browser tests for the compare screen at 1280px and 1024px (화면 공통 기준; two different run IDs side by side; parent verdict unchanged; retest shown only as a command) in `tests/web/test_compare_screen.py` [FR-021~023, SC-005]
+- [X] T053 [P] [US5] Add unit tests for the compare view: `parent_unchanged` from `retest-link.json` `parent_bundle_digest` vs current parent `bundle_digest`; `changed_dimensions` verbatim; assertion before/after with evidence; `lineage_problem` when the parent is not VERIFIED or digests differ; `parent_integrity_source` = `RETEST_LINK` (Spec 003·004), `CROSS_RUN_REFERENCE` (Spec 002) or `NONE_LEGACY` (Spec 001, `parent_unchanged: null`, parent's own integrity shown, not a lineage problem), in `tests/unit/test_web_readmodel_compare.py` [FR-021~023, SC-005]
+- [X] T054 [P] [US5] Add browser tests for the compare screen at 1280px and 1024px (화면 공통 기준; two different run IDs side by side; parent verdict unchanged; retest shown only as a command) in `tests/web/test_compare_screen.py` [FR-021~023, SC-005]
 
 ### Implementation for User Story 5
 
-- [ ] T055 [US5] Implement the compare view in `engine/web/readmodel.py` (after T053 RED) [FR-021~023]
-- [ ] T056 [US5] Add `/compare/{child_run_id}`, `/api/compare/{child_run_id}` routes in `engine/web/server.py` and create `engine/web/templates/compare.html` per the approved screen ④ compare part (after T054 RED) [FR-021~023]
-- [ ] T057 [US5] Run the US5 gate and record it in `specs/005-web-workbench-report/validation.md` [SC-005]
+- [X] T055 [US5] Implement the compare view in `engine/web/readmodel.py` (after T053 RED) [FR-021~023]
+- [X] T056 [US5] Add `/compare/{child_run_id}`, `/api/compare/{child_run_id}` routes in `engine/web/server.py` and create `engine/web/templates/compare.html` per the approved screen ④ compare part (after T054 RED) [FR-021~023]
+- [X] T057 [US5] Run the US5 gate and record it in `specs/005-web-workbench-report/validation.md` [SC-005]
 
 
 ### 결과 화면 가독성 보정 (2026-10-09 추가, 사용성 검토 전, ID-005-09)

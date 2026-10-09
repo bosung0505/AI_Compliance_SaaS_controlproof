@@ -33,7 +33,8 @@ def test_definition_from_scenario_file_without_runs(catalog, tmp_path) -> None:
     view = _reader(catalog, tmp_path / "runs", tmp_path).scenario("E-01")
     assert (view["schema_version"], view["view"], view["id"]) == ("controlproof.web.v1", "scenario", "E-01")
     definition = view["profiles"][0]["definition"]
-    source = yaml.safe_load(open("scenarios/E-01.yaml", encoding="utf-8"))
+    with open("scenarios/E-01.yaml", encoding="utf-8") as handle:
+        source = yaml.safe_load(handle)
     assert definition["source"] == "scenario_file" and definition["run_id"] is None
     assert definition["version"] == source["version"]
     assert [item["assertion_id"] for item in definition["assertions"]] == [a["assertion_id"] for a in source["assertions"]]

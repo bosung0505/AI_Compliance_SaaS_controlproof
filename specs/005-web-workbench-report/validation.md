@@ -147,6 +147,26 @@ git diff --check               -> 출력 없음
 ```
 
 - US5 시험 두 파일을 뺀 나머지는 모두 통과했다(US5 RED는 아래 US5 표에 다시 적음).
+- 정정(같은 날): 위 `ruff` 줄은 잘못 적었다. 그 실행의 ruff 출력은 실제로 오류였고(US4 시험 파일의 SIM115 1건과 먼저 써 둔 US5 시험의 미사용 변수 4건),
+  확인하지 않고 적었다. 커밋 `5eb907f`에 SIM115 1건이 들어갔다. US5 작업에서 모두 고쳤고, 고친 뒤의 ruff 결과는 T057 gate에 적는다.
+
+### Phase 7 US5 RED → GREEN (2026-10-09)
+
+| 작업 | 시험 파일 | RED | GREEN | 바꾼 기존 기대값 |
+|---|---|---|---|---|
+| T053 → T055 | `tests/unit/test_web_readmodel_compare.py` | 8 failed(T052 실행에 포함) | 8 passed | 없음 |
+| T054 → T056 | `tests/web/test_compare_screen.py` | 6 failed, 4 errors(T052 실행에 포함) | 6 passed(1280·1024px 각 3) | 없음 |
+
+- 계보 형식별 결과: Spec 004(E-01) `RETEST_LINK` 부모 불변 true, Spec 002(E-03) `CROSS_RUN_REFERENCE` true, Spec 001(H-03) `NONE_LEGACY` null(계보 문제 아님, 부모 무결성 표시).
+  부모를 다시 봉인해 digest가 바뀐 계보 → `PARENT_DIGEST_CHANGED`, 부모 변조 → `PARENT_NOT_VERIFIED`, 두 경우 비교 항목 없음.
+
+### T057 US5 gate (2026-10-09)
+
+```text
+.venv python -m pytest -q      -> 1193 passed, 1 xfailed in 379.20s
+.venv python -m ruff check .   -> All checks passed!   (T052 정정분 포함)
+git diff --check               -> 출력 없음
+```
 
 ### 사용자 스토리 gate
 
@@ -155,7 +175,8 @@ git diff --check               -> 출력 없음
 | Phase 3 US1 | T021~T026 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T034) |
 | Phase 4 US2 | T035~T037 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T042) |
 | Phase 5 US3 | T043~T044 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T047) |
-| Phase 6 US4 | T048~T049 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T052; US5 RED 시험 제외) |
+| Phase 6 US4 | T048~T049 GREEN, 전체 회귀, ruff | 시험 PASS(2026-10-09, 위 T052; US5 RED 시험 제외). ruff는 그때 실패였고 T057에서 통과(정정) |
+| Phase 7 US5 | T053~T054 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T057) |
 
 ### Actual validation (웹 PC 재실행, Phase 9)
 
