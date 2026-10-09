@@ -191,6 +191,46 @@ git diff --check               -> 출력 없음
 | Phase 7 US5 | T053~T054 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T057) |
 | Phase 8 Polish | T058·T059, 새 checkout 전체 회귀(`8a1fd2d`, 코드는 이후 문서만 바뀜), ruff, diff check | PASS(2026-10-09, 위 T060) |
 
+### Phase 9 준비(공식 Run 아님, 2026-10-09)
+
+Run·재시험·cleanup-confirm은 하지 않았다. 환경을 띄워 7개 프로필의 preflight만 확인했다. preflight 전후로 설정된 run root에 새 Run 폴더가 생기지 않았다.
+
+| 항목 | 값 |
+|---|---|
+| ControlProof | `005-web-workbench-report` `621816f`(origin과 같음), dirty 없음, Python 3.12.10(기존 `.venv`) |
+| WhyYou(통합 대상) | `bosung/controlproof-n02-integration` `374b122`, dirty 없음 |
+| WhyYou(E-01 부모용) | git worktree `../gbsa_aws-ce8d862`(workspace 기준), `ce8d862` detached, 새 브랜치 없음, dirty 없음. 이 폴더에서는 커밋·push 안 함 |
+| 실행 환경 | `LOCAL_EMULATED`, AWS `NOT_RUN`, WhyYou 로컬 Docker(PostgreSQL·LocalStack·Mailpit) + host API·작업자 4개 |
+
+| 프로필 | 대상 commit | fixture | readiness | READY가 아닌 check |
+|---|---|---|---|---|
+| H03_DLQ_V2 | 374b122 | h03-report-v1 | RUNNER_NOT_READY (18 checks) | `reporting.ui.observe`: Playwright Chromium 미설치 |
+| H03_MINIMAL_V1 | 374b122 | h03-report-v1 | RUNNER_NOT_READY (12 checks) | `reporting.ui.observe`: Playwright Chromium 미설치 |
+| E03_BEFORE_V2 | 374b122 | h03-report-v1 | READY (15 checks) | 없음 |
+| E03_AFTER_V2 | 374b122 | h03-report-v1 | READY (12 checks) | 없음 |
+| N02_CONSENT_ORDER_V1 | 374b122 | h03-report-v1 | READY (16 checks) | 없음 |
+| E02_SCORING_FREEZE_V1 | 374b122 | spec004-report-v1 | READY 16/16, scoring_rule_source MATCH | 없음 |
+| E01_CITATION_EVIDENCE_V1 | 374b122 | spec004-report-v1 | READY 18/18 | 없음 |
+| E01_CITATION_EVIDENCE_V1(부모용) | ce8d862 worktree | spec004-report-v1 | READY 18/18 | 없음 |
+
+- H-03 원인 분류: **실행기 환경(ControlProof 쪽)**. 두 프로필 모두 실패 check는 회사 화면 관찰 하나이고 사유는 ControlProof의 브라우저 관찰 adapter가 쓰는
+  Playwright 기본 Chromium이 이 PC에 설치되지 않은 것이다. seed·실행기 코드 결함이나 대상 버전(`374b122`) 차이로 보이는 신호는 없다(다른 check 모두 READY).
+  고치지 않았다. 브라우저 check를 통과한 뒤에도 회사 콘솔(포트 5173)이 필요할 수 있는데, WhyYou checkout에 `node_modules`가 없어 `npm run dev:company`가
+  시작되지 않았다(`npm ci` 필요). 이 둘은 공식 세션 전에 사람 승인 아래 설치해야 한다. Run을 해야만 확인할 수 있는 문제는 나오지 않았다.
+- 대상 전환 방법(확인됨): fixture는 두 `.env`의 `CONTROLPROOF_MODEL_FIXTURE_ID`·`_DIGEST`를 `spec004-report-v1` 값으로 바꾸고(임베딩 fixture는
+  `h03-embedding-v1` 유지) API·작업자를 다시 띄운다. ce8d862는 같은 Docker DB에 worktree 소스로 API·작업자를 띄우고(`PYTHONPATH`=worktree
+  `backend/src`, 확인 출력이 worktree를 가리킴) ControlProof는 `WHYYOU_REPO_PATH`만 worktree로 바꿔 preflight했다(대상 commit `ce8d862` 확인).
+  DB migration head는 374b122 기준 상태에서 ce8d862 코드의 `alembic upgrade heads`가 오류 없이 끝났다.
+- 문서 차이: quickstart §5-1은 "Spec 004 quickstart §3·전환 절"을 가리키지만, Spec 004 quickstart §3의 격리 도구(`scripts/spec004_local.py`)는 `.env`가 없는
+  별도 checkout만 받아(두 기본 checkout에는 `.env`가 있음) 이 PC 기본 배치로는 쓸 수 없고, "전환 절"도 없다. 위 `.env` 전환 방법이 실제로 동작했다.
+  공식 세션 전에 quickstart §5를 이 방법으로 고친다.
+- 이 PC 한정 사항(Spec 004 세션 인계와 같은 종류): Windows 앱 제어가 uv가 만든 `alembic.exe`·`uvicorn.exe` 실행을 막아 같은 명령을 WhyYou `.venv`
+  Python의 `-m alembic`·`-m uvicorn`으로 실행했다(`scripts/local.ps1 up`은 Docker·local_infra까지 성공 후 alembic 단계에서 멈춤). PowerShell 5.1은 docker·
+  alembic stderr를 오류로 보므로 그 출력은 따로 처리했다. WhyYou DB 포트 5433, ControlProof `.env` 수동 로드는 기존과 같다.
+- 환경 정리: API·작업자 프로세스 0개, `docker compose down`(볼륨 2개 유지, 실행 컨테이너 0개). 두 `.env`는 시작 전 값으로 되돌렸고 SHA-256이 시작 전과 같다
+  (작업 중 백업 사본은 삭제). 두 WhyYou checkout과 ControlProof의 `git status`는 비어 있다. 포트 5433·4566에는 Docker Desktop이 관리하는
+  WSL 중계 프로세스(`wslrelay`)가 남아 있다(컨테이너는 없음). Docker Desktop 소유라 직접 종료하지 않았다. ce8d862 worktree는 공식 E-01 부모 Run용으로 남겨 둔다.
+
 ### Actual validation (웹 PC 재실행, Phase 9)
 
 | 순서 | 시나리오·프로필 | WhyYou | ControlProof HEAD·dirty | preflight | Run ID | verdict / 복구 | manifest SHA-256 |
