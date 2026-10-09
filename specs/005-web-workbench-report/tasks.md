@@ -196,9 +196,9 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 
 ## Phase 8: Polish & Cross-Cutting (자동 gate)
 
-- [ ] T058 [P] Add an integration test that requests every route (HTML and JSON, ACTUAL and DEMO, all synthetic bundle kinds) and scans every response with `scan_bytes_strict`: 0 violations including escaped Windows paths, in `tests/integration/test_web_response_redaction.py` [FR-031, SC-007]
-- [ ] T059 [P] Add an integration test that the workbench and run screens render within 2 seconds with 30 synthetic bundles (verify cache warm) in `tests/integration/test_web_performance.py` [A-8]
-- [ ] T060 Run quickstart §3·§4 on a clean checkout (no personal absolute paths), fix any documentation gap in `specs/005-web-workbench-report/quickstart.md`, and record the full automatic gate in `specs/005-web-workbench-report/validation.md` [SC-007, SC-011]
+- [X] T058 [P] Add an integration test that requests every route (HTML and JSON, ACTUAL and DEMO, all synthetic bundle kinds) and scans every response with `scan_bytes_strict`: 0 violations including escaped Windows paths, in `tests/integration/test_web_response_redaction.py` [FR-031, SC-007]
+- [X] T059 [P] Add an integration test that the workbench and run screens render within 2 seconds with 30 synthetic bundles (verify cache warm) in `tests/integration/test_web_performance.py` [A-8]
+- [X] T060 Run quickstart §3·§4 on a clean checkout (no personal absolute paths), fix any documentation gap in `specs/005-web-workbench-report/quickstart.md`, and record the full automatic gate in `specs/005-web-workbench-report/validation.md` [SC-007, SC-011]
 
 ---
 

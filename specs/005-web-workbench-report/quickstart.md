@@ -14,8 +14,11 @@
 
 1. 두 저장소의 branch·HEAD·dirty를 기록한다. ControlProof는 `005-web-workbench-report`, WhyYou는 `bosung/controlproof-n02-integration`
    (`374b122`)이며 둘 다 clean이어야 한다.
-2. ControlProof 가상환경을 준비한다(Spec 004 quickstart §2). 화면 시험용 브라우저: `.venv` Python으로 `-m playwright install chromium`.
-   설치가 막힌 PC는 설치된 Edge·Chrome 채널을 쓴다.
+2. ControlProof 가상환경을 준비한다(Spec 004 quickstart §2: 최초 설치는 `uv sync --extra dev`). 새 checkout에서는 기존 설치 환경의 Python을
+   의존성만 재사용해도 된다. 이때 명령은 새 checkout 루트에서 실행하고, `import engine`이 새 checkout의 `engine`을 가리키는지 확인한다
+   (`<ControlProof .venv python> -c "import engine; print(engine.__file__)"`). Validation에 Python 버전과 source SHA를 적는다.
+   화면 시험용 브라우저: `.venv` Python으로 `-m playwright install chromium`. 설치가 막힌 PC는 설치된 Edge·Chrome 채널을 쓴다(시험이 자동으로
+   Chromium → Edge → Chrome 순서로 고르고, 셋 다 없으면 화면 시험을 건너뛴다).
 3. 각 PC 고유 환경 사항(DB 포트, `.env` 수동 로드, 보안 정책 우회 등)은 그 PC 담당자의 기록을 따른다. 이 문서에는 넣지 않는다.
 
 ## 3. 자동 gate
@@ -26,16 +29,23 @@
 .venv 의 python -m pytest -q tests/web        # 브라우저 화면 시험
 ```
 
-예상: ruff 통과, 실패 0. 카탈로그 일치 시험이 범위표와 12/12, 응답 경로·토큰 스캔 위반 0.
+예상: ruff 통과, 실패 0(T020 대기 시험 1개는 xfailed). 카탈로그 일치 시험이 범위표와 12/12, 응답 경로·토큰 스캔 위반 0. 전체 시험은
+브라우저 시험을 포함해 수 분이 걸린다. 시험이 띄우는 웹 서버는 시험 프로세스 안의 스레드이며 끝나면 모두 닫힌다.
 
 ## 4. DEMO 데이터로 화면 열기
 
 ```text
-.venv 의 python -m scripts.prepare_web_demo --out .controlproof/web-demo
-.venv 의 python -m engine.web --demo-root .controlproof/web-demo/runs
+.venv 의 python -m scripts.prepare_web_demo
+.venv 의 python -m engine.web
 ```
 
+- 첫 줄은 합성 bundle 16개와 합성 준비 상태 기록을 DEMO root(기본 `.controlproof/web-demo/runs`, 다른 위치는 `--demo-root <경로>`)에 쓴다.
+  다시 실행하면 합성 기록이 더 쌓인다. 처음부터 다시 만들려면 DEMO root 폴더(합성 기록만 있음)를 지운 뒤 다시 실행한다. 실제 run root에는 쓰지 않는다.
+- 둘째 줄은 `127.0.0.1:8765`에 서버를 띄운다(`--port`, `--run-root`, `--demo-root`, `--target`). 끝낼 때는 그 터미널에서 Ctrl+C.
+
 브라우저로 `http://127.0.0.1:8765/demo/`를 연다. 모든 화면 상단에 `DEMO DATA` 띠가 있어야 하고 실제 개수·보고서에 합성 기록이 섞이지 않아야 한다.
+DEMO 화면 주소: 워크벤치 `/demo/`, 시나리오 상세 `/demo/scenarios/<ID>`, 실행 결과 `/demo/runs/<실행 ID>`(워크벤치 표의 기록 링크),
+재시험 비교 `/demo/compare/<재시험 실행 ID>`(결과 화면의 "재시험 비교"), 보고서 `/demo/report`. DEMO 화면에서는 준비 상태 확인과 메모를 받지 않는다.
 
 ## 5. actual validation (웹 PC 재실행)
 

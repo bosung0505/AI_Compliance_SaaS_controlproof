@@ -2,8 +2,8 @@
 
 ## Current status
 
-- Workflow stage: Implement. Phase 1·2(T001~T018), Phase 3 US1(T021~T034), Phase 4 US2(T035~T042), Phase 5 US3(T043~T047) 완료.
-  T019(보성 PC 검사) 대기, T020(봉인 검사 v2 전환)과 Phase 6(US4) 이후는 시작 전. ID-005-01은 2026-10-09 결정됨.
+- Workflow stage: Implement. Phase 1~8(T001~T018, T021~T060, T057a~T057d) 완료. T019(보성 PC 검사) 대기, T020(봉인 검사 v2 전환)과
+  Phase 9(actual validation) 이후는 시작 전. ID-005-01은 2026-10-09 결정됨.
 - Actual validation(웹 PC 재실행)·사용성 검토: 아직 없음(`NOT_RUN`). AWS: `NOT_RUN`.
 - 이 문서는 시간순 기록이다. 실패·판정 불가 결과를 나중 결과로 덮어쓰지 않는다. 값·절대 경로·토큰은 쓰지 않는다.
 
@@ -168,6 +168,18 @@ git diff --check               -> 출력 없음
 git diff --check               -> 출력 없음
 ```
 
+### Phase 8 Polish T058~T060 (2026-10-09)
+
+| 작업 | 시험·확인 | 결과 |
+|---|---|---|
+| T058 | `tests/integration/test_web_response_redaction.py`: 모든 경로(HTML·JSON, ACTUAL·DEMO, 합성 bundle 전 종류 + 이스케이프된 Windows 사용자 경로를 담은 재봉인 bundle)의 응답 1235개를 `scan_bytes_strict`·v2 경로 정규식으로 검사 | 위반 0(200 응답 1180, 404 응답 55). 경로가 든 증적은 원문 대신 사유만 보임. 이미 만든 기능을 검사하는 시험이라 RED 단계 없음 |
+| T059 | `tests/integration/test_web_performance.py`: bundle 30개, verify 캐시 데움 | 워크벤치 최대 0.217초, 결과 화면 첫 요청 0.366·0.252·0.221초, 데운 뒤 0.234초(기준 2초). RED 단계 없음 |
+| T060 | 새 checkout: origin `005-web-workbench-report` `8a1fd2d`를 scratch 폴더에 clone(clean), 기존 `.venv` Python 3.12.10을 의존성만 재사용(`import engine`이 새 checkout을 가리킴 확인) | §3 `ruff` All checks passed · `pytest -q` 1196 passed, 1 xfailed in 532.59s · `pytest -q tests/web` 66 passed(Edge 채널). §4 문서 명령 그대로는 실패(`prepare_web_demo --out` 없는 인자) → 고친 명령으로 DEMO bundle 16개 생성, `python -m engine.web` 기동, `/demo/`(DEMO 띠, 12줄)·`/demo/report`·`/demo/scenarios/E-01` 200, `/`·`/report`는 DEMO 띠 없음, 서버 종료 확인(8765 대기 없음) |
+
+- 고친 문서: `quickstart.md` §2(새 checkout에서 기존 환경 재사용 방법과 확인 명령, 브라우저 자동 선택), §3(예상 결과에 xfailed 1개·소요 시간·시험 서버 종료),
+  §4(잘못된 `--out` 인자 삭제, 기본 DEMO root·다시 만들기·종료 방법, 화면 주소 목록).
+- 개인 절대 경로 검사: 새 checkout의 `specs/005-web-workbench-report`·`docs`·`AGENTS.md`의 Markdown에서 사용자 홈 경로 형태 0건(시험용 가짜 이름 제외).
+
 ### 사용자 스토리 gate
 
 | Phase | 시험 | 결과 |
@@ -177,6 +189,7 @@ git diff --check               -> 출력 없음
 | Phase 5 US3 | T043~T044 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T047) |
 | Phase 6 US4 | T048~T049 GREEN, 전체 회귀, ruff | 시험 PASS(2026-10-09, 위 T052; US5 RED 시험 제외). ruff는 그때 실패였고 T057에서 통과(정정) |
 | Phase 7 US5 | T053~T054 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T057) |
+| Phase 8 Polish | T058·T059, 새 checkout 전체 회귀(`8a1fd2d`, 코드는 이후 문서만 바뀜), ruff, diff check | PASS(2026-10-09, 위 T060) |
 
 ### Actual validation (웹 PC 재실행, Phase 9)
 
