@@ -576,3 +576,18 @@ bytes and this bounded metadata wording limitation; it does not change linkage, 
 No early WhyYou protection was added: R1 first truth preceded the six-file P1 fix. Automatic 939/188 gates
 establish implementation regression safety; R4/Q1/Q2 independently establish the executed target facts.
 No new product meaning, cloud verification, external AI quality or legal certification is claimed.
+
+### ID-004-37 — retest reads the cleanup confirmation from the block store (CONFIRMED, 2026-10-08, post-closure)
+
+- Cause: `RestoreBlockStore.confirm_cleanup` writes `run_root/blocks/maintenance/<run_id>.json` (`engine/lifecycle.py`,
+  store root `run_root/blocks`), but `_spec004_cleanup_resolved` in `engine/retest.py` looked in `run_root/maintenance/`. A
+  RESTORE_FAILED Spec 004 parent was therefore refused ("restore block was never confirmed") even after cleanup-confirm, and a
+  file placed at the wrong path would have been accepted. The Spec 003 path already used `blocks.root / "maintenance"`.
+  Found in Spec 005 source discovery (baseline §2 risk 4); fix approved by D-018 decision 5, PR base approved by 보성.
+- Change: one line in `engine/retest.py` — `blocks.root / "maintenance" / f"{run_id}.json"`, the same rule as Spec 003.
+- Tests: new `tests/integration/test_spec004_retest_cleanup_path.py` (E-01 and E-02). RED before the change: confirmed cleanup was
+  refused (2) and a record only at `run_root/maintenance` was accepted (2). GREEN after. No existing test wrote a record at the
+  wrong path, so no existing test changed. Full regression 947 passed (943 + 4), ruff clean.
+- Impact: no sealed Spec 004 Run is affected. Every official Spec 004 Run and child (`09c9d9bb…`, `e39e62ae…`, `ec0c895d…`,
+  `a5ad4676…`, `4030503c…`, `970108fe…`) ended with restore SUCCEEDED, and every retest used a COMPLETED parent, so the faulty branch
+  never ran. Spec 004 Complete status, verdicts and bundles are unchanged.
