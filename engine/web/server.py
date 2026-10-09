@@ -29,6 +29,7 @@ from engine.web.readmodel import (
     EvidenceNotFound,
     IntegrityBlocked,
     RunNotFound,
+    ScenarioNotFound,
     VerifyCache,
     WorkbenchReader,
     load_catalog,
@@ -56,6 +57,8 @@ ROUTES = (
     ("GET", "/api/runs/{run_id}", "run_json"),
     ("GET", "/runs/{run_id}/evidence", "evidence_html"),
     ("GET", "/report", "report_html"),
+    ("GET", "/scenarios/{scenario_id}", "scenario_html"),
+    ("GET", "/api/scenarios/{scenario_id}", "scenario_json"),
     ("GET", "/api/report", "report_json"),
     ("GET", "/demo/", "workbench_html"),
     ("GET", "/demo/api/workbench", "workbench_json"),
@@ -63,6 +66,8 @@ ROUTES = (
     ("GET", "/demo/api/runs/{run_id}", "run_json"),
     ("GET", "/demo/runs/{run_id}/evidence", "evidence_html"),
     ("GET", "/demo/report", "report_html"),
+    ("GET", "/demo/scenarios/{scenario_id}", "scenario_html"),
+    ("GET", "/demo/api/scenarios/{scenario_id}", "scenario_json"),
     ("GET", "/demo/api/report", "report_json"),
     ("GET", "/static/{name}", "static"),
     ("GET", "/favicon.ico", "favicon"),
@@ -126,8 +131,8 @@ def make_server(
     runner = preflight_runner or PreflightRunner(catalog, actual_store, target=target, cwd=REPO_ROOT)
     return WebServer(
         port,
-        actual=WorkbenchReader(catalog, run_root, readiness=actual_store, origin="ACTUAL", cache=cache, memos=memos),
-        demo=WorkbenchReader(catalog, demo_root, readiness=demo_store, origin="DEMO", cache=cache),
+        actual=WorkbenchReader(catalog, run_root, readiness=actual_store, origin="ACTUAL", cache=cache, memos=memos, target=target),
+        demo=WorkbenchReader(catalog, demo_root, readiness=demo_store, origin="DEMO", cache=cache, target=target),
         runner=runner,
         catalog=catalog,
     )
@@ -217,6 +222,24 @@ class _Handler(BaseHTTPRequestHandler):
             self._error("INTEGRITY", "INTEGRITY_FAILED", "무결성 실패 기록의 증적 원본은 보이지 않습니다.")
             return
         self._html(HTTPStatus.OK, "evidence.html", view=view, prefix="/demo" if view["demo"] else "")
+
+    def _route_scenario_json(self, path: str, scenario_id: str) -> None:
+        reader = self._reader(path)
+        try:
+            view = reader.scenario(scenario_id)
+        except ScenarioNotFound:
+            self._error("NOT_FOUND", "SCENARIO_NOT_FOUND", "카탈로그에 없는 시나리오입니다.")
+            return
+        self._json(HTTPStatus.OK, _boundary(view, reader.run_root))
+
+    def _route_scenario_html(self, path: str, scenario_id: str) -> None:
+        reader = self._reader(path)
+        try:
+            view = _boundary(reader.scenario(scenario_id), reader.run_root)
+        except ScenarioNotFound:
+            self._error("NOT_FOUND", "SCENARIO_NOT_FOUND", "카탈로그에 없는 시나리오입니다.")
+            return
+        self._html(HTTPStatus.OK, "scenario.html", view=view, prefix="/demo" if view["demo"] else "")
 
     def _route_report_json(self, path: str) -> None:
         reader = self._reader(path)

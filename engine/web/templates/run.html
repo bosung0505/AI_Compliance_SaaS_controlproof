@@ -9,6 +9,7 @@
 {% set integrity = view.integrity %}
 <section aria-label="실행 결과·증적">
   <h2>{{ run.scenario_id or "?" }} 실행 결과 <span class="mono">{{ run.run_id }}</span></h2>
+  <p class="tool">{% if run.scenario_id %}<a class="btn sec" href="{{ prefix }}/scenarios/{{ run.scenario_id }}">시나리오 상세</a>{% endif %}</p>
 
   <div class="card lead" data-testid="run-lead">
     {% for part in view.display_order %}

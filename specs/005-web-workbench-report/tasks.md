@@ -155,14 +155,14 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 
 ### Tests for User Story 4 — write first, confirm RED
 
-- [ ] T048 [P] [US4] Add unit tests for the scenario view: definition from the sealed snapshot when a Run exists, else from `scenarios/*.yaml`; H-03 and E-03 split by profile; `NOT_RUN`/`NO_TEST_TARGET` with `profiles: []` and no command fields; legal mapping notice present; run/retest commands built only from catalog templates; readiness with checked-at, in `tests/unit/test_web_readmodel_scenario.py` [FR-008~012]
-- [ ] T049 [P] [US4] Add browser tests for scenario details at 1280px and 1024px (화면 공통 기준; E-01 shows the four preconditions and copyable command, no run button; H-01 and A-01 show no run button, progress or pass mark; "준비 상태 확인" from the detail stores a new checked-at; a usage error is shown as "확인 도구 오류", not as a readiness badge) in `tests/web/test_scenario_screen.py` [FR-008~012, SC-010]
+- [X] T048 [P] [US4] Add unit tests for the scenario view: definition from the sealed snapshot when a Run exists, else from `scenarios/*.yaml`; H-03 and E-03 split by profile; `NOT_RUN`/`NO_TEST_TARGET` with `profiles: []` and no command fields; legal mapping notice present; run/retest commands built only from catalog templates; readiness with checked-at, in `tests/unit/test_web_readmodel_scenario.py` [FR-008~012]
+- [X] T049 [P] [US4] Add browser tests for scenario details at 1280px and 1024px (화면 공통 기준; E-01 shows the four preconditions and copyable command, no run button; H-01 and A-01 show no run button, progress or pass mark; "준비 상태 확인" from the detail stores a new checked-at; a usage error is shown as "확인 도구 오류", not as a readiness badge) in `tests/web/test_scenario_screen.py` [FR-008~012, SC-010]
 
 ### Implementation for User Story 4
 
-- [ ] T050 [US4] Implement the scenario view in `engine/web/readmodel.py` (after T048 RED) [FR-008~012]
-- [ ] T051 [US4] Add `/scenarios/{id}`, `/api/scenarios/{id}` routes in `engine/web/server.py` and create `engine/web/templates/scenario.html` per the approved screen ② (after T049 RED) [FR-008~012]
-- [ ] T052 [US4] Run the US4 gate and record it in `specs/005-web-workbench-report/validation.md` [SC-010]
+- [X] T050 [US4] Implement the scenario view in `engine/web/readmodel.py` (after T048 RED) [FR-008~012]
+- [X] T051 [US4] Add `/scenarios/{id}`, `/api/scenarios/{id}` routes in `engine/web/server.py` and create `engine/web/templates/scenario.html` per the approved screen ② (after T049 RED) [FR-008~012]
+- [X] T052 [US4] Run the US4 gate and record it in `specs/005-web-workbench-report/validation.md` [SC-010]
 
 ---
 

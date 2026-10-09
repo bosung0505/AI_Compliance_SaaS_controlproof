@@ -27,6 +27,14 @@ SCHEMA_VERSION = "controlproof.web.v1"
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "catalog" / "mvp-scenarios.yaml"
 REASON_CODES = ("INSUFFICIENT_EVIDENCE", "NO_TEST_TARGET", "ACCESS_LIMITED", "EVIDENCE_CONFLICT")
 NO_RECORD_NOTE = "이 화면에 기록 없음"
+REPO_ROOT = Path(__file__).resolve().parents[2]
+LEGAL_MAPPING_NOTICE = "법 조문 대응은 표시하지 않음(법적 준수 비보증)"
+RUN_PRECONDITIONS = (
+    "준비 상태 READY(확인 시각 확인)",
+    "같은 대상의 다른 실행이 잠금을 잡고 있지 않음",
+    "이전 복구 실패로 남은 차단이 없음",
+    "사람의 실행 승인",
+)
 VIEW_LIMIT_BYTES = 256 * 1024
 TEXT_MIME_TYPES = {"application/json", "application/x-ndjson", "application/yaml", "text/yaml"}
 RESULT_LINK_LIMIT = 5
@@ -80,6 +88,10 @@ class RunNotFound(LookupError):
 
 class EvidenceNotFound(LookupError):
     """The reference is not an evidence entry of this Run."""
+
+
+class ScenarioNotFound(LookupError):
+    """No catalog entry with that scenario ID."""
 
 
 class IntegrityBlocked(RuntimeError):
@@ -148,6 +160,7 @@ class WorkbenchReader:
         origin: str = "ACTUAL",
         cache: VerifyCache | None = None,
         memos: MemoStore | None = None,
+        target: str = "whyyou-local",
     ) -> None:
         if origin not in {"ACTUAL", "DEMO"}:
             raise ValueError("origin must be ACTUAL or DEMO")
@@ -157,6 +170,7 @@ class WorkbenchReader:
         self.origin = origin
         self.cache = cache or VerifyCache()
         self.memos = memos
+        self.target = target
 
     def header(self, view: str) -> dict[str, Any]:
         return {
@@ -563,6 +577,99 @@ class WorkbenchReader:
     def _catalog_entry(self, scenario_id: str | None) -> dict[str, Any] | None:
         return next((entry for entry in self.catalog["scenarios"] if entry["id"] == scenario_id), None)
 
+
+    # -- scenario view (US4) -------------------------------------------------------------------------------------------
+    def scenario(self, scenario_id: str) -> dict[str, Any]:
+        entry = self._catalog_entry(scenario_id)
+        if entry is None:
+            raise ScenarioNotFound(scenario_id)
+        status = entry["official_status"]
+        explanation = {key: value for key, value in entry["explanation"].items()}
+        texts = {
+            key: ([item["text"] for item in value] if isinstance(value, list) else value["text"])
+            for key, value in explanation.items()
+        }
+        sources = {
+            key: ([item["source"] for item in value] if isinstance(value, list) else value["source"])
+            for key, value in explanation.items()
+        }
+        texts["legal_mapping_notice"] = LEGAL_MAPPING_NOTICE
+        runs = self._scenario_runs(scenario_id)
+        profiles = [self._scenario_profile(entry, profile, runs) for profile in entry["profiles"]]
+        return {
+            **self.header("scenario"),
+            "id": entry["id"],
+            "question": entry["question"],
+            "control_label": entry["control_label"],
+            "mvp_treatment": entry["mvp_treatment"],
+            "owner_spec": entry["owner_spec"],
+            "target_exists": entry["target_exists"],
+            "official": {
+                "result": status["result"],
+                "reason_code": status.get("reason_code"),
+                "badge": badges.result_badge(status["result"], status.get("reason_code")).key,
+                "note": status.get("note"),
+                "summary": status["summary"],
+                "validation_ref": status["validation_ref"],
+            },
+            "definition": profiles[0]["definition"] if profiles else None,
+            "explanation": texts,
+            "explanation_sources": sources,
+            "profiles": profiles,
+            "previous_runs": runs,
+            "readiness": self._readiness(entry),
+        }
+
+    def _scenario_profile(self, entry: dict[str, Any], profile: dict[str, Any], runs: list[dict[str, Any]]) -> dict[str, Any]:
+        name = profile["execution_profile"]
+        sealed = next(
+            (run for run in runs if run["execution_profile"] == name and run["integrity"] == "VERIFIED"), None
+        )
+        if sealed is not None:
+            definition = _definition(_snapshot_definition(self.run_root / sealed["run_id"]), "sealed_snapshot", sealed["run_id"])
+        else:
+            source = REPO_ROOT / profile["scenario_file"]
+            definition = _definition(yaml.safe_load(source.read_text(encoding="utf-8")) or {}, "scenario_file", None)
+        labels = self.catalog.get("evidence_labels", {})
+        for item in definition["required_evidence"]:
+            item["label"] = labels.get(item["evidence_id"], item.get("description"))
+        record = self.readiness.latest(entry["id"], name)
+        return {
+            "execution_profile": name,
+            "scenario_file": profile["scenario_file"],
+            "definition": definition,
+            "readiness": _profile_readiness(name, record),
+            "run_command": profile["run_command"].format(target=self.target, label="<라벨>"),
+            "retest_command": profile["retest_command"].format(
+                parent_run_id="<최초 실행 ID>", target=self.target, label="<라벨>"
+            ),
+            "preconditions_for_run": list(RUN_PRECONDITIONS),
+        }
+
+    def _scenario_runs(self, scenario_id: str) -> list[dict[str, Any]]:
+        runs = []
+        for run_id in self._bundles_by_scenario().get(scenario_id, []):
+            bundle = self.run_root / run_id
+            record = _read_json(bundle / "run.json") or {}
+            integrity = self._integrity(bundle, record.get("state"))["status"]
+            runs.append(
+                {
+                    "run_id": run_id,
+                    "execution_profile": record.get("execution_profile") or "H03_MINIMAL_V1",
+                    "verdict": _bundle_verdict(bundle) if integrity == "VERIFIED" else None,
+                    "verdict_badge": (
+                        badges.result_badge(_bundle_verdict(bundle), _bundle_reason(bundle)).key
+                        if integrity == "VERIFIED" and _bundle_verdict(bundle) else None
+                    ),
+                    "integrity": integrity,
+                    "run_state": record.get("state"),
+                    "record_role": self._run_block(bundle, record)["record_role"],
+                    "parent_run_id": record.get("parent_run_id"),
+                    "started_at": record.get("started_at"),
+                }
+            )
+        return runs
+
     # -- report view (US3) -----------------------------------------------------------------------------------------
     def report(self) -> dict[str, Any]:
         workbench = self.workbench()
@@ -964,3 +1071,48 @@ def _jsonl(path: Path) -> list[dict[str, Any]]:
         if isinstance(value, dict):
             rows.append(value)
     return rows
+
+
+def _bundle_reason(bundle: Path) -> str | None:
+    return (_read_json(bundle / "judgement.json") or {}).get("reason_code")
+
+
+def _definition(raw: dict[str, Any], source: str, run_id: str | None) -> dict[str, Any]:
+    """The scenario definition fields the detail screen shows, copied from the sealed snapshot or the scenario file."""
+    steps = [
+        {"phase": item.get("phase"), "step_id": item.get("step_id"), "always_run": bool(item.get("always_run"))}
+        for item in raw.get("steps", []) or []
+        if isinstance(item, dict)
+    ]
+    return {
+        "source": source,
+        "run_id": run_id,
+        "version": raw.get("version"),
+        "title": raw.get("title"),
+        "intent": raw.get("control_intent"),
+        "preconditions": [
+            {"precondition_id": item.get("precondition_id"), "kind": item.get("kind"), "description": item.get("description")}
+            for item in raw.get("preconditions", []) or []
+            if isinstance(item, dict)
+        ],
+        "steps": steps,
+        "phase_counts": {phase: sum(1 for step in steps if step["phase"] == phase) for phase in PHASE_LABELS},
+        "always_run_count": sum(1 for step in steps if step["always_run"]),
+        "assertions": [
+            {
+                "assertion_id": item.get("assertion_id"),
+                "description": item.get("description"),
+                "expectation": item.get("expectation"),
+                "required_evidence_ids": list(item.get("required_evidence_ids", []) or []),
+            }
+            for item in raw.get("assertions", []) or []
+            if isinstance(item, dict)
+        ],
+        "required_evidence": [
+            {"evidence_id": item.get("evidence_id"), "description": item.get("description")}
+            for item in raw.get("required_evidence", []) or []
+            if isinstance(item, dict)
+        ],
+        "restore_policy": raw.get("restore_policy"),
+        "excluded_scope": list(raw.get("excluded_scope", []) or []),
+    }

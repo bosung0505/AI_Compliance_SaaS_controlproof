@@ -95,3 +95,5 @@ pre.raw, pre.evidence-text { white-space: pre-wrap; word-break: break-all; font-
 .memo-form textarea { min-height: 70px; }
 .rep-item { display: inline-block; min-width: 2.6em; font-weight: 800; color: var(--ready); }
 .report p, .report li { margin: 6px 0; }
+.cmd { background: #1d2433; color: #e8edf7; padding: 10px 70px 10px 12px; border-radius: 6px; position: relative; margin: 6px 0; }
+.cmd button { position: absolute; right: 8px; top: 8px; font: inherit; font-size: 12px; cursor: pointer; }

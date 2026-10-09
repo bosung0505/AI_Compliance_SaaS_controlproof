@@ -28,17 +28,18 @@
     box.addEventListener("change", applyFilters);
   });
 
-  var form = document.querySelector("form[data-testid=preflight-form]");
-  if (form) {
+  Array.prototype.forEach.call(document.querySelectorAll("form[data-testid=preflight-form]"), function (form) {
     form.addEventListener("submit", function () {
-      var parts = form.querySelector("[data-preflight-choice]").value.split("|");
-      form.querySelector("input[name=scenario_id]").value = parts[0];
-      form.querySelector("input[name=execution_profile]").value = parts[1];
+      var choice = form.querySelector("[data-preflight-choice]");
+      if (choice) {
+        var parts = choice.value.split("|");
+        form.querySelector("input[name=scenario_id]").value = parts[0];
+        form.querySelector("input[name=execution_profile]").value = parts[1];
+      }
       var button = form.querySelector("button[type=submit]");
-      button.disabled = true;
       button.textContent = "확인 중…";
     });
-  }
+  });
 
   document.addEventListener("click", function (event) {
     var button = event.target.closest("[data-copy]");

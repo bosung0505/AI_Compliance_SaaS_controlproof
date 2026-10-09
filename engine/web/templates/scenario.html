@@ -1,0 +1,113 @@
+{% extends "base.html" %}
+{% set active = "scenario" %}
+{% block title %}{{ view.id }} 시나리오 상세 · ControlProof{% endblock %}
+{% macro official_badge(o) -%}
+{%- if o.result == "INCONCLUSIVE" %}<span class="neutral-title small">판정 불가</span> {% endif %}{{ badge(o.badge) }}
+{%- endmacro %}
+{% block content %}
+{% set ex = view.explanation %}
+<section aria-label="시나리오 상세·실행">
+  <h2>{{ view.id }} {{ view.question }} {{ official_badge(view.official) }}
+    {% if view.readiness.badge %}{{ badge(view.readiness.badge) }}{% endif %}
+    {% if view.readiness.checked_at %}<span class="muted">확인 {{ view.readiness.checked_at | when }}</span>{% endif %}</h2>
+  <p class="muted">{{ view.control_label }} · 담당 {{ view.owner_spec }} · 공식 상태: {{ view.official.summary }}{% if view.official.note %} ({{ view.official.note }}){% endif %} · 공식 기록 <span class="mono">{{ view.official.validation_ref }}</span></p>
+
+  {% if view.mvp_treatment == "NOT_RUN" %}
+  <div class="card">
+    <p><b>실행 방식</b>: 이번 MVP 범위에서 실행하지 않음(미실행). <b>대상 존재</b>: {{ "있음" if view.target_exists else "없음" }}. <b>준비 상태</b>: {{ badge("runner_not_ready") }} — ControlProof 실행기를 만들지 않았습니다.</p>
+    <h3>왜 실행하지 않았나</h3><p>{{ ex.not_run_reason }}</p>
+    <h3>실행하려면</h3><p>{{ ex.follow_up_condition }}</p>
+    <div class="note">이 항목에는 실행 버튼·진행률·통과 표시가 없습니다. 미실행은 실패도 통과도 아닙니다.</div>
+  </div>
+  {% elif view.mvp_treatment == "NO_TEST_TARGET" %}
+  <div class="card">
+    <p><b>대상 존재</b>: 없음. <b>준비 상태</b>: {{ badge("readiness_no_test_target") }}</p>
+    <h3>대상 기능 부재 근거</h3><p>{{ ex.absence_evidence }}</p>
+    <h3>ControlProof의 처리</h3><p>ControlProof는 이 기능을 새로 만들지 않으며 실행한 것처럼 꾸미지 않습니다.</p>
+    <h3>기능이 생기면</h3><p>{{ ex.follow_up_condition }} 자동으로 PASS가 되지 않습니다.</p>
+    <div class="note">이 항목에는 실행 버튼·진행률·통과 표시가 없습니다. "대상 없음"은 실행기 미준비(RUNNER_NOT_READY)와 다릅니다.</div>
+  </div>
+  {% endif %}
+
+  <div class="grid c2">
+    <div class="card"><h3>의도</h3><p>{{ ex.intent }}</p>
+      <h3>보호 대상</h3><p>{{ ex.protected_object }}</p>
+      <h3>정책 근거</h3><p>{{ ex.policy_basis }}</p>
+      <p class="muted">{{ ex.legal_mapping_notice }}. ControlProof는 법령 요약·법적 인증 서비스가 아닙니다(V4 §2.2).</p>
+      {% if ex.implementation_location %}<h3>WhyYou에서의 구현 위치</h3><p>{{ ex.implementation_location }}</p>{% endif %}</div>
+    <div class="card">
+      {% if view.definition %}
+      <h3>전제조건</h3><ul><li>시나리오 정의의 전제 {{ view.definition.preconditions | length }}개(원문은 아래 개발자용 원본 정보)</li>
+        {% for item in view.profiles[0].preconditions_for_run %}<li>{{ item }}</li>{% endfor %}</ul>
+      {% endif %}
+      {% if ex.synthetic_data %}<h3>합성 데이터와 대조군</h3><p>{{ ex.synthetic_data }}</p>{% endif %}
+      {% if view.definition %}<h3>시험 조건과 복구</h3><p>시험 조건은 주입 구간에서만 적용하고, 복구 구간은 실행이 실패해도 항상 실행합니다(항상 실행 단계 {{ view.definition.always_run_count }}개). 모든 합성 데이터는 실행 끝에 정리합니다.</p>{% endif %}
+    </div>
+  </div>
+
+  {% for profile in view.profiles %}
+  {% set d = profile.definition %}
+  <div class="card">
+    <h3>{{ profile.execution_profile }} <span class="muted">· 정의 {{ d.version }} · {{ "봉인된 실행 정의(실행 " ~ (d.run_id | short_id) ~ ")" if d.source == "sealed_snapshot" else "현재 시나리오 파일" }}</span></h3>
+    <h3>실행 단계</h3>
+    <ol class="steps">
+      <li>기준선 — 정의된 단계 {{ d.phase_counts.BASELINE }}개: 시험 전 상태와 합성 대상을 준비·기록</li>
+      <li>주입 — 정의된 단계 {{ d.phase_counts.INJECTED }}개: 시험 조건을 적용하고 대상의 반응을 관찰</li>
+      <li>복구 — 정의된 단계 {{ d.phase_counts.RECOVERED }}개: 시험 조건 해제와 정리(항상 실행 {{ d.always_run_count }}개)</li>
+    </ol>
+    <h3>기대 결과와 판정 규칙</h3>
+    <table><thead><tr><th>규칙</th><th>기대 결과</th><th>필수 증적</th></tr></thead><tbody>
+      {% for item in d.assertions %}<tr><td class="nowrap">{{ item.assertion_id }}</td><td>{{ item.description }}</td>
+        <td>{% for ev in item.required_evidence_ids %}{% set req = d.required_evidence | selectattr("evidence_id", "equalto", ev) | first %}{{ ev }} {{ req.label if req else "" }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>{% endfor %}
+    </tbody></table>
+    <details data-testid="developer"><summary>개발자용 원본 정보</summary>
+      <p class="mono">scenario_file: {{ profile.scenario_file }}</p>
+      <ul class="mono">{% for item in d.preconditions %}<li>{{ item.precondition_id }} ({{ item.kind }}): {{ item.description }}</li>{% endfor %}</ul>
+      <ul class="mono">{% for step in d.steps %}<li>{{ step.phase }} · {{ step.step_id }}{% if step.always_run %} (always_run){% endif %}</li>{% endfor %}</ul>
+      {% if d.excluded_scope %}<p class="mono">excluded_scope: {{ d.excluded_scope | join(" · ") }}</p>{% endif %}
+    </details>
+  </div>
+  {% endfor %}
+
+  {% if ex.manual_steps %}<div class="card"><h3>수동 단계</h3><ul>{% for item in ex.manual_steps %}<li>{{ item }}</li>{% endfor %}</ul></div>{% endif %}
+
+  {% if view.profiles %}
+  <div class="card" data-testid="run-guide"><h3>실행 안내 <span class="muted">(웹은 실행을 시작하지 않습니다 · D-018)</span></h3>
+    <div class="limit">전제: ① 준비 상태 READY(확인 시각 확인) ② 같은 대상의 다른 실행이 잠금을 잡고 있지 않음 ③ 이전 복구 실패로 남은 차단이 없음 ④ 사람의 실행 승인. 실행 중 실패해도 복구 단계는 항상 실행됩니다.</div>
+    {% for profile in view.profiles %}
+    <h3>{{ profile.execution_profile }}</h3>
+    <p data-testid="profile-readiness">준비 상태:
+      {% if profile.readiness.badge %}{{ badge(profile.readiness.badge) }}{% if profile.readiness.badge == "tool_error" %} <span class="muted">준비 상태가 아니라 확인 요청 자체의 오류입니다({{ profile.readiness.error_kind }}).</span>{% endif %}
+      {% else %}<span class="muted">확인 기록 없음</span>{% endif %}
+      {% if profile.readiness.checked_at %}<span class="muted">확인 <span data-testid="checked-at">{{ profile.readiness.checked_at | when }}</span></span>{% endif %}</p>
+    <form method="post" action="/preflight" class="inline-form" data-testid="preflight-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="scenario_id" value="{{ view.id }}">
+      <input type="hidden" name="execution_profile" value="{{ profile.execution_profile }}">
+      <input type="hidden" name="return_to" value="/scenarios/{{ view.id }}">
+      <button class="btn" type="submit"{% if view.demo %} disabled{% endif %}>준비 상태 확인</button>
+      {% if view.demo %}<span class="muted">DEMO DATA 화면에서는 실행하지 않습니다.</span>{% endif %}
+    </form>
+    <div class="cmd mono" id="cmd-{{ loop.index }}" data-testid="run-command" data-command="{{ profile.run_command }}">{{ profile.run_command }}<button type="button" data-copy="cmd-{{ loop.index }}">복사</button></div>
+    <p class="muted">재시험: <span class="mono">{{ profile.retest_command }}</span></p>
+    {% endfor %}
+  </div>
+  {% endif %}
+
+  {% if view.profiles %}
+  <div class="card"><h3>이전 실행</h3>
+    {% if view.previous_runs %}
+    <table><thead><tr><th>실행</th><th>프로필</th><th>판정</th><th>봉인 무결성</th><th>기록</th><th></th></tr></thead><tbody>
+      {% for run in view.previous_runs %}
+      <tr><td><a class="result-link" href="{{ prefix }}/runs/{{ run.run_id }}"><span class="mono">{{ run.run_id | short_id }}</span></a></td><td>{{ run.execution_profile }}</td>
+        <td>{% if run.verdict_badge %}{{ badge(run.verdict_badge) }}{% else %}{{ badge("integrity_failed") }}{% endif %}</td>
+        <td>{{ run.integrity }}</td><td>{{ "DEMO" if view.demo else ("공식" if run.record_role == "OFFICIAL" else "웹 검증") }}</td>
+        <td>{% if run.parent_run_id %}<a class="compare-link" href="{{ prefix }}/compare/{{ run.run_id }}">재시험 비교</a>{% endif %}</td></tr>
+      {% endfor %}
+    </tbody></table>
+    {% else %}<p class="muted">이 화면의 기록 root에 이 시나리오의 실행 기록이 없습니다. 공식 기록: <span class="mono">{{ view.official.validation_ref }}</span></p>{% endif %}
+  </div>
+  {% endif %}
+  <p><a href="{{ prefix }}/">← 워크벤치로</a></p>
+</section>
+{% endblock %}

@@ -116,6 +116,38 @@ git diff --check               -> 출력 없음
 git diff --check               -> 출력 없음
 ```
 
+### 결과 화면 가독성 보정 T057a~T057d RED → GREEN (2026-10-09, ID-005-09)
+
+| 작업 | 시험 파일 | RED | GREEN | 바꾼 기존 기대값 |
+|---|---|---|---|---|
+| T057a~d | `tests/unit/test_web_run_readability.py` | 11 failed | 11 passed | 없음 |
+| T057a~d | `tests/web/test_run_readability_screen.py` | 8 failed | 8 passed(1280·1024px 각 4) | 없음 |
+
+- 바뀌기 전 → 후: ① 중단된 Run "봉인 무결성 확인됨 (VERIFIED)" → "봉인 무결성 확인됨(봉인 파일·manifest 일치) · 명령줄 verify: INVALID(중단으로 빠진 필수 증적 EV-06, EV-07)"
+  ② 단계 ID 나열 → 구간별 문장(정의된 단계 수, 적용·해제한 시험 조건, 복구 결과), 단계 ID는 개발자용 ③ "수집한 원본 기록" 반복 → "EV-03 장애 발동과 리포트 상태 · 주입 #n",
+  규칙 칸은 묶어서 "… 16개" ④ 영어 미검증 범위·snapshot 해시 → 한국어 설명·"WhyYou commit aaaaaaa", 원문은 개발자용.
+- 함께 고친 것: 수집 단계 값 `RECOVERED`를 화면이 `RECOVERY`로 찾아 "기록 없음"으로 보이던 US2 표시 오류. 새 필드 이름 `evidence_groups[].name`이 경계 가림에
+  걸린 것을 ID-005-08 시험이 잡아 `label`로 바꿈.
+
+### Phase 6 US4 RED → GREEN (2026-10-09)
+
+| 작업 | 시험 파일 | RED | GREEN | 바꾼 기존 기대값 |
+|---|---|---|---|---|
+| T048 → T050 | `tests/unit/test_web_readmodel_scenario.py` | 15 failed | 15 passed | 없음 |
+| T049 → T051 | `tests/web/test_scenario_screen.py` | 12 failed, 10 errors | 12 passed(1280·1024px 각 6) | 없음 |
+
+- 준비 상태 확인은 실제 웹 실행기(`PreflightRunner`)에 가짜 하위 프로세스를 넣어 시험했다(E-01 READY, E-02 사용법 오류 → "확인 도구 오류"). 대상 서비스 호출 없음.
+
+### T052 US4 gate (2026-10-09)
+
+```text
+.venv python -m pytest -q      -> 1179 passed, 1 xfailed in 568.74s, 그리고 같은 실행에 먼저 써 둔 US5 시험(T053·T054)의 RED 14 failed, 4 errors
+.venv python -m ruff check .   -> All checks passed!
+git diff --check               -> 출력 없음
+```
+
+- US5 시험 두 파일을 뺀 나머지는 모두 통과했다(US5 RED는 아래 US5 표에 다시 적음).
+
 ### 사용자 스토리 gate
 
 | Phase | 시험 | 결과 |
@@ -123,6 +155,7 @@ git diff --check               -> 출력 없음
 | Phase 3 US1 | T021~T026 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T034) |
 | Phase 4 US2 | T035~T037 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T042) |
 | Phase 5 US3 | T043~T044 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T047) |
+| Phase 6 US4 | T048~T049 GREEN, 전체 회귀, ruff | PASS(2026-10-09, 위 T052; US5 RED 시험 제외) |
 
 ### Actual validation (웹 PC 재실행, Phase 9)
 

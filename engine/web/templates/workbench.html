@@ -79,7 +79,7 @@
             {% if row.records_on_this_pc.web_validation_runs %}<div class="muted">{{ "DEMO 기록" if view.demo else "이 PC 웹 검증 기록" }} {{ row.records_on_this_pc.web_validation_runs }}건(공식 상태와 별도)</div>{% endif %}
             {% if row.result_links %}<div class="result-links">{% for link in row.result_links %}<a class="result-link nowrap" href="{{ prefix }}/runs/{{ link.run_id }}" title="{{ link.run_id }}">{{ "공식 기록" if link.role == "OFFICIAL" else ("DEMO 기록" if link.role == "DEMO" else "웹 검증 기록") }} <span class="mono">{{ link.run_id | short_id }}</span></a>{% endfor %}</div>{% endif %}
           </td>
-          <td class="nowrap muted">—</td>
+          <td class="nowrap"><a class="detail-link" href="{{ prefix }}/scenarios/{{ row.id }}">상세</a></td>
         </tr>
         {% endfor %}
       {% endfor %}

@@ -26,7 +26,8 @@
     <details class="dev-inline" data-testid="header-developer"><summary>개발자용 정보</summary><span class="mono">claim_scope: {{ view.claim_scope or "EXECUTED_SCENARIO_AND_EVIDENCE_ONLY" }}</span>{% if tv %} · <span class="mono">target_version: {{ tv }}</span>{% endif %}</details></div>
   <nav role="tablist" aria-label="화면 선택">
     <a role="tab" href="{{ prefix }}/" aria-selected="{{ 'true' if active == 'workbench' else 'false' }}">① 워크벤치</a>
-    <span role="tab" aria-selected="false" aria-disabled="true" title="다음 단계에서 제공">② 시나리오 상세·실행</span>
+    {% set scenario_for_tab = view.id if active == "scenario" else (view.run.scenario_id if view.run else none) %}
+    {% if scenario_for_tab %}<a role="tab" href="{{ prefix }}/scenarios/{{ scenario_for_tab }}" aria-selected="{{ 'true' if active == 'scenario' else 'false' }}">② 시나리오 상세·실행</a>{% else %}<span role="tab" aria-selected="false" aria-disabled="true" title="워크벤치 표의 상세 링크로 엽니다">② 시나리오 상세·실행</span>{% endif %}
     {% if active in ('run', 'evidence') %}<a role="tab" href="{{ prefix }}/runs/{{ view.run.run_id if view.run else view.run_id }}" aria-selected="true">③ 실행 결과·증적</a>{% else %}<span role="tab" aria-selected="false" aria-disabled="true" title="워크벤치 표의 결과 링크로 엽니다">③ 실행 결과·증적</span>{% endif %}
     <a role="tab" href="{{ prefix }}/report" aria-selected="{{ 'true' if active == 'report' else 'false' }}" title="재시험 비교는 다음 단계에서 제공">④ 재시험 비교·보고서</a>
   </nav>
