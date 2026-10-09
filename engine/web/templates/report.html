@@ -11,7 +11,7 @@
   <h2>결과 보고서 <span class="muted">(한 화면 · 번호는 V4 §8.7 [R1~R13]과 §12.4 [C1~C9] 점검용)</span></h2>
   <p class="muted">재시험 비교 화면은 다음 단계에서 제공합니다. 이 보고서의 최초 실행·재시험 계보(R10)는 공식 기록 목록입니다.</p>
   <div class="card report">
-    <p>{{ item("R1") }}<b>검증 대상과 버전</b>: {{ view.target_and_versions.text }}{% if view.target_version_now %} <span class="muted">최근 준비 상태 확인의 대상 버전</span> <span class="mono">{{ view.target_version_now }}</span>{% endif %}</p>
+    <p>{{ item("R1") }}<b>검증 대상과 버전</b>: {{ view.target_and_versions.text }}{% if view.target_commit_now %} <span class="muted">최근 준비 상태 확인의 대상 commit</span> <span class="mono">{{ view.target_commit_now }}</span>{% endif %}</p>
     <p>{{ item("R2") }}<b>검증 목적과 범위</b>: {{ view.purpose_and_scope.text }}</p>
     <blockquote class="note" data-testid="fixed-scope-sentence">{% for part in view.fixed_scope_sentence.split("`") %}{% if loop.index is even %}<b>{{ part }}</b>{% else %}{{ part }}{% endif %}{% endfor %}</blockquote>
     <p>{{ item("R3") }}<b>합성 데이터 사용</b>: {{ view.synthetic_data_notice.text }}</p>

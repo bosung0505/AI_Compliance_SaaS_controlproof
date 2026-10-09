@@ -185,7 +185,7 @@ class WorkbenchReader:
             )
         return {
             **self.header("workbench"),
-            "target": {"service": "WhyYou", "target_version": self._target_version()},
+            "target": {"service": "WhyYou", **self._target_identity()},
             "readiness_checked_at": common,
             "counts": _counts(rows),
             "count_members": _count_members(rows),
@@ -297,14 +297,22 @@ class WorkbenchReader:
         return {key: [name for _, name in sorted(items, reverse=True)] for key, items in found.items()}
 
     def _target_version(self) -> str | None:
+        return self._target_identity()["target_version"]
+
+    def _target_identity(self) -> dict[str, str | None]:
+        """Target version and short WhyYou commit from the latest readiness record (ID-005-09)."""
         versions = []
         for entry in self.catalog["scenarios"]:
             for profile in entry["profiles"]:
                 record = self.readiness.latest(entry["id"], profile["execution_profile"]) or {}
                 payload = record.get("stored_payload") or {}
                 if payload.get("target_version"):
-                    versions.append((record.get("checked_at") or "", payload["target_version"]))
-        return max(versions)[1] if versions else None
+                    commit = ((payload.get("target_snapshot") or {}).get("git_commit_sha") or "")[:7] or None
+                    versions.append((record.get("checked_at") or "", payload["target_version"], commit))
+        if not versions:
+            return {"target_version": None, "target_commit": None}
+        _, version, commit = max(versions, key=lambda item: item[0])
+        return {"target_version": version, "target_commit": commit}
 
     def _preserved_first_failures(self) -> list[dict[str, Any]]:
         lineages = []
@@ -348,6 +356,7 @@ class WorkbenchReader:
             **self.header("run"),
             "run": self._run_block(bundle, record),
             "integrity": integrity,
+            "integrity_display": _integrity_display(integrity, self.cache.verify(bundle)["bundle_status"]),
             "display_order": _display_order(integrity["status"], state),
             "safety_badges": ["restore_failed"] if state == "RESTORE_FAILED" else [],
             "verdict": None,
@@ -359,7 +368,17 @@ class WorkbenchReader:
             "limitations": [],
             "memos": self.memos.list(run_id) if self.memos else [],
             "memo_allowed": self.origin == "ACTUAL",
-            "developer": {"files": _manifest_paths(bundle), "problems": integrity["problems"]},
+            "developer": {
+                "files": _manifest_paths(bundle),
+                "problems": integrity["problems"],
+                "target_version": record.get("target_version"),
+                "steps": [
+                    {"phase": item.get("phase"), "step_id": item.get("step_id"), "always_run": bool(item.get("always_run"))}
+                    for item in _snapshot_definition(bundle).get("steps", [])
+                    if isinstance(item, dict)
+                ],
+            },
+            "phase_summary": [],
         }
         if not verified:
             return view
@@ -395,6 +414,7 @@ class WorkbenchReader:
                 "source_requirements": item["source_requirements"],
                 "required_evidence_ids": list(requirements.get(item["assertion_id"], {}).get("required_evidence_ids", [])),
                 "evidence_refs": index["by_assertion"].get(item["assertion_id"], {}).get("refs", []),
+                "evidence_groups": [],
                 "missing_evidence_ids": index["by_assertion"].get(item["assertion_id"], {}).get("missing_requirement_ids", []),
                 "plain_meaning": _assertion_meaning(item["status"], item["reason_code"]),
             }
@@ -405,10 +425,12 @@ class WorkbenchReader:
             for ref in item["refs"]:
                 linked_rules.setdefault(ref, []).append(assertion_id)
         phases = _manifest_phases(bundle)
+        labels = self.catalog.get("evidence_labels", {})
         view["evidence"] = [
             {
                 **item,
-                "evidence_name": _display_name(item),
+                "evidence_name": _evidence_name(item, phases.get(item["ref"]), labels),
+                "evidence_kind": _display_name(item),
                 "phase": phases.get(item["ref"]),
                 "assertion_ids": sorted(linked_rules.get(item["ref"], [])),
                 **_viewability(self._evidence_path(bundle, item), item.get("mime_type")),
@@ -417,18 +439,25 @@ class WorkbenchReader:
         ]
         for item in view["evidence"]:
             item.pop("text", None)
+        _number_duplicate_names(view["evidence"])
+        by_ref = {item["ref"]: item for item in view["evidence"]}
+        for assertion in view["assertions"]:
+            assertion["evidence_groups"] = _evidence_groups(assertion["evidence_refs"], by_ref)
         view["unresolved_refs"] = index["unresolved_refs"]
         view["steps"] = [
             {"phase": item.get("phase"), "step_id": item.get("step_id"), "always_run": bool(item.get("always_run"))}
             for item in snapshot.get("steps", [])
             if isinstance(item, dict)
         ]
-        view["conditions"] = _conditions(bundle, record)
+        view["conditions"] = _conditions(bundle, record, self.catalog.get("condition_labels", {}))
         view["restore"] = _restore(bundle, record, summary, snapshot)
+        view["phase_summary"] = _phase_summary(view["steps"], view["conditions"], view["restore"])
         codes = list(summary.get("limitations") or [])
         view["limitations"] = [LIMITATION_LABELS.get(code, code) for code in codes]
         view["developer"]["limitation_codes"] = codes
-        view["unverified_scope"] = list(summary.get("unverified_scope") or [])
+        raw_scope = list(summary.get("unverified_scope") or [])
+        scope_labels = self.catalog.get("scope_labels", {})
+        view["unverified_scope"] = [scope_labels.get(item, "기타 미검증 항목(개발자용 정보 참고)") for item in raw_scope]
         view["legal_scope_notice"] = summary.get("legal_scope_notice")
         view["developer"].update(
             {
@@ -436,6 +465,7 @@ class WorkbenchReader:
                 "target_id": summary.get("target_id"),
                 "raw_actual": {item["assertion_id"]: item["actual"] for item in summary["assertions"]},
                 "missing_evidence_links": integrity["aborted_missing_evidence"],
+                "unverified_scope_raw": raw_scope,
             }
         )
         return view
@@ -520,6 +550,7 @@ class WorkbenchReader:
             "scenario_version": record.get("scenario_version"),
             "execution_profile": record.get("execution_profile") or "H03_MINIMAL_V1",
             "target_version": record.get("target_version"),
+            "target_commit": ((_read_json(bundle / "target.snapshot.json") or {}).get("git_commit_sha") or "")[:7] or None,
             "run_state": record.get("state"),
             "started_at": record.get("started_at"),
             "ended_at": record.get("ended_at"),
@@ -550,6 +581,7 @@ class WorkbenchReader:
             ),
             "target_and_versions": texts["target_and_versions"],
             "target_version_now": workbench["target"]["target_version"],
+            "target_commit_now": workbench["target"]["target_commit"],
             "purpose_and_scope": texts["purpose_and_scope"],
             "synthetic_data_notice": texts["synthetic_data_notice"],
             "catalog_status": [
@@ -802,23 +834,108 @@ def _viewability(path: Path | None, mime_type: str | None) -> dict[str, Any]:
     return {"viewable": True, "reason": None, "text": payload.decode("utf-8", errors="replace")}
 
 
-def _conditions(bundle: Path, record: dict[str, Any]) -> list[dict[str, Any]]:
-    """Applied and released test conditions as the bundle recorded them (no inference)."""
+def _conditions(bundle: Path, record: dict[str, Any], labels: dict[str, str]) -> list[dict[str, Any]]:
+    """Applied and released test conditions as the bundle recorded them (no inference); Korean labels (ID-005-09)."""
     conditions = []
     for line in _jsonl(bundle / "change-injections.jsonl"):
-        label = f"{line.get('kind')} ({line.get('lane_id')})"
+        kind = str(line.get("kind"))
+        label = labels.get(kind, "시험용 데이터 변경")
+        raw = f"{kind} ({line.get('lane_id')})"
         if line.get("applied_at"):
-            conditions.append({"kind": "APPLIED", "label": label, "at": line["applied_at"]})
+            conditions.append({"kind": "APPLIED", "label": label, "raw": raw, "at": line["applied_at"]})
         if line.get("restored_at"):
-            conditions.append({"kind": "RELEASED", "label": label, "at": line["restored_at"]})
+            conditions.append({"kind": "RELEASED", "label": label, "raw": raw, "at": line["restored_at"]})
     if record.get("fault_ever_applied"):
-        conditions.append({"kind": "APPLIED", "label": "시험 조건(장애 주입) 적용", "at": None})
-    for line in _jsonl(bundle / "faults.jsonl"):
-        if line.get("environment_restore"):
-            conditions.append(
-                {"kind": "RELEASED", "label": f"환경 복구 시도 {line.get('attempt')}: {line['environment_restore']}", "at": None}
-            )
+        conditions.append({"kind": "APPLIED", "label": "시험용 장애 주입", "raw": "fault_ever_applied", "at": None})
+    attempts = [line for line in _jsonl(bundle / "faults.jsonl") if line.get("environment_restore")]
+    if attempts:
+        last = attempts[-1]["environment_restore"]
+        conditions.append(
+            {
+                "kind": "RELEASED",
+                "label": f"시험용 장애 해제와 환경 복구(시도 {len(attempts)}회, 마지막 결과 {last})",
+                "raw": "faults.jsonl",
+                "at": None,
+            }
+        )
     return conditions
+
+
+PHASE_LABELS = {"BASELINE": "기준선", "INJECTED": "주입", "RECOVERED": "복구"}
+
+
+def _phase_summary(
+    steps: list[dict[str, Any]], conditions: list[dict[str, Any]], restore: dict[str, Any] | None
+) -> list[dict[str, Any]]:
+    """Plain per-phase summary of the sealed definition and recorded conditions; step IDs stay in developer details."""
+    summary = []
+    applied = sorted({item["label"] for item in conditions if item["kind"] == "APPLIED"})
+    released = sorted({item["label"] for item in conditions if item["kind"] == "RELEASED"})
+    for phase, label in PHASE_LABELS.items():
+        members = [step for step in steps if step.get("phase") == phase]
+        always = sum(1 for step in members if step.get("always_run"))
+        if phase == "BASELINE":
+            sentences = [f"정의된 단계 {len(members)}개로 시험 전 상태와 합성 대상을 준비·기록합니다."]
+        elif phase == "INJECTED":
+            sentences = [f"정의된 단계 {len(members)}개로 시험 조건을 적용하고 대상의 반응을 관찰합니다."]
+            sentences.append("적용한 시험 조건: " + (", ".join(applied) if applied else "기록 없음"))
+        else:
+            sentences = [f"정의된 단계 {len(members)}개(실패해도 항상 실행 {always}개)로 시험 조건을 되돌립니다."]
+            sentences.append("해제한 시험 조건: " + (", ".join(released) if released else "기록 없음"))
+            sentences.append("복구 결과: " + str((restore or {}).get("status") or "기록 없음"))
+        summary.append({"phase": phase, "label": label, "step_count": len(members), "sentences": sentences})
+    return summary
+
+
+def _integrity_display(integrity: dict[str, Any], cli_status: str) -> dict[str, Any]:
+    """Screen wording that never contradicts the CLI verify value (ID-005-09 T057a)."""
+    if integrity["aborted_missing_evidence"]:
+        missing = ", ".join(integrity["aborted_missing_evidence"])
+        label = f"봉인 무결성 확인됨(봉인 파일·manifest 일치) · 명령줄 verify: {cli_status}(중단으로 빠진 필수 증적 {missing})"
+    elif integrity["status"] == "VERIFIED":
+        label = "봉인 무결성 확인됨 (VERIFIED)"
+    elif integrity["status"] == "UNREADABLE":
+        label = "기록을 읽을 수 없습니다 (UNREADABLE)"
+    else:
+        label = "봉인 뒤 기록이 바뀌었습니다 (INVALID)"
+    return {"label": label, "cli_verify_status": cli_status}
+
+
+def _evidence_name(item: dict[str, Any], phase: str | None, labels: dict[str, str]) -> str:
+    """Requirement ID + short Korean label + collection phase (or record kind), e.g. "EV-02 장애 적용 요청 · 주입"."""
+    requirements = item.get("evidence_requirement_ids") or []
+    if not requirements:
+        return _display_name(item)
+    first = requirements[0]
+    name = f"{first} {labels.get(first, '증적')}"
+    if len(requirements) > 1:
+        name += f" 외 {len(requirements) - 1}"
+    if phase in PHASE_LABELS:
+        detail = PHASE_LABELS[phase]
+    elif str(item["ref"]).startswith("artifact:"):
+        detail = "화면 캡처" if item.get("mime_type") == "image/png" else "관찰 기록"
+    else:
+        detail = _display_name(item)
+    return f"{name} · {detail}"
+
+
+def _number_duplicate_names(evidence: list[dict[str, Any]]) -> None:
+    counts = Counter(item["evidence_name"] for item in evidence)
+    seen: Counter[str] = Counter()
+    for item in evidence:
+        base = item["evidence_name"]
+        item["evidence_group"] = base
+        if counts[base] > 1:
+            seen[base] += 1
+            item["evidence_name"] = f"{base} #{seen[base]}"
+
+
+def _evidence_groups(refs: list[str], by_ref: dict[str, dict[str, Any]]) -> list[dict[str, Any]]:
+    groups: dict[str, list[str]] = {}
+    for ref in refs:
+        item = by_ref.get(ref)
+        groups.setdefault(item["evidence_group"] if item else ref, []).append(ref)
+    return [{"label": label, "count": len(members), "refs": members} for label, members in groups.items()]
 
 
 def _restore(bundle: Path, record: dict[str, Any], summary: dict[str, Any], snapshot: dict[str, Any]) -> dict[str, Any]:

@@ -18,11 +18,12 @@
   <h1>ControlProof 검증 워크벤치</h1>
   {% set tv = (view.target.target_version if view.target else none) or (view.run.target_version if view.run else none) or view.target_version_now %}
   <div class="target">검증 대상: <b>WhyYou</b> 시험 환경
-    · 대상 버전 {% if tv %}<span class="mono">{{ tv }}</span>{% else %}<span class="muted">확인 기록 없음</span>{% endif %}
+    {% set commit = (view.target.target_commit if view.target else none) or (view.run.target_commit if view.run else none) or view.target_commit_now %}
+    · 대상 버전 {% if commit %}WhyYou commit <span class="mono">{{ commit }}</span>{% elif tv %}<span class="muted">commit 기록 없음</span>{% else %}<span class="muted">확인 기록 없음</span>{% endif %}
     · 실행 환경 <b>{{ view.environment_kind or "LOCAL_EMULATED" }}</b>
     · 실제 AWS <b>{{ view.aws_deployment_status or "NOT_RUN" }}</b>
     · 주장 범위: 실행한 시나리오와 확보한 증적
-    <details class="dev-inline" data-testid="header-developer"><summary>개발자용 정보</summary><span class="mono">claim_scope: {{ view.claim_scope or "EXECUTED_SCENARIO_AND_EVIDENCE_ONLY" }}</span></details></div>
+    <details class="dev-inline" data-testid="header-developer"><summary>개발자용 정보</summary><span class="mono">claim_scope: {{ view.claim_scope or "EXECUTED_SCENARIO_AND_EVIDENCE_ONLY" }}</span>{% if tv %} · <span class="mono">target_version: {{ tv }}</span>{% endif %}</details></div>
   <nav role="tablist" aria-label="화면 선택">
     <a role="tab" href="{{ prefix }}/" aria-selected="{{ 'true' if active == 'workbench' else 'false' }}">① 워크벤치</a>
     <span role="tab" aria-selected="false" aria-disabled="true" title="다음 단계에서 제공">② 시나리오 상세·실행</span>

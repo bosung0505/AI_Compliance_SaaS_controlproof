@@ -184,6 +184,14 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 - [ ] T056 [US5] Add `/compare/{child_run_id}`, `/api/compare/{child_run_id}` routes in `engine/web/server.py` and create `engine/web/templates/compare.html` per the approved screen ④ compare part (after T054 RED) [FR-021~023]
 - [ ] T057 [US5] Run the US5 gate and record it in `specs/005-web-workbench-report/validation.md` [SC-005]
 
+
+### 결과 화면 가독성 보정 (2026-10-09 추가, 사용성 검토 전, ID-005-09)
+
+- [X] T057a [US2] Aborted Run integrity wording: never show "VERIFIED" for the ID-005-01 exception; show "봉인 무결성 확인됨(봉인 파일·manifest 일치) · 명령줄 verify: INVALID(중단으로 빠진 필수 증적 …)" in the lead and the info table, keeping the ID-005-01 decision, in `engine/web/readmodel.py` and `engine/web/templates/run.html` (test first in `tests/unit/test_web_run_readability.py` and `tests/web/test_run_readability_screen.py`) [FR-017, FR-019]
+- [X] T057b [US2] Step progress in plain words: per phase (기준선·주입·복구) the step count, applied/released test conditions in Korean and the restore result; step IDs move to developer details [FR-018, FR-019]
+- [X] T057c [US2] Distinguishable evidence names: evidence requirement label (EV-xx short Korean label from the catalog), record kind and collection phase; the per-rule evidence cell groups equal names with a count so no name repeats [FR-015, FR-019]
+- [X] T057d [US2] Korean labels for known unverified-scope items (raw text in developer details) and the header target version as a short WhyYou commit when recorded (snapshot hash in developer details) [FR-019, FR-013]
+
 ---
 
 ## Phase 8: Polish & Cross-Cutting (자동 gate)

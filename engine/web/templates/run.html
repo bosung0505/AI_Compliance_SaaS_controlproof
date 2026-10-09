@@ -18,8 +18,8 @@
       {% for key in view.safety_badges %}{{ badge(key) }} {% endfor %}<span class="muted">대상 서비스의 FAIL이 아니라 실행 안전 문제입니다.</span>
       {% elif part == "integrity" %}
         {% if integrity.status == "VERIFIED" %}
-        <span class="integrity-ok">봉인 무결성 확인됨 (VERIFIED)</span>
-        {% if integrity.aborted_missing_evidence %}<span data-testid="aborted-missing" class="muted">+ 중단으로 빠진 증적: {{ integrity.aborted_missing_evidence | join(", ") }}</span>{% endif %}
+        {% if integrity.aborted_missing_evidence %}<span class="integrity-ok" data-testid="aborted-missing">{{ view.integrity_display.label }}</span>
+        {% else %}<span class="integrity-ok">{{ view.integrity_display.label }}</span>{% endif %}
         {% else %}
         {{ badge("integrity_failed") }} <span>{{ "기록을 읽을 수 없습니다 (UNREADABLE)" if integrity.status == "UNREADABLE" else "봉인 뒤 기록이 바뀌었습니다 (INVALID)" }} · 문제 항목 {{ integrity.problems | length }}개</span>
         {% endif %}
@@ -40,7 +40,7 @@
     <div class="card"><table class="kv">
       <tr><th>실행 ID</th><td class="mono">{{ run.run_id }}</td></tr>
       <tr><th>시나리오·프로필</th><td>{{ run.scenario_id }} · {{ run.execution_profile }} · 정의 {{ run.scenario_version }}</td></tr>
-      <tr><th>대상 버전</th><td class="mono">{{ run.target_version or "기록 없음" }}</td></tr>
+      <tr><th>대상 버전</th><td>{% if run.target_commit %}WhyYou commit <span class="mono">{{ run.target_commit }}</span>{% else %}<span class="muted">commit 기록 없음(개발자용 정보에 대상 snapshot)</span>{% endif %}</td></tr>
       <tr><th>실행 시각</th><td>{{ run.started_at | when }} – {{ run.ended_at | when }}</td></tr>
       <tr><th>실행 상태</th><td>{{ run.run_state }}</td></tr>
       <tr><th>복구</th><td data-testid="restore">
@@ -52,7 +52,7 @@
           · 수동 정리 {{ "필요" if view.restore.manual_cleanup_required else "필요 없음" }}
         {% else %}무결성을 확인하지 못해 보이지 않습니다{% endif %}
       </td></tr>
-      <tr><th>봉인 무결성</th><td>{{ integrity.status }}{% if run.manifest_sha256 %} <span class="mono" title="{{ run.manifest_sha256 }}">{{ run.manifest_sha256[:12] }}…</span>{% endif %}</td></tr>
+      <tr><th>봉인 무결성</th><td>{{ view.integrity_display.label }}{% if run.manifest_sha256 %} <span class="mono" title="{{ run.manifest_sha256 }}">{{ run.manifest_sha256[:12] }}…</span>{% endif %}</td></tr>
       <tr><th>기록 출처</th><td>{{ "DEMO DATA(합성 기록)" if run.record_origin == "DEMO" else ("공식 기록" if run.record_role == "OFFICIAL" else "이 PC의 웹 검증 기록(공식 상태와 별도)") }}</td></tr>
     </table></div>
     <div class="card" data-testid="plain-explanation"><h3>비개발자용 설명</h3>
@@ -67,16 +67,11 @@
     </div>
   </div>
 
-  {% if view.steps %}
-  <div class="card"><h3>단계별 진행과 시험 조건</h3>
+  {% if view.phase_summary %}
+  <div class="card" data-testid="phase-summary"><h3>단계별 진행과 시험 조건</h3>
     <ol class="steps">
-      {% for phase in ["BASELINE", "INJECTED", "RECOVERY"] %}
-      {% set items = view.steps | selectattr("phase", "equalto", phase) | list %}
-      {% if items %}<li>{{ {"BASELINE": "기준선", "INJECTED": "주입", "RECOVERY": "복구"}[phase] }} — {% for step in items %}<span class="mono">{{ step.step_id }}</span>{% if step.always_run %}(항상 실행){% endif %}{% if not loop.last %} · {% endif %}{% endfor %}</li>{% endif %}
-      {% endfor %}
+      {% for item in view.phase_summary %}<li><b>{{ item.label }}</b> — {{ item.sentences | join(" · ") }}</li>{% endfor %}
     </ol>
-    {% if view.conditions %}<ul>{% for item in view.conditions %}<li><b>{{ "적용" if item.kind == "APPLIED" else "해제" }}</b>: {{ item.label }}{% if item.at %} <span class="muted">{{ item.at | when }}</span>{% endif %}</li>{% endfor %}</ul>
-    {% else %}<p class="muted">적용·해제한 시험 조건 기록이 없습니다.</p>{% endif %}
   </div>
   {% endif %}
 
@@ -94,7 +89,7 @@
 actual: {{ item.actual | tojson }}
 detail: {{ item.detail or "" }}</pre></details></td>
         <td class="nowrap">{% if item.status == "INCONCLUSIVE" %}<span class="neutral-title small">판정 불가</span> {% endif %}{{ badge(item.badge) }}</td>
-        <td>{% for ref in item.evidence_refs %}{% set ev = view.evidence | selectattr("ref", "equalto", ref) | first %}<a class="evidence-link" href="{{ prefix }}/runs/{{ run.run_id }}/evidence?ref={{ ref | urlencode }}">{{ ev.evidence_name if ev else ref }}</a>{% if not loop.last %}, {% endif %}{% endfor %}
+        <td class="evidence-cell">{% for group in item.evidence_groups %}<span class="evidence-group" data-name="{{ group.label }}"><a class="evidence-link" href="{{ prefix }}/runs/{{ run.run_id }}/evidence?ref={{ group.refs[0] | urlencode }}">{{ group.label }}</a>{% if group.count > 1 %} <span class="muted">{{ group.count }}개</span>{% endif %}</span>{% if not loop.last %}<br>{% endif %}{% endfor %}
           {% if item.missing_evidence_ids %}<div class="warn">누락: {{ item.missing_evidence_ids | join(", ") }}</div>{% endif %}</td>
       </tr>
     {% endfor %}
@@ -105,9 +100,9 @@ detail: {{ item.detail or "" }}</pre></details></td>
   <div class="card"><h3>증적</h3>
     <table data-testid="evidence-table"><thead><tr><th>이름</th><th>형식</th><th>크기</th><th>SHA-256</th><th>수집 단계</th><th>연결 규칙</th><th></th></tr></thead><tbody>
     {% for item in view.evidence %}
-      <tr><td>{{ item.evidence_name }}</td><td class="nowrap">{{ item.mime_type | mime_label }}</td><td class="nowrap">{{ item.size_bytes | size }}</td>
+      <tr><td class="evidence-name">{{ item.evidence_name }}</td><td class="nowrap">{{ item.mime_type | mime_label }}</td><td class="nowrap">{{ item.size_bytes | size }}</td>
         <td class="mono nowrap" title="{{ item.sha256 }}">{{ item.sha256[:12] }}…</td>
-        <td class="nowrap">{{ {"BASELINE": "기준선", "INJECTED": "주입", "RECOVERY": "복구"}.get(item.phase, "기록 없음") }}</td>
+        <td class="nowrap">{{ {"BASELINE": "기준선", "INJECTED": "주입", "RECOVERED": "복구"}.get(item.phase, "기록 없음") }}</td>
         <td>{{ item.assertion_ids | join(", ") or "—" }}</td>
         <td class="nowrap"><a class="evidence-link" href="{{ prefix }}/runs/{{ run.run_id }}/evidence?ref={{ item.ref | urlencode }}">{{ "원문 보기" if item.viewable else "정보 보기" }}</a></td></tr>
     {% endfor %}
@@ -120,6 +115,11 @@ detail: {{ item.detail or "" }}</pre></details></td>
     <p class="mono">{{ view.developer.files | join(" · ") }}</p>
     {% if view.developer.problems %}<p>무결성 문제 항목:</p><ul class="mono">{% for item in view.developer.problems %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}
     {% if view.developer.model_fixture_id %}<p class="mono">model_fixture_id: {{ view.developer.model_fixture_id }} · target_id: {{ view.developer.target_id }}</p>{% endif %}
+    {% if view.developer.target_version %}<p class="mono">target_version: {{ view.developer.target_version }}</p>{% endif %}
+    {% if view.developer.steps %}<p>단계 ID:</p><ul class="mono">{% for step in view.developer.steps %}<li>{{ step.phase }} · {{ step.step_id }}{% if step.always_run %} (always_run){% endif %}</li>{% endfor %}</ul>{% endif %}
+    {% if view.conditions %}<p>시험 조건 원본:</p><ul class="mono">{% for item in view.conditions %}<li>{{ item.kind }} · {{ item.raw }}{% if item.at %} · {{ item.at }}{% endif %}</li>{% endfor %}</ul>{% endif %}
+    {% if view.developer.unverified_scope_raw %}<p class="mono">unverified_scope: {{ view.developer.unverified_scope_raw | join(" · ") }}</p>{% endif %}
+    {% if view.developer.limitation_codes %}<p class="mono">limitations: {{ view.developer.limitation_codes | join(" · ") }}</p>{% endif %}
     {% if view.evidence %}<ul class="mono">{% for item in view.evidence %}<li>{{ item.ref }} → {{ item.relative_path }}</li>{% endfor %}</ul>{% endif %}
   </details>
 

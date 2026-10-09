@@ -333,3 +333,65 @@ report:
     - {text: "다른 PC 재현 미검증", source: "범위표 §5"}
   legal_notice: {text: "이 결과는 실행한 시나리오와 확보한 증적에 한정되며 법적 준수 전체를 인증하거나 보증하지 않는다.", source: "V4 §2.2, FR-026"}
   one_screen_notice: {text: "이 화면이 전체 결과 보고서다. PDF 내보내기는 범위 밖이다.", source: "V4 §8.7, spec Scope Boundaries"}
+# ------------------------------------------------------------------ display labels (ID-005-09)
+# Short Korean labels for evidence requirements, known unverified-scope items and test-condition kinds. Source: the
+# scenario definitions (scenarios/*.yaml required_evidence) and the engine's recorded values; screens show these in
+# plain text and keep the originals in developer details.
+evidence_labels:
+  EV-01: 장애 전 상태 기준선
+  EV-02: 장애 적용 요청
+  EV-03: 장애 발동과 리포트 상태
+  EV-04: 담당자 화면
+  EV-05: 최종 결정 요청과 응답
+  EV-06: 결정 시도 뒤 상태
+  EV-07: 자동 결정 부재 관찰
+  EV-08: 환경 복구 결과
+  EV-09: 시나리오와 대상 버전 기록
+  EV2-01: 환경과 작업 대기열 구성
+  EV2-02: 원 후속 처리 요청과 기준선
+  EV2-03: 장애 경계 수신 기록
+  EV2-04: 처리 재시도·중복 수신 기록
+  EV2-05: 최종 실패 보관
+  EV2-06: 담당자 최종 실패 표시
+  EV2-07: 결정 경로 요청과 응답
+  EV2-08: 결정 전후 상태 변화
+  EV2-09: 복구와 재처리
+  EV2-10: 리포트 처리 효과
+  EV2-11: 사람 결정 요청과 재전송 효과
+  EV2-12: 봉인된 실행 정의
+  EV3-01: 대상 환경·정책·보호 경로 준비 기록
+  EV3-02: 동의 정책과 정상 동의 완료
+  EV3-03: 시도 전 상태
+  EV3-04: 동의 전 직접 처리 시도와 응답
+  EV3-05: 시도 뒤 처리 효과
+  EV3-06: 정상 동의 뒤 처리 사건 순서
+  EV3-07: 동의 저장 장애 주입 기록
+  EV3-08: 동의 실패 뒤 상태
+  EV3-09: 복구 뒤 안전 상태와 정상 재시도
+  EV3-10: 규칙 결과와 봉인 목록
+  EV4-01: 대상 환경·준비 항목 기록
+  EV4-02: 합성 대상·평가 기준 표시 기록
+  EV4-03: 인용 시험과 고정 모델 출력
+  EV4-04: 변경 전후 리포트 저장 기록
+  EV4-05: 리포트 조회(제거 전·후·복원 후)
+  EV4-06: 평가기준 버전 기록
+  EV4-07: 동결된 입력과 리포트 조회
+  EV4-08: 점수 재계산 기록
+  EV4-09: 변경 주입·복원과 안전 상태
+  EV4-10: 규칙 결과와 봉인 목록
+scope_labels:
+  "reporting retry exhaustion and DLQ": 리포트 생성 재시도 소진과 실패 보관
+  "generic stage-move bypass": 일반 채용 단계 이동 우회
+  "post-recovery idempotency": 복구 뒤 중복 방지
+  AWS: 실제 AWS
+  AWS_SQS: 실제 AWS 대기열
+  AWS_ECS: 실제 AWS 실행 환경
+  AWS_IAM: 실제 AWS 권한
+  AWS_CLOUDWATCH: 실제 AWS 모니터링
+  AWS_NETWORK: 실제 AWS 네트워크
+  N-01: N-01(미실행)
+  N-03: N-03(미실행)
+condition_labels:
+  EVIDENCE_SEGMENT_REMOVAL: 근거 답변 구간 제거
+  STORAGE_PROBE_WRITE: 저장소 직접 쓰기 진단
+  CRITERIA_VERSION_PUBLISH: 평가기준 새 버전 게시
