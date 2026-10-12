@@ -269,8 +269,159 @@ Run·재시험·cleanup-confirm은 하지 않았다. 환경을 띄워 7개 프�
 
 ### Actual validation (웹 PC 재실행, Phase 9)
 
+공식 세션 2026-10-10(연우 PC). 이 기록들은 Spec 005 웹 검증용이며 각 시나리오의 공식 상태를 바꾸지 않는다(D-018 추가 결정 3).
+
+- 시작 조건: 세 checkout clean(ControlProof `005-web-workbench-report` `9856a03`, WhyYou `bosung/controlproof-n02-integration` `374b122`,
+  worktree `../gbsa_aws-ce8d862` `ce8d862` detached), PR #2 브랜치 `cebf067`이 005의 조상(T061 일부), T020 완료(`1c7e366`), 준비 2차 preflight 8/8 READY.
+- tasks와 다르게 진행한 점(사유: 세션 지시, 연우 승인 2026-10-10):
+  1. T063: H03_DLQ_V2가 예상과 다르면 원인만 분류하고 멈춘다. 고치지 않는다(실행기 수정은 남은 Run의 ControlProof source를 바꾸므로 따로 정한다).
+  2. 독립 재현 gate는 "gate 후보"로만 기록한다(새 clone이 아닌 이 PC의 기존 clone, clean, 대상 `374b122`). 인정 여부는 보성이 정한다.
+  3. T069: tasks 범위(SC-001~007, SC-010, SC-011) 전체를 확인하고, 세션 지시의 세 가지(공식 상태와 분리 표시, VERIFIED, E-01 재시험 비교)를 따로 표시한다.
+  4. 순서는 tasks·quickstart를 따르되, Run 8 뒤 WhyYou를 멈추기 전에 웹을 실제 root로 띄워 "준비 상태 확인"을 한 번 실행·저장 확인하고,
+     그다음 WhyYou를 멈추고 fixture·`.env`를 되돌린 뒤 나머지 웹 확인을 한다(웹이 run root만으로 동작함을 보이기 위해).
+  5. preflight는 시작 일괄(T062)과 Run마다 둘 다 한다.
+- 예상(Run별 비교 기준): 1~4 PASS, 5 INCONCLUSIVE(A5·A7만 INSUFFICIENT_EVIDENCE), 6 PASS, 7 FAIL(A3만 FAIL, 공식 부모 `09c9d9bb`와 같은 모양), 8 PASS.
+- 환경(방법 A, fixture `h03-report-v1`): 두 `.env` 시작 SHA-256 ControlProof `4E998770…0450`, WhyYou `0B7C4D1D…E942`(백업 사본은 checkout 밖).
+  `docker compose up -d --wait`(PostgreSQL·LocalStack·Mailpit healthy), WhyYou `.venv` Python으로 `local_infra`·`alembic upgrade heads`(오류 없음),
+  API(`uvicorn`, 8080) `/health/ready` ok(의존성 10개 ok), 작업자 "Started 4 workers", 회사 콘솔 5173 HTTP 200. run root `.controlproof/runs`(기존 Run 3개 있음).
+- T062 일괄 preflight(374b122, dirty 없음, `LOCAL_EMULATED`, AWS `NOT_RUN`): H03_DLQ_V2 READY 18/18 · H03_MINIMAL_V1 READY 12/12 ·
+  E03_BEFORE_V2 READY 15/15 · E03_AFTER_V2 READY 12/12 · N02_CONSENT_ORDER_V1 READY 16/16.
+- Run마다: 실행 전 두 저장소 branch·HEAD·dirty와 preflight를 기록하고 연우 승인("실행") 뒤 실행, 실행 뒤 `show`·`verify`.
+
 | 순서 | 시나리오·프로필 | WhyYou | ControlProof HEAD·dirty | preflight | Run ID | verdict / 복구 | manifest SHA-256 |
 |---|---|---|---|---|---|---|---|
+| 1 | H-03 `H03_DLQ_V2` | `374b122` dirty 0 | `9856a03` dirty 0 | READY 18/18 | `277d3f5a-766a-45ab-9f1d-28a3a30a82e6` | PASS(A1~A9 PASS) / 복구 SUCCEEDED, verify VERIFIED(33 files) | `3d6b0a85d2c657e4c3bedbfb5938399b8235ada488c0616bd641a340184fbcdf` |
+| 2 | H-03 `H03_MINIMAL_V1` | `374b122` dirty 0 | `9856a03` dirty 0 | READY 12/12 | `1d573850-7635-4d96-b427-018f2a8a5d30` | PASS(A1~A6 PASS) / 복구 SUCCEEDED, verify VERIFIED(48 files) | `7f82de7059d73fb93d0d67f81bc641d6047a5df6d58f56075f4eea234bbace09` |
+| 3 | E-03 `E03_BEFORE_V2` | `374b122` dirty 0 | `9856a03` dirty 0 | READY 15/15 | `fd48f7ff-f6bc-4bd3-9fc3-9083acfd0b23` | PASS(A1·A2·A3·A4·A7·A8 PASS) / 복구 SUCCEEDED, verify VERIFIED(23 files) | `aadcd70a9043423c937766a0113010bce59e6531edb3216e2e36bbf8275a2a92` |
+| 4 | E-03 `E03_AFTER_V2` | `374b122` dirty 0 | `9856a03` dirty 0 | READY 12/12 | `064afdb0-a04b-4ce7-a283-b1a59aec0051` | PASS(A1·A5·A6·A8 PASS) / 복구 SUCCEEDED, verify VERIFIED(19 files) | `79037d811220d0a44f37de30a3e03d6d8a07f649101af2b730e25d688520c577` |
+| 5 | N-02 `N02_CONSENT_ORDER_V1` | `374b122` dirty 0 | `9856a03` dirty 0 | READY 16/16 | `1767fb73-6a4f-4b0a-853d-d306052d5aa6` | INCONCLUSIVE(A1·A2·A3·A4·A6 PASS, A5·A7 INCONCLUSIVE `INSUFFICIENT_EVIDENCE`) / 복구 SUCCEEDED, verify VERIFIED(19 files) | `dc301399e8320205bc6ac3c5830d65c9fc2cc3ecacb25c1ea7e841744b0cf106` |
+| 6 | E-02 `E02_SCORING_FREEZE_V1` | `374b122` dirty 0 | `9856a03` dirty 0 | READY 16/16, scoring_rule_source MATCH | `4a404c73-7690-4963-bf50-67fb5e9c9028` | PASS(A1~A3 PASS) / 복구 SUCCEEDED, verify VERIFIED(17 files, recompute MATCH) | `f3dbc56586458bbeab030a75e5b5334b4730f7e93c70e6eabf9f11008216a55a` |
+| 7 | E-01 `E01_CITATION_EVIDENCE_V1`(부모) | `ce8d862` worktree, detached, dirty 0 | `9856a03` dirty 0 | READY 18/18 | `86cd0010-6f9c-48ef-99a3-5908dda0037c` | FAIL(A1·A2·A4 PASS, A3 FAIL) / 복구 SUCCEEDED, verify VERIFIED(17 files) | `fe5ac508ef664383d90990076de77ff3a34e4c0c9099630a1467d61afe18c6e5` |
+| 8 | E-01 재시험(부모 `86cd0010`) | `374b122` dirty 0 | `9856a03` dirty 0 | READY 18/18 | `7f25b475-b3ad-4877-b185-8b83cb397047` | PASS(A1~A4 PASS, A3 FAIL→PASS) / 복구 SUCCEEDED, verify VERIFIED(19 files), 부모 불변 | `173d34dd222562550b4a869333655d33bec25f5e76294a47cc2a624e2ee8cb3f` |
+
+Run 상세:
+
+- Run 1(H03_DLQ_V2): 예상(공식 상태 PASS)과 같음. `redaction_profile: controlproof.redaction.v2`(manifest 최상위; 파일 항목의 `redaction_profile`은
+  `controlproof-redaction-v1` 표기, 관찰만 기록), 소요 207.6초(started→ended). label `spec005-web-h03-dlq`.
+  **독립 재현 gate 후보**(플레이북 §6): 새로 clone한 checkout이 아니라 이 PC의 기존 clone(clean)이며, 대상은 플레이북 §6이 지정한 commit이 아닌
+  현재 통합 대상 `374b122`이다. gate 인정 여부는 보성이 정한다.
+  봉인 뒤 서비스 정지: Run 1 봉인(08:25:51Z)·verify(08:26:09Z) 뒤, Claude Code가 세션 대기 중 메모리 부족으로 자기 백그라운드 셸(API·작업자·콘솔)을
+  정리했다. 08:27:03Z Run 2 preflight가 READY 12/12(API 로그 응답 있음)였으므로 정지는 봉인 뒤다. 연우가 Run 1을 공식 기록으로 확정했다(2026-10-10).
+  다시 띄운 서비스도 대기 중 같은 이유로 정리돼 09:11:58Z Run 2 preflight는 무효로 했다. 이후 WhyYou API·작업자·콘솔은 연우가 별도 PowerShell 창에서
+  checkout 밖 로컬 폴더의 실행 스크립트(WhyYou `.env`를 프로세스에 불러와 WhyYou `.venv` Python으로 실행, `WY_SRC`가 없으면 `PYTHONPATH`를 지움)로
+  띄웠다. 고아 작업자는 두 번 모두 0개였다.
+- Run 2(H03_MINIMAL_V1): 예상(PASS)과 같음. preflight READY 12/12(13:40:28Z, 연우가 띄운 서비스). `redaction_profile: controlproof.redaction.v2`,
+  소요 71.3초. label `spec005-web-h03-minimal`. 이 프로필(Spec 001 bundle)은 ControlProof commit을 bundle에 담지 않아 실행 전 기록(`9856a03` dirty 0)이 근거다.
+- Run 3(E03_BEFORE_V2): 예상(PASS)과 같음. bundle 환경 snapshot: ControlProof `9856a03` dirty false, WhyYou `374b122` dirty false(Run 1도 같음).
+  `redaction_profile: controlproof.redaction.v2`, 소요 193.0초. label `spec005-web-e03-before`.
+- Run 4(E03_AFTER_V2): 예상(PASS)과 같음. bundle 환경 snapshot ControlProof `9856a03` dirty false, WhyYou `374b122` dirty false.
+  `redaction_profile: controlproof.redaction.v2`, 소요 11.0초. label `spec005-web-e03-after`. preflight(13:59:50Z)와 Run 시작(15:03:40Z) 사이 승인 대기 약 64분.
+- Run 5(N02_CONSENT_ORDER_V1): 예상(INCONCLUSIVE, A5·A7만 `INSUFFICIENT_EVIDENCE`)과 같음. CLI 종료 코드 4(INCONCLUSIVE). 사유: A5 "DOCUMENT_ANALYSIS 경로의
+  요청·시작·결과 사건 중 일부가 없습니다", A7 "정상 재시도 뒤 A5 처리 순서를 PASS로 확인하지 못했습니다"(격리 환경 예상과 같음). FAIL 0.
+  bundle 환경 snapshot ControlProof `9856a03` dirty false, WhyYou `374b122` dirty false. `redaction_profile: controlproof.redaction.v2`, 소요 124.2초.
+  label `spec005-web-n02`. 웹 검증용 기록이며 N-02 공식 상태는 Spec 003 converge를 따른다.
+- fixture 전환(Run 5 뒤): 두 `.env`의 `CONTROLPROOF_MODEL_FIXTURE_ID`·`_DIGEST` 두 줄만 `spec004-report-v1`(digest `e15ec379…`, `controlproof:spec004-report-v1`의
+  SHA-256)로 바꿨다(임베딩 fixture `h03-embedding-v1` 유지). 전환 뒤 SHA-256 ControlProof `A79A5BAA…`, WhyYou `83ACB28A…`. 연우가 API·작업자 창을 멈추고
+  남은 WhyYou 프로세스 0개 확인 뒤 다시 띄웠다(같은 Docker DB, 볼륨 유지). 새 프로세스 생성 시각 15:33Z, API ready ok.
+- Run 6(E02_SCORING_FREEZE_V1): 예상(PASS)과 같음. preflight `model.fixture.read` READY(spec004-report-v1), `scoring.rule.source.read` READY.
+  bundle 환경 snapshot ControlProof `9856a03` dirty false, WhyYou `374b122` dirty false, fixture `spec004-report-v1`. verify `recompute_reexecution=MATCH`.
+  `redaction_profile: controlproof.redaction.v2`, 소요 38.0초. label `spec005-web-e02`.
+- Run 6 뒤 약 15시간 쉬고 이어 감(2026-10-11). 재개 확인: 두 `.env`는 `spec004-report-v1` 그대로(SHA-256과 수정 시각이 전환 직후와 같음),
+  run root의 Run 폴더는 이전 3개 + 이 세션 6개로 그 사이 새 Run 없음, `locks` 비어 있음, `blocks`에는 이전부터 있던 maintenance 기록 1개뿐.
+  API·작업자·회사 콘솔 모두 15:29~15:30 KST에 새로 띄운 프로세스였다.
+- E-01 부모 전환: 연우가 API·작업자 창을 ce8d862 worktree 소스로 다시 띄웠다. 두 창의 확인 출력에서 `PYTHONPATH`와 `interview_evidence.__file__`이
+  모두 worktree의 `backend/src`를 가리켰다(창 1 Uvicorn running, 창 2 Started 4 workers, 프로세스 6개, 8080 listen). API
+  `/internal/controlproof/health`의 fixture는 `spec004-report-v1`. ControlProof는 `WHYYOU_REPO_PATH`만 worktree로 바꿨다(`.env` 파일은 그대로).
+  Run 7 동안 백엔드(API·작업자)는 `ce8d862` worktree, 회사 콘솔 프론트는 기본 checkout(`374b122`)이었다. 판정에는 무관하다고 보지만 기록으로 남긴다.
+  worktree에서는 커밋·push·브랜치 생성을 하지 않았다(detached 유지).
+- Run 7(E-01 부모, `ce8d862`): 예상(FAIL, A3만 FAIL)과 같음. CLI 종료 코드 3(FAIL). A3 "P1: an affected item kept its score and citation after evidence
+  removal"(근거 제거 뒤 영향 항목 1개가 표시 없이 점수·인용을 유지). 공식 부모 `09c9d9bb`(Spec 004 validation: 3 / FAIL, A1 PASS·A2 PASS·A3 FAIL·A4 PASS,
+  SUCCEEDED / VERIFIED 17 files)와 같은 모양. 봉인만 하고 고치지 않았다. bundle 환경 snapshot ControlProof `9856a03` dirty false, WhyYou `ce8d862`
+  dirty false, target snapshot `GIT_WORKTREE` `ce8d862`, fixture `spec004-report-v1`. `manual_cleanup_required: false`라 cleanup-confirm 불필요.
+  `redaction_profile: controlproof.redaction.v2`, 소요 40.1초. label `spec005-web-e01-parent`.
+  소스 구분: target snapshot `git_commit_sha` `ce8d8620…`, ControlProof `WHYYOU_REPO_PATH`=ce8d862 worktree. (`source_kind`는 WhyYou 어댑터가 항상
+  `GIT_WORKTREE`로 고정하는 "git 작업 트리 identity" 표시라 기본 checkout과 git worktree를 구분하지 못하므로 쓰지 않는다. Run 1~8 모두 같은 값.)
+- E-01 재시험 전환: 연우가 API·작업자 창을 기본 checkout(`374b122`)으로 다시 띄웠다(새 프로세스 15:44:21·15:44:36 KST). 확인 출력: 창 1 `file=`이
+  기본 checkout `backend/src`(`PYTHONPATH=` 줄은 화면 위로 잘림), 창 2 `PYTHONPATH= None`, `file=` 기본 checkout. API ready ok, fixture `spec004-report-v1`.
+  Run 8 동안 백엔드(API·작업자)와 회사 콘솔 프론트 모두 기본 checkout `374b122`였다. ControlProof `WHYYOU_REPO_PATH`는 `.env` 원래 값(기본 checkout).
+- Run 8(E-01 재시험, `retest 86cd0010… --label spec005-web-e01-retest`, 같은 run root `.controlproof/runs`): 예상(PASS, A3 FAIL→PASS)과 같음.
+  A3 actual: 영향 항목 1개가 availability 표시를 노출(`indicators` 1건, `unexposed`·`changed_without_indicator` 비어 있음). A4 read_equal·record_equal true.
+  공식 child `a5ad4676`(COMPLETED / PASS, A1~A4 PASS, SUCCEEDED / VERIFIED, 19 registered files, block·manual cleanup 없음)과 같은 모양.
+  retest-diff: 바뀐 필드는 `whyyou_commit.commit_sha` `ce8d862`→`374b122` 하나, 시나리오·프로필·fixture 불변, 새 lane manifest, `reused_identities` 없음.
+  bundle 환경 snapshot ControlProof `9856a03` dirty false, WhyYou `374b122` dirty false, fixture `spec004-report-v1`. `parent_run_id` `86cd0010…`,
+  `manual_cleanup_required: false`. `redaction_profile: controlproof.redaction.v2`, 소요 42.1초.
+  부모 불변: 실행 전·후 manifest SHA-256 `fe5ac508…` 같음, `bundle_digest` `75c10fe6…` 같음, 폴더 18개 파일 해시 목록 SHA-256 `3ed62134…` 같음
+  (파일별 차이 0), 실행 뒤 부모 `verify` VERIFIED. retest 명령 자체의 부모 불변 검사(`assert_parent_unchanged`)도 통과.
+- 웹 준비 상태 확인(WhyYou를 멈추기 전, 세션 지시 4): 연우가 웹을 `--run-root .controlproof/runs`로 띄웠다(127.0.0.1:8765). E-02 시나리오 상세에서
+  "준비 상태 확인"을 한 번 눌렀다. 화면: READY 배지와 확인 시각 2026-10-11 15:56(KST) 표시(화면에는 체크 수를 표시하지 않음). 저장: run root가 아닌
+  웹 상태 폴더 `.controlproof/web/preflight/E-02--E02_SCORING_FREEZE_V1.json`과 `history.jsonl`(git 무시 대상)에 readiness READY, capabilities 16/16,
+  checked_at 06:56:10Z, exit 0, 대상 `374b122`, fixture `spec004-report-v1`. `/api/scenarios/E-02`의 readiness도 같은 값(READY, 16/16, 같은 checked_at,
+  recorded true). Run 폴더 수는 확인 전후 모두 11개(이전 3 + 이 세션 8)로 새 Run을 만들지 않았다. ControlProof git status 비어 있음.
+- E-01 준비 상태 확인(정지 전, 연우 지시): 누르기 전 서비스 생존 확인(API ready ok 의존성 10개, 콘솔 200, WhyYou python 12개 = API·작업자 부모·작업자 4개 각
+  launcher+실행 Python 쌍, 8080·5173 listen). 브라우저 자동화로 누른 첫 시도는 제출되지 않았고(저장 파일·preflight 하위 프로세스 없음, 화면 "확인 기록 없음"),
+  사람이 직접 누르니 정상 동작했다. UI 결함이 아니라 자동화 환경 문제로 분류한다. 화면: READY 배지, "확인 2026-10-12 11:47"(KST).
+  저장 `.controlproof/web/preflight/E-01--E01_CITATION_EVIDENCE_V1.json`: READY, capabilities 18/18, checked_at 2026-10-12T02:47:07Z, exit 0,
+  result_kind READINESS(error_kind 없음), 대상 `374b122` dirty false, fixture `spec004-report-v1`. `history.jsonl` 2줄(E-02, E-01).
+  `/api/scenarios/E-01` readiness: READY, 18/18, 같은 checked_at, recorded true. Run 폴더 11개 그대로, ControlProof git status 비어 있음.
+  T069 SC-010 확인에 이 화면을 쓴다. H-03·E-03·N-02는 fixture가 `h03-report-v1`이 아니라서 누르지 않았다.
+- 환경 정지·원복(2026-10-12): 연우가 API·작업자·콘솔 창을 멈춘 뒤 남은 프로세스를 셌다. API·작업자 python 0개(launcher가 띄운 실행 Python 포함, 명령줄 기준),
+  WhyYou `.venv` python 0개, 콘솔 node·vite 0개, 8080·5173 대기 없음. 두 `.env`는 백업 복사가 아니라 바뀐 두 줄(`CONTROLPROOF_MODEL_FIXTURE_ID`·`_DIGEST`)만
+  `h03-report-v1` 값으로 되돌렸고, SHA-256이 시작 전과 같다(ControlProof `4E998770…`, WhyYou `0B7C4D1D…`). 같음을 확인한 뒤 checkout 밖 백업 사본을 지웠다.
+  `docker compose down`(종료 코드 0): 실행 컨테이너 0개, 볼륨 2개 유지. ControlProof `9856a03`, WhyYou `374b122`, worktree `ce8d862`(detached) 모두
+  git status 비어 있음. worktree는 남겨 둔다.
+
+#### T069 웹 확인(실제 run root, WhyYou 꺼진 상태, 2026-10-12)
+
+- 조건: WhyYou API(8080)·회사 콘솔(5173) 대기 없음, Docker 실행 컨테이너 0개인 상태에서 연우가 웹을 `--run-root .controlproof/runs`로 띄웠다
+  (127.0.0.1:8765, ControlProof `.env`는 원복된 `h03-report-v1`). 준비 상태 확인 버튼은 누르지 않았다. 확인은 GET 화면·`/api/*` 111개 응답 수집과
+  브라우저 화면으로 했다. 웹이 실행 없이 run root(와 웹 상태 폴더)만으로 읽힌다는 근거다.
+- 띄운 직후: 저장된 준비 상태 2건이 그대로 보임(E-02 READY 16/16 2026-10-11T06:56:10Z, E-01 READY 18/18 2026-10-12T02:47:07Z, 출처 PREFLIGHT, recorded true,
+  `history.jsonl` 2줄). `.env` 원복은 저장 기록에 영향이 없다. 웹이 run root의 Run 11개(이전 3 + 이 세션 8)를 모두 읽음(실행 상세 11개 모두 200).
+- SC-001: PASS. 12개 상태가 범위표(`docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md`)와 12/12 일치. 집계 PASS 4 · FAIL 0 · 판정 불가 4
+  (INSUFFICIENT_EVIDENCE 1 + NO_TEST_TARGET 3) · NOT_RUN 4. NOT_RUN·NO_TEST_TARGET·INCONCLUSIVE 행 중 PASS 표시·집계 0건. 실행 처리 EXECUTED 5 · NOT_RUN 4 · NO_TEST_TARGET 3.
+- SC-002: PASS. Run 11개 모두 웹 `/api/runs/{id}`의 판정·assertion 상태·reason code·무결성이 CLI `show`·`verify`와 같다(불일치 0). 무결성이 깨진 실제 기록
+  `e2e8e71d…`(Spec 003 T084 시도 2, 봉인 뒤 `verify` INVALID)는 웹에서 "봉인 뒤 기록이 바뀌었습니다 (INVALID)"로 표시되고 판정을 보이지 않는다(CLI verify도 INVALID).
+  복구 실패 기록 `15cef078…`는 복구 FAILED·INCONCLUSIVE로 CLI와 같다.
+- SC-003: PASS. 이 세션 8개 Run의 PASS·FAIL assertion 41개 모두 실행 결과 화면에서 첫 증적 링크가 열리고(200) 증적 화면에 SHA-256이 보인다
+  (워크벤치 → 실행 결과 → 증적, 2번 이동으로 기준 "3번 이하" 충족). 단서: Spec 002 형식 프로필(Run 1의 A1~A6, Run 3·4 E-03)은 봉인 기록에
+  expected·actual이 null이라, 화면의 "원본 값"도 null로 보인다. 기대와 관찰은 규칙 설명과 detail 문장으로 제시된다. 웹은 봉인 기록을 그대로 표시한 것이다.
+- SC-004: PASS. 보고서 `items_present` R1~R13·C1~C9 22/22 true. 보고서 집계와 12개 상태는 공식 상태에서 오고 "웹 검증" 기록은 섞이지 않는다.
+- SC-005: PASS. E-01 재시험 비교(`/compare/7f25b475…`): 계보 86cd0010 FAIL → 7f25b475 PASS, 부모 판정 FAIL 그대로, assertion별 변화(A3만 FAIL→PASS,
+  A1·A2·A4 그대로)와 assertion별 전후 증적 SHA-256, 바뀐 차원(실행 환경 바뀜, 대상 버전 바뀜 `git_commit_sha`, 고정 모델·시나리오·점수 규칙 원본 같음),
+  "부모 기록 불변 확인"(기록된 부모 digest와 현재 부모 digest `75c10fe6…` 같음) 표시.
+- SC-006: PASS. 12개 행 모두 구분 표시: NOT_RUN 4개는 실행 방식 NOT_RUN·"미실행"·준비 상태 RUNNER_NOT_READY(카탈로그), NO_TEST_TARGET 3개는 "판정 불가 ∅
+  NO_TEST_TARGET"·준비 상태 NO_TEST_TARGET, N-02는 "판정 불가 ? INSUFFICIENT_EVIDENCE A5·A7", 실행 시나리오 5개는 실제 실행.
+- SC-007: PASS. GET 응답 111개(HTML·JSON) + 웹 상태 폴더 저장 파일 4개, 총 115개 파일을 검사: Windows 경로(이스케이프 포함)·`/Users/`·사용자 이름·이메일·Bearer
+  토큰·AWS 키 패턴과 두 `.env`의 비밀 값 10개(값은 출력하지 않음) 모두 0건. 증적 경로는 `<run_root>/…`로 표시된다. 준비 상태 확인 POST는 303 리디렉션만 돌려준다(본문 없음).
+- SC-010: PASS. 모든 화면의 form action은 `/preflight`·`/runs/{id}/memos` 둘뿐이고 서버 POST 라우트도 이 둘뿐(Run·재시험·정리 확인 시작 경로 0건). 시나리오
+  화면의 `run`·`retest` 명령은 복사용 문구이고 `cleanup-confirm` 문구는 없다. 준비 상태는 기록이 있는 E-01·E-02에서 확인 시각과 함께, 나머지는 "확인 기록 없음"
+  또는 카탈로그 상태로 보인다. 사용법 오류 기록은 이 root에 없어 화면으로는 관찰하지 못했다(자동 시험 범위). E-01 화면은 사람이 직접 누른 확인 결과를 쓴다.
+- SC-011: PASS. 실제 화면·API는 `data_origin ACTUAL`, `demo false`, "DEMO DATA" 표시 0건. `/demo/`는 `data_origin DEMO`, "DEMO DATA" 표시 있음, demo root에 기록
+  없음(합성 Run 0개라 실제 개수·보고서에 섞일 것이 없음). 실제 기록 11개는 모두 이 PC에서 실행한 봉인 기록.
+- 세션 지시 세 가지:
+  1. 공식 상태와 분리된 웹 검증 기록 표기: 워크벤치 각 행에 "이 PC 웹 검증 기록 N건(공식 상태와 별도)"과 기록별 "공식 기록"/"웹 검증 기록" 링크가 따로 보인다.
+     화면 문구는 있는 그대로 "이 PC 웹 검증 기록"이다(화면은 고치지 않음). 공식 상태 열은 카탈로그 값 그대로다. 행별 웹 검증 기록:
+     H-03 2건(Run 1 `277d3f5a…`, Run 2 `1d573850…`), E-01 2건(Run 7 `86cd0010…`, Run 8 `7f25b475…`), E-02 1건(Run 6 `4a404c73…`),
+     E-03 2건(Run 3 `fd48f7ff…`, Run 4 `064afdb0…`), N-02 2건 = 이번 세션 Run 5 `1767fb73…` 1건 + 예전 `e2e8e71d…` 1건(Spec 003 T084 시도 2,
+     2026-10-05, 봉인 뒤 verify INVALID; 이번 세션 Run 아님). N-02의 `15cef078…`·`7b59237e…`는 "공식 기록"으로 보인다.
+  2. 각 결과 화면 VERIFIED: 이 세션 8개 Run 모두 "봉인 무결성 확인됨 (VERIFIED)"(CLI verify와 같음).
+  3. E-01 재시험 비교: 부모 FAIL → 재시험 PASS, 부모 불변 확인 표시(SC-005와 같음). E-01 시나리오 화면 "이전 실행"에도 두 기록과 "재시험 비교" 링크가 보인다.
+- 관찰(판정 무관, 코드·화면은 고치지 않음): 재시험 비교 화면 머리 줄은 "대상 버전 확인 기록 없음", 보고서 화면 머리 줄은 "대상 버전 WhyYou commit 374b122"로
+  표시가 다르다. 원인 조사:
+  - 머리 줄은 공통 틀(`engine/web/templates/base.html`)이 `view.target.target_commit` → `view.run.target_commit` → `view.target_commit_now` 순서로 읽고,
+    셋 다 없으면 "확인 기록 없음"을 쓴다. 워크벤치·시나리오 화면은 `view.target`, 실행 결과 화면은 `view.run`(그 Run의 target snapshot), 보고서 화면은
+    `target_commit_now`를 준다. 재시험 비교 화면의 view는 `parent`·`child`에만 commit을 담고 세 필드를 주지 않아 머리 줄이 "확인 기록 없음"으로 떨어진다.
+  - 보고서와 워크벤치의 머리 줄 값은 Run의 commit이 아니라 "가장 최근 준비 상태 확인 기록"의 대상 snapshot이다(`readmodel.py` `_target_identity`,
+    ID-005-09; 지금은 E-01 확인 2026-10-12T02:47:07Z의 `374b122`). 즉 머리 줄 "대상 버전 확인"은 준비 상태 확인 기록을 가리키며, 재시험의 완료 여부와 무관하다.
+  - Run 8 bundle의 `target.snapshot.json`에는 `git_commit_sha` `374b122e…`가 실제로 들어 있고(Run 7은 `ce8d8620…`), 재시험 비교 화면 본문도 부모 `ce8d862`,
+    재시험 `374b122`를 맞게 보인다.
+  - 위험: T071 과업 3(재시험 비교)에서 검토자가 머리 줄 "확인 기록 없음"을 "재시험이 덜 끝났다/확인되지 않았다"로 읽으면 치명적 오독이 될 수 있다.
+  - 조치(연우 결정 2026-10-12):
+    - 채택(조치 예정): T070 검토 키트의 진행자 메모와 정답 키에 "상단 줄의 '대상 버전 확인'은 가장 최근 준비 상태 확인 기록의 대상이며, 재시험 완료 여부와
+      무관하다."를 넣는다.
+    - 조건부 후보(T072 판정 뒤 재검토): 비교 화면 상단 줄 표시 수정은 지금 하지 않는다. T071에서 실제 오독이 나오면 화면 수정을 새 작업으로 만들고, 나오지 않으면
+      고치지 않는다. Phase 11 converge는 문서 동기화이므로 화면 수정을 끼우지 않는다.
+- 8개 Run 모두 ControlProof `9856a03`(dirty 0)에서 실행했다(Run마다 실행 전 기록, Spec 001 형식인 Run 2 외에는 bundle 환경 snapshot에도 dirty false).
 
 ### 사용성 검토 (Phase 10)
 
