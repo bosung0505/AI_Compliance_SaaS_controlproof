@@ -423,6 +423,13 @@ Run 상세:
       고치지 않는다. Phase 11 converge는 문서 동기화이므로 화면 수정을 끼우지 않는다.
 - 8개 Run 모두 ControlProof `9856a03`(dirty 0)에서 실행했다(Run마다 실행 전 기록, Spec 001 형식인 Run 2 외에는 bundle 환경 snapshot에도 dirty false).
 
+#### T061 Spec 004 브랜치 재병합 (2026-10-12)
+
+- 보성이 PR #2(`yeonwoo/004-retest-maintenance-path`)를 Spec 004 브랜치에 병합했다(`origin/yeonwoo/004-e01-e02-score-evidence` tip `9f480d5`).
+- 005에 `git merge --no-ff origin/yeonwoo/004-e01-e02-score-evidence` → merge `25417ad`, 충돌 없음.
+- `git diff --stat ca393d0 25417ad`는 비어 있다(파일 변경 0). PR #2의 `engine/retest.py` 수정은 이미 `b106b55`(2026-10-09, 선병합)로 005에 들어와 있어
+  이번 병합은 이력 연결만 한다. 트리가 바뀌지 않았으므로 회귀 재실행은 하지 않았고, Phase 9 Run 8개의 기준 트리(`9856a03`)도 그대로다.
+
 ### 사용성 검토 (Phase 10)
 
 | 참여자(익명) | 역할 | 질문별 정답·시간 | 치명적 오독 |

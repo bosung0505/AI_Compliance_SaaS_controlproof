@@ -209,9 +209,9 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 **Purpose**: quickstart §5. 공식 Run이 아니라 Spec 005 웹 검증 기록이다(D-018 추가 결정 3). 매 Run 전 두 저장소 branch·HEAD·dirty 기록과 preflight
 `READY` 확인, 사람 승인. 매 Run 뒤 `show`·`verify`, Run ID와 manifest SHA-256 기록.
 
-- [ ] T061 [HUMAN] Confirm the Spec 004 retest maintenance-path fix (FR-037, research R-013) is merged on `origin/yeonwoo/004-e01-e02-score-evidence`, merge it into `005-web-workbench-report` (stop on conflict), and record the commit in `specs/005-web-workbench-report/validation.md`; not merged as of 2026-10-08 [FR-037]
-  - 노트(ID-005-10, 2026-10-09): PR 브랜치 선병합(ID-005-10), PR #2 병합 대기. PR 브랜치 `yeonwoo/004-retest-maintenance-path`(`cebf067`)를 005에 먼저
-    합쳤다. PR #2가 004에 병합되면 005에 004를 다시 합치고 이 작업을 [X]로 한다.
+- [X] T061 [HUMAN] Confirm the Spec 004 retest maintenance-path fix (FR-037, research R-013) is merged on `origin/yeonwoo/004-e01-e02-score-evidence`, merge it into `005-web-workbench-report` (stop on conflict), and record the commit in `specs/005-web-workbench-report/validation.md`; 2026-10-12 완료: 004 tip `9f480d5`(PR #2 병합)를 `--no-ff`로 005에 병합(merge `25417ad`, 충돌 없음, 파일 변경 0 — 내용은 `b106b55`로 선반영) [FR-037]
+  - 노트(ID-005-10 → 2026-10-12 완료): PR 브랜치 `yeonwoo/004-retest-maintenance-path`(`cebf067`)를 005에 먼저 합쳤고(merge `b106b55`), 보성이 PR #2를
+    004에 병합한 뒤(`9f480d5`) 004를 005에 다시 합쳤다(merge `25417ad`, 충돌 없음, 파일 변경 0).
 - [X] T062 [HUMAN] Record both repositories' branch, HEAD and dirty state, start WhyYou `374b122` with fixture `h03-report-v1`, and record preflight for all five `h03-report-v1` profiles in `specs/005-web-workbench-report/validation.md` [FR-030, SC-011]
 - [X] T063 [HUMAN] Run H-03 `H03_DLQ_V2` once at `374b122` first; record it also as the independent reproduction gate record "현재 통합 대상(`374b122`) 기준" with the note that playbook §6 named a different commit; if it differs from the official status, classify the cause before anything else: seed/runner defect → failing test first, then fix and rerun; target-version problem → stop and ask 보성 whether to use `511ae9e`, in `specs/005-web-workbench-report/validation.md` [FR-030, R-015]
   - 노트(2026-10-10 세션 지시): 결과가 공식 상태와 같아(PASS) 원인 분류는 필요 없었다. 이 PC의 기존 clone(clean)이라 독립 재현 gate는 "gate 후보"로만 기록했고 인정 여부는 보성이 정한다.
@@ -270,7 +270,7 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 
 ## Notes
 
-- 대기 작업: T019(보성 PC 검사, 스크립트 T012 뒤; ID-005-10으로 T020 뒤에 받아도 됨), T061(PR 브랜치 선병합 완료, PR #2의 004 병합 대기), T071(태오 사용성 검토).
+- 대기 작업: T019(보성 PC 검사, 스크립트 T012 뒤; ID-005-10으로 T020 뒤에 받아도 됨), T071(태오 사용성 검토).
 - 첫 구현 작업은 T009(T004 RED 확인 뒤)다.
 
 ## Analysis (`$speckit-analyze`, 2026-10-08)
