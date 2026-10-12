@@ -240,7 +240,8 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 
 ## Phase 11: Converge (문서 수렴)
 
-- [ ] T073 Create `specs/005-web-workbench-report/traceability.md` mapping FR-001~FR-037 and SC-001~SC-011 to tests, Run IDs and evidence [SC-001~011]
+- [X] T073 Create `specs/005-web-workbench-report/traceability.md` mapping FR-001~FR-037 and SC-001~SC-011 to tests, Run IDs and evidence [SC-001~011]
+  - 노트(2026-10-12): 작성 완료. FR 37개·SC 11개 전부 행이 있고, 참조한 시험 파일 31개는 모두 실재하며 Run ID는 각 Spec의 Validation에서 확인했다. 자동 시험이 없는 5개 항목(FR-033·FR-034·FR-037·SC-008·SC-009)과 FR/SC에 대응하지 않는 시험은 따로 절을 두어 사유를 적었다. SC-008·SC-009는 T071·T072 뒤 상태를 갱신해야 한다.
 - [ ] T074 Close `specs/005-web-workbench-report/validation.md` with the final gate, actual-validation records, usability result and remaining limits (AWS `NOT_RUN`, other-PC reproduction status) [SC-011]
 - [ ] T075 Synchronize status documents in one change: `README.md`, `AGENTS.md`, `docs/TEAM_HANDOFF.md`, `docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md`, `docs/product/ControlProof_MVP_Product_Brief.md` §14.6 (and Decision Log only if a decision changed) [FR-003]
 - [ ] T076 Run `$speckit-converge` and fix every cross-document status mismatch in `specs/005-web-workbench-report/` [SC-001~011]
