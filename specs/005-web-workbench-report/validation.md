@@ -276,6 +276,7 @@ Run·재시험·cleanup-confirm은 하지 않았다. 환경을 띄워 7개 프�
 - tasks와 다르게 진행한 점(사유: 세션 지시, 연우 승인 2026-10-10):
   1. T063: H03_DLQ_V2가 예상과 다르면 원인만 분류하고 멈춘다. 고치지 않는다(실행기 수정은 남은 Run의 ControlProof source를 바꾸므로 따로 정한다).
   2. 독립 재현 gate는 "gate 후보"로만 기록한다(새 clone이 아닌 이 PC의 기존 clone, clean, 대상 `374b122`). 인정 여부는 보성이 정한다.
+     → 2026-10-13 인정됨(D-019). 당시 지시는 그대로 두고, 현재 상태는 아래 Run 1 기록과 D-019로 판단한다.
   3. T069: tasks 범위(SC-001~007, SC-010, SC-011) 전체를 확인하고, 세션 지시의 세 가지(공식 상태와 분리 표시, VERIFIED, E-01 재시험 비교)를 따로 표시한다.
   4. 순서는 tasks·quickstart를 따르되, Run 8 뒤 WhyYou를 멈추기 전에 웹을 실제 root로 띄워 "준비 상태 확인"을 한 번 실행·저장 확인하고,
      그다음 WhyYou를 멈추고 fixture·`.env`를 되돌린 뒤 나머지 웹 확인을 한다(웹이 run root만으로 동작함을 보이기 위해).
@@ -303,8 +304,15 @@ Run 상세:
 
 - Run 1(H03_DLQ_V2): 예상(공식 상태 PASS)과 같음. `redaction_profile: controlproof.redaction.v2`(manifest 최상위; 파일 항목의 `redaction_profile`은
   `controlproof-redaction-v1` 표기, 관찰만 기록), 소요 207.6초(started→ended). label `spec005-web-h03-dlq`.
-  **독립 재현 gate 후보**(플레이북 §6): 새로 clone한 checkout이 아니라 이 PC의 기존 clone(clean)이며, 대상은 플레이북 §6이 지정한 commit이 아닌
-  현재 통합 대상 `374b122`이다. gate 인정 여부는 보성이 정한다.
+  **독립 PC 재현 gate 인정됨**(플레이북 §6, D-019, 제품 책임자 승인 2026-10-13). 인정 범위:
+  (1) 새로 clone한 checkout이 아니라 이 PC의 **기존 clean clone**을 사용한 별도 PC 재현이다.
+  (2) 실행 환경은 ControlProof `9856a03` dirty 0, WhyYou `bosung/controlproof-n02-integration` `374b122` dirty 0, `LOCAL_EMULATED`,
+  fixture `h03-report-v1`, preflight READY 18/18이다.
+  (3) 결과는 A1~A9 PASS, 복구 SUCCEEDED, bundle verify VERIFIED(33 files),
+  manifest SHA-256 `3d6b0a85d2c657e4c3bedbfb5938399b8235ada488c0616bd641a340184fbcdf`이다.
+  (4) 플레이북 §6이 지정한 과거 commit과 **동일 조건의 재현이 아니다.** 현재 통합 대상에 대한 교차 PC 재현이다.
+  이 인정은 H-03 `H03_DLQ_V2` 한 건에만 적용한다. 다른 시나리오나 AWS까지 독립 검증한 것으로 확대하지 않으며(AWS는 `NOT_RUN` 유지),
+  main 병합은 별도 승인이 남는다.
   봉인 뒤 서비스 정지: Run 1 봉인(08:25:51Z)·verify(08:26:09Z) 뒤, Claude Code가 세션 대기 중 메모리 부족으로 자기 백그라운드 셸(API·작업자·콘솔)을
   정리했다. 08:27:03Z Run 2 preflight가 READY 12/12(API 로그 응답 있음)였으므로 정지는 봉인 뒤다. 연우가 Run 1을 공식 기록으로 확정했다(2026-10-10).
   다시 띄운 서비스도 대기 중 같은 이유로 정리돼 09:11:58Z Run 2 preflight는 무효로 했다. 이후 WhyYou API·작업자·콘솔은 연우가 별도 PowerShell 창에서

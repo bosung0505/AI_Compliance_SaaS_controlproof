@@ -321,8 +321,40 @@
   2. 다른 PC bundle 검사: 보성 PC의 봉인 bundle은 보성이 자기 PC에서 새 스캐너로 검사하고 결과만 기록한다. bundle은 옮기지 않는다(FR-036).
   3. 웹 PC 재실행 기록의 지위: Spec 005 웹 검증용 기록이다. 각 시나리오의 공식 상태는 해당 Spec Validation을 따르며 N-02는 Spec 003
      converge를 따른다. H-03 `H03_DLQ_V2` 기록은 플레이북 §6 독립 재현 gate 기록으로도 쓸 수 있다(FR-030).
+     → 후속 D-019(2026-10-13): 그 기록(Run `277d3f5a…`)을 실제로 gate로 인정했고 인정 범위를 확정했다. 새 checkout·지정 commit
+       조건은 이 건에 대해 면제했다. 이 항목의 "쓸 수 있다"는 D-019로 확정됐다.
   4. 목업 검토(추천안 반영 조건부 승인): (a) 결과 개수는 V4 §8.5 네 범주를 유지하고 판정 불가 카드는 중립색 제목 아래 표와 같은 reason code
      배지로 나눈다. (b) 시나리오 표는 통제별 묶음, ID·버튼 줄바꿈 없음, 확인 시각은 표 위 한 번(다른 줄만 따로). (c) 정책 근거에 법 조문을
      연결하지 않고 "법 조문 대응은 표시하지 않음(법적 준수 비보증)"을 둔다(V4 §2.2, 조문 연결은 법률 검토 근거가 생기면 별도 Spec).
      (d) PC 전용, 1280px 기준, 1024px까지 유지, 휴대폰·태블릿 범위 밖. (e) 비개발자용 기본 문장에서 fixture 이름과 bundle 파일 이름을
      빼서 개발자용 원본 정보로 옮긴다. 승인된 화면 구조와 상태 이름은 Spec 005 spec의 "승인된 화면 구조와 상태 이름" 절을 따른다.
+
+## D-019. H-03 `H03_DLQ_V2` Run의 독립 PC 재현 gate 인정과 그 범위
+
+- 상태: 확정
+- 결정일: 2026-10-13
+- 변경 전: 플레이북 §6 독립 재현 gate는 (1) 새 checkout, (2) 플레이북이 지정한 ControlProof·WhyYou commit을 요구하고,
+  "다른 PC에서 실제 수행하기 전까지 `PENDING_EXTERNAL_REPRODUCTION`"이었다. Spec 005 Phase 9에서 연우 PC가 돌린 H-03
+  `H03_DLQ_V2` Run은 두 조건을 그대로 충족하지 않는다. 기존 clean clone에서 실행했고 대상이 현재 통합 대상 `374b122`다.
+  그래서 gate **후보**로만 기록하고 인정 여부를 제품 책임자에게 물었다(D-018 추가 결정 3, Spec 005 plan 보성 확인 2026-10-08).
+- 변경 후: Run `277d3f5a-766a-45ab-9f1d-28a3a30a82e6`을 **현재 통합 대상(`374b122`) 기준의 독립 PC 재현 gate 기록으로
+  인정한다.** 기존 clean clone에서 실행한 결과를 이번 gate로 인정하며, 플레이북 §6이 지정한 과거 commit으로 추가 재실행은
+  요구하지 않는다. 대신 다음 범위를 Validation·플레이북·TEAM_HANDOFF에 같은 내용으로 남긴다.
+  1. 새로 clone한 checkout이 아니라 연우 PC의 **기존 clean clone**을 사용한 별도 PC 재현이다.
+  2. 실행 환경: ControlProof `9856a03` dirty 0, WhyYou `bosung/controlproof-n02-integration` `374b122` dirty 0,
+     `LOCAL_EMULATED`, fixture `h03-report-v1`, preflight READY 18/18.
+  3. 결과: A1~A9 PASS, 복구 SUCCEEDED, bundle verify VERIFIED(33 files),
+     manifest SHA-256 `3d6b0a85d2c657e4c3bedbfb5938399b8235ada488c0616bd641a340184fbcdf`.
+  4. 플레이북 §6이 지정한 과거 commit과 **동일 조건의 재현이 아니다.** 현재 통합 대상에 대한 교차 PC 재현이다.
+  이 인정은 H-03 `H03_DLQ_V2` 한 건에만 적용한다. 다른 시나리오나 AWS 환경까지 독립 검증한 것으로 확대하지 않으며,
+  AWS는 `NOT_RUN`을 유지한다. main 병합은 이 gate와 별개로 **별도 승인**이 남는다.
+- 이유: gate의 목적은 한 PC에만 있는 기록을 다른 PC에서 다시 만들어 보는 것이고, 그 목적은 연우 PC 실행으로 달성됐다.
+  반면 플레이북이 지정한 과거 commit은 현재 통합 대상이 아니어서, 그 commit으로 다시 돌리면 지금 통합하려는 코드가 아닌
+  상태를 재현하게 된다. 새 clone 조건은 개인 절대 경로 노출을 막기 위한 것이고, 그 목적은 Spec 005의 경로 노출 검사
+  (FR-031·SC-007, 파일 115개 검사 위반 0)와 quickstart 점검으로 따로 확인됐다.
+- 영향: Spec 005 `validation.md` Run 1 기록의 "gate 후보" 문구를 인정 기록으로 바꿨다. `plan.md`·`spec.md`의 "gate 기록으로
+  쓴다/쓸 수 있다" 문구를 인정 사실과 범위로 맞췄다. `docs/AI_SPEC_KIT_PLAYBOOK.md` §6에 인정 기록과 면제한 두 조건을
+  추가했다. `docs/TEAM_HANDOFF.md`의 독립 PC 재현·main 통합 행과 남은 일 목록을 갱신했다. Spec 005의 다른 상태 동기화
+  (README·AGENTS·Coverage Matrix·Product Brief §14.6과 TEAM_HANDOFF의 Spec 005 진행 상태)는 Spec 005 T075에서 한 번에 한다.
+- 승인: 제품 책임자(2026-10-13, 연우 전달). 범위 4항목 명시, 확대 금지, main 병합 별도 승인 유지를 조건으로 인정.
+- 재검토 조건: 플레이북 §6 지정 commit 기준의 재현이 따로 필요해질 때, 또 다른 PC의 재현을 gate로 쓸 때, main 병합 승인을 받을 때.

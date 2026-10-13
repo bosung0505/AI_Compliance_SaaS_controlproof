@@ -35,8 +35,8 @@
 | 2주 MVP 전체 | 미완료 | Spec 001·002 완료를 전체 제품 또는 전체 시나리오 완료로 확대하면 안 된다. |
 | 웹 결과 사용성 검토 | 미실시 | CLI 사람 시간 측정은 완료 gate에서 제외했고, 고객용 웹 결과 화면을 만든 뒤 별도 검토한다. |
 | 0단계 정합성 작업 | 완료 | 12개 범위표, Spec 003 source baseline, AI 플레이북과 휴대 가능한 재현 문서를 정리했다. |
-| 독립 PC 재현 | `PENDING_EXTERNAL_REPRODUCTION` | Spec 001·002 actual Run은 한 PC에서만 수행됐다. 다른 팀원의 H03_DLQ_V2 재현 전에는 독립 재현 완료로 주장하지 않는다. |
-| main 통합 | 보류 | 독립 재현 gate 뒤 Spec 001·002를 포함한 현재 브랜치를 검토 가능한 PR로 통합한다. |
+| 독립 PC 재현 | 인정됨(현재 통합 대상 `374b122` 기준, D-019) | 연우 PC의 H-03 `H03_DLQ_V2` Run `277d3f5a…`(ControlProof `9856a03` dirty 0, WhyYou `374b122` dirty 0, `LOCAL_EMULATED`, fixture `h03-report-v1`, A1~A9 PASS, 복구 SUCCEEDED, VERIFIED 33 files, manifest SHA-256 `3d6b0a85…`)을 2026-10-13 제품 책임자가 독립 PC 재현 gate로 인정했다. 기존 clean clone을 쓴 별도 PC 재현이며, 플레이북 §6 지정 commit과 동일 조건의 재현은 아니다. 이 한 건에만 적용하고 다른 시나리오·AWS로 확대하지 않는다(AWS는 `NOT_RUN`). |
+| main 통합 | 보류 | 독립 재현 gate는 인정됐으나(D-019) main 병합은 별도 승인이 남는다. 승인 뒤 Spec 001·002를 포함한 현재 브랜치를 검토 가능한 PR로 통합한다. |
 
 따라서 저장소의 공식 상태는 **Spec 001·002 Complete, Spec 003 actual validation 완료·converge 전,
 Spec 004 Complete(승인된 같은 PC의 두 번째 checkout 재현 포함)**이다.
@@ -165,7 +165,6 @@ source queue와 DLQ의 visible, in-flight, delayed 수도 모두 0이었다.
 - 전체 시나리오 카탈로그를 한 번에 실행하는 제품 흐름
 - 조직·사용자·권한 관리, 결제, 운영 배포와 상용 SaaS 운영 기능
 - 실제 AWS·production 환경 검증
-- 다른 팀원 PC의 Spec 002 `H03_DLQ_V2` 독립 재현과 Validation 추가
 - Spec 001·002 feature branch의 PR 검토와 main 통합
 
 ### Spec 003의 현재 사실과 남은 작업
@@ -464,7 +463,10 @@ Spec 004는 현재 작업 브랜치에서 Complete다. 다음 기능은 Spec 005
 
 1. **Spec 003 잔여 converge:** PR #1·WhyYou PR #5는 이미 병합됐다. Spec 003의 마지막 actual child는
    INCONCLUSIVE이며, 최종 converge/Complete 범위 확정은 별도다. 이번 Spec 004 완료로 PASS/Complete로 올리지 않는다.
-2. **다른 PC gate:** main 통합 전 팀원의 H03_DLQ_V2 독립 재현과 별도 승인이 필요하다. main 병합 금지는 유지한다.
+2. **다른 PC gate:** 2026-10-13에 인정됐다(D-019). 연우 PC의 H-03 `H03_DLQ_V2` Run `277d3f5a…`를 현재 통합 대상
+   (`374b122`) 기준 독립 PC 재현으로 인정했고, 기존 clean clone을 쓴 별도 PC 재현이라는 점과 플레이북 §6 지정 commit과
+   동일 조건이 아니라는 점을 기록했다. 이 한 건에만 적용하며 다른 시나리오·AWS로 확대하지 않는다. **main 병합은 별도
+   승인이 남고 병합 금지는 유지한다.**
 3. **Spec 003 후속 한계(선택):** 문서 분석 결과까지 입증하려면 새로운 고정 모델 경계·승인·actual child가 필요하다.
    검토 보완 후 actual Run은 NOT_RUN이다. 최신 Spec 003 validation과 ID-003-19를 먼저 읽는다.
 4. **Spec 004 Complete:** T001~T097, 최종 converge 완료(T087 NOT_REQUIRED).

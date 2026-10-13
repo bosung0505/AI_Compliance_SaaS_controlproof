@@ -88,6 +88,22 @@ Spec 001·002의 현재 actual Run은 한 PC에서 생성됐고 runtime bundle�
 이 gate는 다른 PC에서 실제 수행하기 전까지 `PENDING_EXTERNAL_REPRODUCTION`이다. AI가 성공했다고
 가정하거나 기존 Run ID를 복사해 완료 처리하면 안 된다.
 
+2026-10-13 인정 기록(D-019): 연우 PC가 Spec 005 Phase 9에서 실행한 H-03 `H03_DLQ_V2` Run
+`277d3f5a-766a-45ab-9f1d-28a3a30a82e6`을 **현재 통합 대상(`374b122`) 기준의 독립 PC 재현 gate 기록으로
+인정한다**(제품 책임자 승인, 연우 전달). 위 1번(새 checkout)과 2번(지정 commit) 두 조건은 이 건에 대해
+면제했다. 인정 범위는 다음과 같다.
+
+- 새로 clone한 checkout이 아니라 그 PC의 기존 clean clone을 사용한 별도 PC 재현이다.
+- 실행 환경: ControlProof `9856a03` dirty 0, WhyYou `bosung/controlproof-n02-integration` `374b122`
+  dirty 0, `LOCAL_EMULATED`, fixture `h03-report-v1`, preflight READY 18/18.
+- 결과: A1~A9 PASS, 복구 SUCCEEDED, bundle verify VERIFIED(33 files), manifest SHA-256
+  `3d6b0a85d2c657e4c3bedbfb5938399b8235ada488c0616bd641a340184fbcdf`.
+- 플레이북이 지정한 과거 commit과 동일 조건의 재현이 아니다. 현재 통합 대상에 대한 교차 PC 재현이다.
+
+이 인정은 H-03 `H03_DLQ_V2` 한 건에만 적용한다. 다른 시나리오나 AWS 환경까지 독립 검증한 것으로
+확대하지 않으며 AWS는 `NOT_RUN`을 유지한다. main 병합은 이 gate와 별개로 별도 승인이 남는다.
+기록은 `specs/005-web-workbench-report/validation.md`의 Phase 9 절에 있다.
+
 ## 7. 증적 공유 원칙
 
 - `runs/`와 `.controlproof/` 전체는 Git에 commit하지 않는다.
