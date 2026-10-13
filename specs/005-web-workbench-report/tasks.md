@@ -235,6 +235,7 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 - [X] T070 [P] [US6] Prepare the review kit (participant brief, 3 tasks, 7 questions from Product Brief §10.3, 3-minute timer rule, answer key, critical-misreading list, anonymous record sheet) in `specs/005-web-workbench-report/usability/review-kit.md` [FR-034, SC-008, SC-009]
   - 노트(2026-10-12): 진행자 메모와 정답 키에 재시험 비교 화면 상단 줄("대상 버전 확인 기록 없음")이 가장 최근 준비 상태 확인 기록을 가리키며 재시험 완료 여부와 무관하다는 설명을 넣었다(Phase 9 관찰 조치 a). 상단 줄 관련 발언은 정답 판정과 별도로 전부 기록하게 했다.
 - [ ] T071 [HUMAN] [US6] 태오 conducts the review with 6 non-authors on the T069 records and fills `specs/005-web-workbench-report/usability/results.md` (no personal identifiers) [FR-034, SC-008, SC-009]
+  - 노트(2026-10-13): 진행 전 준비 완료. `usability/results.md` 빈 틀을 만들어 뒀고(진행 정보·과업·질문·Q7 세부·치명적 오독·상단 줄 발언·집계·관찰·진행자 메모), 참여자는 P1~P6으로만 적는다. 진행 방식은 연우 PC 대면이며 검토 자체는 태오 명단·일정이 정해진 뒤 시작한다(비작성자 6명 요건, SC-008).
 - [ ] T072 [US6] Judge SC-008 (each question ≥5 of 6 correct within 3 minutes, critical misreadings 0) and SC-009 (≥5 of 6 on the unverified-scope question); if failed, record the screen fixes as new tasks before converge, in `specs/005-web-workbench-report/validation.md` [SC-008, SC-009]
 
 ---
