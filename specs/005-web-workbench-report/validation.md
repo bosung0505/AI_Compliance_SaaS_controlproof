@@ -464,6 +464,19 @@ Run 상세:
   (SC-010). 진행자 메모 §5-5에 응대 문구와, 참여자가 "준비 안 됨"을 실패나 통과로 읽을 경우 비고에 적게 하는 규칙을 넣었다.
 - 준비 확인(2026-10-13): run root의 Run 폴더 11개 그대로(`blocks`·`locks`는 Run 폴더가 아니어서 디렉터리 수로는 13으로 보인다),
   웹 `127.0.0.1:8765` 응답 정상, ControlProof git status 비어 있음.
+- 사건 기록(2026-10-13, 판정 무관): 웹을 래퍼 스크립트(`cp.ps1`) 없이 ControlProof `.venv` python으로 직접 띄워 `.env`가 프로세스 환경에
+  로드되지 않은 상태에서, 준비 상태 확인을 3건 눌렀다(11:57:17Z N-02, 11:57:23Z H-03, 11:57:28Z E-02). 세 건 모두 `result_kind: ERROR`,
+  `error_kind: CONFIG`, exit 1, `readiness: null`로 저장됐다(누락 변수 8개: `WHYYOU_BASE_URL`·`WHYYOU_CONSOLE_URL`·`WHYYOU_DATABASE_URL`·
+  `WHYYOU_COMPANY_TOKEN`·`WHYYOU_REPO_PATH`·`CONTROLPROOF_FAULT_ROOT`·`CONTROLPROOF_MODEL_FIXTURE_ID`·`CONTROLPROOF_MODEL_FIXTURE_DIGEST`).
+  - 이 PC는 `.env`를 수동으로 불러와야 하므로(quickstart §5, 세션 운영) 웹도 `cp.ps1`을 거쳐 띄워야 한다. 직접 띄운 것이 원인이다.
+  - **기록 손실은 없다.** `history.jsonl`은 append-only이고 2026-10-11T06:56:10Z E-02 `READY` capabilities 16/16 기록이 checks 16개·
+    target snapshot까지 전문 그대로 남아 있다. 교체된 것은 최신 스냅숏 파일 `E-02--E02_SCORING_FREEZE_V1.json`뿐이다.
+  - 화면 표시는 요구사항대로다: `badge: tool_error`, `value: null`, `source: PREFLIGHT`. 설정 오류를 준비 상태 값으로 바꾸지 않고
+    확인 도구 오류로 분리했다(FR-011, R-010). 결함이 아니다.
+  - 봉인 기록·Run 폴더 11개·ControlProof git status 모두 영향 없다. preflight 기록은 `STATE_DIR` 아래 git 무시 대상이다.
+  - 조치(연우 결정 2026-10-13): preflight 파일을 손으로 되돌리지 않는다(기록 조작). 현재 상태를 사실로 두고 T070 키트 §5-5에 준비 상태
+    열의 다섯 가지 표시와 진행자 응대 문구를 표로 적었다. 준비 상태 열은 T071 과업 1의 정답 요건이 아니므로 검토 기준에는 영향이 없다.
+    검토 당일에도 웹은 `cp.ps1`로 띄운다.
 - 기록 시트는 참여자를 P1~P6으로만 적고 개인 식별자를 넣지 않는다(T071 조건).
 - 판정 기준은 SC-008·SC-009 그대로이며 판정은 T072에서 한다.
 
