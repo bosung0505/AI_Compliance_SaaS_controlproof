@@ -238,6 +238,8 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
   - 노트(2026-10-13): 진행 전 준비 완료. `usability/results.md` 빈 틀을 만들어 뒀고(진행 정보·과업·질문·Q7 세부·치명적 오독·상단 줄 발언·집계·관찰·진행자 메모), 참여자는 P1~P6으로만 적는다. 진행 방식은 연우 PC 대면이며 검토 자체는 태오 명단·일정이 정해진 뒤 시작한다(비작성자 6명 요건, SC-008). → 2026-10-14 D-020으로 3명 반복 라운드로 바뀌었고 results.md도 라운드 형식(P1~P3)으로 고쳤다.
 - [ ] T072 [US6] Record SC-008·SC-009 as not performed in Spec 005 (D-022) with the reason, list the internal-review fixes made and any T069 success criteria re-recorded after them, and carry the non-author review to the remote-access Spec (D-021), in `specs/005-web-workbench-report/validation.md` [SC-008, SC-009]
   - 노트(2026-10-14, D-020): 6명 1회에서 3명 반복 라운드로 바꿨다. 불합격 라운드 기록은 지우지 않는다.
+- [X] T077 [US6] Internal review #2 (D-022): link every scenario named on the report screen to its detail page (catalog table, expectations, major failures, lineages, evidence summary) so evidence is reachable from the report through detail → run → evidence; failing tests first in `tests/contract/test_web_report_links.py` and `tests/web/test_clickable_affordance.py::test_report_scenario_link_opens_detail`, change in `engine/web/templates/report.html` [FR-025, FR-015]
+- [X] T078 [US6] Internal review #3 (D-022): make clickable elements visibly different — links get pointer, underline, hover tint and a short transition; buttons lift on hover; tabs and expanders highlight; badges keep the default cursor; keyboard focus outlined; no transition under reduced motion; failing tests first in `tests/web/test_clickable_affordance.py`, change in `engine/web/static/workbench.css` [FR-005]
 
 ---
 

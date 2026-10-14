@@ -97,3 +97,22 @@ pre.raw, pre.evidence-text { white-space: pre-wrap; word-break: break-all; font-
 .report p, .report li { margin: 6px 0; }
 .cmd { background: #1d2433; color: #e8edf7; padding: 10px 70px 10px 12px; border-radius: 6px; position: relative; margin: 6px 0; }
 .cmd button { position: absolute; right: 8px; top: 8px; font: inherit; font-size: 12px; cursor: pointer; }
+/* Clickable vs not clickable (D-022 internal review #3). Links: pointer, underline, hover tint and a short transition.
+   Buttons lift on hover. Badges and plain text keep the default cursor. Keyboard focus is always outlined. */
+main a:not(.btn) { color: #0b57d0; text-decoration: underline; text-underline-offset: 2px; cursor: pointer; border-radius: 4px;
+                   transition: background-color .15s ease, color .15s ease, text-decoration-color .15s ease; }
+main a:not(.btn):hover { background-color: #e3ecfd; color: #08429b; text-decoration-thickness: 2px; }
+.scenario-link, .detail-link, .result-link, .compare-link, .evidence-link { padding: 1px 4px; margin: 0 -4px; }
+.btn { transition: transform .12s ease, box-shadow .12s ease, background-color .12s ease; }
+.btn:hover:not(:disabled):not(.disabled) { transform: translateY(-1px); box-shadow: 0 3px 8px rgba(29, 36, 51, .22); }
+nav [role=tab] { transition: background-color .15s ease, border-color .15s ease; }
+nav [role=tab]:not([aria-selected=true]):not([aria-disabled=true]):hover { background: #eef2fb; border-color: #9fb3d9; }
+details summary { transition: color .15s ease; }
+details summary:hover { color: #0b57d0; }
+[data-badge] { cursor: default; }
+a:focus-visible, button:focus-visible, summary:focus-visible, [role=tab]:focus-visible, input:focus-visible, textarea:focus-visible {
+  outline: 2px solid #0b57d0; outline-offset: 2px; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { transition: none !important; animation: none !important; }
+  .btn:hover:not(:disabled):not(.disabled) { transform: none; }
+}
