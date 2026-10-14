@@ -526,7 +526,12 @@ Run 상세:
 - GREEN: 대상 시험 19개 통과(보고서 화면 기존 시험 포함). 전체 `pytest -q` **1215 passed**(수정 전 기준선 1202 + 새 시험 13), `ruff check .` 통과.
 - 성공 기준 영향: 새 POST·폼 없음, 새 경로는 기존 GET 경로(`/scenarios/{id}`)뿐이라 SC-010 그대로(`test_links_are_plain_get_routes_only`).
   보고서 22개 항목(SC-004)·응답 경로 검사(SC-007) 자동 시험 통과. 판정·집계 값은 바뀌지 않는다(템플릿 링크와 CSS만 변경, read model 무변경).
-  실제 run root에서의 웹 확인은 연우 PC에서 다시 기록한다(아래 확인 결과를 붙인다).
+- 연우 PC 확인(2026-10-14, Windows, ControlProof `.venv` Python 3.12, `cp.ps1` 경유):
+  - 대상 시험 `test_web_report_links.py`·`test_clickable_affordance.py`·`test_report_screen.py` **19 passed**(38.6초).
+  - 전체 `pytest -q` **1215 passed**(550.4초). 샌드박스(Linux, Python 3.13)와 같은 수다.
+  - 실제 run root 웹(`127.0.0.1:8765`): `/report` HTML의 `href="/scenarios/{id}"` 링크 **30개**(R4 표 12개, R6 기대·관찰, R7 주요 실패,
+    R8 증적 요약, R10 계보). 연우가 브라우저에서 보고서 → 시나리오 상세 이동과 링크·버튼 hover 반응을 직접 확인했다.
+  - 판정·집계 값은 바뀌지 않았다(템플릿 링크와 CSS만 변경). 봉인 기록·Run 폴더 11개 그대로.
 
 ### 사용성 검토 (Phase 10)
 
