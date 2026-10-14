@@ -228,15 +228,16 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 
 ## Phase 10: User Story 6 - 역할별 이해도와 사용성을 실제 웹 화면으로 검토한다 (Priority: P3)
 
-**Goal**: 태오 진행으로 비작성자 6명(세 역할 각 2명)이 실제 기록으로 연 웹에서 과업 3개와 질문 7개를 수행하고 SC-008·SC-009로 판정한다.
+**Goal**: 태오 진행으로 라운드마다 비작성자 3명(세 역할 각 1명)이 실제 기록으로 연 웹에서 과업 3개와 질문 7개를 수행하고, 라운드별로 SC-008·SC-009 기준에 비춰 판정한다. 불합격이면 화면을 고치고 새 참여자로 다음 라운드를 한다(D-020).
 
 **Independent Test**: 검토 기록만으로 표본·과업·시간·정답·치명적 오독 기준 충족 여부를 판단할 수 있다.
 
 - [X] T070 [P] [US6] Prepare the review kit (participant brief, 3 tasks, 7 questions from Product Brief §10.3, 3-minute timer rule, answer key, critical-misreading list, anonymous record sheet) in `specs/005-web-workbench-report/usability/review-kit.md` [FR-034, SC-008, SC-009]
   - 노트(2026-10-12): 진행자 메모와 정답 키에 재시험 비교 화면 상단 줄("대상 버전 확인 기록 없음")이 가장 최근 준비 상태 확인 기록을 가리키며 재시험 완료 여부와 무관하다는 설명을 넣었다(Phase 9 관찰 조치 a). 상단 줄 관련 발언은 정답 판정과 별도로 전부 기록하게 했다.
-- [ ] T071 [HUMAN] [US6] 태오 conducts the review with 6 non-authors on the T069 records and fills `specs/005-web-workbench-report/usability/results.md` (no personal identifiers) [FR-034, SC-008, SC-009]
-  - 노트(2026-10-13): 진행 전 준비 완료. `usability/results.md` 빈 틀을 만들어 뒀고(진행 정보·과업·질문·Q7 세부·치명적 오독·상단 줄 발언·집계·관찰·진행자 메모), 참여자는 P1~P6으로만 적는다. 진행 방식은 연우 PC 대면이며 검토 자체는 태오 명단·일정이 정해진 뒤 시작한다(비작성자 6명 요건, SC-008).
-- [ ] T072 [US6] Judge SC-008 (each question ≥5 of 6 correct within 3 minutes, critical misreadings 0) and SC-009 (≥5 of 6 on the unverified-scope question); if failed, record the screen fixes as new tasks before converge, in `specs/005-web-workbench-report/validation.md` [SC-008, SC-009]
+- [ ] T071 [HUMAN] [US6] 태오 conducts review rounds of 3 non-authors (one per role, new participants each round, D-020) on the real records and fills one round section per round in `specs/005-web-workbench-report/usability/results.md` (no personal identifiers) [FR-034, SC-008, SC-009]
+  - 노트(2026-10-13): 진행 전 준비 완료. `usability/results.md` 빈 틀을 만들어 뒀고(진행 정보·과업·질문·Q7 세부·치명적 오독·상단 줄 발언·집계·관찰·진행자 메모), 참여자는 P1~P6으로만 적는다. 진행 방식은 연우 PC 대면이며 검토 자체는 태오 명단·일정이 정해진 뒤 시작한다(비작성자 6명 요건, SC-008). → 2026-10-14 D-020으로 3명 반복 라운드로 바뀌었고 results.md도 라운드 형식(P1~P3)으로 고쳤다.
+- [ ] T072 [US6] Judge each round against SC-008 (each question ≥2 of 3 correct within 3 minutes, critical misreadings 0) and SC-009 (≥2 of 3 on the unverified-scope question, D-020); if a round fails, record the screen fixes as new tasks (failing test first), re-record any affected T069 success criteria, and run the next round; the first passing round closes SC-008·SC-009, in `specs/005-web-workbench-report/validation.md` [SC-008, SC-009]
+  - 노트(2026-10-14, D-020): 6명 1회에서 3명 반복 라운드로 바꿨다. 불합격 라운드 기록은 지우지 않는다.
 
 ---
 

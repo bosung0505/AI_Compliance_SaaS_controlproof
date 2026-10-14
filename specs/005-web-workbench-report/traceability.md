@@ -95,8 +95,8 @@ FR-001~FR-037과 SC-001~SC-011을 작업·자동 시험·실제 검증 기록에
 | SC-005 | 재시험 비교에서 부모 판정 유지·assertion 변화·부모 불변 | T002, T053, T054, T057, T067, T068 | `unit/test_web_readmodel_compare.py::test_spec004_lineage_from_retest_link`, `web/test_compare_screen.py::test_two_runs_side_by_side_parent_unchanged` | T069: `/compare/7f25b475…` 부모 FAIL 유지, A3만 FAIL→PASS, 부모 불변 표시 | **PASS** |
 | SC-006 | 12개 행 모두 상태 구분 표시 | T022, T026, T034 | `unit/test_web_badges.py::test_shape_families`, `::test_lookups_use_the_table`, `web/test_workbench_screen.py::test_runner_not_ready_and_no_test_target_badges_differ` | T069: `NOT_RUN` 4개·`NO_TEST_TARGET` 3개 구분 확인 | **PASS** |
 | SC-007 | 응답에 민감정보·절대 경로 0건 | T004, T058, T060, T069 | `integration/test_web_response_redaction.py`(2개), `unit/test_output_paths.py::test_v2_pattern_catches_user_paths`, `::test_json_cli_output_has_no_absolute_path`, `unit/test_scan_strict.py::test_scan_never_returns_matched_values`, `unit/test_web_memos.py::test_strict_scan_runs_before_write` | T069: GET 응답 111개 + 저장 파일 4개 = 115개 검사, 위반 0 | **PASS** |
-| SC-008 | 비작성자 6명, 질문마다 5명 이상 정답·3분 이내, 치명적 오독 0건 | T070, T071, T072 | 해당 없음(사람 대상) | T070 키트 완료. **T071 미실시** | **대기** |
-| SC-009 | 6명 중 5명 이상이 미검증 범위를 범위표와 같이 답 | T070, T071, T072 | 해당 없음(사람 대상) | T070 키트에 정답 기준 포함(4개 미실행·3개 대상 없음·AWS 미검증). **T071 미실시** | **대기** |
+| SC-008 | 비작성자 3명 라운드(D-020), 질문마다 2명 이상 정답·3분 이내, 치명적 오독 0건, 처음 합격한 라운드로 판정 | T070, T071, T072 | 해당 없음(사람 대상) | T070 키트 완료. **T071 미실시** | **대기** |
+| SC-009 | 판정 라운드 3명 중 2명 이상이 미검증 범위를 범위표와 같이 답 | T070, T071, T072 | 해당 없음(사람 대상) | T070 키트에 정답 기준 포함(4개 미실행·3개 대상 없음·AWS 미검증). **T071 미실시** | **대기** |
 | SC-010 | 웹에서 시작 가능한 동작은 준비 상태 확인뿐 | T006, T024, T025, T034, T049, T052, T069 | `contract/test_web_http.py::test_route_table_has_no_run_retest_or_cleanup_start`, `unit/test_web_preflight.py::test_command_is_built_from_catalog_profiles_only`, `web/test_workbench_screen.py::test_preflight_form_is_the_only_action_and_disabled_on_demo`, `web/test_compare_screen.py::test_retest_only_as_a_command`, `contract/test_cli_output_additions.py::test_preflight_and_not_ready_run_and_retest` | T069: form action·POST 라우트 둘뿐, Run·재시험·정리 시작 경로 0건 | **PASS** |
 | SC-011 | DEMO와 실제 기록이 섞이지 않음 | T003, T023, T033, T044, T060, T062, T069 | `unit/test_web_readmodel_workbench.py::test_demo_and_actual_never_share_a_view`, `unit/test_web_readmodel_report.py::test_demo_report_never_mixes_into_actual`, `web/test_report_screen.py::test_demo_report_never_mixes_into_actual_counts` | T069: 실제는 `ACTUAL`·`demo false`·DEMO 표시 0건, `/demo/`는 `DEMO` | **PASS** |
 
@@ -128,7 +128,8 @@ run root에는 이전 Run 3개(`15cef078`, `e2e8e71d`, `7b59237e`)를 합쳐 11�
   확대하지 않는다. main 병합은 별도 승인이 남는다.
 - **`NOT_RUN` 4개**(H-01, H-02, N-01, N-03): 이번 실행 범위 밖.
 - **`NO_TEST_TARGET` 3개**(A-01~A-03): WhyYou에 대상 기능이 없다. ControlProof는 새 기능을 만들지 않는다.
-- **사용성 검토**: T071 미실시. SC-008·SC-009 미판정.
+- **사용성 검토**: T071 미실시. SC-008·SC-009 미판정. 기준은 D-020(3명 반복 라운드)으로 바뀌었다.
+- **원격 접속**: 권한 있는 웹 접속은 제품 방향이지만 구현 보류다(D-021). 이 Spec의 웹은 로컬 전용이다.
 - **T019**: 보성 PC 기존 bundle 검사 미수신.
 
 ## 5. 자동 시험이 없는 요구사항
