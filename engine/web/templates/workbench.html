@@ -5,7 +5,7 @@
 {% set members = view.count_members %}
 {% set treatments = view.treatment_counts %}
 <section aria-label="워크벤치">
-  <h2>검증 현황 (12개 시나리오 관리 · {{ treatments.EXECUTED }}개 실제 실행 대상 · {{ treatments.NOT_RUN }}개 NOT_RUN · {{ treatments.NO_TEST_TARGET }}개 NO_TEST_TARGET)</h2>
+  <div class="page-heading"><p class="eyebrow">시나리오 목록 · 시험 기록 검토</p><h2>검증 현황</h2><p class="page-meta">12개 시나리오 관리 · {{ treatments.EXECUTED }}개 실제 실행 대상 · {{ treatments.NOT_RUN }}개 NOT_RUN · {{ treatments.NO_TEST_TARGET }}개 NO_TEST_TARGET</p></div>
   <p class="muted">{{ view.fixed_scope_sentence }} 숫자는 범위표·Validation에서 옮긴 공식 상태를 센 값이며, 이 화면은 판정을 계산하지 않습니다.</p>
 
   <div class="grid c4 counts">
@@ -50,7 +50,7 @@
     <p>준비 상태 확인 시각: <b data-testid="common-checked-at">{{ view.readiness_checked_at | when if view.readiness_checked_at else "확인 기록 없음" }}</b>
       <span class="muted">— 시각이 다른 줄만 그 줄에 따로 표시합니다. 실행·재시험·정리 확인은 명령줄 안내를 따릅니다.</span></p>
     <table id="catalog" aria-label="12개 시나리오">
-      <thead><tr><th class="nowrap">ID</th><th>질문</th><th class="nowrap">대상 존재</th><th>준비 상태</th><th>실행 방식</th><th>최근 결과</th><th class="nowrap">상세</th></tr></thead>
+      <thead><tr><th class="nowrap">ID</th><th>확인할 질문</th><th class="nowrap">대상 존재</th><th>새 시험 준비</th><th>실행 방식</th><th>공식 이력·연결된 결과</th><th class="nowrap">개요</th></tr></thead>
       <tbody>
       {% for group in view.groups %}
         <tr class="group" data-group="{{ group.control }}"><th colspan="7">{{ group.control_label }}</th></tr>

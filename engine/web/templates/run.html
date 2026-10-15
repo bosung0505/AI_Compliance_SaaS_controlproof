@@ -8,7 +8,9 @@
 {% set run = view.run %}
 {% set integrity = view.integrity %}
 <section aria-label="실행 결과·증적">
-  <h2>{{ run.scenario_id or "?" }} 실행 결과 <span class="mono">{{ run.run_id }}</span></h2>
+  <div class="page-heading"><p class="eyebrow">{{ run.scenario_id or "시험" }} · 선택한 실행 결과</p>
+  <h2>{{ view.review.title if view.review else ((run.scenario_id or "시험") ~ " 실행 결과") }}</h2>
+  <p class="page-meta">{{ run.started_at | when }} · WhyYou{% if run.target_commit %} 버전 <span class="mono">{{ run.target_commit }}</span>{% endif %} · {{ "DEMO DATA 합성 기록" if view.demo else "실제 보관 기록" }}</p></div>
   <p class="tool">{% if run.scenario_id %}<a class="btn sec" href="{{ prefix }}/scenarios/{{ run.scenario_id }}">시나리오 상세</a>{% endif %}{% if run.parent_run_id %} <a class="btn sec" data-testid="open-compare" href="{{ prefix }}/compare/{{ run.run_id }}">재시험 비교(부모 <span class="mono">{{ run.parent_run_id | short_id }}</span>)</a>{% endif %}</p>
 
   <div class="card lead" data-testid="run-lead">
@@ -37,14 +39,24 @@
   </div>
   {% endif %}
 
-  <div class="grid c2">
-    <div class="card"><table class="kv">
+  <div class="card result-summary" data-testid="plain-explanation" data-verdict="{{ view.verdict.value if view.verdict else 'UNAVAILABLE' }}">
+    <h3>무엇이 확인됐나</h3>
+    {% if view.verdict %}
+    <p class="summary-text">{{ view.review.summary if view.review else view.verdict.plain_meaning }}</p>
+    {% if view.review %}<p class="muted">원본 판정 규칙 {{ view.review.rule_count }}개 중 {{ view.review.passed_rule_count }}개 PASS · 조건별 관찰의 개수와는 다릅니다.</p>{% endif %}
+    {% if view.verdict.impact %}<p><b>예상 영향</b>: {{ view.verdict.impact }}</p>{% endif %}
+    <p class="muted"><b>누락 증적</b>: {{ (view.verdict.missing_evidence + integrity.aborted_missing_evidence) | unique | join(", ") or "없음" }}{% if view.unresolved_refs %} · 연결되지 않은 증적 {{ view.unresolved_refs | length }}개{% endif %}</p>
+    {% else %}<p>무결성을 확인하지 못해 판정과 관찰 내용을 표시하지 않습니다.</p>{% endif %}
+  </div>
+  {% if view.review %}{% include "_review.html" %}{% endif %}
+  {% if view.restore %}<p data-testid="restore" class="{{ 'warn' if view.restore.manual_cleanup_required else 'page-meta' }}">환경 복구: {{ view.restore.status or "기록 없음" }} · 수동 정리 {{ "필요 — 실행 안전 문제를 먼저 확인하세요" if view.restore.manual_cleanup_required else "필요 없음" }}</p>{% endif %}
+<details class="card execution-metadata"><summary>실행 시각·버전·복구·식별 정보</summary><table class="kv">
       <tr><th>실행 ID</th><td class="mono">{{ run.run_id }}</td></tr>
       <tr><th>시나리오·프로필</th><td>{{ run.scenario_id }} · {{ run.execution_profile }} · 정의 {{ run.scenario_version }}</td></tr>
       <tr><th>대상 버전</th><td>{% if run.target_commit %}WhyYou commit <span class="mono">{{ run.target_commit }}</span>{% else %}<span class="muted">commit 기록 없음(개발자용 정보에 대상 snapshot)</span>{% endif %}</td></tr>
       <tr><th>실행 시각</th><td>{{ run.started_at | when }} – {{ run.ended_at | when }}</td></tr>
       <tr><th>실행 상태</th><td>{{ run.run_state }}</td></tr>
-      <tr><th>복구</th><td data-testid="restore">
+      <tr><th>복구</th><td>
         {% if view.restore %}
           {{ view.restore.status or "기록 없음" }} ·
           복구 {{ "%.1f초" | format(view.restore.seconds) if view.restore.seconds is not none else "시간 기록 없음" }}
@@ -55,19 +67,7 @@
       </td></tr>
       <tr><th>봉인 무결성</th><td>{{ view.integrity_display.label }}{% if run.manifest_sha256 %} <span class="mono" title="{{ run.manifest_sha256 }}">{{ run.manifest_sha256[:12] }}…</span>{% endif %}</td></tr>
       <tr><th>기록 출처</th><td>{{ "DEMO DATA(합성 기록)" if run.record_origin == "DEMO" else ("공식 기록" if run.record_role == "OFFICIAL" else "이 PC의 웹 검증 기록(공식 상태와 별도)") }}</td></tr>
-    </table></div>
-    <div class="card" data-testid="plain-explanation"><h3>비개발자용 설명</h3>
-      {% if view.verdict %}
-      <p><b>무엇이 확인됐나</b>: {{ view.verdict.plain_meaning }}</p>
-      {% if view.verdict.impact %}<p><b>예상 영향</b>: {{ view.verdict.impact }}</p>{% endif %}
-      <p><b>누락 증적</b>: {% if view.verdict.missing_evidence or view.unresolved_refs or integrity.aborted_missing_evidence %}{{ (view.verdict.missing_evidence + integrity.aborted_missing_evidence) | unique | join(", ") }}{% if view.unresolved_refs %} · 연결되지 않은 증적 {{ view.unresolved_refs | length }}개{% endif %}{% else %}없음. 판정에 필요한 증적은 모두 연결돼 있습니다.{% endif %}</p>
-      <p><b>판정 사유</b>: {{ view.verdict.summary }}</p>
-      {% else %}
-      <p><b>무엇이 문제인가</b>: 봉인된 뒤 기록이 바뀌었거나 읽을 수 없어 이 실행의 판정을 사실로 볼 수 없습니다.</p>
-      {% endif %}
-    </div>
-  </div>
-
+    </table></details>
   {% if view.phase_summary %}
   <div class="card" data-testid="phase-summary"><h3>단계별 진행과 시험 조건</h3>
     <ol class="steps">
@@ -77,28 +77,28 @@
   {% endif %}
 
   {% if view.assertions is not none %}
-  <div class="card">
-    <div class="tool"><h3 class="flush">규칙별 결과</h3><span class="spacer"></span>
+  <details class="card" data-testid="rule-details" {% if not view.review %}open{% endif %}><summary>원본 규칙별 결과 · 판정과 연결 자료 추가 검토</summary>
+    <div class="tool"><h3 class="flush">원본 규칙별 결과</h3><span class="spacer"></span>
       <label><input type="checkbox" data-testid="fail-only"> 실패 규칙만 보기</label></div>
     <table id="assertions"><thead><tr><th>규칙</th><th>기대</th><th>관찰</th><th>결과</th><th>증적</th></tr></thead><tbody>
     {% for item in view.assertions %}
       <tr class="assertion-row" data-status="{{ item.status }}">
-        <td class="nowrap"><b>{{ item.assertion_id }}</b></td>
-        <td>{{ item.description or "정의 기록 없음" }}<div class="muted">근거 요구: {{ item.required_evidence_ids | join(", ") or "없음" }}</div></td>
-        <td>{{ item.plain_meaning }}
+        <td class="nowrap"><b>{{ item.display.label if item.display else item.assertion_id }}</b><div class="muted">{{ item.assertion_id }}</div></td>
+        <td>{{ item.display.expected if item.display else (item.description or "정의 기록 없음") }}<div class="muted">근거 요구: {{ item.required_evidence_ids | join(", ") or "없음" }}</div></td>
+        <td>{{ item.display.observed if item.display else item.plain_meaning }}
           <details data-testid="developer"><summary>원본 값</summary><pre class="raw">expected: {{ item.expected | tojson }}
 actual: {{ item.actual | tojson }}
 detail: {{ item.detail or "" }}</pre></details></td>
         <td class="nowrap">{% if item.status == "INCONCLUSIVE" %}<span class="neutral-title small">판정 불가</span> {% endif %}{{ badge(item.badge) }}</td>
-        <td class="evidence-cell">{% for group in item.evidence_groups %}<span class="evidence-group" data-name="{{ group.label }}"><a class="evidence-link" href="{{ prefix }}/runs/{{ run.run_id }}/evidence?ref={{ group.refs[0] | urlencode }}">{{ group.label }}</a>{% if group.count > 1 %} <span class="muted">{{ group.count }}개</span>{% endif %}</span>{% if not loop.last %}<br>{% endif %}{% endfor %}
+        <td class="evidence-cell">{% for group in item.evidence_groups %}<span class="evidence-group" data-name="{{ group.label }}"><a class="evidence-link" href="{{ prefix }}/runs/{{ run.run_id }}/evidence?ref={{ group.refs[0] | urlencode }}">{{ group.label }}</a>{% if group.count > 1 %}<details class="additional-sources"><summary>관련 자료 {{ group.count }}개 모두 보기</summary>{% for ref in group.refs[1:] %}<p><a href="{{ prefix }}/runs/{{ run.run_id }}/evidence?ref={{ ref | urlencode }}">관련 기록 {{ loop.index + 1 }}</a></p>{% endfor %}</details>{% endif %}</span>{% if not loop.last %}<br>{% endif %}{% endfor %}
           {% if item.missing_evidence_ids %}<div class="warn">누락: {{ item.missing_evidence_ids | join(", ") }}</div>{% endif %}</td>
       </tr>
     {% endfor %}
-    </tbody></table></div>
+    </tbody></table></details>
   {% endif %}
 
   {% if view.evidence is not none %}
-  <div class="card"><h3>증적</h3>
+  <details class="card" data-testid="all-evidence"><summary>전체 근거 자료 · 파일 목록과 무결성 정보</summary><h3>전체 근거 자료</h3><p class="muted">조건별 이해는 위의 관찰 표에서 시작하세요. 아래는 이 실행의 전체 증적 목록입니다.</p>
     <table data-testid="evidence-table"><thead><tr><th>이름</th><th>형식</th><th>크기</th><th>SHA-256</th><th>수집 단계</th><th>연결 규칙</th><th></th></tr></thead><tbody>
     {% for item in view.evidence %}
       <tr><td class="evidence-name">{{ item.evidence_name }}</td><td class="nowrap">{{ item.mime_type | mime_label }}</td><td class="nowrap">{{ item.size_bytes | size }}</td>
@@ -108,10 +108,10 @@ detail: {{ item.detail or "" }}</pre></details></td>
         <td class="nowrap"><a class="evidence-link" href="{{ prefix }}/runs/{{ run.run_id }}/evidence?ref={{ item.ref | urlencode }}">{{ "원문 보기" if item.viewable else "정보 보기" }}</a></td></tr>
     {% endfor %}
     </tbody></table>
-  </div>
+  </details>
   {% endif %}
 
-  <details class="card" data-testid="developer"><summary>개발자용 원본 정보 펼치기</summary>
+  <details class="card" data-testid="developer"><summary>실행·원본 식별 정보 펼치기</summary>
     <p class="muted">봉인 파일 이름과 원본 위치(경로는 run root 기준 상대 표기만 표시):</p>
     <p class="mono">{{ view.developer.files | join(" · ") }}</p>
     {% if view.developer.problems %}<p>무결성 문제 항목:</p><ul class="mono">{% for item in view.developer.problems %}<li>{{ item }}</li>{% endfor %}</ul>{% endif %}

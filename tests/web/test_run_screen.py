@@ -9,6 +9,10 @@ def _open(screen, demo_site, run_id):
     screen.goto(f"{demo_site.url}/demo/runs/{run_id}")
     assert screen.locator(".demo-banner").count() == 1
     assert no_overflow(screen)
+    # Original-rule inspection is secondary to the default condition/observation view.
+    rules = screen.locator("[data-testid=rule-details]")
+    if rules.count() and rules.get_attribute("open") is None:
+        rules.locator("summary").first.click()
 
 
 def test_fail_run_plain_first_developer_collapsed(screen, demo_site) -> None:
@@ -85,7 +89,9 @@ def test_workbench_to_result_to_evidence_in_three_clicks(screen, demo_site) -> N
     screen.locator("tr.scenario-row[data-id=E-01] a.result-link").first.click()
     clicks += 1
     assert "/demo/runs/" in screen.url
-    screen.locator("a.evidence-link").first.click()
+    screen.locator("#condition-empty button").click()
+    clicks += 1
+    screen.locator("#proof-empty a.condition-source").first.click()
     clicks += 1
     assert "/evidence" in screen.url
     assert len(screen.locator("[data-testid=evidence-sha256]").inner_text().strip()) == 64

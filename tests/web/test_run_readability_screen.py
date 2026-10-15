@@ -41,6 +41,8 @@ def test_steps_in_plain_words_ids_only_in_developer(screen, demo_site) -> None:
 
 def test_evidence_names_grouped_without_repeats(screen, demo_site) -> None:
     screen.goto(f"{demo_site.url}/demo/runs/{find_run(demo_site.demo_root, 'H-03', verdict='FAIL', state='COMPLETED')}")
+    # Full-file inventory is an explicit secondary view in the condition-first UX.
+    screen.locator("[data-testid=all-evidence] > summary").click()
     for cell in screen.locator("td.evidence-cell").all():
         names = [group.get_attribute("data-name") for group in cell.locator(".evidence-group").all()]
         assert len(names) == len(set(names))

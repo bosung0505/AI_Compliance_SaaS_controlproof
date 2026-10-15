@@ -213,9 +213,10 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _route_evidence_html(self, path: str, run_id: str) -> None:
         reader = self._reader(path)
-        ref = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query).get("ref", [""])[0]
+        query = urllib.parse.parse_qs(urllib.parse.urlsplit(self.path).query)
+        ref = query.get("ref", [""])[0]
         try:
-            view = _boundary(reader.evidence(run_id, ref), reader.run_root)
+            view = _boundary(reader.evidence(run_id, ref, condition_id=query.get("condition", [None])[0]), reader.run_root)
         except RunNotFound:
             self._error("NOT_FOUND", "RUN_NOT_FOUND", "요청한 실행 기록이 없습니다.")
             return

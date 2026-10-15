@@ -8,7 +8,7 @@
 {% block content %}
 {% set counts = view.counts %}
 <section aria-label="결과 보고서">
-  <h2>결과 보고서 <span class="muted">(한 화면 · 번호는 V4 §8.7 [R1~R13]과 §12.4 [C1~C9] 점검용)</span></h2>
+  <div class="page-heading"><p class="eyebrow">시험 범위와 결과 · 검토 자료</p><h2>결과 보고서</h2><p class="page-meta">어떤 대상과 조건에서 확인했으며, 무엇이 아직 검증되지 않았는지 검토합니다.</p></div>
   <p class="muted">최초 실행·재시험 계보(R10)는 공식 기록 목록입니다. 재시험 기록이 이 화면의 기록 root에 있으면 "재시험 비교"로 엽니다.</p>
   <div class="card report">
     <p>{{ item("R1") }}<b>검증 대상과 버전</b>: {{ view.target_and_versions.text }}{% if view.target_commit_now %} <span class="muted">최근 준비 상태 확인의 대상 commit</span> <span class="mono">{{ view.target_commit_now }}</span>{% endif %}</p>

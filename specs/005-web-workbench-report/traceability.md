@@ -167,3 +167,17 @@ Spec 005 산출물이 아닌 기존 시험: `unit/test_redaction_security.py`(Sp
 - `tasks.md`에 `tests/contract/test_web_http_us2.py` 경로가 없다. T036/T040 산출물인데(파일 docstring과 커밋 `b6f194f`) 작업 줄에 파일명이 적혀 있지 않다.
 - `tasks.md`의 FR 태그가 13개 요구사항에 없다: FR-002, FR-004, FR-006, FR-007, FR-016(T057에만), FR-020, FR-022, FR-023, FR-026, FR-027, FR-028, FR-029, FR-033. 자동 시험은 있으므로 구현 누락이 아니라 태그 누락이다. 이 표의 "작업" 열 `—`가 그것이다.
 - `tasks.md:255`의 "PR #2가 004에 병합되면 004를 다시 합친다"는 T061 완료(`25417ad`) 전 시점 문구다.
+
+
+## 2026-10-15 승인 UX 개편 T079~T084
+
+| 작업 | 구현·근거 | 검증 |
+|---|---|---|
+| T079·T080 | `engine/web/review.py`, `readmodel.py`: 실제 기록 기반 조건별 관찰, 원본 규칙과 구분 | `tests/unit/test_web_review.py` (원본 불변·누락·무결성 실패·실패 관찰·조건 맥락) |
+| T081 | `_review.html`, `run.html`, `scenario.html`, `evidence.html`, 기존 증적 GET의 선택 맥락 | `tests/web/test_condition_review.py`, 기존 run/scenario/evidence HTTP 시험 |
+| T082 | 공통 `base.html`, CSS·JS, 목록·보고서·비교 헤더와 탐색 | 기존 화면 시험 전부, `test_web_report_links.py`의 읽기 전용 fragment 허용 |
+| T083 | 기존 실제 E-01·E-02 기록 읽기와 1280·1024px 화면 검토 | 6화면×2너비, 조건별 관련 원문과 복귀, 76개 봉인 파일 SHA-256 불변 |
+| T084 | README·AGENTS·인수인계·범위표·Product Brief와 표시 계약 동기화 | 기존 엔진 판정·12/5/4/3 범위 유지, Spec005 전체 종료와 비작성자 검토 미완료 명시 |
+
+이 보완은 FR-008~020의 표시·탐색·원문 추적을 개선한다. SC-008·SC-009의 비작성자 사용성 검증은 대체하지 않는다.
+새 실제 Run을 수행하지 않았고 보관된 E-01 `a5ad4676…`·E-02 `e39e62ae…`의 결과만 읽었다.

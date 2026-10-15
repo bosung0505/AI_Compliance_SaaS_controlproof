@@ -213,3 +213,10 @@ tests/
 ## Complexity Tracking
 
 없음. Constitution 위반이나 예외가 필요하지 않다.
+
+
+## 2026-10-15 표시 계층·공통 UX 보완
+
+구현 경계와 검증 계획은 [ux-redesign.md](ux-redesign.md)를 따른다. 원본 엔진·bundle 계약은 변경하지 않는다.
+`engine/web/review.py`와 read model의 추가 필드가 사람용 조건·관찰·증적 연결을 제공한다.
+조건별 근거 펼침은 로컬 UI 상태이며 새 API·POST 실행 경로를 만들지 않는다. 기존 GET 증적에 선택 맥락만 추가한다.

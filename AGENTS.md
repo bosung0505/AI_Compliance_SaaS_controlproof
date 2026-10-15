@@ -45,7 +45,17 @@ without actual validation or an explicit truthful non-execution status. Update V
   Preserve those bytes; do not extend this exception to later Runs, probe logs, credentials, or other artifacts.
 - Do not rewrite or delete prior validation history to make a result look successful.
 
-## Current next feature
+## Active web review work (2026-10-15)
+
+Current UX branch: `refactor/controlproof-web-ux` (based on `005-web-workbench-report`). The local web workbench is implemented. User approved T079~T084
+in `specs/005-web-workbench-report/ux-redesign.md`: condition/expected/observed/evidence-first reading,
+E-01 case observations and E-02 explanations, consistent shared styles and navigation across all screens.
+Do not change sealed bundles, verdicts, execution safety, or add web Run/retest actions. Distinguish four
+original E-01 rules from seven display conditions. Unsupported or missing facts must remain explicit.
+Read current Spec005 validation for the UI check status; internal review is not non-author usability validation.
+Spec005 final converge and external usability work remain separate.
+
+## Earlier completed engine baseline
 
 Spec 004 E-01·E-02 is Complete: T001~T097 and converge, T087 NOT_REQUIRED. ControlProof branch
 yeonwoo/004-e01-e02-score-evidence; code checkpoint f75ada7, WhyYou integration 374b122 (PR #8).
@@ -54,5 +64,5 @@ Original E-01 FAIL preserved; official remedy child a5ad4676… PASS. Second cle
 WhyYou scoped 188 PASS; subsequent wrapper portability fixes scoped setup 12 PASS. See final Spec004
 validation/traceability, ID-004-36 and product Decision Log D-017 for approved completion criteria.
 Another-PC reproduction/main integration remain pending; AWS NOT_RUN. Spec003 remains INCONCLUSIVE
-with final converge pending. Next feature is Spec005 workbench/report UX; begin its own Spec Kit cycle.
+with final converge pending. Spec005 is the active web work; its final closure remains pending.
 For Spec004 reproduction use its quickstart and scripts/spec004_local.py, not historical N-02 setup.

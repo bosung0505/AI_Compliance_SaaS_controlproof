@@ -2,6 +2,24 @@
 
 ControlProof는 합성 데이터를 이용해 AI 서비스의 절차적 보호조치가 정상·우회·예외·장애 조건에서 실제로 작동하는지 시험하고, 판정과 재현 가능한 증적을 남기는 도구다. 첫 번째 검증 대상은 AI 면접 서비스 WhyYou다.
 
+## 로컬 웹 워크벤치 (Spec 005)
+
+현재 UX 개편 브랜치는 `refactor/controlproof-web-ux`이며, `005-web-workbench-report`에서 분기했다. 웹은 구현되어 있으며 시나리오 개요·조건별 실제 관찰·연결 근거·재시험 비교·보고서를 제공한다.
+2026-10-15 승인 UX 개편은 공통 헤더·탐색·표·버튼을 유지하면서 E-01 조건별 관찰과 E-02 규칙 설명을 우선 개선한다.
+봉인된 판정·파일은 수정하지 않으며, 원본 규칙의 개수와 조건별 관찰의 개수를 구분한다.
+
+```powershell
+.\.venv\Scripts\python.exe -m engine.web
+# 다른 곳에 보관한 실제 기록을 볼 때:
+.\.venv\Scripts\python.exe -m engine.web --port 8766 --run-root <실제-기록-폴더>
+```
+
+기본 주소는 `http://localhost:8765/`, 합성 화면은 `/demo/`다. 카탈로그의 공식 검증 이력과 현재 서버에 연결된 실제 기록은 구분한다.
+시나리오 상단의 최근 결과 또는 실행 기록에서 개별 결과로 이동하고, 조건별 ‘근거 확인’으로 자료를 펼친다.
+웹에서 새 시험·재시험을 시작하지 않는다. 새 시험 준비 상태는 과거 결과와 별도다.
+Spec 005 전체 종료와 비작성자 사용성 검토는 아직 완료로 선언하지 않는다. 상세: [승인 UX 개편 명세](specs/005-web-workbench-report/ux-redesign.md).
+
+
 ## 현재 개발 기준
 
 - 제품 범위: [ControlProof × WhyYou 2주 MVP 기능 범위 V4](./docs/product/ControlProof_WhyYou_2주_MVP_기능범위_v4.md)
@@ -53,7 +71,7 @@ $speckit-converge
 Spec 001과 Spec 002는 clarify, plan, tasks, analyze, implement와 actual-stack 검증을 마쳤다.
 Spec 002는 로컬 WhyYou를 대상으로 H-03 재시도 소진·DLQ·결정 우회와 E-03 저장 전/후 장애,
 사람 최종결정 멱등성, 봉인 증적과 불변 FAIL→PASS 재시험을 구현했다. 이는 전체 2주 MVP나
-ControlProof 웹 UI가 완성됐다는 뜻이 아니며, 현재 사용자 접점은 개발·검증용 CLI다.
+ControlProof 웹 UI가 완성됐다는 뜻이 아니며, 현재 사용자 접점은 개발·검증용 CLI와 로컬 웹 워크벤치다. 웹의 실제 검증·내부 검토 기록은 Spec 005를 따른다.
 
 ## 후속 Spec 로드맵
 
@@ -64,11 +82,11 @@ ControlProof 웹 UI가 완성됐다는 뜻이 아니며, 현재 사용자 접점
 |---|---|---|
 | Spec 003 | 구현·actual validation 기록 완료, PR 검토 보완 | T001~T093 기록 완료. 실제 child `7b59237e…`는 A1~A4·A6 PASS, A5·A7 INCONCLUSIVE. 2026-10-07 검토에서 복구 시간·A7 원본 증거·H-03 동의 seed 보완; 최신 회귀는 validation 참조. 최종 converge 전이며 Spec 전체 Complete 또는 실제 N-02 PASS로 선언하지 않는다. |
 | Spec 004 | Complete | T001~T097 및 converge 완료(T087 NOT_REQUIRED). 최초 E-01 FAIL 보존 → 승인 수정 child PASS; WhyYou 374b122에서 새 checkout E-01 4030503c…·E-02 970108fe… 실제 PASS/SUCCEEDED/VERIFIED, 잔여행 0. 전체 CP 939 PASS·WhyYou scoped 188 PASS. 다른 PC·AWS는 미검증. |
-| Spec 005 | 계획 확정·미착수 | 웹 워크벤치·12개 시나리오 카탈로그·보고서와 웹 UX 검토 |
+| Spec 005 | 웹 구현·실제 검증 기록·내부 UX 개편 중 | 조건별 관찰·연결 근거·공통 디자인. 전체 converge와 비작성자 사용성 검토는 별도 |
 
 WhyYou 연결 기반을 별도 Spec으로 먼저 만들지 않는다. 각 시나리오에 필요한 capability를 해당 Spec의
 수직 흐름 안에서 구현한다. 또한 세 Spec 문서만 먼저 완성한 뒤 개발하는 방식이 아니라, Spec 003의
-Spec 004는 명세→구현→실제 검증→converge를 닫았다. 다음 기능은 Spec 005 웹 워크벤치·보고서이며, 별도 사이클로 시작한다.
+Spec 004는 명세→구현→실제 검증→converge를 닫았다. 현재 웹 작업은 Spec 005이며, 구현·웹 실제 검증 기록 위에서 내부 UX 개편을 진행한다. 최종 converge는 별도다.
 
 Spec 001·002의 actual Run은 현재 한 PC에서만 수행됐다. main 통합 전 다른 팀원이 새 checkout에서
 `H03_DLQ_V2` 한 건을 재현해 source SHA·manifest SHA-256·restore 결과를 Validation에 추가해야 한다.

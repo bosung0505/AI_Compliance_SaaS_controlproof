@@ -243,6 +243,17 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 
 ---
 
+## 2026-10-15 승인 UX 개편
+
+명세·분석: [ux-redesign.md](./ux-redesign.md). 사용자 승인: UX 개편안 §6·7 구현, 전 화면 디자인 통일 유지.
+
+- [X] T079 조건별 관찰·누락·무결성·원본 불변 회귀 시험 추가 (RED 먼저).
+- [X] T080 원본 기반 표시 계층, E-01 조건별 관찰과 E-02·공통 규칙 설명 구현.
+- [X] T081 결과·시나리오·근거 화면과 접근 경로 개편, 기존 GET/출력 경계 유지.
+- [X] T082 공통 헤더·탐색·디자인 토큰과 목록·보고서·비교 정합성 적용.
+- [X] T083 자동 회귀·실제 보관 기록 브라우저 검증·서버 재실행, 봉인 불변 확인.
+- [X] T084 검증·추적성·README·인수인계에 변경 범위와 한계 기록.
+
 ## Phase 11: Converge (문서 수렴)
 
 - [X] T073 Create `specs/005-web-workbench-report/traceability.md` mapping FR-001~FR-037 and SC-001~SC-011 to tests, Run IDs and evidence [SC-001~011]

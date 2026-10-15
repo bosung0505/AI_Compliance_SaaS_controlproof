@@ -22,6 +22,7 @@ from engine.presentation import load_bundle_summary
 from engine.web import badges
 from engine.web.memos import MemoStore
 from engine.web.preflight import ReadinessStore
+from engine.web.review import build_review, rule_display, test_plan
 
 SCHEMA_VERSION = "controlproof.web.v1"
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "catalog" / "mvp-scenarios.yaml"
@@ -375,6 +376,7 @@ class WorkbenchReader:
             "display_order": _display_order(integrity["status"], state),
             "safety_badges": ["restore_failed"] if state == "RESTORE_FAILED" else [],
             "verdict": None,
+            "review": None,
             "assertions": None,
             "evidence": None,
             "steps": [],
@@ -483,9 +485,16 @@ class WorkbenchReader:
                 "unverified_scope_raw": raw_scope,
             }
         )
+        for assertion in view["assertions"]:
+            assertion["display"] = rule_display(assertion)
+        if state not in {"ABORTED", "RESTORE_FAILED"}:
+            view["review"] = build_review(
+                summary["scenario_id"], _definition(snapshot, "sealed_snapshot", run_id),
+                view["assertions"], bundle, view["evidence"],
+            )
         return view
 
-    def evidence(self, run_id: str, ref: str) -> dict[str, Any]:
+    def evidence(self, run_id: str, ref: str, *, condition_id: str | None = None) -> dict[str, Any]:
         """One evidence entry; text only when it is text, at most 256 KB and passes the strict scan (R-009 e)."""
         bundle = self._bundle(run_id)
         record = _read_json(bundle / "run.json") or {}
@@ -495,8 +504,36 @@ class WorkbenchReader:
         item = next((entry for entry in index["files"] if entry["ref"] == ref), None)
         if item is None:
             raise EvidenceNotFound(ref)
+        # Plain evidence navigation needs only its own verified record, not the whole review.
+        # Condition navigation adds the richer context on demand.
+        run_view = self.run(run_id) if condition_id else None
+        run_block = run_view["run"] if run_view else self._run_block(bundle, record)
+        review = (run_view.get("review") or {}) if run_view else {}
+        condition = next((row for row in review.get("conditions", [])
+                          if row["id"] == condition_id and any(source["ref"] == ref for source in row["sources"])), None)
+        preview = _viewability(self._evidence_path(bundle, item), item.get("mime_type"))
+        excerpt = None
+        if condition and preview.get("viewable"):
+            try:
+                text = preview.get("text") or ""
+                if item.get("mime_type") == "application/x-ndjson":
+                    rows = [json.loads(line) for line in text.splitlines() if line.strip()]
+                    if ref == "file:citation-cases.jsonl":
+                        selected = [row for row in rows if row.get("mode") == condition["facts"].get("mode")]
+                    elif condition["id"] in {"removed", "restored"}:
+                        selected = [row for row in rows if row.get("lane_id") == "E01_EVIDENCE_REMOVAL"]
+                    else:
+                        selected = []
+                    if selected:
+                        excerpt = json.dumps(selected, ensure_ascii=False, indent=2)
+            except (ValueError, TypeError, AttributeError):
+                excerpt = None
         return {
             **self.header("evidence"),
+            "scenario_id": record.get("scenario_id"),
+            "context": {"condition": condition, "title": review.get("title"), "run": run_block},
+            "run": run_block,
+            "excerpt": excerpt,
             "run_id": run_id,
             "ref": ref,
             "evidence_name": _display_name(item),
@@ -505,7 +542,7 @@ class WorkbenchReader:
             "size_bytes": item.get("size_bytes"),
             "sha256": item.get("sha256"),
             "evidence_requirement_ids": item.get("evidence_requirement_ids", []),
-            **_viewability(self._evidence_path(bundle, item), item.get("mime_type")),
+            **preview,
         }
 
     def _bundle(self, run_id: str) -> Path:
@@ -618,6 +655,8 @@ class WorkbenchReader:
             "explanation_sources": sources,
             "profiles": profiles,
             "previous_runs": runs,
+            "latest_run": runs[0] if runs else None,
+            "test_plan": test_plan(scenario_id, profiles[0]["definition"] if profiles else None),
             "readiness": self._readiness(entry),
         }
 
@@ -634,6 +673,8 @@ class WorkbenchReader:
         labels = self.catalog.get("evidence_labels", {})
         for item in definition["required_evidence"]:
             item["label"] = labels.get(item["evidence_id"], item.get("description"))
+        for item in definition["assertions"]:
+            item["display"] = rule_display(item)
         record = self.readiness.latest(entry["id"], name)
         return {
             "execution_profile": name,
@@ -653,6 +694,7 @@ class WorkbenchReader:
             bundle = self.run_root / run_id
             record = _read_json(bundle / "run.json") or {}
             integrity = self._integrity(bundle, record.get("state"))["status"]
+            run_block = self._run_block(bundle, record)
             runs.append(
                 {
                     "run_id": run_id,
@@ -664,12 +706,13 @@ class WorkbenchReader:
                     ),
                     "integrity": integrity,
                     "run_state": record.get("state"),
-                    "record_role": self._run_block(bundle, record)["record_role"],
+                    "record_role": run_block["record_role"],
+                    "target_commit": run_block.get("target_commit"),
                     "parent_run_id": record.get("parent_run_id"),
                     "started_at": record.get("started_at"),
                 }
             )
-        return runs
+        return sorted(runs, key=lambda item: item.get("started_at") or "", reverse=True)
 
 
     # -- compare view (US5) --------------------------------------------------------------------------------------------
@@ -1088,14 +1131,13 @@ def _phase_summary(
     released = sorted({item["label"] for item in conditions if item["kind"] == "RELEASED"})
     for phase, label in PHASE_LABELS.items():
         members = [step for step in steps if step.get("phase") == phase]
-        always = sum(1 for step in members if step.get("always_run"))
         if phase == "BASELINE":
-            sentences = [f"정의된 단계 {len(members)}개로 시험 전 상태와 합성 대상을 준비·기록합니다."]
+            sentences = ["시험 전 상태와 합성 대상을 준비하고 비교 기준을 기록합니다."]
         elif phase == "INJECTED":
-            sentences = [f"정의된 단계 {len(members)}개로 시험 조건을 적용하고 대상의 반응을 관찰합니다."]
+            sentences = ["시험 조건을 적용한 뒤 저장·조회 등 대상 서비스의 반응을 관찰합니다."]
             sentences.append("적용한 시험 조건: " + (", ".join(applied) if applied else "기록 없음"))
         else:
-            sentences = [f"정의된 단계 {len(members)}개(실패해도 항상 실행 {always}개)로 시험 조건을 되돌립니다."]
+            sentences = ["시험 조건을 해제하고 데이터 정리와 안전 상태를 확인합니다. 복구는 실패 시에도 수행합니다."]
             sentences.append("해제한 시험 조건: " + (", ".join(released) if released else "기록 없음"))
             sentences.append("복구 결과: " + str((restore or {}).get("status") or "기록 없음"))
         summary.append({"phase": phase, "label": label, "step_count": len(members), "sentences": sentences})

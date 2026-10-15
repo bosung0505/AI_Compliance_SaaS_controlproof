@@ -63,5 +63,30 @@
     });
   }
 
+  // Evidence disclosure only: the server has already selected and verified every displayed fact.
+  document.addEventListener("click", function (event) {
+    var opener = event.target.closest("[data-inspect]");
+    var closer = event.target.closest("[data-close-proof]");
+    var id = opener ? opener.dataset.inspect : (closer ? closer.dataset.closeProof : null);
+    if (!id) { return; }
+    var panel = document.getElementById(id);
+    var control = document.querySelector('[data-inspect="' + id + '"]');
+    if (!panel || !control) { return; }
+    var opening = !!opener && panel.hidden;
+    panel.hidden = !opening;
+    control.setAttribute("aria-expanded", String(opening));
+    if (closer) { control.focus(); }
+  });
+
+  if (window.location.hash.indexOf("#condition-") === 0) {
+    var selectedRow = document.getElementById(window.location.hash.slice(1));
+    var selectedControl = selectedRow && selectedRow.querySelector("[data-inspect]");
+    var selectedProof = selectedControl && document.getElementById(selectedControl.dataset.inspect);
+    if (selectedProof) {
+      selectedProof.hidden = false;
+      selectedControl.setAttribute("aria-expanded", "true");
+    }
+  }
+
   applyFilters();
 }());

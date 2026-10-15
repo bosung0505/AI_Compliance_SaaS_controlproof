@@ -70,5 +70,6 @@ def test_links_are_plain_get_routes_only(web) -> None:
     html = _html(web, "/report")
     assert "<form" not in html
     hrefs = set(re.findall(r'href="([^"]+)"', html))
-    allowed = re.compile(r"^(/static/.*|/|/report|/demo/?|/scenarios/[A-Z]-\d\d|/compare/[0-9a-f-]+|/runs/[0-9a-f-]+)$")
+    # The shared navigation now links to the existing catalog section, still a read-only GET.
+    allowed = re.compile(r"^(/static/.*|/(?:#catalog)?|/report|/demo/?|/scenarios/[A-Z]-\d\d|/compare/[0-9a-f-]+|/runs/[0-9a-f-]+)$")
     assert all(allowed.match(href) for href in hrefs), sorted(h for h in hrefs if not allowed.match(h))

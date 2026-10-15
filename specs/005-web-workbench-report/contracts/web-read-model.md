@@ -115,3 +115,14 @@
 
 ReportView 필드([data-model.md](../data-model.md) §7)와 `items_present`: `{"R1": true, …, "R13": true, "C1": true, …, "C9": true}`.
 `fixed_scope_sentence`는 범위표 고정 문구와 글자가 같다.
+
+
+## 2026-10-15 추가 표시 필드 (T079~T084)
+
+기존 필드·원본 판정은 유지한다. `run.review`는 VERIFIED이고 실행이 ABORTED/RESTORE_FAILED가 아닐 때만 제공한다.
+`title`, `summary`, `rule_count`, `passed_rule_count`, `conditions[]`를 가진다. 조건은 `id`, `title`, `expected`,
+`observed`, `assertion_id`, `rule_status`, `recorded`, 제한된 원본 `facts`, 연결 자료 `sources[]`다.
+`rule_status`는 연결된 원본 규칙의 판정이며 조건별 새 판정이 아니다. 관찰 기록 부재는 `recorded=false`로 표시한다.
+시나리오에는 `test_plan`과 `latest_run`을 추가한다. 규칙 설명은 원문을 보존하고 별도 `display`에 제공한다.
+증적 GET의 선택적 `condition`은 해당 ref와 연결되는 조건만 허용하고, `context`로 시나리오·실행·관찰을 연결한다.
+연결된 자료의 MIME/크기/스캔 경계가 허용할 때만 관련 조건·시험 경로 `excerpt`를 제공한다.

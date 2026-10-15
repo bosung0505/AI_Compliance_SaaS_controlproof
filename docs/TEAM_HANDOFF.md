@@ -7,12 +7,12 @@
 확인할 때는 이 문서를 먼저 읽는다.
 
 - 상태 기준일: 2026-10-08
-- 현재 전달 브랜치: ControlProof `yeonwoo/004-e01-e02-score-evidence`, WhyYou `bosung/controlproof-n02-integration`(`374b122`).
-  Spec 003 기반은 `003-n02-consent-order`에 보존되며 현재 기능은 Spec 004다.
+- 엔진 공식 전달 기준선: ControlProof `yeonwoo/004-e01-e02-score-evidence` (웹 기준 브랜치 `005-web-workbench-report`, 현재 UX 개편 브랜치 `refactor/controlproof-web-ux`), WhyYou `bosung/controlproof-n02-integration`(`374b122`).
+  Spec 003 기반은 `003-n02-consent-order`에 보존되며 엔진 완료 기준선은 Spec 004다. 현재 웹 UX는 Spec 005에서 작업한다.
   Spec 003 PR #1·WhyYou PR #5는 해당 Spec 통합 브랜치에 병합됐고, Spec 004 WhyYou PR #8도 integration에 병합됐다.
   main 병합은 사용자가 명시적으로 금지했다. 두 현재 전달 브랜치를 pull하며, 실제 Run의 source SHA는 검증 원장의 당시 값으로 유지한다.
 - 이 문서가 설명하는 범위: Spec 001·002 전체, Spec 003 기록·PR 검토 보완, Spec 004 T001~T097·actual 재현·converge 마감
-- 현재 사용자 접점: 고객용 웹 화면이 아니라 개발·검증용 `controlproof` CLI
+- 현재 사용자 접점: 개발·검증용 `controlproof` CLI와 Spec 005 로컬 웹 워크벤치. 2026-10-15 조건별 관찰·근거 탐색 UX 개편은 `specs/005-web-workbench-report/ux-redesign.md`를 따른다. 아래 Spec 001~004 실행 이력은 보존한다.
 
 이 문서는 상세 요구사항, 기술 계약 또는 실행 원본을 복제하지 않는다. 각 사실의 상세 근거는 아래에
 연결한 Spec, Validation, Traceability와 Decision 문서가 보존한다.
@@ -29,9 +29,9 @@
 | N-02 최초 actual Run | 봉인·검증 완료, 제품 판정 미종결 | 부모 `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`: A1~A3 PASS, A4~A7 개별 FAIL, 전체 `INCONCLUSIVE` (`RESTORE_FAILED` 우선). 19개 파일 bundle `VERIFIED`는 무결성 확인이며 빠진 관찰 사실의 증명은 아니다. 원본 verdict와 bundle은 변경하지 않는다. |
 | N-02 child Run (T084 attempt 3) | 봉인·검증 완료, 제품 판정 `INCONCLUSIVE` | child `7b59237e-0a96-403a-9add-28b91011e950`: A1~A4·A6 PASS, A5·A7 `INCONCLUSIVE`, 복구 `SUCCEEDED`, 차단 없음, 21개 파일 bundle `VERIFIED`, 부모 manifest 불변. 동의 전 세 경계 차단과 장애 원자성·복구는 입증됐고, 동의 뒤 처리 순서는 녹화·AI 평가만 입증됐다. 문서 분석 결과는 격리 대상이 LLM 분석을 못 해서 미입증이다. attempt 1·2(중단·INVALID/RESTORE_FAILED)는 보존된 실행기 결함 증거다. |
 | Spec 004 | Complete | T001~T097 및 converge 완료(T087 NOT_REQUIRED). 최초 E-01 FAIL 보존 → 승인 수정 child PASS; WhyYou 374b122에서 새 checkout E-01 4030503c…·E-02 970108fe… 실제 PASS/SUCCEEDED/VERIFIED, 잔여행 0. 전체 CP 939 PASS·WhyYou scoped 188 PASS. 다른 PC·AWS는 미검증. |
-| Spec 005 | 계획 확정·미착수 | 웹 워크벤치·12개 시나리오 카탈로그·보고서와 웹 UX 검토를 구현·검증한다. |
+| Spec 005 | 웹 구현·실제 검증 기록·내부 UX 개편 중 | 공통 디자인을 유지하면서 E-01 조건별 관찰·근거, E-02 설명과 결과 진입을 개선한다. 비작성자 사용성 검토와 전체 converge는 완료로 선언하지 않는다. |
 | 실제 AWS | `NOT_RUN` | AWS SQS·ECS·IAM·CloudWatch·운영 네트워크는 검증하지 않았다. |
-| ControlProof 웹 워크벤치 | 미구현 | 현재 결과 확인과 재현은 CLI·JSON·봉인 bundle을 사용한다. |
+| ControlProof 웹 워크벤치 | 로컬 구현됨 | 봉인 결과를 읽기 전용으로 검토한다. 새 Run·재시험은 CLI로 수행한다. |
 | 2주 MVP 전체 | 미완료 | Spec 001·002 완료를 전체 제품 또는 전체 시나리오 완료로 확대하면 안 된다. |
 | 웹 결과 사용성 검토 | 미실시 | CLI 사람 시간 측정은 완료 gate에서 제외했고, 고객용 웹 결과 화면을 만든 뒤 별도 검토한다. |
 | 0단계 정합성 작업 | 완료 | 12개 범위표, Spec 003 source baseline, AI 플레이북과 휴대 가능한 재현 문서를 정리했다. |
@@ -156,7 +156,7 @@ source queue와 DLQ의 visible, in-flight, delayed 수도 모두 0이었다.
 
 다음 항목은 Spec 001·002 완료에 포함되지 않는다.
 
-- ControlProof 고객용 웹 워크벤치와 결과 보고서 화면
+- 원격 고객용 운영 웹 서비스(로컬 검토 화면과 보고서는 Spec 005에서 구현됨)
 - 웹 결과 화면을 대상으로 한 실제 사용자 이해도·사용성 검토
 - N-02 최종 검증과 N-01·N-03 실행기·최종 검증
 - H-01, H-02 실행기와 최종 검증
