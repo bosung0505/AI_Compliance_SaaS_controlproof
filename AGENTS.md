@@ -47,6 +47,9 @@ without actual validation or an explicit truthful non-execution status. Update V
 
 ## Active web review work (2026-10-15)
 
+User approved T093 (2026-10-16, `terminology.md`): UI uses 테스트/재테스트/테스트용 and compares
+테스트에 넣은 AI 평가 with 서비스가 실제 저장한 결과. Preserve sealed text/history/user memos.
+
 Current UX branch: `refactor/controlproof-web-ux` (based on `005-web-workbench-report`). The local web workbench is implemented. User approved T079~T084
 in `specs/005-web-workbench-report/ux-redesign.md`: condition/expected/observed/evidence-first reading,
 E-01 case observations and E-02 explanations, consistent shared styles and navigation across all screens.
@@ -54,6 +57,11 @@ Do not change sealed bundles, verdicts, execution safety, or add web Run/retest 
 original E-01 rules from seven display conditions. Unsupported or missing facts must remain explicit.
 Read current Spec005 validation for the UI check status; internal review is not non-author usability validation.
 Spec005 final converge and external usability work remain separate.
+User approved T089~T092 in `readable-results.md`: original V4 names, factual run summaries, human descriptions,
+model-output/stored-value comparison and preparation last. E01-D1 remains documented separately, excluded from
+primary condition sources and result summaries. Preserve its bundle/full inventory and never relabel it as a
+model-validated result. E-01 primary cases did traverse the worker's model-response validation; fixtures are fixed
+synthetic model outputs, not a test of autonomous external model generation.
 
 ## Earlier completed engine baseline
 
@@ -63,6 +71,26 @@ Original E-01 FAIL preserved; official remedy child a5ad4676… PASS. Second cle
 4030503c… E-01 and Q2 970108fe… E-02 PASS/SUCCEEDED/VERIFIED, residue 0. Full CP 939 PASS once,
 WhyYou scoped 188 PASS; subsequent wrapper portability fixes scoped setup 12 PASS. See final Spec004
 validation/traceability, ID-004-36 and product Decision Log D-017 for approved completion criteria.
-Another-PC reproduction/main integration remain pending; AWS NOT_RUN. Spec003 remains INCONCLUSIVE
-with final converge pending. Spec005 is the active web work; its final closure remains pending.
+This paragraph records the older Spec004 baseline. Latest N-02 status is in the 2026-10-18 closure below.
+Spec005 remains active; its final closure and external usability are separate.
 For Spec004 reproduction use its quickstart and scripts/spec004_local.py, not historical N-02 setup.
+
+## N-02 local closure (2026-10-18)
+
+Current workspaces use `feature/n02-analysis-preparation`. Actual validation used separate clean
+`validation/n02-20261018` local snapshots: CP `3ea1509`, WhyYou `e64ff9d`. Final child
+`16dbd987…`: A1~A7 PASS, VERIFIED21, restore SUCCEEDED, owned DB residues0. Spec003 local scope
+Complete; preserve all earlier INCONCLUSIVE/INVALID records. Use `scripts/n02_local.py` and latest
+Spec003 Quickstart; explicitly select `scenarios/_N-02-analysis.yaml` (legacy default unchanged).
+Original uncommitted UI edits are authorized and preserved. Fixed synthetic AI traverses real
+product validation/storage; external model quality and AWS NOT_RUN. No main merge/remote push
+authorized in that closure. Spec005 overall closure/external usability remain separate.
+
+## Continuing integration branch (2026-10-18)
+
+The user subsequently authorized a new branch, commits and push for the completed work.
+Continue future fixes and remaining tasks on `fixes-and-remaining-work` in both workspaces.
+ControlProof publishes to `origin` (`bosung0505/AI_Compliance_SaaS_controlproof`); WhyYou publishes
+to the `fork` remote (`bosung0505/gbsa_aws`). Keep WhyYou upstream `main` unchanged.
+The source SHAs in actual Run records remain the frozen validation SHAs, not later publication commits.
+Exclude runtime logs, new bundles, credentials and environment files from publication.

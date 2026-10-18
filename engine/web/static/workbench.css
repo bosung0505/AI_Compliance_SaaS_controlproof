@@ -180,7 +180,7 @@ th, td { padding: 11px 10px; overflow-wrap: anywhere; }
 .additional-sources summary { font-size: 12px; }
 .btn { padding: 8px 13px; border-radius: 6px; }
 .btn.sec { border-color: var(--line); }
-.inspect-button { font-size: 13px; padding: 7px 10px; }
+.inspect-button { font-size: 13px; padding: 7px 10px; white-space: normal; max-width: 100%; }
 .inspect-button[aria-expanded=true] { background: var(--ink); color: #fff; border-color: var(--ink); }
 .side { display: grid; grid-template-columns: repeat(2, minmax(0, 1fr)); gap: 16px; }
 .side > .card { margin-top: 8px; }
@@ -189,6 +189,15 @@ th, td { padding: 11px 10px; overflow-wrap: anywhere; }
 .report > p > b, .report > p > .rep-item + b { color: var(--ink); }
 .evidence-cell { min-width: 170px; }
 .evidence-metadata .mono { overflow-wrap: anywhere; }
+.scenario-description { line-height: 1.7; margin: 8px 0; }
+.latest-result { display: grid; grid-template-columns: minmax(0, 1fr) auto; }
+.latest-summary { line-height: 1.8; padding-top: 10px; }
+.case-setup { font-size: 13px; line-height: 1.7; margin: 10px 0; color: var(--muted); }
+.observation-table td { line-height: 1.8; }
+.record-comparison { margin: 12px 0 18px; }
+.record-comparison table { table-layout: fixed; }
+.record-comparison th, .record-comparison td { width: auto; }
+.test-process { margin: 18px 0; line-height: 1.8; }
 @media (max-width: 1100px) {
   main { padding-left: 18px; padding-right: 18px; }
   .card { padding: 16px; }

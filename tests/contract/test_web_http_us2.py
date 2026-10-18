@@ -70,7 +70,7 @@ def test_integrity_failed_run_is_200_with_failure_screen(web) -> None:
 def test_evidence_routes(web) -> None:
     ref = urllib.parse.quote("file:report-reads.jsonl")
     response, data = _request(web, "GET", f"/runs/{web.good.run_id}/evidence?ref={ref}")
-    assert response.status == 200 and "원문" in data.decode("utf-8")
+    assert response.status == 200 and "원본 기록 보기" in data.decode("utf-8")
     response, _ = _request(web, "GET", f"/runs/{web.good.run_id}/evidence?ref=file%3Anope")
     assert response.status == 404
     response, _ = _request(web, "GET", f"/runs/{web.bad.run_id}/evidence?ref={ref}")

@@ -5,7 +5,7 @@
 {% set members = view.count_members %}
 {% set treatments = view.treatment_counts %}
 <section aria-label="워크벤치">
-  <div class="page-heading"><p class="eyebrow">시나리오 목록 · 시험 기록 검토</p><h2>검증 현황</h2><p class="page-meta">12개 시나리오 관리 · {{ treatments.EXECUTED }}개 실제 실행 대상 · {{ treatments.NOT_RUN }}개 NOT_RUN · {{ treatments.NO_TEST_TARGET }}개 NO_TEST_TARGET</p></div>
+  <div class="page-heading"><p class="eyebrow">시나리오 목록 · 테스트 기록 검토</p><h2>검증 현황</h2><p class="page-meta">12개 시나리오 관리 · {{ treatments.EXECUTED }}개 실제 실행 대상 · {{ treatments.NOT_RUN }}개 NOT_RUN · {{ treatments.NO_TEST_TARGET }}개 NO_TEST_TARGET</p></div>
   <p class="muted">{{ view.fixed_scope_sentence }} 숫자는 범위표·Validation에서 옮긴 공식 상태를 센 값이며, 이 화면은 판정을 계산하지 않습니다.</p>
 
   <div class="grid c4 counts">
@@ -28,7 +28,7 @@
     <div class="tool">
       <b>필터</b>
       <label><input type="checkbox" data-filter="runnable"> 실행 가능(READY)</label>
-      <label><input type="checkbox" data-filter="failed"> 실패·재시험 필요</label>
+      <label><input type="checkbox" data-filter="failed"> 실패·재테스트 필요</label>
       <label><input type="checkbox" data-filter="inconclusive"> 판정 불가</label>
       <span class="spacer"></span>
       <form method="post" action="/preflight" class="inline-form" data-testid="preflight-form">
@@ -48,22 +48,23 @@
     </div>
     {% if view.demo %}<p class="limit">DEMO DATA 화면에서는 준비 상태 확인을 실행하지 않습니다. 실제 기록 화면(<a href="/">/</a>)에서 실행하세요.</p>{% endif %}
     <p>준비 상태 확인 시각: <b data-testid="common-checked-at">{{ view.readiness_checked_at | when if view.readiness_checked_at else "확인 기록 없음" }}</b>
-      <span class="muted">— 시각이 다른 줄만 그 줄에 따로 표시합니다. 실행·재시험·정리 확인은 명령줄 안내를 따릅니다.</span></p>
+      <span class="muted">— 시각이 다른 줄만 그 줄에 따로 표시합니다. 실행·재테스트·정리 확인은 명령줄 안내를 따릅니다.</span></p>
     <table id="catalog" aria-label="12개 시나리오">
-      <thead><tr><th class="nowrap">ID</th><th>확인할 질문</th><th class="nowrap">대상 존재</th><th>새 시험 준비</th><th>실행 방식</th><th>공식 이력·연결된 결과</th><th class="nowrap">개요</th></tr></thead>
+      <thead><tr><th class="nowrap">ID</th><th>시나리오 · 무엇을 테스트하나</th><th class="nowrap">대상 존재</th><th>새 테스트 준비</th><th>실행 방식</th><th>공식 이력·연결된 결과</th><th class="nowrap">개요</th></tr></thead>
       <tbody>
       {% for group in view.groups %}
         <tr class="group" data-group="{{ group.control }}"><th colspan="7">{{ group.control_label }}</th></tr>
         {% for row in group.scenarios %}
         <tr class="scenario-row" data-id="{{ row.id }}" data-group="{{ group.control }}" data-readiness="{{ row.readiness.value or '' }}" data-result="{{ row.official.result }}">
           <td class="scenario-id nowrap"><b>{{ row.id }}</b></td>
-          <td>{{ row.question }}</td>
+          <td><b>{{ row.title }}</b><p class="muted scenario-description">{{ row.description }}</p></td>
           <td class="nowrap">{{ "있음" if row.target_exists else "없음" }}</td>
           <td>
             {% if row.readiness.badge %}{{ badge(row.readiness.badge) }}{% else %}<span class="muted">{{ row.readiness.note }}</span>{% endif %}
+            {% if row.readiness.badge == "configuration_required" %}<div class="muted">{{ row.readiness.note }}</div>{% endif %}
             {% if row.readiness.differs_from_common %}<span class="muted row-checked-at nowrap">확인 {{ row.readiness.checked_at | when }}</span>{% endif %}
             {% if row.readiness.profiles | length > 1 %}
-            <div class="profiles muted">{% for item in row.readiness.profiles %}<span class="nowrap">{{ item.execution_profile }}: {{ item.value or ("확인 도구 오류" if item.badge == "tool_error" else "확인 기록 없음") }}</span>{% if not loop.last %} · {% endif %}{% endfor %}</div>
+            <div class="profiles muted">{% for item in row.readiness.profiles %}<span class="nowrap">{{ item.execution_profile }}: {{ item.value or (badges[item.badge].label_ko if item.badge else "확인 기록 없음") }}</span>{% if not loop.last %} · {% endif %}{% endfor %}</div>
             {% endif %}
           </td>
           <td>{{ row.execution_mode }}</td>
@@ -89,26 +90,28 @@
 
   <div class="grid c2">
     <div class="card">
-      <h3>재시험이 필요한 실패</h3>
+      <h3>재테스트이 필요한 실패</h3>
       {% if view.retest_needed %}
       <ul>{% for item in view.retest_needed %}<li>{{ item.scenario_id }}</li>{% endfor %}</ul>
       {% else %}
-      <p>현재 없습니다. 보존된 최초 FAIL과 그 재시험:</p>
+      <p>현재 없습니다. 보존된 최초 FAIL과 그 재테스트:</p>
       {% endif %}
       <ul>
         {% for item in view.preserved_first_failures %}
         <li>{{ item.scenario_id }} <span class="muted">{{ item.execution_profile }}</span>: 최초 {{ badge(item.parent_badge) }} <span class="mono nowrap" title="{{ item.parent_run_id }}">{{ item.parent_run_id | short_id }}</span>
-          → 재시험 {{ badge(item.child_badge) }} <span class="mono nowrap" title="{{ item.child_run_id }}">{{ item.child_run_id | short_id }}</span>{% if item.child_present %} <a class="compare-link" href="{{ prefix }}/compare/{{ item.child_run_id }}">비교 보기</a>{% endif %}</li>
+          → 재테스트 {{ badge(item.child_badge) }} <span class="mono nowrap" title="{{ item.child_run_id }}">{{ item.child_run_id | short_id }}</span>{% if item.child_present %} <a class="compare-link" href="{{ prefix }}/compare/{{ item.child_run_id }}">비교 보기</a>{% endif %}</li>
         {% endfor %}
       </ul>
     </div>
     <div class="card legend">
       <h3>상태 읽는 법</h3>
+      <details><summary>상태별 설명 펼치기</summary>
       <table>
         {% for item in badges.values() %}
         <tr><td>{% if item.key == "inconclusive" %}<span class="neutral-title">판정 불가</span>{% else %}{{ badge(item.key) }}{% endif %}</td><td><span class="muted">{{ item.category }}</span> · {{ item.description }}</td></tr>
         {% endfor %}
       </table>
+      </details>
     </div>
   </div>
 </section>

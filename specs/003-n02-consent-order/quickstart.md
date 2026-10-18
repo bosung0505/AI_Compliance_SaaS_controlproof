@@ -271,3 +271,57 @@ Spec 003은 Plan이나 자동시험만으로 완료되지 않는다. 다음이 �
 - `$speckit-converge`
 
 완료돼도 N-01/N-03, 실제 AWS, Spec 004/005는 자동 완료되지 않는다.
+
+
+## 10. Analysis follow-up preparation (2026-10-18; stage 2 execution only)
+
+Stage 1 implements the new fixture and automatic validation only. Do not treat these preparation
+instructions as an executed preflight or Run. Preserve the old quickstart as historical baseline.
+For stage 2 use both `feature/n02-analysis-preparation` checkouts after source review/commit and
+reconcile the pre-existing uncommitted web work separately; do not silently discard it.
+
+Select `CONTROLPROOF_MODEL_FIXTURE_ID=n02-analysis-v1` in the API, managed worker launcher and
+ControlProof processes. ControlProof `CONTROLPROOF_MODEL_FIXTURE_DIGEST` must equal
+`092de5950a39ba3a7255c8696ffb073cddc65cda4615237044e3d910e32f9828`.
+Keep the documented fixed embedder configuration, local/test controls and external AI disabled,
+with all provider endpoints loopback. Restart API and managed workers together; an old worker
+isolation fingerprint will be refused. Existing native synthetic PDF needs no external OCR.
+
+Explicit scenario selection is required (default/catalog stays on the historical definition):
+
+```powershell
+.\.venv\Scripts\python.exe -m engine.cli preflight N-02 --profile N02_CONSENT_ORDER_V1 --target whyyou-local --scenario-file scenarios/_N-02-analysis.yaml --json
+# Only in stage 2, after READY and current cleanup/parent verification:
+.\.venv\Scripts\python.exe -m engine.cli retest <verified-parent-id> --scenario-file scenarios/_N-02-analysis.yaml --target whyyou-local --label n02-analysis --json
+# A RESTORE_FAILED parent also requires matching verified --cleanup-evidence (section 9).
+```
+
+The new child records a fixture-only scenario revision; different rules/steps/budgets remain
+refused. Stage 2 collects A1~A7, recovered graph, safe cleanup and bundle/parent verification,
+then connects records to the web root and updates official status/docs using actual facts.
+
+## 12. 2026-10-18 실행 완료 절차와 재현 진입점
+
+이 절차가 위 1단계 준비 설명의 후속이다. 현재 카탈로그 N-02는 opt-in 1.1.0을 명시적으로
+선택하며 기본 `scenarios/N-02.yaml`의 역사적 정의는 유지된다. 실제 source CP `3ea1509`,
+WhyYou `e64ff9d`; 두 소스를 별도 clean checkout으로 준비한다. 원래 dirty 폴더/실제 `.env`를
+복사하지 않는다. Run 원본은 Git 제외이므로 새 검증에는 새 Run ID를 사용한다.
+
+`python -m scripts.n02_local --help`와 `up --help`에서 Python 경로·두 checkout·state root·
+전용 포트를 지정한다. 기존 Spec004 portable harness를 재사용하므로 내부 프로젝트/DB 이름의
+spec004는 인프라 이름이다. 필요한 Docker Desktop을 먼저 기동한다. `up`이 합성 DB·moto·API·
+관리 작업자4개와 동일한 모델 격리 설정을 구성한다. 실제 provider key를 채우지 않는다.
+
+clean CP checkout에서 (해당 checkout을 실행할 준비된 Python 사용):
+
+```powershell
+python -m scripts.n02_local cli --instance n02 --state-root ../n02-state -- preflight N-02 --profile N02_CONSENT_ORDER_V1 --target whyyou-local --scenario-file scenarios/_N-02-analysis.yaml --json
+python -m scripts.n02_local cli --instance n02 --state-root ../n02-state -- verify 15cef078-ee24-4f0e-91ef-381e0f7a1cc2 --json
+# 기존 부모 bundle과 일치하는 cleanup evidence를 준비한 뒤 (새 Run ID 생성):
+python -m scripts.n02_local cli --instance n02 --state-root ../n02-state -- retest 15cef078-ee24-4f0e-91ef-381e0f7a1cc2 --target whyyou-local --scenario-file scenarios/_N-02-analysis.yaml --cleanup-evidence ../whyyou/.controlproof/n02-cleanup-evidence-375c2f2bfcaf.json --label n02-analysis --json
+```
+
+실행 후 반환된 새 Run을 `verify <new-run-id> --json`으로 독립 확인하고, owned DB rows·fault
+파일·restore block을 검사한다. PASS만으로 정리 완료를 추정하지 않는다. 상태/명령 원장·기동
+source는 state root에 보관한다. `stop`은 해당 harness가 소유한 프로세스만 정리하며 볼륨은 유지한다.
+이번에 수행한 정확한 경로·명령 원장과 실패/보완/최종 결과는 actual-closure/validation에 있다.

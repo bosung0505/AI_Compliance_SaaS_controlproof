@@ -372,3 +372,28 @@ after tests: T069 presentation can proceed beside T070 CLI and T071 bundle verif
   keep target guards and the distinction from actual N-02 consent evidence.
 - Test-first gate: 6 EXPECTED RED / 3 PASS, followed by implementation and scoped GREEN.
   Existing actual Run results remain unchanged; no new actual Run in this review closure.
+
+
+## 2026-10-18 stage-1 follow-up (T094~T100)
+
+User authorized preparation first, actual validation second. Ordered tasks, clarification, analysis,
+implementation status and commands are tracked in [analysis-preparation.md](analysis-preparation.md).
+T094 specifies/analyzes; T095~T097 cover WhyYou model, wiring and real pipeline validation;
+T098 covers opt-in scenario, readiness and bounded parent linkage; T099 scoped regression;
+T100 synchronizes documentation. This is an implementation/automatic-validation checkpoint,
+not Spec003 Complete or a new actual verdict. Source changes are local/uncommitted at this checkpoint.
+
+## 2026-10-18 stage-2 closure (T101~T106)
+
+- [X] T101 Clean local source snapshots in both repositories; original workspaces preserved.
+- [X] T102 `scripts/n02_local.py`: isolated harness, matching fixture/API/four workers, READY16/16.
+- [X] T103 Three immutable actual children; adapter receipt and owned-row cleanup defects fixed/tested.
+- [X] T104 Final A1~A7 PASS, VERIFIED21, safe restore; independent zero-row audit and parent unchanged.
+- [X] T105 Shared N-02 readable view, catalog and actual records connected; automated/browser QA.
+- [X] T106 Spec/Plan/Tasks/Validation/Traceability/current status documents converged for local scope.
+
+Exact source commits and final records: [actual-closure.md](actual-closure.md). Execution source
+snapshots are committed in clean local validation checkouts; original workspaces retain the prior
+approved edits. No remote push/main merge. Stage-1 uncommitted/NOT_RUN descriptions above are
+the historical preparation checkpoint, superseded by this closure. Final regression results are
+in Validation; no external usability/other-PC/AWS claim.

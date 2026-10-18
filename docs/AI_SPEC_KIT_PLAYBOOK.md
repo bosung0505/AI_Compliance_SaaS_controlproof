@@ -1,5 +1,11 @@
 # ControlProof AI·Spec Kit 작업 플레이북
 
+최신 checkpoint(2026-10-18): Spec003 N-02 로컬 범위 Complete. 최종 `16dbd987…`
+A1~A7 PASS, VERIFIED21, 복구 성공, DB 잔여행0. 실제 소스 CP `3ea1509`/WhyYou `e64ff9d`.
+이전 2026-10-08 checkpoint의 N-02 대기 상태는 이력이다. 최신 절차는 Spec003 Quickstart와
+actual-closure/validation을 따른다. main·AWS·Spec005 전체 마감과 별도 PC 재현은 자동 완료되지 않는다.
+
+
 ## 1. 목적
 
 팀원이 다른 AI 세션에서 작업을 이어도 같은 제품 의미, 같은 브랜치 안전 규칙과 같은 완료 기준을

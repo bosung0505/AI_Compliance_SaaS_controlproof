@@ -1,0 +1,8 @@
+{% if row.comparison %}
+<div class="record-comparison" data-testid="record-comparison"><h3>테스트에 넣은 AI 평가와 실제 저장 결과</h3>
+<p class="muted">왼쪽은 이 조건을 테스트하려고 준비한 AI 평가이고, 오른쪽은 서비스가 처리한 뒤 실제 저장한 값입니다.</p>
+{% if row.id == "empty" %}<p class="note">이 조건은 근거 없는 점수를 걸러내는 테스트입니다. 답변은 있지만 점수의 근거로 연결하지 않은 입력을 만들었으므로, 왼쪽의 답변 연결은 처음부터 0개입니다.</p>{% endif %}
+<table><thead><tr><th>비교 항목</th><th>테스트에 넣은 AI 평가</th><th>서비스가 실제 저장한 결과</th></tr></thead><tbody>
+{% for value in row.comparison %}<tr><th>{{ value.label }}</th><td>{{ value.before }}</td><td>{{ value.after }}</td></tr>{% endfor %}
+</tbody></table></div>
+{% endif %}

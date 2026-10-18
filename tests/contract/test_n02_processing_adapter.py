@@ -50,6 +50,32 @@ def test_path_capabilities_name_the_three_actual_boundaries(settings) -> None:
     )
 
 
+def test_document_and_recording_effects_link_real_scoped_start_receipts(settings, tmp_path):
+    subject = _subject(N02LaneId.CONSENT_FAULT_RECOVERY)
+    adapter = WhyYouProtectedProcessingAdapter(
+        replace(settings, observer_root=tmp_path),
+        effect_reader=lambda _subject, _path: {"source_status": "PRESENT", "effect_ids": []},
+    )
+    directory = tmp_path / "receipts"
+    directory.mkdir()
+    receipt_rows = []
+    expected = {}
+    for path, boundary in [("DOCUMENT_ANALYSIS", "ANALYSIS_HANDLER_ENTERED"), ("RECORDING", "INTERVIEW_SESSION_CREATED")]:
+        receipt_id = str(uuid4())
+        expected[path] = receipt_id
+        row = {"run_id": subject["run_id"], "lane_id": subject["lane_id"],
+               "subject_ref": subject["subject_ref"], "path_id": path,
+               "boundary": boundary, "receipt_id": receipt_id}
+        receipt_rows.extend([row, {**row, "subject_ref": "foreign", "receipt_id": str(uuid4())}])
+    (directory / f"{subject['run_id']}.jsonl").write_text(
+        "\n".join(json.dumps(row) for row in receipt_rows), encoding="utf-8"
+    )
+    for path, receipt_id in expected.items():
+        effect = adapter.read_effects(path_id=path, subject=subject,
+            phase="RECOVERED", step_id="retry-effects")
+        assert effect.start_receipt_ids == (receipt_id,)
+
+
 def test_document_and_recording_attempts_store_only_sanitized_response(settings) -> None:
     def handler(request: httpx.Request) -> httpx.Response:
         assert "iep_applicant_session=raw-local-cookie" in request.headers["cookie"]
@@ -454,6 +480,21 @@ def test_probe_attempt_without_drive_stops_at_the_first_request(settings) -> Non
     assert attempt.drive_steps == () and attempt.created_session_id is None
     assert log[0] == "POST /v1/applicant/interview-sessions"
     assert "POST /v1/applicant/equipment-checks" not in log and len(log) == 2
+
+
+def test_analysis_fixture_submits_both_required_materials_through_product_api(settings):
+    adapter, credentials, _ = _driven_adapter(
+        replace(settings, model_fixture_id="n02-analysis-v1"), []
+    )
+    requests = []
+    adapter.http.event_hooks["request"].append(requests.append)
+    subject = _subject(N02LaneId.NORMAL_ORDER)
+    credentials.put(subject["subject_ref"], "cookie")
+    attempt = adapter.attempt(path_id="DOCUMENT_ANALYSIS", subject=subject, drive=True)
+    registrations = [request for request in requests if request.url.path == "/v1/applicant/submissions"]
+    assert [json.loads(request.content)["material_type"] for request in registrations] == ["resume", "cover_letter"]
+    assert len({request.headers["Idempotency-Key"] for request in requests}) == len(requests)
+    assert attempt.drive_steps[-3:] == ("cover-request:201", "cover-upload:200", "cover-register:202")
 
 
 def test_results_are_only_what_the_attempt_newly_produced(settings, tmp_path) -> None:

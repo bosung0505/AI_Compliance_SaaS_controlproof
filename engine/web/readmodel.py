@@ -22,7 +22,7 @@ from engine.presentation import load_bundle_summary
 from engine.web import badges
 from engine.web.memos import MemoStore
 from engine.web.preflight import ReadinessStore
-from engine.web.review import build_review, rule_display, test_plan
+from engine.web.review import DESCRIPTIONS, TITLES, build_review, rule_display, test_plan
 
 SCHEMA_VERSION = "controlproof.web.v1"
 CATALOG_PATH = Path(__file__).resolve().parents[2] / "catalog" / "mvp-scenarios.yaml"
@@ -49,7 +49,7 @@ DISPLAY_NAMES = {
     "target.snapshot.json": "대상 버전 기록",
     "environment.snapshot.json": "실행 환경 기록",
     "subjects.json": "합성 대상 목록",
-    "faults.jsonl": "시험 조건 적용·해제 기록",
+    "faults.jsonl": "테스트 조건 적용·해제 기록",
     "observations.jsonl": "관찰 기록",
     "checkpoints.jsonl": "단계 진행 기록",
     "recovery.json": "복구 기록",
@@ -57,11 +57,11 @@ DISPLAY_NAMES = {
     "delivery-attempts.jsonl": "처리 재시도 기록",
     "queue-topology.snapshot.json": "작업 대기열 구성 기록",
     "terminal-failure.json": "최종 실패 표시 기록",
-    "retest-link.json": "재시험 부모 연결 기록",
-    "retest-diff.json": "재시험 변경 차원 기록",
+    "retest-link.json": "재테스트 부모 연결 기록",
+    "retest-diff.json": "재테스트 변경 차원 기록",
     "change-injections.jsonl": "변경 주입·복원 기록",
-    "citation-cases.jsonl": "인용 시험 결과",
-    "model-emissions.jsonl": "시험용 고정 모델 출력",
+    "citation-cases.jsonl": "인용 테스트 결과",
+    "model-emissions.jsonl": "테스트용 고정 모델 출력",
     "report-reads.jsonl": "회사 화면 리포트 조회",
     "report-records.jsonl": "리포트 저장 기록",
     "storage-probe.json": "저장소 직접 쓰기 진단",
@@ -78,7 +78,7 @@ DISPLAY_NAMES = {
 LIMITATION_LABELS = {
     "FIXTURE_INTERVIEW_INPUT": "합성 면접 입력 사용",
     "EXTERNAL_AI_BLOCKED": "외부 AI 호출 차단",
-    "FIXED_MODEL_SUBSTITUTE": "실제 AI 대신 시험용 고정 모델 사용",
+    "FIXED_MODEL_SUBSTITUTE": "실제 AI 대신 테스트용 고정 모델 사용",
 }
 ARTIFACT_NAMES = {"image/png": "화면 캡처", "application/json": "수집한 원본 기록"}
 
@@ -232,6 +232,8 @@ class WorkbenchReader:
             "id": entry["id"],
             "control": entry["control"],
             "question": entry["question"],
+            "title": TITLES.get(entry["id"], entry["question"]),
+            "description": DESCRIPTIONS.get(entry["id"], entry["question"]),
             "target_exists": entry["target_exists"],
             "mvp_treatment": entry["mvp_treatment"],
             "execution_mode": _execution_mode(entry),
@@ -520,6 +522,16 @@ class WorkbenchReader:
                     rows = [json.loads(line) for line in text.splitlines() if line.strip()]
                     if ref == "file:citation-cases.jsonl":
                         selected = [row for row in rows if row.get("mode") == condition["facts"].get("mode")]
+                    elif record.get("scenario_id") == "N-02":
+                        lane = {"N02-A1": "PRISTINE_BASELINE", "N02-A2": "DOCUMENT_BYPASS",
+                                "N02-A3": "RECORDING_BOUNDARY_PROBE", "N02-A4": "ASSESSMENT_BOUNDARY_PROBE",
+                                "N02-A5": "NORMAL_ORDER", "N02-A6": "CONSENT_FAULT_RECOVERY",
+                                "N02-A7": "CONSENT_FAULT_RECOVERY"}.get(condition["assertion_id"])
+                        selected = [row for row in rows if row.get("lane_id") == lane]
+                        if condition["assertion_id"] == "N02-A6":
+                            selected = [row for row in selected if row.get("recovery_stage") != "AFTER_RETRY"]
+                        elif condition["assertion_id"] == "N02-A7" and any(row.get("recovery_stage") for row in selected):
+                            selected = [row for row in selected if row.get("recovery_stage") == "AFTER_RETRY"]
                     elif condition["id"] in {"removed", "restored"}:
                         selected = [row for row in rows if row.get("lane_id") == "E01_EVIDENCE_REMOVAL"]
                     else:
@@ -531,6 +543,7 @@ class WorkbenchReader:
         return {
             **self.header("evidence"),
             "scenario_id": record.get("scenario_id"),
+            "scenario_title": TITLES.get(record.get("scenario_id"), record.get("scenario_id")),
             "context": {"condition": condition, "title": review.get("title"), "run": run_block},
             "run": run_block,
             "excerpt": excerpt,
@@ -599,6 +612,7 @@ class WorkbenchReader:
         return {
             "run_id": bundle.name,
             "scenario_id": record.get("scenario_id"),
+            "scenario_title": TITLES.get(record.get("scenario_id"), record.get("scenario_id")),
             "scenario_version": record.get("scenario_version"),
             "execution_profile": record.get("execution_profile") or "H03_MINIMAL_V1",
             "target_version": record.get("target_version"),
@@ -634,6 +648,10 @@ class WorkbenchReader:
         texts["legal_mapping_notice"] = LEGAL_MAPPING_NOTICE
         runs = self._scenario_runs(scenario_id)
         profiles = [self._scenario_profile(entry, profile, runs) for profile in entry["profiles"]]
+        latest_summary = None
+        if runs and runs[0]["integrity"] == "VERIFIED":
+            latest_view = self.run(runs[0]["run_id"])
+            latest_summary = (latest_view.get("review") or {}).get("summary")
         return {
             **self.header("scenario"),
             "id": entry["id"],
@@ -656,6 +674,7 @@ class WorkbenchReader:
             "profiles": profiles,
             "previous_runs": runs,
             "latest_run": runs[0] if runs else None,
+            "latest_summary": latest_summary,
             "test_plan": test_plan(scenario_id, profiles[0]["definition"] if profiles else None),
             "readiness": self._readiness(entry),
         }
@@ -741,10 +760,10 @@ class WorkbenchReader:
         elif unchanged is False:
             problem = {
                 "code": "PARENT_DIGEST_CHANGED",
-                "detail": "재시험 기록에 남은 부모 무결성 값과 지금 부모 기록의 값이 다릅니다.",
+                "detail": "재테스트 기록에 남은 부모 무결성 값과 지금 부모 기록의 값이 다릅니다.",
             }
         if child_view["integrity"]["status"] != "VERIFIED" and problem is None:
-            problem = {"code": "CHILD_NOT_VERIFIED", "detail": "재시험 기록의 봉인 무결성을 확인하지 못했습니다."}
+            problem = {"code": "CHILD_NOT_VERIFIED", "detail": "재테스트 기록의 봉인 무결성을 확인하지 못했습니다."}
         entry = self._catalog_entry(child_record.get("scenario_id"))
         template = next(
             (
@@ -757,6 +776,7 @@ class WorkbenchReader:
         memos = self.memos.list(child_run_id) if self.memos else []
         view: dict[str, Any] = {
             **self.header("compare"),
+            "scenario_title": TITLES.get(child_record.get("scenario_id"), child_record.get("scenario_id")),
             "parent": _compare_side(parent_view, str(parent_id)),
             "child": _compare_side(child_view, child_run_id),
             "parent_unchanged": unchanged,
@@ -847,6 +867,7 @@ class WorkbenchReader:
                     "id": row["id"],
                     "control": row["control"],
                     "question": row["question"],
+                    "title": row["title"], "description": row["description"],
                     "result": row["official"]["result"],
                     "reason_code": row["official"]["reason_code"],
                     "badge": row["official"]["badge"],
@@ -943,6 +964,27 @@ def _profile_readiness(profile: str, record: dict[str, Any] | None) -> dict[str,
             "execution_profile": profile, "recorded": True, "value": record["readiness"],
             "badge": badges.readiness_badge(record["readiness"]).key, "checked_at": record.get("checked_at"),
             "note": record.get("operator_action"), "capabilities": record.get("capabilities"),
+        }
+    if record.get("error_kind") == "CONFIG":
+        labels = {
+            "WHYYOU_BASE_URL": "서비스 접속 주소",
+            "WHYYOU_CONSOLE_URL": "관리 화면 접속 주소",
+            "WHYYOU_DATABASE_URL": "테스트용 데이터베이스 연결",
+            "WHYYOU_COMPANY_TOKEN": "테스트용 인증 정보",
+            "WHYYOU_REPO_PATH": "테스트 대상 소스 위치",
+            "CONTROLPROOF_FAULT_ROOT": "테스트 작업 폴더",
+            "CONTROLPROOF_MODEL_FIXTURE_ID": "고정 모델 식별자",
+            "CONTROLPROOF_MODEL_FIXTURE_DIGEST": "고정 모델 검증값",
+        }
+        detail = record.get("operator_action") or ""
+        prefix = "required local/test settings are missing: "
+        missing = detail.removeprefix(prefix).split(", ") if detail.startswith(prefix) else []
+        return {
+            "execution_profile": profile, "recorded": True, "value": None, "badge": "configuration_required",
+            "checked_at": record.get("checked_at"), "error_kind": "CONFIG",
+            "note": "새 테스트용 설정이 없거나 올바르지 않습니다. 로컬 테스트 설정을 연결해 서버를 다시 시작한 뒤 다시 확인하세요.",
+            "missing_settings": [labels[key] for key in missing if key in labels],
+            "error_detail": detail,
         }
     # A tool error (usage error, timeout, unreadable output) is not a readiness value (R-010).
     return {
@@ -1097,21 +1139,21 @@ def _conditions(bundle: Path, record: dict[str, Any], labels: dict[str, str]) ->
     conditions = []
     for line in _jsonl(bundle / "change-injections.jsonl"):
         kind = str(line.get("kind"))
-        label = labels.get(kind, "시험용 데이터 변경")
+        label = labels.get(kind, "테스트용 데이터 변경")
         raw = f"{kind} ({line.get('lane_id')})"
         if line.get("applied_at"):
             conditions.append({"kind": "APPLIED", "label": label, "raw": raw, "at": line["applied_at"]})
         if line.get("restored_at"):
             conditions.append({"kind": "RELEASED", "label": label, "raw": raw, "at": line["restored_at"]})
     if record.get("fault_ever_applied"):
-        conditions.append({"kind": "APPLIED", "label": "시험용 장애 주입", "raw": "fault_ever_applied", "at": None})
+        conditions.append({"kind": "APPLIED", "label": "테스트용 장애 주입", "raw": "fault_ever_applied", "at": None})
     attempts = [line for line in _jsonl(bundle / "faults.jsonl") if line.get("environment_restore")]
     if attempts:
         last = attempts[-1]["environment_restore"]
         conditions.append(
             {
                 "kind": "RELEASED",
-                "label": f"시험용 장애 해제와 환경 복구(시도 {len(attempts)}회, 마지막 결과 {last})",
+                "label": f"테스트용 장애 해제와 환경 복구(시도 {len(attempts)}회, 마지막 결과 {last})",
                 "raw": "faults.jsonl",
                 "at": None,
             }
@@ -1132,13 +1174,13 @@ def _phase_summary(
     for phase, label in PHASE_LABELS.items():
         members = [step for step in steps if step.get("phase") == phase]
         if phase == "BASELINE":
-            sentences = ["시험 전 상태와 합성 대상을 준비하고 비교 기준을 기록합니다."]
+            sentences = ["테스트 전 상태와 합성 대상을 준비하고 비교 기준을 기록합니다."]
         elif phase == "INJECTED":
-            sentences = ["시험 조건을 적용한 뒤 저장·조회 등 대상 서비스의 반응을 관찰합니다."]
-            sentences.append("적용한 시험 조건: " + (", ".join(applied) if applied else "기록 없음"))
+            sentences = ["테스트 조건을 적용한 뒤 저장·조회 등 대상 서비스의 반응을 관찰합니다."]
+            sentences.append("적용한 테스트 조건: " + (", ".join(applied) if applied else "기록 없음"))
         else:
-            sentences = ["시험 조건을 해제하고 데이터 정리와 안전 상태를 확인합니다. 복구는 실패 시에도 수행합니다."]
-            sentences.append("해제한 시험 조건: " + (", ".join(released) if released else "기록 없음"))
+            sentences = ["테스트 조건을 해제하고 데이터 정리와 안전 상태를 확인합니다. 복구는 실패 시에도 수행합니다."]
+            sentences.append("해제한 테스트 조건: " + (", ".join(released) if released else "기록 없음"))
             sentences.append("복구 결과: " + str((restore or {}).get("status") or "기록 없음"))
         summary.append({"phase": phase, "label": label, "step_count": len(members), "sentences": sentences})
     return summary

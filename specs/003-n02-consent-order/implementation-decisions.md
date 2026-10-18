@@ -1,5 +1,9 @@
 # Spec 003 Implementation Decisions
 
+Latest decision ID-003-21 (2026-10-18): final local child `16dbd987-23a5-4030-bb62-77787488969b` PASS A1~A7,
+VERIFIED21, safe restore, owned DB residues0; old Status below is a historical checkpoint.
+
+
 ## Status
 
 - Implementation and PR review fixes: implemented; feature-branch integration authorized on 2026-10-07. No main integration authorized.
@@ -577,3 +581,39 @@ Implementation verdict: the N-02 runner, judge, verifier and bundle contract are
   INCONCLUSIVE result; no replacement child exists for these fixes.
 - Earlier per-decision pending notes are chronological checkpoint statements. The latest
   conditional table and this entry govern the review closure; they do not rewrite past Runs.
+
+
+### ID-003-20 — Stage-1 opt-in document analysis preparation (2026-10-18)
+
+- Status: user-authorized preparation implemented and automatically validated; local sources
+  uncommitted. Actual-stack validation and official/UI closure are separate stage 2.
+- Inputs: WhyYou `374b122`, CP `bafe019` plus preserved pre-existing UX changes; both branches
+  `feature/n02-analysis-preparation`. Follow-up FR-042~045 / T094~T100.
+- Finding: analysis still used normal model/embedder; fixed report fixture did not answer
+  strategy requests. Default requirements include resume AND cover_letter, while the driver
+  submitted only resume. Existing retest rejected any scenario digest change.
+- Decision: add opt-in `n02-analysis-v1`, fixed embedding in the analysis worker only, native PDF
+  extraction and product validation/persistence. Submit both required materials via APIs for
+  that fixture only. Legacy model IDs/outputs and default scenario snapshots stay unchanged.
+- Parent linkage: explicit 1.0.0 -> 1.1.0 fixture-only revision, identical all other definition
+  fields, exact new ID/digest, verified snapshots and independently verified retest diff.
+  No general exception for changed assertions/steps/evidence/timing/lanes; original history unchanged.
+- Alternatives rejected: enable external AI as a prerequisite, insert ready results directly,
+  change legacy fixture semantics, relax A5/A7 or alter the historical INCONCLUSIVE.
+- Tests: expected RED then GREEN, CP 203 + final 17 (7 overlap) + Spec004 19; WhyYou 385 final
+  scoped PASS. No actual N-02; full commands and host-restriction details in analysis-preparation.md.
+- Next: stage-2 source/version/environment readiness, actual parent-linked execution and verified
+  results, then UI/official documentation closure. Spec003 remains incomplete until that work.
+
+### ID-003-21 — Stage-2 actual closure and strict evidence fixes (2026-10-18)
+
+- Status: CONFIRMED; user explicitly authorized stage 2 and resumption after interruption.
+- Preserve failed/invalid attempts; never relax A5/A7 or independent verification.
+- Actual first attempt exposed missing projected document/recording start receipts; capture
+  existing scoped boundary receipts rather than synthesize success or modify verifier rules.
+- Additional audit exposed dependent rows outside FK cleanup; add bounded canonical lane
+  validation and dependent-first owned IDs, with tests rejecting mixed-Run lanes before SQL.
+- Final actual child and independent zero-row audit close local N-02; exact commits, attempts,
+  manifests, retained synthetic object storage and limits in [actual-closure.md](actual-closure.md).
+- Shared UI projects sealed expectations/observations and actual evidence. Legacy history remains.
+- No main integration, remote publication, external-model quality, AWS or external usability claim.

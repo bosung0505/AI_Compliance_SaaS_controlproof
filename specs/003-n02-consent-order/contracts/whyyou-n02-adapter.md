@@ -176,3 +176,32 @@ credential을 출력하지 않는다. preflight 실패는 Run directory, subject
 adapter는 consent guard를 구현하지 않는다. 최초 actual FAIL 뒤 WhyYou product boundary를 보완할 때도
 같은 adapter contract와 path IDs를 유지한다. parent/child 비교에서 바뀌는 것은 target snapshot과 실제
 effect이며 scenario 의미는 바뀌지 않는다.
+
+
+## 2026-10-18 stage-1 analysis substitute
+
+`n02-analysis-v1` (`092de5950a39ba3a7255c8696ffb073cddc65cda4615237044e3d910e32f9828`)
+is an opt-in local/test model. Strategy responses use supplied IDs only; report tasks delegate to
+unchanged H-03 behavior. Analysis uses the fixed embedder only in this fixture. Isolation health
+and managed-worker attestation include the fixture identity. External fallback is not introduced.
+The driven document path submits both required materials (resume, cover_letter) with distinct
+idempotency keys through upload/PUT/register. The same synthetic native-text PDF can be reused;
+this is consent/order testing, not document meaning or external-model quality evaluation.
+Ready analysis/strategy rows must come from the normal product pipeline; fixture overlays remain
+separate effects and cannot establish a result. Stage 1 has no actual Run or official verdict.
+
+## 2026-10-18 stage-2 observation and teardown closure
+
+Effect snapshots collect existing scoped boundary receipt IDs for all three paths, including
+`ANALYSIS_HANDLER_ENTERED` and `INTERVIEW_SESSION_CREATED` / `INTERVIEW_SESSION_STARTED`.
+These IDs contribute to the effect digest and independently readable recovered A7 proof;
+the verifier's evidence requirements are unchanged. Missing receipts are never synthesized.
+
+The seed correlation allowlist also owns product-created rows associated with its six canonical
+applicant/invitation lanes. Validate exactly six unique lanes from one Run before any SQL.
+Delete dependents by explicit table allowlist and company + owned applicant/invitation/session
+IDs, then seeded rows; never start a cascade from shared company/reviewer rows. Remove only
+Run-traced outbox/processed events and owned resource audit/idempotency rows. Clear dynamic
+prerequisite state and expose `product_rows_removed` in teardown results. Independently audit
+DB residues after actual execution; safe fault restoration alone does not prove all data cleanup.
+Isolated synthetic object-store uploads/volumes are retained separately and disclosed as such.

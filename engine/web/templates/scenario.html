@@ -7,13 +7,13 @@
 {% block content %}
 {% set ex = view.explanation %}
 <section aria-label="시나리오 상세·실행">
-  <div class="page-heading"><p class="eyebrow">{{ view.id }} · 시험 개요</p><h2>{{ view.test_plan.title or view.question }}</h2>
-  <p class="page-meta">{{ view.control_label }} · 대상 WhyYou · {{ view.question }}</p></div>
+  <div class="page-heading"><p class="eyebrow">{{ view.id }} · 테스트 개요</p><h2>{{ view.test_plan.title or view.question }}</h2>
+  <p class="scenario-description">{{ view.test_plan.description }}</p><p class="page-meta">{{ view.control_label }} · 대상 WhyYou</p></div>
   <p class="official-context">프로젝트의 공식 검증 이력: {{ official_badge(view.official) }} {{ view.official.summary }}{% if view.official.note %} ({{ view.official.note }}){% endif %}</p>
   {% if view.profiles %}
-    {% if view.latest_run %}<div class="card latest-result" data-testid="latest-result"><div><h3>이 저장소에서 볼 수 있는 최근 실행</h3><p>{{ view.latest_run.started_at | when }} · {{ view.latest_run.execution_profile }} · {{ view.latest_run.integrity }}</p></div><a class="btn result-link" href="{{ prefix }}/runs/{{ view.latest_run.run_id }}">최근 실행 결과 보기 →</a></div>
+    {% if view.latest_run %}<div class="card latest-result" data-testid="latest-result"><div><h3>최근 테스트에서 무엇이 확인됐나</h3><p class="page-meta">{{ view.latest_run.started_at | when }} · {{ view.latest_run.integrity }}</p>{% if view.latest_summary %}<p class="latest-summary">{{ view.latest_summary }}</p>{% else %}<p>상세 결과에서 이 기록의 판정과 확인 가능한 자료를 볼 수 있습니다.</p>{% endif %}</div><a class="btn result-link" href="{{ prefix }}/runs/{{ view.latest_run.run_id }}">최근 실행 결과 보기 →</a></div>
     {% else %}<div class="card empty-state"><h3>연결된 실제 실행 기록이 없습니다</h3><p>공식 검증 이력과 이 서버에 연결된 기록은 다를 수 있습니다. 결과를 보려면 해당 기록 저장소를 연결해야 합니다.</p>{% if not view.demo %}<a href="/demo/scenarios/{{ view.id }}">합성 DEMO 기록으로 화면 둘러보기</a>{% endif %}</div>{% endif %}
-    <div class="card"><h3>이번 시험에서 확인할 조건</h3><div class="condition-chips">{% for condition in view.test_plan.conditions %}<span>{{ condition }}</span>{% endfor %}</div></div>
+    <div class="card"><h3>어떤 상황을 만들어 테스트하나</h3><div class="condition-chips">{% for condition in view.test_plan.conditions %}<span>{{ condition }}</span>{% endfor %}</div></div>
   {% endif %}
 
   {% if view.mvp_treatment == "NOT_RUN" %}
@@ -34,34 +34,30 @@
   {% endif %}
 
   <div class="grid c2">
-    <div class="card"><h3>의도</h3><p>{{ ex.intent }}</p>
+    <div class="card"><h3>이 테스트이 필요한 이유</h3><p>{{ ex.intent }}</p>
       <h3>보호 대상</h3><p>{{ ex.protected_object }}</p>
       <h3>정책 근거</h3><p>{{ ex.policy_basis }}</p>
       <p class="muted">{{ ex.legal_mapping_notice }}. ControlProof는 법령 요약·법적 인증 서비스가 아닙니다(V4 §2.2).</p>
       {% if ex.implementation_location %}<h3>WhyYou에서의 구현 위치</h3><p>{{ ex.implementation_location }}</p>{% endif %}</div>
     <div class="card">
-      {% if view.definition %}
-      <h3>새 시험을 시작하기 위한 전제조건</h3><ul><li>시나리오 정의의 전제 {{ view.definition.preconditions | length }}개(원문은 아래 개발자용 원본 정보)</li>
-        {% for item in view.profiles[0].preconditions_for_run %}<li>{{ item }}</li>{% endfor %}</ul>
-      {% endif %}
       {% if ex.synthetic_data %}<h3>합성 데이터와 대조군</h3><p>{{ ex.synthetic_data }}</p>{% endif %}
-      {% if view.definition %}<h3>시험 조건과 복구</h3><p>시험 조건은 주입 구간에서만 적용하고, 복구 구간은 실행이 실패해도 항상 실행합니다(항상 실행 단계 {{ view.definition.always_run_count }}개). 모든 합성 데이터는 실행 끝에 정리합니다.</p>{% endif %}
+      {% if view.definition %}<h3>테스트 조건과 복구</h3><p>테스트 조건은 주입 구간에서만 적용하고, 복구 구간은 실행이 실패해도 항상 실행합니다(항상 실행 단계 {{ view.definition.always_run_count }}개). {% if view.id == "N-02" %}실행에 사용한 지원자·처리 기록을 정리하고 장애 해제와 안전 상태를 확인합니다.{% else %}모든 합성 데이터는 실행 끝에 정리합니다.{% endif %}</p>{% endif %}
     </div>
   </div>
 
   {% for profile in view.profiles %}
   {% set d = profile.definition %}
   <div class="card">
-    <h3>{{ profile.execution_profile }} <span class="muted">· 정의 {{ d.version }} · {{ "봉인된 실행 정의(실행 " ~ (d.run_id | short_id) ~ ")" if d.source == "sealed_snapshot" else "현재 시나리오 파일" }}</span></h3>
-    <h3>실행 단계 · 무엇을 하는가</h3>
+    <h3>어떤 순서로 테스트하나</h3>
     <ol class="test-stages">{% for stage in view.test_plan.stages %}<li><b>{{ stage.title }}</b><p>{{ stage.text }}</p></li>{% endfor %}</ol>
-    <h3>기대 결과와 판정 규칙</h3>
+    <details><summary>검증 기준과 원본 규칙 보기</summary><h3>기대 결과와 판정 규칙</h3>
     <table><thead><tr><th>규칙</th><th>기대 결과</th><th>필수 증적</th></tr></thead><tbody>
       {% for item in d.assertions %}<tr><td class="nowrap">{{ item.assertion_id }}</td><td>{{ item.display.expected if item.display else item.description }}</td>
         <td>{% for ev in item.required_evidence_ids %}{% set req = d.required_evidence | selectattr("evidence_id", "equalto", ev) | first %}{{ ev }} {{ req.label if req else "" }}{% if not loop.last %}<br>{% endif %}{% endfor %}</td></tr>{% endfor %}
-    </tbody></table>
+    </tbody></table></details>
     <details data-testid="developer"><summary>규칙·단계의 원문과 식별 정보</summary>
       <p class="mono">scenario_file: {{ profile.scenario_file }}</p>
+      <p class="mono">{{ profile.execution_profile }} · 정의 {{ d.version }} · {{ d.source }}</p>
       <ul class="mono">{% for item in d.preconditions %}<li>{{ item.precondition_id }} ({{ item.kind }}): {{ item.description }}</li>{% endfor %}</ul>
       <ul class="mono">{% for step in d.steps %}<li>{{ step.phase }} · {{ step.step_id }}{% if step.always_run %} (always_run){% endif %}</li>{% endfor %}</ul>
       {% if d.excluded_scope %}<p class="mono">excluded_scope: {{ d.excluded_scope | join(" · ") }}</p>{% endif %}
@@ -72,7 +68,23 @@
   {% if ex.manual_steps %}<div class="card"><h3>수동 단계</h3><ul>{% for item in ex.manual_steps %}<li>{{ item }}</li>{% endfor %}</ul></div>{% endif %}
 
   {% if view.profiles %}
-  <div class="card" data-testid="run-guide"><h3>새 시험 준비·실행 안내 <span class="muted">(웹은 실행을 시작하지 않습니다 · D-018)</span></h3>
+  <div class="card" id="runs"><h3>실행 기록 선택</h3><p class="muted">아래 날짜를 누르면 그때 실제로 관찰한 결과와 근거가 열립니다.</p>
+    {% if view.previous_runs %}
+    <table><thead><tr><th>실행 시각·기록</th><th>테스트 프로필</th><th>판정</th><th>봉인 무결성</th><th>기록</th><th></th></tr></thead><tbody>
+      {% for run in view.previous_runs %}
+      <tr><td><a class="result-link" href="{{ prefix }}/runs/{{ run.run_id }}">{{ run.started_at | when }}</a><div class="mono muted">{{ run.run_id | short_id }}</div></td><td>{{ run.execution_profile }}</td>
+        <td>{% if run.verdict_badge %}{{ badge(run.verdict_badge) }}{% else %}{{ badge("integrity_failed") }}{% endif %}</td>
+        <td>{{ run.integrity }}</td><td>{{ "DEMO" if view.demo else ("공식" if run.record_role == "OFFICIAL" else "웹 검증") }}</td>
+        <td>{% if run.parent_run_id %}<a class="compare-link" href="{{ prefix }}/compare/{{ run.run_id }}">재테스트 비교</a>{% endif %}</td></tr>
+      {% endfor %}
+    </tbody></table>
+    {% else %}<p class="muted">이 화면의 기록 root에 이 시나리오의 실행 기록이 없습니다. 공식 기록: <span class="mono">{{ view.official.validation_ref }}</span></p>{% endif %}
+  </div>
+  {% endif %}
+  {% if view.profiles %}
+  <div class="card" data-testid="run-guide"><h3>새 테스트 준비·실행 안내 <span class="muted">(웹은 실행을 시작하지 않습니다 · D-018)</span></h3>
+    <p class="muted">아래는 새 테스트을 시작하려는 실행 담당자용 안내입니다. 위의 과거 결과를 읽는 데 준비 설정은 필요하지 않습니다.</p>
+    {% if view.definition %}<details><summary>시나리오에 정의된 실행 전제 {{ view.definition.preconditions | length }}개</summary><ul>{% for item in view.definition.preconditions %}<li>{{ item.description }}</li>{% endfor %}</ul></details>{% endif %}
     <div class="limit">전제: ① 준비 상태 READY(확인 시각 확인) ② 같은 대상의 다른 실행이 잠금을 잡고 있지 않음 ③ 이전 복구 실패로 남은 차단이 없음 ④ 사람의 실행 승인. 실행 중 실패해도 복구 단계는 항상 실행됩니다.</div>
     {% for profile in view.profiles %}
     <h3>{{ profile.execution_profile }}</h3>
@@ -80,6 +92,14 @@
       {% if profile.readiness.badge %}{{ badge(profile.readiness.badge) }}{% if profile.readiness.badge == "tool_error" %} <span class="muted">준비 상태가 아니라 확인 요청 자체의 오류입니다({{ profile.readiness.error_kind }}).</span>{% endif %}
       {% else %}<span class="muted">확인 기록 없음</span>{% endif %}
       {% if profile.readiness.checked_at %}<span class="muted">확인 <span data-testid="checked-at">{{ profile.readiness.checked_at | when }}</span></span>{% endif %}</p>
+    {% if profile.readiness.badge == "configuration_required" %}
+    <div class="limit" data-testid="configuration-guidance">
+      <p>{{ profile.readiness.note }}</p>
+      {% if profile.readiness.missing_settings %}<p>필요한 설정: {{ profile.readiness.missing_settings | join(" · ") }}</p>{% endif %}
+      <p>이 상태는 새 테스트 준비에만 해당합니다. 기존 실행 결과는 위의 최근 결과에서 확인할 수 있습니다.</p>
+      <details><summary>설정 오류 상세</summary><p>{{ profile.readiness.error_detail }}</p></details>
+    </div>
+    {% endif %}
     <form method="post" action="/preflight" class="inline-form" data-testid="preflight-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <input type="hidden" name="scenario_id" value="{{ view.id }}">
@@ -89,25 +109,11 @@
       {% if view.demo %}<span class="muted">DEMO DATA 화면에서는 실행하지 않습니다.</span>{% endif %}
     </form>
     <div class="cmd mono" id="cmd-{{ loop.index }}" data-testid="run-command" data-command="{{ profile.run_command }}">{{ profile.run_command }}<button type="button" data-copy="cmd-{{ loop.index }}">복사</button></div>
-    <p class="muted">재시험: <span class="mono">{{ profile.retest_command }}</span></p>
+    <p class="muted">재테스트: <span class="mono">{{ profile.retest_command }}</span></p>
     {% endfor %}
   </div>
   {% endif %}
 
-  {% if view.profiles %}
-  <div class="card" id="runs"><h3>실행 기록 선택</h3><p class="muted">아래 날짜를 누르면 그때 실제로 관찰한 결과와 근거가 열립니다.</p>
-    {% if view.previous_runs %}
-    <table><thead><tr><th>실행 시각·기록</th><th>시험 프로필</th><th>판정</th><th>봉인 무결성</th><th>기록</th><th></th></tr></thead><tbody>
-      {% for run in view.previous_runs %}
-      <tr><td><a class="result-link" href="{{ prefix }}/runs/{{ run.run_id }}">{{ run.started_at | when }}</a><div class="mono muted">{{ run.run_id | short_id }}</div></td><td>{{ run.execution_profile }}</td>
-        <td>{% if run.verdict_badge %}{{ badge(run.verdict_badge) }}{% else %}{{ badge("integrity_failed") }}{% endif %}</td>
-        <td>{{ run.integrity }}</td><td>{{ "DEMO" if view.demo else ("공식" if run.record_role == "OFFICIAL" else "웹 검증") }}</td>
-        <td>{% if run.parent_run_id %}<a class="compare-link" href="{{ prefix }}/compare/{{ run.run_id }}">재시험 비교</a>{% endif %}</td></tr>
-      {% endfor %}
-    </tbody></table>
-    {% else %}<p class="muted">이 화면의 기록 root에 이 시나리오의 실행 기록이 없습니다. 공식 기록: <span class="mono">{{ view.official.validation_ref }}</span></p>{% endif %}
-  </div>
-  {% endif %}
   <p><a href="{{ prefix }}/">← 워크벤치로</a></p>
 </section>
 {% endblock %}

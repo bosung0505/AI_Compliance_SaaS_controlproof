@@ -4,7 +4,7 @@
 
 **Created**: 2026-10-01
 
-**Status**: Implemented and actually validated — parent Run `15cef078…` (INCONCLUSIVE, RESTORE_FAILED) and evidence-backed child `7b59237e…` (INCONCLUSIVE: A1~A4, A6 PASS; A5/A7 INCONCLUSIVE); PR review fixes implemented (ID-003-19), no new actual Run for those fixes; final converge pending
+**Status**: Complete for the executed LOCAL_EMULATED N-02 scope (2026-10-18); final child `16dbd987…` PASS A1~A7, VERIFIED21, restore SUCCEEDED, owned DB residues 0. Historical failures preserved; main/AWS/Spec005 separate.
 
 **Input**: WhyYou 지원자의 유효한 동의가 서버에 확정되기 전에 자료 분석, 면접 녹화 또는 AI 평가가
 시작되지 않는지를 정상·우회·동의 저장 실패 조건에서 실행하고 증적으로 판정한다.
@@ -601,3 +601,24 @@ PASS 조건에 포함하지 않는다.
 미해결 `NEEDS CLARIFICATION`은 0개다. Tasks 생성 뒤 `$speckit-analyze`를 재실행해 CRITICAL·HIGH와
 팀 해석 차이를 만드는 MEDIUM이 모두 0건임을 확인했다. 다음 단계는 `$speckit-implement`이며 Tasks의
 테스트 우선 순서와 최초 actual Run 이전 제품 guard 수정 금지를 지킨다.
+
+
+## 2026-10-18 follow-up: analysis preparation (stage 1)
+
+User approved two stages; stage 1 implements preparation only. Requirements FR-042~045:
+- FR-042: opt-in local/test fixture produces deterministic `build_interview_strategy` output using
+  only current provided criterion/source IDs; normal product validation and persistence remain active.
+- FR-043: connect analysis model/embedding only for `n02-analysis-v1`; submit the existing required
+  resume and cover letter through product APIs; do not seed a completed analysis/strategy as proof.
+- FR-044: fail readiness on model ID/digest mismatch. Permit parent-linked 1.0.0 -> 1.1.0
+  fixture-only revision only when every execution rule/step/timing/evidence/lane remains identical;
+  record and independently verify the changed scenario snapshot.
+- FR-045: preserve all actual history and legacy model/scenario identities; automatic verification
+  is stage-1 evidence only. Actual N-02 and official/UI closure belong to stage 2.
+
+Clarification and analysis: [analysis-preparation.md](analysis-preparation.md). No open product choices.
+
+## 2026-10-18 stage-2 convergence
+
+Execution, source freeze, fixes, cleanup and scope: [actual-closure.md](actual-closure.md).
+Final `16dbd987-23a5-4030-bb62-77787488969b` is the accepted local result; prior checkpoint statements above remain historical.

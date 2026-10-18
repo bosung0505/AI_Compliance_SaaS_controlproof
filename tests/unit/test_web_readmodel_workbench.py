@@ -62,11 +62,11 @@ def test_header_counts_and_groups_copy_the_catalog(catalog, tmp_path) -> None:
     assert (view["environment_kind"], view["aws_deployment_status"]) == ("LOCAL_EMULATED", "NOT_RUN")
     assert (view["data_origin"], view["demo"]) == ("ACTUAL", False)
     counts = view["counts"]
-    assert (counts["PASS"], counts["FAIL"], counts["NOT_RUN"]) == (4, 0, 4)
+    assert (counts["PASS"], counts["FAIL"], counts["NOT_RUN"]) == (5, 0, 4)
     assert counts["INCONCLUSIVE"]["by_reason"] == {
-        "INSUFFICIENT_EVIDENCE": 1, "NO_TEST_TARGET": 3, "ACCESS_LIMITED": 0, "EVIDENCE_CONFLICT": 0,
+        "INSUFFICIENT_EVIDENCE": 0, "NO_TEST_TARGET": 3, "ACCESS_LIMITED": 0, "EVIDENCE_CONFLICT": 0,
     }
-    assert counts["INCONCLUSIVE"]["total"] == sum(counts["INCONCLUSIVE"]["by_reason"].values()) == 4
+    assert counts["INCONCLUSIVE"]["total"] == sum(counts["INCONCLUSIVE"]["by_reason"].values()) == 3
     assert [group["control"] for group in view["groups"]] == ["N", "H", "E", "A"]
     rows = _rows(view)
     assert len(rows) == 12
@@ -114,6 +114,23 @@ def test_usage_error_is_a_tool_error_not_readiness(catalog, tmp_path) -> None:
     row = _rows(_reader(catalog, tmp_path / "runs", tmp_path).workbench())["E-02"]
     assert row["readiness"]["value"] is None
     assert row["readiness"]["badge"] == "tool_error"
+
+
+def test_config_error_shows_setup_action_without_inventing_readiness(catalog, tmp_path) -> None:
+    ReadinessStore(tmp_path / "preflight").write({
+        "scenario_id": "E-01", "execution_profile": "E01_CITATION_EVIDENCE_V1", "result_kind": "ERROR",
+        "readiness": None, "error_kind": "CONFIG", "checked_at": "2026-10-15T12:00:00+00:00",
+        "operator_action": "required local/test settings are missing: WHYYOU_BASE_URL, WHYYOU_COMPANY_TOKEN",
+    })
+    reader = _reader(catalog, tmp_path / "runs", tmp_path)
+    summary = _rows(reader.workbench())["E-01"]["readiness"]
+    detail = reader.scenario("E-01")["profiles"][0]["readiness"]
+    for readiness in (summary, detail):
+        assert readiness["badge"] == "configuration_required"
+        assert readiness["value"] is None
+        assert "설정" in readiness["note"] and "다시" in readiness["note"]
+    assert detail["missing_settings"] == ["서비스 접속 주소", "테스트용 인증 정보"]
+    assert detail["error_kind"] == "CONFIG"
 
 
 def test_missing_official_bundle_shows_no_record_never_not_run(catalog, tmp_path) -> None:

@@ -1,0 +1,4 @@
+{% if row.proof_rows %}
+<div class="record-comparison" data-testid="n02-observed-facts"><h3>실행 기록에서 확인된 값</h3>
+<table class="kv"><tbody>{% for fact in row.proof_rows %}<tr><th>{{ fact.label }}</th><td>{{ fact.value }}</td></tr>{% endfor %}</tbody></table></div>
+{% endif %}

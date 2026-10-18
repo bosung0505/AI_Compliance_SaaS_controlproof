@@ -254,6 +254,26 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
 - [X] T083 자동 회귀·실제 보관 기록 브라우저 검증·서버 재실행, 봉인 불변 확인.
 - [X] T084 검증·추적성·README·인수인계에 변경 범위와 한계 기록.
 
+### 준비 상태 확인 보완 (사용자 요청 2026-10-15)
+
+계약·분석: [preflight-fix.md](preflight-fix.md). 기존 FR-011·SC-010 범위의 오류 수정이다.
+- [X] T085 알려진 로그 오염·CONFIG·알 수 없는 출력에 대한 회귀 시험.
+- [X] T086 CLI JSON 해석과 계약 검증 보완.
+- [X] T087 설정 필요 배지·설명·조치를 목록과 상세에서 공통 표시.
+- [X] T088 자동 시험·실제 웹 반복 확인·문서 동기화.
+
+### 결과를 쉽게 읽는 문장·이름 보완 (사용자 승인 2026-10-15)
+
+계약·분석: [readable-results.md](readable-results.md).
+- [X] T089 원래 이름 일치·실행별 요약·실패/누락의 회귀 시험.
+- [X] T090 이름·설명·요약·조건·입력/저장 비교 표시 계층 구현.
+- [X] T091 공통 화면 문장과 개요 순서 적용.
+- [X] T092 자동·실제 화면 검증과 문서 동기화.
+
+### 용어 통일 (2026-10-16)
+
+- [X] T093 사용자 요청에 따라 화면의 시험/재시험/시험용을 테스트/재테스트/테스트용으로 통일하고 비교 표의 검증 전/후를 입력/저장 결과로 구체화한다. 현재 안내·기존 기대 문구·실제 화면을 확인하고 원본 기록은 보존한다. [terminology.md](terminology.md)
+
 ## Phase 11: Converge (문서 수렴)
 
 - [X] T073 Create `specs/005-web-workbench-report/traceability.md` mapping FR-001~FR-037 and SC-001~SC-011 to tests, Run IDs and evidence [SC-001~011]
@@ -306,3 +326,10 @@ actual validation, 사용성 검토(US6), converge 순서로 둔다. `[FR-*]`, `
   - MEDIUM M4 — FR-018 restore-budget display had no test (T035).
 - Remaining: CRITICAL 0, HIGH 0, MEDIUM 0. LOW 1 — FR-001 "적용 정책·평가기준 버전(기록이 있는 경우)" is shown in the report (R9) but not
   yet named in the workbench view contract; resolve during T029 by adding it to the workbench header when a record carries it.
+
+## 2026-10-18 N-02 결과 연결 (T094~T095)
+
+- [X] T094 봉인된 N-02 기대/관찰·요청 거부·처리 순서·장애/복구 사실을 쉬운 공유 화면으로 표시한다.
+- [X] T095 최종 실제 Run·카탈로그·명시적 준비 확인을 연결하고 웹 회귀/브라우저 확인·문서를 동기화한다.
+
+명세·계획·분석·검수 원장: [n02-results.md](n02-results.md). Spec005 전체 마감·외부 사용성은 별도.

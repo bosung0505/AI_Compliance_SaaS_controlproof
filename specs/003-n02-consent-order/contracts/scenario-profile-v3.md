@@ -158,3 +158,15 @@ all A1..A7 PASS + bundle VERIFIED → PASS
 ```
 
 직접 FAIL은 다른 assertion의 부족 증적으로 숨기지 않는다.
+
+
+## 2026-10-18 opt-in analysis revision
+
+`scenarios/_N-02-analysis.yaml` is N-02 version 1.1.0, same execution profile and all seven
+assertions/steps/timing/evidence/lanes, allowing only `n02-analysis-v1` and its documented digest.
+It requires explicit `--scenario-file` and is excluded from default catalog discovery. Preflight
+rejects snapshot model ID/digest outside the chosen definition's allowlist.
+A child may move from legacy 1.0.0 to this 1.1.0 only via the `MODEL_FIXTURE_ONLY` contract:
+cryptographic snapshots, exact fixture identity and every other definition field identical.
+Record `scenario.changed=true` in retest diff; verify the relation independently from sealed
+parent/child snapshots. No rule or timing relaxation and no parent mutation are permitted.

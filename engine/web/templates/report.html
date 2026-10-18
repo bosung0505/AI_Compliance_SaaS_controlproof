@@ -8,8 +8,8 @@
 {% block content %}
 {% set counts = view.counts %}
 <section aria-label="결과 보고서">
-  <div class="page-heading"><p class="eyebrow">시험 범위와 결과 · 검토 자료</p><h2>결과 보고서</h2><p class="page-meta">어떤 대상과 조건에서 확인했으며, 무엇이 아직 검증되지 않았는지 검토합니다.</p></div>
-  <p class="muted">최초 실행·재시험 계보(R10)는 공식 기록 목록입니다. 재시험 기록이 이 화면의 기록 root에 있으면 "재시험 비교"로 엽니다.</p>
+  <div class="page-heading"><p class="eyebrow">테스트 범위와 결과 · 검토 자료</p><h2>결과 보고서</h2><p class="page-meta">어떤 대상과 조건에서 확인했으며, 무엇이 아직 검증되지 않았는지 검토합니다.</p></div>
+  <p class="muted">최초 실행·재테스트 계보(R10)는 공식 기록 목록입니다. 재테스트 기록이 이 화면의 기록 root에 있으면 "재테스트 비교"로 엽니다.</p>
   <div class="card report">
     <p>{{ item("R1") }}<b>검증 대상과 버전</b>: {{ view.target_and_versions.text }}{% if view.target_commit_now %} <span class="muted">최근 준비 상태 확인의 대상 commit</span> <span class="mono">{{ view.target_commit_now }}</span>{% endif %}</p>
     <p>{{ item("R2") }}<b>검증 목적과 범위</b>: {{ view.purpose_and_scope.text }}</p>
@@ -21,7 +21,7 @@
     {% for group in view.groups %}
       <tr class="group"><th colspan="3">{{ group.control_label }}</th></tr>
       {% for row in view.catalog_status if row.control == group.control %}
-      <tr><td class="nowrap"><a class="scenario-link nowrap" href="{{ prefix }}/scenarios/{{ row.id }}" title="시나리오 상세 열기">{{ row.id }}</a></td><td>{{ row.question }}</td><td>{{ result_badge(row) }}{% if row.note %} <span class="muted">{{ row.note }}</span>{% endif %}</td></tr>
+      <tr><td class="nowrap"><a class="scenario-link nowrap" href="{{ prefix }}/scenarios/{{ row.id }}" title="시나리오 상세 열기">{{ row.id }}</a></td><td><b>{{ row.title }}</b><p class="muted scenario-description">{{ row.description }}</p></td><td>{{ result_badge(row) }}{% if row.note %} <span class="muted">{{ row.note }}</span>{% endif %}</td></tr>
       {% endfor %}
     {% endfor %}
     </tbody></table>
@@ -35,7 +35,7 @@
     <ul data-testid="scenario-expectations">{% for row in view.scenario_expectations %}<li><a class="scenario-link nowrap" href="{{ prefix }}/scenarios/{{ row.scenario_id }}" title="시나리오 상세 열기">{{ row.scenario_id }}</a> {{ result_badge(row) }} — {{ row.summary }}{% if row.note %} ({{ row.note }}){% endif %} <span class="muted">공식 기록: <span class="mono">{{ row.validation_ref }}</span></span></li>{% endfor %}</ul>
 
     <p>{{ item("R7") }}<b>주요 실패와 영향</b>:</p>
-    <ul>{% for row in view.major_failures %}<li><a class="scenario-link nowrap" href="{{ prefix }}/scenarios/{{ row.scenario_id }}" title="시나리오 상세 열기">{{ row.scenario_id }}</a> <span class="muted">{{ row.execution_profile }}</span>: 최초 {{ badge(row.parent_badge) }} → 재시험 {{ badge(row.child_badge) }}. 영향: {{ row.impact }}</li>{% endfor %}</ul>
+    <ul>{% for row in view.major_failures %}<li><a class="scenario-link nowrap" href="{{ prefix }}/scenarios/{{ row.scenario_id }}" title="시나리오 상세 열기">{{ row.scenario_id }}</a> <span class="muted">{{ row.execution_profile }}</span>: 최초 {{ badge(row.parent_badge) }} → 재테스트 {{ badge(row.child_badge) }}. 영향: {{ row.impact }}</li>{% endfor %}</ul>
 
     <p>{{ item("R8") }}{{ item("C2") }}<b>증적 목록과 누락</b>: 실행마다 봉인 증적 목록과 SHA-256을 결과 화면에서 엽니다. 시나리오 ID를 누르면 상세 화면에서 이 PC의 실행 기록과 증적으로 이어집니다.</p>
     <table data-testid="evidence-summary"><thead><tr><th>시나리오</th><th>{{ "DEMO 기록" if view.demo else "이 PC의 기록" }}</th><th>공식 기록</th><th>누락</th></tr></thead><tbody>
@@ -45,10 +45,10 @@
     <p>{{ item("R9") }}<b>적용 정책·모델·프롬프트·평가기준 버전</b>: {{ view.versions.text }}</p>
     <details data-testid="developer"><summary>개발자용 원본 정보</summary><p class="mono">model_fixture_id: {{ view.developer.model_fixtures | join(", ") }}</p></details>
 
-    <p>{{ item("R10") }}{{ item("C5") }}<b>최초 실행과 재시험 비교</b>: 최초 기록은 모두 보존됩니다.</p>
-    <ul>{% for row in view.lineages %}<li><a class="scenario-link nowrap" href="{{ prefix }}/scenarios/{{ row.scenario_id }}" title="시나리오 상세 열기">{{ row.scenario_id }}</a> <span class="muted">{{ row.execution_profile }}</span>: {{ badge(row.parent_badge) }} <span class="mono">{{ row.parent_run_id | short_id }}</span> → {{ badge(row.child_badge) }} <span class="mono">{{ row.child_run_id | short_id }}</span>{% if row.child_present %} <a class="compare-link" href="{{ prefix }}/compare/{{ row.child_run_id }}">재시험 비교</a>{% endif %}</li>{% endfor %}</ul>
+    <p>{{ item("R10") }}{{ item("C5") }}<b>최초 실행과 재테스트 비교</b>: 최초 기록은 모두 보존됩니다.</p>
+    <ul>{% for row in view.lineages %}<li><a class="scenario-link nowrap" href="{{ prefix }}/scenarios/{{ row.scenario_id }}" title="시나리오 상세 열기">{{ row.scenario_id }}</a> <span class="muted">{{ row.execution_profile }}</span>: {{ badge(row.parent_badge) }} <span class="mono">{{ row.parent_run_id | short_id }}</span> → {{ badge(row.child_badge) }} <span class="mono">{{ row.child_run_id | short_id }}</span>{% if row.child_present %} <a class="compare-link" href="{{ prefix }}/compare/{{ row.child_run_id }}">재테스트 비교</a>{% endif %}</li>{% endfor %}</ul>
 
-    <p>{{ item("R11") }}<b>WhyYou에 시험 목적으로 추가한 기능</b> <span class="muted">(제품 기능이 아니라 시험 수단)</span>:</p>
+    <p>{{ item("R11") }}<b>WhyYou에 테스트 목적으로 추가한 기능</b> <span class="muted">(제품 기능이 아니라 테스트 수단)</span>:</p>
     <ul>{% for row in view.test_only_additions %}<li>{{ row.text }}</li>{% endfor %}</ul>
 
     <p>{{ item("R12") }}{{ item("C8") }}<b>검증하지 못한 영역</b>: {{ view.unverified_scope | join(" · ") }}. {{ view.other_pc_reproduction.text }}

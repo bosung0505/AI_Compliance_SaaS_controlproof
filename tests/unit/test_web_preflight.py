@@ -49,6 +49,7 @@ def test_command_is_built_from_catalog_profiles_only(tmp_path) -> None:
         "--target", "whyyou-local", "--json",
     ]
     assert kwargs["timeout"] == 120 and kwargs.get("shell") in (None, False)
+    assert kwargs["env"]["PYTHONIOENCODING"] == "utf-8"
     for scenario_id, profile in (("E-01", "E02_SCORING_FREEZE_V1"), ("H-01", "H03_MINIMAL_V1"), ("A-01", "X")):
         with pytest.raises(preflight.UnknownProfile):
             runner.check(scenario_id, profile)
@@ -67,6 +68,12 @@ def test_ready_record_is_stored_with_payload_checked_at(tmp_path) -> None:
     history = (tmp_path / "preflight" / "history.jsonl").read_text(encoding="utf-8").splitlines()
     assert len(history) == 1
     assert runner.store.latest("E-01", "E01_CITATION_EVIDENCE_V1")["checked_at"] == record["checked_at"]
+
+
+def test_n02_preflight_uses_the_explicit_verified_scenario_definition(tmp_path):
+    runner = _runner(tmp_path, _fake(READY))
+    command = runner.command("N-02", "N02_CONSENT_ORDER_V1")
+    assert command[-2:] == ["--scenario-file", "scenarios/_N-02-analysis.yaml"]
 
 
 def test_exit_code_is_stored_but_not_interpreted(tmp_path) -> None:
@@ -102,6 +109,42 @@ def test_unparseable_output_is_an_unexpected_error(tmp_path) -> None:
     record = _runner(tmp_path, run).check("H-03", "H03_DLQ_V2")
     assert (record["result_kind"], record["error_kind"]) == ("ERROR", "UNEXPECTED")
     assert "Traceback" not in json.dumps(record)
+
+
+@pytest.mark.parametrize("kind", ["ready", "config"])
+def test_windows_diagnostic_lines_do_not_hide_cli_result(tmp_path, kind) -> None:
+    payload = READY if kind == "ready" else {
+        "schema_version": "controlproof.cli.v1", "command": "preflight", "result_kind": "ERROR",
+        "error_kind": "CONFIG", "error": "ConfigError", "detail": "required local/test settings are missing: WHYYOU_BASE_URL",
+    }
+
+    def run(command, **kwargs):
+        diagnostic = "[0x61032620] ANOMALY: meaningless REX prefix used\n"
+        return SimpleNamespace(returncode=0 if kind == "ready" else 1,
+                               stdout=diagnostic + json.dumps(payload) + "\n" + diagnostic, stderr="")
+
+    record = _runner(tmp_path, run).check("E-01", "E01_CITATION_EVIDENCE_V1")
+    assert record["stored_payload"] == payload
+    assert record["result_kind"] == payload["result_kind"]
+    assert "ANOMALY" not in json.dumps(record)
+
+
+@pytest.mark.parametrize("output", [
+    json.dumps(READY) + "\nTraceback (most recent call last)",
+    "unknown log\n" + json.dumps(READY),
+    json.dumps(READY) + "\n" + json.dumps(READY),
+    json.dumps(dict(READY, schema_version="other")),
+    json.dumps(dict(READY, command="run")),
+    json.dumps(dict(READY, readiness="INVALID")),
+])
+def test_contaminated_or_invalid_cli_output_stays_an_error(tmp_path, output) -> None:
+    def run(command, **kwargs):
+        return SimpleNamespace(returncode=0, stdout=output, stderr="")
+
+    record = _runner(tmp_path, run).check("E-01", "E01_CITATION_EVIDENCE_V1")
+    assert record["result_kind"] == "ERROR"
+    assert record["error_kind"] == "UNEXPECTED"
+    assert record["readiness"] is None
 
 
 def test_stored_payload_goes_through_the_output_boundary(tmp_path) -> None:

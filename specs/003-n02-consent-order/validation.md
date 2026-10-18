@@ -1,6 +1,15 @@
 # Spec 003 Validation
 
-## Current status
+## Current status — 2026-10-18
+
+Spec003 local scope Complete. Final child `16dbd987-23a5-4030-bb62-77787488969b`: COMPLETED / PASS,
+A1~A7 PASS, restore SUCCEEDED, VERIFIED21; post-Run owned DB rows 0.
+Actual CP source `3ea1509603173702dbae25de268fd2276c07346d`, WhyYou `e64ff9deb1e46dd8c6da452434f3ff8d3a1aa613`.
+The final ledger below supersedes old current-status checkpoints without replacing their history.
+AWS NOT_RUN; main integration, latest-fixture independent-PC reproduction and Spec005 closure separate.
+
+
+## Historical checkpoint before the 2026-10-18 follow-up
 
 - Workflow stage: implementation and recorded actual validation complete; 2026-10-07 PR review closure below. Spec-wide Complete is not newly declared by this review.
 - Automated implementation gates: US1~US4 T001~T073 `PASS`; US5 retest contract T074~T076 scoped gate `PASS` (35 relevant tests). The Phase 6 full ControlProof regression was 407 passed. These are fixture results, not a WhyYou verdict.
@@ -290,3 +299,154 @@ No new actual Run, target product verdict, AWS result or raw evidence publicatio
 The recorded child remains INCONCLUSIVE (A5/A7 document results unproven). These code fixes
 are covered by automated tests; their actual-stack execution remains NOT_RUN. Old history is
 retained, current-state documents synchronized, and Spec-wide Complete awaits final converge.
+
+
+## 2026-10-18 stage-1 analysis preparation validation
+
+User requested a two-stage continuation and authorized stage 1 only. Implementation and scoped
+unit/contract/in-memory integration validation are finished; source changes remain local/uncommitted.
+Full ledger, exact commands, expected-RED results, Windows temp/TestClient restrictions and stage-2
+entry conditions are in [analysis-preparation.md](analysis-preparation.md).
+
+- CP N-02/readiness/scenario/CLI/adapter/lineage/bundle regression: 203 PASS (87.24 s).
+- Final new revision/executor checks: 17 PASS (10.01 s), including 7 overlapping earlier cases;
+  rejects rule/timing/evidence changes and rehashed false fixture-only comparison.
+- CP existing E-01/E-02 execution/retest regression: 19 PASS (23.20 s).
+- WhyYou runtime/submission/reporting/interview/PDF/pipeline/delivery selection: 385 PASS
+  (11.76 s), outside sandbox with workspace TEMP/TMP after documented host restrictions.
+- Both repositories: changed-file Ruff and `git diff --check` PASS.
+- Existing native synthetic resume parsed as one page / 142 characters without OCR; pipeline
+  tests validate new model output through StrategyService and normal in-memory persistence.
+- Published parent snapshot is compatible with the exact fixture-only revision; its unchanged
+  manifest and bundle verification remain covered by the original regression test.
+
+Actual-stack preflight/Run for the extension: NOT_RUN. No official PASS/Complete or UI/catalog
+change from this work. Recorded child `7b59237e...` remains INCONCLUSIVE; all historical facts
+and bundles are preserved. Actual execution, web record connection/readability and official
+closure are the user-separated stage 2.
+
+## 2026-10-18 stage-2 final actual validation and local closure
+
+User authorized stage 2 after the preparation checkpoint. Spec003's N-02 local execution scope
+is now Complete: final child `16dbd987-23a5-4030-bb62-77787488969b`, COMPLETED / PASS, A1~A7 PASS,
+restore SUCCEEDED, independent verification VERIFIED (21 files; EV3-01~EV3-10).
+Earlier INCONCLUSIVE/FAIL/INVALID records remain historical evidence. This does not complete
+Spec005, independent-PC reproduction of the new fixture, main integration or AWS (NOT_RUN).
+
+### Frozen sources and environment
+
+- Original workspaces stayed on `feature/n02-analysis-preparation`, with their pre-existing
+  dirty UX/source changes preserved. These original HEADs are not the actual Run source claim.
+- Separate clean local checkouts, branch `validation/n02-20261018`: CP `3ea1509603173702dbae25de268fd2276c07346d`;
+  WhyYou `e64ff9deb1e46dd8c6da452434f3ff8d3a1aa613`. Local checkpoint commits only; no remote push/main merge.
+- CP initial freeze `27f4d074de2595e09f396fc71652733a9f879c53`, receipt fix
+  `74c81bc614f81757aef25e774ab81245f4c61fee`, final cleanup fix `3ea1509603173702dbae25de268fd2276c07346d`.
+- Runtime root `../cp-local/n02-20261018/`; clean sources in `sources/controlproof` and
+  `sources/whyyou`, harness state in `state/n02`, journals in `commands/`.
+- `scripts/n02_local.py` reuses the portable Spec004 harness; its `controlproof-spec004-n02`
+  project/database naming is infrastructure reuse. Dedicated synthetic DB/object store,
+  API port 18086, four managed workers, loopback provider endpoints, external AI disabled.
+  Original WhyYou `.env` and untracked runtime probes were never copied or used.
+- Fixture `n02-analysis-v1`, identity digest
+  `092de5950a39ba3a7255c8696ffb073cddc65cda4615237044e3d910e32f9828`;
+  explicit `scenarios/_N-02-analysis.yaml` version 1.1.0. Only the model fixture revision
+  differs from the parent's definition; seven assertions, rules, timings and lanes unchanged.
+- Actual final preflight: 16/16 READY, 2026-10-18T07:31:19.248965Z.
+
+### Attempts and immutable lineage
+
+All three new attempts link to verified parent `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`.
+Parent manifest remains `d2306f3cd6e2b15ce87d94e4844a2278c7ea3c0b3c052a2aac45e1bff8f2bc9b`.
+Teammate child `7b59237e-0a96-403a-9add-28b91011e950` is still INCONCLUSIVE; no rewrite.
+
+| Attempt | Run | Observed outcome | Action |
+|---|---|---|---|
+| 1 | `ce5f2750-5b31-48e8-aca5-f1d85d440ca3` | Calculated A1~A7 PASS but bundle INVALID: `N02-A7:recovered-proof-unreadable` | Preserve; add existing document/recording start receipt IDs to adapter snapshots; strict verifier unchanged |
+| 2 | `691abd8a-0a58-465d-8543-6314f2c76a11` | PASS / VERIFIED21; additional audit found 76 Run-owned DB rows across attempts 1/2 | Preserve; cleanup allowlist includes product-created dependents and Run-traced events; maintenance removed 38 rows per old attempt |
+| 3 final | `16dbd987-23a5-4030-bb62-77787488969b` | COMPLETED / PASS, A1~A7 PASS, VERIFIED21, zero owned DB residues | Accepted local official result |
+
+Final Run: 07:31:38.431407Z–07:33:30.841340Z (KST 16:31–16:33), 112.41 seconds.
+Independent verify at 07:33:57.444066Z: no missing, mismatched, unregistered files or strict-scan findings.
+Run plus independent verification completed within 600 seconds (SC-008).
+Manifest SHA-256 `fa3ee50a571852f303683be72eb80e5b460d31d44753d78063cc24886f4fca2c`; bundle digest `0c19731ceae8dcd225130ae7f9422d32d39c24e0c3726caa97feabe42c746962`.
+
+### Final observed behavior
+
+| Rules | Sealed observation |
+|---|---|
+| A1 | Fresh baseline, protected effects 0; all three paths queryable |
+| A2/A3 | Document/recording requests DENIED before consent; no new effects/start receipts |
+| A4 | Request delivered to worker, then real refusal receipt; no new effects/start receipts |
+| A5 | Matching policy; consent precedes all three request/start/result chains; PROVEN, 11 events / 10 edges |
+| A6 | Matching save-fault receipt; no partial consent or leaked effects; all three paths attempted and blocked |
+| A7 | Restore SUCCEEDED; logical consent 1 and completion event 1; same subject retry and processing order proven; marker/token removed, hook inactive, safe state |
+
+Post-Run independent audit (`cleanup-audit-final.json`) checks all three attempts: 21
+applicant/invitation-linked tables total 0 residual rows; baseline company 1 and company user 1
+retained; no fault files or restore blocks. `n02_cleanup.py` validates six unique canonical
+Run-owned lanes before SQL and deletes dependents with company + owned subject/resource IDs.
+It never performs company-wide data deletion. Isolated synthetic object uploads / Docker volumes
+are retained for local diagnosis; zero DB residues does not mean all object storage was deleted.
+Earlier audit and maintenance journals remain in `cleanup-audit.json` and `owned-maintenance.json`.
+
+### Web and claim boundary
+
+The byte-identical parent, final child and two interim bundles were connected to the existing
+`../cp-local/spec004-official/runs` viewer root, preserving E-01/E-02 bundles. The catalog now
+selects this final N-02 record and its exact manifest. Conditions/expected/observed/evidence use
+the existing shared design; missing or unsuccessful proof never becomes a success sentence.
+Actual READY payload is imported with its original check time and `IMPORTED_ACTUAL_PREFLIGHT`
+provenance; it is historical readiness, not a new check of the dirty original workspace.
+
+This is LOCAL_EMULATED consent/processing-order validation with synthetic documents and a fixed
+test model, through the real WhyYou response validation/persistence pipeline. It does not prove
+autonomous external-model quality, legal compliance, N-01/N-03, or AWS.
+MVP catalog remains 12 managed / 5 executed / 4 NOT_RUN / 3 NO_TEST_TARGET; all five actual
+scenario targets now have accepted local completion. No claim of 12 PASS or all-MVP completion.
+
+### Closure source versioning
+
+Actual-source checkouts stay unchanged at CP `3ea1509` / WhyYou `e64ff9d`. Post-Run UI/document
+closure is versioned separately under `../cp-local/n02-20261018/sources/*-closure`, local branch
+`validation/n02-closure-20261018`; metadata `closure-source-freeze.json` records both actual and
+closure SHAs. This later UI/doc checkpoint is not substituted for the actual Run source.
+Original workspace branches/HEADs and pre-existing edits are preserved; no push/main merge.
+
+N-02 복구 안내는 실제 범위인 지원자·처리 기록 정리와 장애 해제/안전 확인으로 구체화했다.
+별도 합성 object-store 보관까지 삭제했다고 표현하지 않는다. 최종 브라우저 검수도 다시 통과했다.
+보고서 카탈로그 회귀에서 과거 4 PASS / N-02 INSUFFICIENT_EVIDENCE 기대값 2건이 실패했고,
+실제 최종 카탈로그의 5 PASS / 근거 확보와 로컬 원본 부재를 분리하도록 기대값을 갱신했다.
+N-02 테스트 모델 식별자도 일반 보고서에 새어 나오지 않는지 기존 검사를 확장했다.
+보고서·카탈로그 재검사 18 PASS (4.05s); 결과 판정이나 검증 절차를 완화한 변경은 없다.
+
+Local runtime handoff: ControlProof viewer remains at port8766 with the existing record root;
+isolated N-02 API/managed workers remain available under the harness state root for local
+follow-up. To stop only that instance, run `python -m scripts.n02_local stop --instance n02 --state-root ../../state`
+from `../cp-local/n02-20261018/sources/controlproof`. Retained synthetic Docker volumes are not automatically deleted. No active faults remain.
+
+## Final resumed regression — 2026-10-18
+
+Selection: all `test_.*(n02|spec003|readiness|retest|web_|catalog_matrix_parity)` files under
+unit/contract/integration, outside sandbox with sockets, fresh temp root outside source, cache off.
+Exact invocation from CP workspace:
+
+```powershell
+$n02TestFiles = @(rg --files tests/unit tests/contract tests/integration | Where-Object { $_ -match 'test_.*(n02|spec003|readiness|retest|web_|catalog_matrix_parity)' })
+.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider --basetemp ../cp-local/n02-20261018/test-tmp/final-resumed $n02TestFiles
+```
+
+Initial aggregate: **382 PASS / 2 FAIL in 672.78 seconds**. Both failures were report assertions
+holding pre-closure catalog expectations (4 PASS and N-02 insufficient evidence). No other selected
+failure. After truthful catalog expectation updates, the full report file plus catalog parity were
+rerun: **18 PASS in 4.05 seconds**. The other 382 cases were not needlessly repeated.
+This selection includes N-02 orchestration/causality/recovery/cleanup/revision/readiness/bundle
+and retest lineage regressions, web HTTP/read models, every-response strict redaction and
+30-bundle performance gates. Final acceptance combines unchanged passing cases with the corrected
+report-file rerun; it is not a claim that the initial aggregate run was entirely green.
+
+Actual browser recheck after the final N-02 recovery wording: 18 pages at1280/1024, no overflow
+or console/page errors; seven proof buttons and A5/A7 request/start/result facts checked.
+Parent and final bundle independently reverified from the viewer root: VERIFIED19/21, unchanged
+manifest hashes, strict scan findings0. Existing E-01 screen preserved. Changed-source Ruff and
+both repositories' `git diff --check` pass. Earlier WhyYou385 scoped PASS remains stage-1 evidence;
+no WhyYou runtime source changes were introduced after that frozen source, only closure docs.

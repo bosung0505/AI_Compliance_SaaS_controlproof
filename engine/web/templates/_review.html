@@ -1,22 +1,25 @@
 {% set review = view.review %}
-<section class="review-observations" aria-label="시험 조건별 관찰 결과" data-testid="condition-review">
+<section class="review-observations" aria-label="테스트 조건별 관찰 결과" data-testid="condition-review">
   {% for group in review.conditions | groupby('group') %}
   <div class="card observation-card">
     <div class="section-heading"><h3>{{ group.grouper }}</h3><span class="muted">{{ group.list | length }}개 조건의 관찰 · 판정은 연결된 원본 규칙 기준</span></div>
-    <table class="observation-table"><thead><tr><th>시험한 조건</th><th>기대하는 동작</th><th>이 실행에서 관찰한 동작</th><th>연결 근거</th></tr></thead><tbody>
+    {% if group.grouper == "AI가 잘못된 답변 근거를 제시했을 때" %}<p class="muted">ControlProof가 테스트용 AI 출력을 준비하고, WhyYou가 이를 검증해 저장한 결과를 비교했습니다. 정상적인 답변 근거를 넣은 대조 테스트도 포함합니다.</p>{% elif group.grouper == "저장된 점수의 답변 근거가 사라졌을 때" %}<p class="muted">ControlProof가 정상 저장된 점수의 답변 근거를 잠시 제거·복원하고, WhyYou 보고서의 반응을 기록했습니다.</p>{% else %}<p class="muted">테스트 조건별로 기대했던 반응과 실제 기록된 반응을 함께 보여줍니다.</p>{% endif %}
+    <table class="observation-table"><thead><tr><th>만든 테스트 상황</th><th>기대했던 반응</th><th>실제로 관찰한 반응</th><th>테스트 확인 자료</th></tr></thead><tbody>
     {% for row in group.list %}
       <tr class="observation-row" id="condition-{{ row.id }}" data-condition="{{ row.id }}" data-rule-status="{{ row.rule_status or '' }}" data-recorded="{{ 'true' if row.recorded else 'false' }}">
-        <td><b>{{ row.title }}</b><div class="muted">원본 {{ row.assertion_id }}</div></td>
+        <td><b>{{ row.title }}</b><p class="case-setup">{{ row.setup }}</p><div class="muted">원본 {{ row.assertion_id }}</div></td>
         <td>{{ row.expected }}</td>
         <td><span class="observed-fact">{{ row.observed }}</span><div class="muted">{% if not row.recorded %}세부 관찰 기록이 없어 동작을 추정하지 않습니다.{% elif row.rule_status %}연결된 규칙: {{ row.rule_status }}{% endif %}</div></td>
-        <td><button type="button" class="btn sec inspect-button" data-inspect="proof-{{ row.id }}" aria-expanded="false" aria-controls="proof-{{ row.id }}">근거 확인</button></td>
+        <td><button type="button" class="btn sec inspect-button" data-inspect="proof-{{ row.id }}" aria-expanded="false" aria-controls="proof-{{ row.id }}">이 결과의 확인 자료 보기</button></td>
       </tr>
       <tr class="condition-proof" id="proof-{{ row.id }}" hidden><td colspan="4">
-        <div class="proof-panel"><div class="section-heading"><h3>{{ row.title }} · 관찰 근거</h3><button type="button" class="btn sec" data-close-proof="proof-{{ row.id }}">닫기</button></div>
-        <p><b>기록된 관찰</b>: {{ row.observed }}</p>
-        <p class="muted">아래 자료는 {{ row.assertion_id }}에 연결된 원본 기록입니다. 조건별 관찰과 원본 규칙의 판정은 다른 단위입니다.</p>
+        <div class="proof-panel"><div class="section-heading"><h3>{{ row.title }} · 테스트 확인 자료</h3><button type="button" class="btn sec" data-close-proof="proof-{{ row.id }}">닫기</button></div>
+        {% include "_comparison.html" %}
+        {% include "_n02_facts.html" %}
+        <p><b>저장·조회 기록으로 확인된 반응</b>: {{ row.observed }}</p>
+        <p class="muted">{% if run.scenario_id == "N-02" %}동의·처리·장애·복구 기록으로 실제 반응을 확인했습니다.{% else %}아래 자료는 이 반응을 확인한 테스트 기록입니다. AI가 점수에 붙이는 답변 근거와는 구분합니다.{% endif %} 연결된 원본 규칙: {{ row.assertion_id }}.</p>
         {% if row.sources %}<ul class="source-list">{% for source in row.sources %}<li><a class="condition-source" href="{{ prefix }}/runs/{{ run.run_id }}/evidence?ref={{ source.ref | urlencode }}&amp;condition={{ row.id | urlencode }}">{{ source.label }}</a></li>{% endfor %}</ul>{% else %}<p class="warn">연결된 근거 자료가 없습니다.</p>{% endif %}
-        <details data-testid="developer"><summary>해당 관찰의 원본 값</summary><pre class="raw">{{ row.facts | tojson }}</pre></details>
+        <details data-testid="developer"><summary>원본 기록 보기</summary><pre class="raw">{{ row.facts | tojson }}</pre></details>
         </div>
       </td></tr>
     {% endfor %}

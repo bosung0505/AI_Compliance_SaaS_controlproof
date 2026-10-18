@@ -1,5 +1,19 @@
 # Spec 005 추적표 (T073)
 
+T093(2026-10-16): `terminology.md` → 웹 표시·카탈로그의 테스트 용어, 비교 표의 입력/저장 결과 제목,
+EMPTY 조건 안내. 기존 배지/카탈로그/관찰/준비 상태 단위 31개와 조건 브라우저 4개,
+실제 14회 UI 확인 및 76개 봉인 파일 불변으로 확인했다. 원본 기록의 용어는 보존한다.
+
+결과 설명 보완 T089~T092(FR-008·009·019·SC-003): `review.py`의 V4 원래 이름 12개·관찰 기반 요약·
+검증 전/후 비교, `readmodel.py`의 공통 제목·최근 요약, 공통 템플릿의 자료 탐색과 개요 순서.
+`unit/test_web_review.py`의 원래 이름 대조·실패/누락·원본 불변과 `web/test_condition_review.py`의
+자료 비교·복귀·새 시험 안내 순서로 추적한다. 실제 UI 검토는 validation의 T089~T092 절을 따른다.
+
+2026-10-15 준비 확인 오류 보완(FR-011·SC-010): T085~T088 → `preflight.py`의 알려진 Windows 로그 분리·
+JSON 계약 확인·UTF-8 출력, `readmodel.py`와 공통 배지의 CONFIG 안내, 목록·상세의 조치 표시.
+`unit/test_web_preflight.py`, `unit/test_web_readmodel_workbench.py`, `unit/test_web_badges.py`,
+`web/test_scenario_screen.py` 및 실제 두 서버의 E-01 반복 확인으로 검증했다. 상세는 validation의 같은 날짜 보완 절.
+
 FR-001~FR-037과 SC-001~SC-011을 작업·자동 시험·실제 검증 기록에 연결한다. 작성 2026-10-12, 기준 005 HEAD `ed1b0b1`.
 
 ## 0. 읽는 법
@@ -181,3 +195,11 @@ Spec 005 산출물이 아닌 기존 시험: `unit/test_redaction_security.py`(Sp
 
 이 보완은 FR-008~020의 표시·탐색·원문 추적을 개선한다. SC-008·SC-009의 비작성자 사용성 검증은 대체하지 않는다.
 새 실제 Run을 수행하지 않았고 보관된 E-01 `a5ad4676…`·E-02 `e39e62ae…`의 결과만 읽었다.
+
+## N-02 display extension (2026-10-18)
+
+| Scope | Tasks / source | Verification | Actual record |
+|---|---|---|---|
+| Existing condition/observation/evidence and sealed-truth requirements | T094~095, n02_review/review/readmodel/templates/catalog/preflight | test_web_n02_review, preflight, readmodel, catalog parity, HTTP and browser QA | Spec003 child `16dbd987…` VERIFIED21; actual 1280/1024px inspection |
+
+Full ledger: [n02-results.md](n02-results.md). Does not close Spec005 or establish external usability.

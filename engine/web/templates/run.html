@@ -8,10 +8,11 @@
 {% set run = view.run %}
 {% set integrity = view.integrity %}
 <section aria-label="실행 결과·증적">
-  <div class="page-heading"><p class="eyebrow">{{ run.scenario_id or "시험" }} · 선택한 실행 결과</p>
-  <h2>{{ view.review.title if view.review else ((run.scenario_id or "시험") ~ " 실행 결과") }}</h2>
+  <div class="page-heading"><p class="eyebrow">{{ run.scenario_id or "테스트" }} · 선택한 실행 결과</p>
+  <h2>{{ view.review.title if view.review else (run.scenario_title or "테스트 실행 결과") }}</h2>
+  {% if view.review.description %}<p class="scenario-description">{{ view.review.description }}</p>{% endif %}
   <p class="page-meta">{{ run.started_at | when }} · WhyYou{% if run.target_commit %} 버전 <span class="mono">{{ run.target_commit }}</span>{% endif %} · {{ "DEMO DATA 합성 기록" if view.demo else "실제 보관 기록" }}</p></div>
-  <p class="tool">{% if run.scenario_id %}<a class="btn sec" href="{{ prefix }}/scenarios/{{ run.scenario_id }}">시나리오 상세</a>{% endif %}{% if run.parent_run_id %} <a class="btn sec" data-testid="open-compare" href="{{ prefix }}/compare/{{ run.run_id }}">재시험 비교(부모 <span class="mono">{{ run.parent_run_id | short_id }}</span>)</a>{% endif %}</p>
+  <p class="tool">{% if run.scenario_id %}<a class="btn sec" href="{{ prefix }}/scenarios/{{ run.scenario_id }}">시나리오 상세</a>{% endif %}{% if run.parent_run_id %} <a class="btn sec" data-testid="open-compare" href="{{ prefix }}/compare/{{ run.run_id }}">재테스트 비교(부모 <span class="mono">{{ run.parent_run_id | short_id }}</span>)</a>{% endif %}</p>
 
   <div class="card lead" data-testid="run-lead">
     {% for part in view.display_order %}
@@ -40,14 +41,16 @@
   {% endif %}
 
   <div class="card result-summary" data-testid="plain-explanation" data-verdict="{{ view.verdict.value if view.verdict else 'UNAVAILABLE' }}">
-    <h3>무엇이 확인됐나</h3>
+    <h3>이번 테스트 결과</h3>
     {% if view.verdict %}
-    <p class="summary-text">{{ view.review.summary if view.review else view.verdict.plain_meaning }}</p>
+    {% if view.review %}{% for sentence in view.review.summary_sentences %}<p class="summary-text">{{ sentence }}</p>{% endfor %}
+    {% else %}<p class="summary-text">{{ view.verdict.plain_meaning }}</p>{% endif %}
     {% if view.review %}<p class="muted">원본 판정 규칙 {{ view.review.rule_count }}개 중 {{ view.review.passed_rule_count }}개 PASS · 조건별 관찰의 개수와는 다릅니다.</p>{% endif %}
     {% if view.verdict.impact %}<p><b>예상 영향</b>: {{ view.verdict.impact }}</p>{% endif %}
     <p class="muted"><b>누락 증적</b>: {{ (view.verdict.missing_evidence + integrity.aborted_missing_evidence) | unique | join(", ") or "없음" }}{% if view.unresolved_refs %} · 연결되지 않은 증적 {{ view.unresolved_refs | length }}개{% endif %}</p>
     {% else %}<p>무결성을 확인하지 못해 판정과 관찰 내용을 표시하지 않습니다.</p>{% endif %}
   </div>
+  {% if view.review %}<div class="note test-process" data-testid="test-process">{{ view.review.process }}{% if run.scenario_id == "E-01" %}<br>점수 보류는 0점 처리나 지원자의 답변 삭제가 아닙니다. 해당 점수를 미확정 상태로 두는 처리입니다.{% endif %}</div>{% endif %}
   {% if view.review %}{% include "_review.html" %}{% endif %}
   {% if view.restore %}<p data-testid="restore" class="{{ 'warn' if view.restore.manual_cleanup_required else 'page-meta' }}">환경 복구: {{ view.restore.status or "기록 없음" }} · 수동 정리 {{ "필요 — 실행 안전 문제를 먼저 확인하세요" if view.restore.manual_cleanup_required else "필요 없음" }}</p>{% endif %}
 <details class="card execution-metadata"><summary>실행 시각·버전·복구·식별 정보</summary><table class="kv">
@@ -69,7 +72,7 @@
       <tr><th>기록 출처</th><td>{{ "DEMO DATA(합성 기록)" if run.record_origin == "DEMO" else ("공식 기록" if run.record_role == "OFFICIAL" else "이 PC의 웹 검증 기록(공식 상태와 별도)") }}</td></tr>
     </table></details>
   {% if view.phase_summary %}
-  <div class="card" data-testid="phase-summary"><h3>단계별 진행과 시험 조건</h3>
+  <div class="card" data-testid="phase-summary"><h3>단계별 진행과 테스트 조건</h3>
     <ol class="steps">
       {% for item in view.phase_summary %}<li><b>{{ item.label }}</b> — {{ item.sentences | join(" · ") }}</li>{% endfor %}
     </ol>
@@ -98,7 +101,7 @@ detail: {{ item.detail or "" }}</pre></details></td>
   {% endif %}
 
   {% if view.evidence is not none %}
-  <details class="card" data-testid="all-evidence"><summary>전체 근거 자료 · 파일 목록과 무결성 정보</summary><h3>전체 근거 자료</h3><p class="muted">조건별 이해는 위의 관찰 표에서 시작하세요. 아래는 이 실행의 전체 증적 목록입니다.</p>
+  <details class="card" data-testid="all-evidence"><summary>전체 테스트 확인 자료 · 파일 목록과 무결성 정보</summary><h3>전체 테스트 확인 자료</h3><p class="muted">이 실행에서 수집한 확인 자료 목록입니다. 점수의 답변 근거와 구분해, 테스트 결과를 입증하는 기록을 뜻합니다.</p>
     <table data-testid="evidence-table"><thead><tr><th>이름</th><th>형식</th><th>크기</th><th>SHA-256</th><th>수집 단계</th><th>연결 규칙</th><th></th></tr></thead><tbody>
     {% for item in view.evidence %}
       <tr><td class="evidence-name">{{ item.evidence_name }}</td><td class="nowrap">{{ item.mime_type | mime_label }}</td><td class="nowrap">{{ item.size_bytes | size }}</td>
@@ -118,7 +121,7 @@ detail: {{ item.detail or "" }}</pre></details></td>
     {% if view.developer.model_fixture_id %}<p class="mono">model_fixture_id: {{ view.developer.model_fixture_id }} · target_id: {{ view.developer.target_id }}</p>{% endif %}
     {% if view.developer.target_version %}<p class="mono">target_version: {{ view.developer.target_version }}</p>{% endif %}
     {% if view.developer.steps %}<p>단계 ID:</p><ul class="mono">{% for step in view.developer.steps %}<li>{{ step.phase }} · {{ step.step_id }}{% if step.always_run %} (always_run){% endif %}</li>{% endfor %}</ul>{% endif %}
-    {% if view.conditions %}<p>시험 조건 원본:</p><ul class="mono">{% for item in view.conditions %}<li>{{ item.kind }} · {{ item.raw }}{% if item.at %} · {{ item.at }}{% endif %}</li>{% endfor %}</ul>{% endif %}
+    {% if view.conditions %}<p>테스트 조건 원본:</p><ul class="mono">{% for item in view.conditions %}<li>{{ item.kind }} · {{ item.raw }}{% if item.at %} · {{ item.at }}{% endif %}</li>{% endfor %}</ul>{% endif %}
     {% if view.developer.unverified_scope_raw %}<p class="mono">unverified_scope: {{ view.developer.unverified_scope_raw | join(" · ") }}</p>{% endif %}
     {% if view.developer.limitation_codes %}<p class="mono">limitations: {{ view.developer.limitation_codes | join(" · ") }}</p>{% endif %}
     {% if view.evidence %}<ul class="mono">{% for item in view.evidence %}<li>{{ item.ref }} → {{ item.relative_path }}</li>{% endfor %}</ul>{% endif %}

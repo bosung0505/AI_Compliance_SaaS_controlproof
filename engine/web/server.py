@@ -251,7 +251,7 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             view = reader.compare(run_id)
         except RunNotFound:
-            self._error("NOT_FOUND", "RETEST_NOT_FOUND", "요청한 재시험 기록이 없습니다.")
+            self._error("NOT_FOUND", "RETEST_NOT_FOUND", "요청한 재테스트 기록이 없습니다.")
             return
         self._json(HTTPStatus.OK, _boundary(view, reader.run_root))
 
@@ -260,7 +260,7 @@ class _Handler(BaseHTTPRequestHandler):
         try:
             view = _boundary(reader.compare(run_id), reader.run_root)
         except RunNotFound:
-            self._error("NOT_FOUND", "RETEST_NOT_FOUND", "요청한 재시험 기록이 없습니다.")
+            self._error("NOT_FOUND", "RETEST_NOT_FOUND", "요청한 재테스트 기록이 없습니다.")
             return
         self._html(HTTPStatus.OK, "compare.html", view=view, prefix="/demo" if view["demo"] else "")
 

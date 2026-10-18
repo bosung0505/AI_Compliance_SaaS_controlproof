@@ -3,13 +3,15 @@
 {% block title %}증적 · {{ view.evidence_name }} · ControlProof{% endblock %}
 {% block content %}
 <section aria-label="증적 원본">
-  <div class="page-heading"><p class="eyebrow">{{ view.scenario_id or "시험" }} · 연결 근거</p><h2>{{ view.context.condition.title if view.context.condition else view.evidence_name }}</h2><p class="page-meta">{{ view.context.run.started_at | when }} · {{ view.evidence_name }}</p></div>
+  <div class="page-heading"><p class="eyebrow">{{ view.scenario_id or "테스트" }} · 테스트 확인 자료</p><h2>{{ view.context.condition.title if view.context.condition else view.evidence_name }}</h2><p class="page-meta">{{ view.scenario_title }} · {{ view.context.run.started_at | when }} · {{ view.evidence_name }}</p></div>
   {% if view.context.condition %}{% set condition = view.context.condition %}
   <div class="card result-summary" data-testid="evidence-context"><h3>이 자료로 확인하는 내용</h3>
-    <p><b>시험한 조건</b>: {{ condition.title }}</p><p><b>기대 동작</b>: {{ condition.expected }}</p><p><b>기록된 관찰</b>: {{ condition.observed }}</p>
+    <p><b>만든 테스트 상황</b>: {{ condition.setup }}</p><p><b>기대했던 반응</b>: {{ condition.expected }}</p><p><b>실제로 관찰한 반응</b>: {{ condition.observed }}</p>
+    {% set row = condition %}{% include "_comparison.html" %}
+    {% include "_n02_facts.html" %}
     <p class="muted">원본 규칙 {{ condition.assertion_id }} · 판정 {{ condition.rule_status or "기록 없음" }} · 아래 원문에서 이 관찰의 근거를 확인할 수 있습니다.</p>
     <details data-testid="developer"><summary>이 조건과 연결된 관찰값 발췌</summary><pre class="raw">{{ condition.facts | tojson }}</pre></details>
-  </div>{% else %}<div class="note">이 실행의 원본 증적입니다. 관련 규칙: {{ view.evidence_requirement_ids | join(", ") or "원본 식별 정보 참고" }}. 개별 시험 조건에서 ‘근거 확인’을 열면 관찰 맥락과 함께 볼 수 있습니다.</div>{% endif %}
+  </div>{% else %}<div class="note">이 자료는 테스트 결과를 확인하기 위해 수집한 기록입니다. 관련 규칙: {{ view.evidence_requirement_ids | join(", ") or "원본 식별 정보 참고" }}. 개별 조건의 ‘이 결과의 확인 자료 보기’에서 테스트 상황과 실제 반응을 함께 볼 수 있습니다.</div>{% endif %}
   <div class="card evidence-metadata"><h3>자료 식별·무결성 정보</h3><table class="kv">
     <tr><th>이름</th><td>{{ view.evidence_name }}</td></tr>
     <tr><th>형식</th><td>{{ view.mime_type | mime_label }} <span class="muted">({{ view.mime_type }})</span></td></tr>
@@ -18,8 +20,8 @@
     <tr><th>연결된 증적 요구</th><td>{{ view.evidence_requirement_ids | join(", ") or "—" }}</td></tr>
   </table></div>
   {% if view.viewable %}
-  {% if view.excerpt %}<div class="card" data-testid="related-excerpt"><h3>선택한 조건·시험 경로의 관련 기록</h3><p class="muted">아래는 전체 원문에서 연결된 조건 또는 시험 경로로 골라낸 부분입니다.</p><pre class="evidence-text">{{ view.excerpt }}</pre></div>{% endif %}
-  <div class="card"><h3>원문 · 수집한 기록</h3><p class="muted">원본 기록을 그대로 표시합니다. 관찰 요약은 위 맥락 영역에서 확인하세요.</p><pre class="evidence-text">{{ view.text }}</pre></div>
+  {% if view.excerpt %}<details class="card" data-testid="related-excerpt"><summary>선택한 조건의 원본 기록 보기</summary><p class="muted">전체 원문에서 연결된 조건 또는 테스트 경로로 골라낸 부분입니다.</p><pre class="evidence-text">{{ view.excerpt }}</pre></details>{% endif %}
+  <details class="card" data-testid="original-record"><summary>원본 기록 보기 · 수집한 전체 자료</summary><pre class="evidence-text">{{ view.text }}</pre></details>
   {% else %}
   <div class="limit">{{ view.reason }}</div>
   {% endif %}

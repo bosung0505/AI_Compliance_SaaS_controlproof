@@ -1,5 +1,12 @@
 # Implementation Plan: 웹 워크벤치·12개 시나리오 카탈로그·결과 보고서
 
+사용자 승인 T089~T092의 결과 설명·원래 이름·입력/저장 비교 보완은 [readable-results.md](readable-results.md)를 따른다.
+별도 DB 진단은 결과 요약에 섞지 않고 문서에 보존한다. 고정 시험용 모델·본시험 검증 경로·관찰 부재를 명시한다.
+
+2026-10-15 준비 확인 오류 보완은 [preflight-fix.md](preflight-fix.md)의 T085~T088을 따른다.
+알려진 Windows 진단 로그만 분리해 정상 CLI JSON을 읽고, `ERROR/CONFIG`를 설정 필요 안내로 구분한다.
+원본 오류·준비 상태·봉인 판정은 바꾸지 않는다.
+
 **Branch**: `005-web-workbench-report` | **Date**: 2026-10-08 | **Spec**: [spec.md](./spec.md)
 
 **Input**: Clarified spec(2026-10-08), 승인 목업 [mockups/workbench-mockup.html](./mockups/workbench-mockup.html)과
@@ -220,3 +227,8 @@ tests/
 구현 경계와 검증 계획은 [ux-redesign.md](ux-redesign.md)를 따른다. 원본 엔진·bundle 계약은 변경하지 않는다.
 `engine/web/review.py`와 read model의 추가 필드가 사람용 조건·관찰·증적 연결을 제공한다.
 조건별 근거 펼침은 로컬 UI 상태이며 새 API·POST 실행 경로를 만들지 않는다. 기존 GET 증적에 선택 맥락만 추가한다.
+
+## N-02 실제 결과 표시 보완 (2026-10-18)
+
+Spec003 실제 검증 후 n02_review/review/readmodel/preflight와 공통 템플릿·카탈로그를 보완한다.
+별도 CSS나 새 디자인 체계 없이 기존 표/확인 자료 패널을 재사용한다. [n02-results.md](n02-results.md).

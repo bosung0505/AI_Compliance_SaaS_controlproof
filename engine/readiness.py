@@ -81,9 +81,7 @@ def evaluate_readiness(
 
     if not target_feature_exists:
         status = ReadinessStatus.NO_TEST_TARGET
-        action = (
-            f"select a target that exposes the {scenario.scenario_id} protected controls"
-        )
+        action = f"select a target that exposes the {scenario.scenario_id} protected controls"
     elif any(check.status is ReadinessStatus.ACCESS_BLOCKED for check in checks):
         status = ReadinessStatus.ACCESS_BLOCKED
         action = _actions(checks, status)
@@ -96,6 +94,12 @@ def evaluate_readiness(
     elif target_snapshot.git_dirty:
         status = ReadinessStatus.RUNNER_NOT_READY
         action = "use a clean WhyYou checkout; the dirty digest is diagnostic only"
+    elif (
+        scenario.allowed_model_fixtures.get(target_snapshot.model_fixture_id)
+        != target_snapshot.model_fixture_digest
+    ):
+        status = ReadinessStatus.RUNNER_NOT_READY
+        action = "activate a model fixture ID/digest allowed by this scenario definition"
     elif any(check.status is not ReadinessStatus.READY for check in checks):
         status = ReadinessStatus.RUNNER_NOT_READY
         action = _actions(checks, status)

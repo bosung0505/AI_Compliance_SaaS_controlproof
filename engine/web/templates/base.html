@@ -15,9 +15,9 @@
 <div class="demo-banner" role="note">DEMO DATA <small>합성 데이터로 만든 화면입니다. 실제 실행·판정·증적이 아니며 실제 결과 개수·보고서에 섞이지 않습니다.</small></div>
 {% endif %}
 <header>
-  <div class="brand-row"><h1>ControlProof <span>검증 워크벤치</span></h1><span class="record-context">{{ "합성 데모 보기" if view.demo else "보관된 시험 기록 보기" }}</span></div>
+  <div class="brand-row"><h1>ControlProof <span>검증 워크벤치</span></h1><span class="record-context">{{ "합성 데모 보기" if view.demo else "보관된 테스트 기록 보기" }}</span></div>
   {% set tv = (view.target.target_version if view.target else none) or (view.run.target_version if view.run else none) or view.target_version_now %}
-  <div class="target">검증 대상: <b>WhyYou</b> 시험 환경
+  <div class="target">검증 대상: <b>WhyYou</b> 테스트 환경
     {% set commit = (view.run.target_commit if view.run else none) or (view.latest_run.target_commit if view.latest_run else none) or (view.child.target_commit if view.child else none) or (view.target.target_commit if view.target else none) or view.target_commit_now %}
     · 대상 버전 {% if commit %}WhyYou commit <span class="mono">{{ commit }}</span>{% elif tv %}<span class="muted">commit 기록 없음</span>{% else %}<span class="muted">확인 기록 없음</span>{% endif %}
     · 실행 환경 <b>{{ view.environment_kind or "LOCAL_EMULATED" }}</b>
@@ -27,9 +27,9 @@
   <nav role="tablist" aria-label="화면 선택">
     <a role="tab" href="{{ prefix }}/" aria-selected="{{ 'true' if active == 'workbench' else 'false' }}">검증 목록</a>
     {% set scenario_for_tab = view.id if active == "scenario" else (view.run.scenario_id if view.run else view.scenario_id) %}
-    {% if scenario_for_tab %}<a role="tab" href="{{ prefix }}/scenarios/{{ scenario_for_tab }}" aria-selected="{{ 'true' if active == 'scenario' else 'false' }}">시험 개요</a>{% else %}<a role="tab" href="{{ prefix }}/#catalog" aria-selected="false">시험 개요</a>{% endif %}
+    {% if scenario_for_tab %}<a role="tab" href="{{ prefix }}/scenarios/{{ scenario_for_tab }}" aria-selected="{{ 'true' if active == 'scenario' else 'false' }}">테스트 개요</a>{% else %}<a role="tab" href="{{ prefix }}/#catalog" aria-selected="false">테스트 개요</a>{% endif %}
     {% if active in ('run', 'evidence') %}<a role="tab" href="{{ prefix }}/runs/{{ view.run.run_id if view.run else view.run_id }}" aria-selected="true">실행 결과·근거</a>{% elif view.latest_run %}<a role="tab" href="{{ prefix }}/runs/{{ view.latest_run.run_id }}" aria-selected="false">최근 실행 결과</a>{% else %}<a role="tab" href="{{ prefix }}/{{ 'scenarios/' ~ scenario_for_tab ~ '#runs' if scenario_for_tab else '#catalog' }}" aria-selected="false">실행 기록 찾기</a>{% endif %}
-    <a role="tab" href="{{ prefix }}/report" aria-selected="{{ 'true' if active in ('report', 'compare') else 'false' }}">보고서·재시험 비교</a>
+    <a role="tab" href="{{ prefix }}/report" aria-selected="{{ 'true' if active in ('report', 'compare') else 'false' }}">보고서·재테스트 비교</a>
   </nav>
 </header>
 <main>

@@ -1,5 +1,57 @@
 # Spec 005 Validation
 
+## 2026-10-16 화면 용어 통일 (T093)
+
+사용자 요청으로 시험/재시험/시험용을 테스트/재테스트/테스트용으로 통일했다.
+비교 표는 '테스트에 넣은 AI 평가 / 서비스가 실제 저장한 결과'로 바꾸고 EMPTY 조건의 입력 0개 설명을 추가했다.
+단위 31 passed, 기존 브라우저 4 passed. 실제 목록·E-01 개요/결과/자료·E-02 결과·보고서·비교 7화면×2너비,
+14회에서 일반 화면의 옛 용어 잔여·가로 넘침·브라우저 오류 없음. 과거 사유에 남은 재시험 표현은 표시만 변환했다.
+기존 실제 증적 76개 SHA-256 불변, 원본·사용자 메모 보존. Ruff·diff check 통과. 의미·판정·실행 동작 변경 없음.
+
+## 2026-10-15 결과 설명·원래 이름 보완 (T089~T092)
+
+- 기준: `bafe019` 위 준비 확인 보완과 이번 로컬 수정. 사용자 승인 범위는 `readable-results.md`다.
+  V4 원래 이름 12개를 공통 표시하고 쉬운 설명을 병기했다. 기존 `question`과 봉인 원문은 유지한다.
+  E-01·E-02의 고정 안내를 실행별 실제 관찰 요약으로 대체하고, 조건별 만든 상황·기대·실제 반응을 설명한다.
+  모델 출력 receipt와 저장 축을 연결해 실제 점수·답변 연결·보류 안내를 비교한다. 자료 부재는 부재로 남긴다.
+  새 시험 준비는 과거 실행 기록 뒤에 배치했다. 공통 디자인·Run 실행 경계·기존 판정은 그대로다.
+- 사용자 추가 지시: E01-D1의 DB 직접 쓰기 진단 설명은 화면 결과 요약에 추가하지 않았다.
+  해당 진단은 본시험의 자료 연결에서 제외하고, 원본 bundle·전체 파일 색인과 문서에 보존했다.
+  고정 시험용 모델 출력 → WhyYou AI 응답 검증 → 저장이라는 본시험 경로를 설명한다.
+  실제 외부 AI 모델의 자율 생성 행동·품질을 시험한 것으로 확대하지 않는다.
+- RED: 표시 단위 시험 **5 failed, 4 passed**. 이름 불일치·고정 안내·실패 요약 누락을 재현했다.
+  GREEN: 관련 표시 단위 35 passed, 웹·카탈로그 단위 전체 **130 passed, 430 deselected** (184.40초).
+  마지막 본시험 자료 연결 보완 후 표시 단위 9개도 다시 통과했다.
+- 브라우저·HTTP·보고서 링크 회귀: **91 passed, 2 failed** (429.62초).
+  실패는 1024px 확인 자료 버튼의 nowrap 넘침과, 바뀐 '원본 기록 보기' 문구를 기대하지 못한 HTTP 시험이었다.
+  버튼의 줄바꿈을 허용하고 계약 시험을 새 문구에 맞춘 뒤 해당 자료 탐색·HTTP 모듈을 후속 재검증했다.
+  후속 **12 passed** (77.79초). 최초 실행과 후속 실행을 합쳐 브라우저 82개 및 HTTP/보고서 링크 계약 11개를 확인했다.
+  단일 실행에서 93개가 모두 통과한 것으로 기록하지 않는다.
+- 실제 보관 기록: 8765·8766 서버 재시작. Spec004 기록의 목록·E-01 개요·E-01 PASS/FAIL·E-02·자료·보고서·비교,
+  8화면 × 1280/1024px = **16회 HTTP200**, 브라우저 오류 0·가로 넘침 0.
+  실제 72점 모델 출력 → 점수 없음(0점 아님) 저장값 비교, 보류 안내 일치 기록과 조건 복귀를 확인했다.
+  FAIL 기록의 근거 부족 미표시를 실패로 요약하고, PASS 기록의 처리·제거·복원 반응과 구분했다.
+  기존 실제 증적 **76개 파일 SHA-256 불변**. 새 보호조치 Run·재시험·WhyYou 변경 없음.
+- Ruff 전체·git diff --check 통과. 사용자 검토·Spec005 전체 converge·새 AI 행동 시험은 이번 표시 보완과 별도다.
+
+## 2026-10-15 준비 확인 오류 보완 (T085~T088)
+
+- 기준: `bafe019` 위 로컬 수정. 사용자 요청으로 준비 확인의 출력 해석과 CONFIG 안내만 보완했다.
+  Windows 백그라운드 subprocess의 정상 JSON 뒤에 알려진 ANOMALY 로그가 섞이는 현상을 재현했다.
+  해당 완전 일치 행만 분리하며 임의 로그·다중 JSON·다른 schema/command/잘못된 readiness는 계속 거부한다.
+  하위 Python의 stdout을 UTF-8로 지정해 한글 결과를 같은 인코딩으로 읽는다.
+- RED: 단위 6 failed, 21 passed. 알려진 로그 오염 2건, JSON 계약 검증 3건, CONFIG 표시 1건.
+- GREEN: 관련 단위 45개 통과. 같은 배치의 HTTP는 샌드박스 로컬 소켓 제한(WinError 10013)으로 17건 실패,
+  네트워크가 허용된 실행에서 HTTP·시나리오·목록 브라우저 **52 passed** (111.59초)로 재검증했다.
+  실제 사용법 오류가 도구 오류로 남는 것도 확인했다. Ruff 전체·git diff --check 통과.
+- 실제 서버 8765·8766 재시작 후 Edge에서 1280·1024px별 E-01 준비 확인을 2회씩, 총 8회 실행했다.
+  목록·상세에 도구 오류 표시 0, 콘솔·페이지 오류 0, 가로 넘침 0. 설정 누락 8개와 조치가 표시된다.
+  상태 설명 사전은 접혀 있으므로 사전의 도구 오류 예시가 현재 오류처럼 보이지 않는다.
+  기존 실제 bundle 76개 파일 전후 SHA-256 일치. 과거 오류 history는 삭제하지 않았다.
+- 한계: 실제 원본 결과는 `ERROR/CONFIG`. 열람용 서버에 신규 시험용 환경 설정이 없으므로
+  '시험 환경 설정 필요'로 안내하며 READY·새 보호조치 시험 성공으로 주장하지 않는다.
+  새 Run·재시험·WhyYou 변경·외부 AI·AWS 시험 없음. Spec005 전체 converge와 비작성자 사용성 검토는 별도다.
+
 ## Current status
 
 - Workflow stage: Implement. Phase 1~8(T001~T018, T021~T060, T057a~T057d) 완료. T019(보성 PC 검사) 대기, T020(봉인 검사 v2 전환)과
@@ -569,3 +621,53 @@ Run 상세:
   이 최종 경로는 위 17개 계약·표시 실행에서 재확인했다.
 - 유지 한계: 고정 모델·합성 데이터·로컬 시험. SC-008·SC-009 비작성자 사용성 검토 미실시,
   Spec005 전체 converge와 기존 대기 작업은 이번 UI 보완 완료와 구분한다.
+
+## 2026-10-18 N-02 actual result UI
+
+[n02-results.md](n02-results.md) T094~T095: Spec003 최종 `16dbd987…` PASS/VERIFIED21을 실제
+viewer에 연결했다. 새 UI 계약 5 RED 뒤 구현 GREEN, 관련 단위/HTTP 회귀 50 PASS (54.74s).
+실제 개요/최종 실행/기존 E-01 화면을 1280·1024px에서 열어 HTTP200, 가로 넘침0, 브라우저 오류0.
+캡처/검수 JSON은 Git 제외 `../cp-local/n02-20261018/web-qa/`. 내부 검수이며 비작성자 사용성 검증 아님.
+이전 HTTP 테스트의 sandbox Win10013은 실행 환경 제한으로, 재개 후 소켓 허용 환경에서 모두 통과했다.
+최초 재개 회귀의 pytest cache 경고는 캐시 쓰기 제한이며 테스트 실패가 아니었다. 최종 회귀는 캐시를 비활성화한다.
+
+
+브라우저 추가 검수 (2026-10-18): 실제 개요/최종 실행/A5·A7 근거/비교/보고서/과거 부모/INVALID/기존 E-01,
+9개 경로 × 1280·1024px = 18개 화면 HTTP200, 가로 넘침0, 콘솔/page 오류0.
+7개 확인 자료 버튼 열기/닫기, A5·A7에서 세 경로별 요청·시작·결과 생성 기록을 확인했다.
+과거 부모는 판정 불가·RESTORE_FAILED, 첫 중간 실행은 INVALID로 유지된다.
+초기 QA 스크립트의 영문 INCONCLUSIVE 기대값은 실제 한국어 `판정 불가`에 맞춰 수정했다.
+
+N-02 복구 안내는 실제 범위인 지원자·처리 기록 정리와 장애 해제/안전 확인으로 구체화했다.
+별도 합성 object-store 보관까지 삭제했다고 표현하지 않는다. 최종 브라우저 검수도 다시 통과했다.
+보고서 카탈로그 회귀에서 과거 4 PASS / N-02 INSUFFICIENT_EVIDENCE 기대값 2건이 실패했고,
+실제 최종 카탈로그의 5 PASS / 근거 확보와 로컬 원본 부재를 분리하도록 기대값을 갱신했다.
+N-02 테스트 모델 식별자도 일반 보고서에 새어 나오지 않는지 기존 검사를 확장했다.
+보고서·카탈로그 재검사 18 PASS (4.05s); 결과 판정이나 검증 절차를 완화한 변경은 없다.
+
+## Final resumed regression — 2026-10-18
+
+Selection: all `test_.*(n02|spec003|readiness|retest|web_|catalog_matrix_parity)` files under
+unit/contract/integration, outside sandbox with sockets, fresh temp root outside source, cache off.
+Exact invocation from CP workspace:
+
+```powershell
+$n02TestFiles = @(rg --files tests/unit tests/contract tests/integration | Where-Object { $_ -match 'test_.*(n02|spec003|readiness|retest|web_|catalog_matrix_parity)' })
+.venv/Scripts/python.exe -m pytest -q -p no:cacheprovider --basetemp ../cp-local/n02-20261018/test-tmp/final-resumed $n02TestFiles
+```
+
+Initial aggregate: **382 PASS / 2 FAIL in 672.78 seconds**. Both failures were report assertions
+holding pre-closure catalog expectations (4 PASS and N-02 insufficient evidence). No other selected
+failure. After truthful catalog expectation updates, the full report file plus catalog parity were
+rerun: **18 PASS in 4.05 seconds**. The other 382 cases were not needlessly repeated.
+This selection includes N-02 orchestration/causality/recovery/cleanup/revision/readiness/bundle
+and retest lineage regressions, web HTTP/read models, every-response strict redaction and
+30-bundle performance gates. Final acceptance combines unchanged passing cases with the corrected
+report-file rerun; it is not a claim that the initial aggregate run was entirely green.
+
+Actual browser recheck after the final N-02 recovery wording: 18 pages at1280/1024, no overflow
+or console/page errors; seven proof buttons and A5/A7 request/start/result facts checked.
+Parent and final bundle independently reverified from the viewer root: VERIFIED19/21, unchanged
+manifest hashes, strict scan findings0. Existing E-01 screen preserved. Changed-source Ruff and
+both repositories' `git diff --check` pass. Earlier WhyYou385 scoped PASS remains stage-1 evidence;
+no WhyYou runtime source changes were introduced after that frozen source, only closure docs.

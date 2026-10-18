@@ -1715,6 +1715,27 @@ def _verify_spec003_retest_link(
         return
     if verify_bundle(parent_dir, require_all_evidence=False)["bundle_status"] != "VERIFIED":
         result["mismatched_files"].append(f"{label}:parent-invalid")
+    if (
+        run.get("execution_profile") == "N02_CONSENT_ORDER_V1"
+        and parent_run.get("scenario_digest") != run.get("scenario_digest")
+    ):
+        from engine.n02_revision import validate_fixture_revision
+
+        try:
+            validate_fixture_revision(
+                json.loads((parent_dir / "scenario.snapshot.yaml").read_text(encoding="utf-8")),
+                json.loads((directory / "scenario.snapshot.yaml").read_text(encoding="utf-8")),
+                fixture_id=run["model_fixture_id"], fixture_digest=run["model_fixture_digest"],
+            )
+            expected_scenario = {
+                "before": {"version": parent_run["scenario_version"], "digest": parent_run["scenario_digest"]},
+                "after": {"version": run["scenario_version"], "digest": run["scenario_digest"]},
+                "changed": True, "revision_kind": "MODEL_FIXTURE_ONLY",
+            }
+            if diff.get("scenario") != expected_scenario:
+                raise ValueError("fixture revision diff mismatch")
+        except (OSError, KeyError, TypeError, ValueError):
+            result["mismatched_files"].append(f"{label}:fixture-only-revision")
 
 
 def _verify_spec003_pass_assertions(

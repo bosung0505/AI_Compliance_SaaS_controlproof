@@ -1,10 +1,12 @@
 """Approved UX: concrete observations, sealed facts and rule/case separation."""
 
 import hashlib
+import re
+from pathlib import Path
 
 from engine.web.preflight import ReadinessStore
 from engine.web.readmodel import WorkbenchReader, load_catalog
-from engine.web.review import build_review
+from engine.web.review import TITLES, build_review
 from tests.fixtures import web_bundles as wb
 
 
@@ -22,7 +24,7 @@ def test_e01_exposes_seven_observations_with_four_original_rules(tmp_path):
     before = digest(built.bundle)
     view = reader(root, tmp_path).run(built.run_id)
     review = view["review"]
-    assert review["title"] == "AI 점수의 인용 근거가 유효한가?"
+    assert review["title"] == "유효한 인용 근거 없는 점수 저장·노출 차단"
     assert len(review["conditions"]) == 7
     assert review["rule_count"] == 4
     assert len({r["assertion_id"] for r in review["conditions"]}) == 4
@@ -75,3 +77,35 @@ def test_pass_status_without_case_records_does_not_invent_observations(tmp_path)
     assert review["passed_rule_count"] == 4
     assert all(not row["recorded"] for row in review["conditions"])
     assert all("기록 없음" in row["observed"] for row in review["conditions"])
+    assert "기록" in review["summary"] and "확인하세요" not in review["summary"]
+    assert "모두 보류됐습니다" not in review["summary"]
+
+
+def test_all_twelve_titles_match_the_original_v4_design():
+    original = Path("docs/product/ControlProof_WhyYou_2주_MVP_기능범위_v4.md").read_text(encoding="utf-8")
+    headings = re.findall(r"^### 10\.\d+ ([NHEA]-0[123])\. (.+)$", original, re.MULTILINE)
+    expected = {key: title.replace("`", "").removesuffix(" — 판정 불가") for key, title in headings}
+    assert len(expected) == 12
+    assert TITLES == expected
+
+
+def test_e01_summary_and_comparison_describe_the_recorded_validation_path(tmp_path):
+    built = wb.spec004_run(tmp_path / "runs", "E-01", removal_indicator="score_null")
+    view = reader(tmp_path / "runs", tmp_path).run(built.run_id)
+    review = view["review"]
+    assert "확인하세요" not in review["summary"]
+    assert "보류" in review["summary"] and "복원" in review["summary"]
+    assert "고정" in review["process"] and "응답 검증" in review["process"]
+    assert "DB" not in review["summary"] and "직접" not in review["summary"]
+    assert not any(source["ref"] == "file:storage-probe.json" for condition in review["conditions"] for source in condition["sources"])
+    assert any(item["ref"] == "file:storage-probe.json" for item in view["evidence"])
+    row = next(row for row in review["conditions"] if row["id"] == "other-applicant")
+    assert "지원자" in row["setup"] and "WhyYou" in row["observed"]
+    assert row["comparison"] and any(item["label"] == "점수" for item in row["comparison"])
+    assert "점수·인용 비움" not in row["observed"]
+
+
+def test_failed_removal_is_reported_in_the_summary(tmp_path):
+    built = wb.spec004_run(tmp_path / "runs", "E-01")
+    review = reader(tmp_path / "runs", tmp_path).run(built.run_id)["review"]
+    assert "드러나지" in review["summary"] or "알리지" in review["summary"]

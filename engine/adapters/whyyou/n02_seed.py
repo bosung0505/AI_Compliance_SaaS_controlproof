@@ -275,6 +275,9 @@ class WhyYouN02SeedAdapter:
         try:
             with self._transaction_factory() as connection:
                 connection.execute(text("SELECT :run_id"), {"run_id": run_id})
+                from engine.adapters.whyyou.n02_cleanup import delete_product_rows
+
+                product_rows_removed = delete_product_rows(connection, company_id=plan.company_id, lanes=lanes)
                 for (active_run, _path), rows in tuple(self._overlays.items()):
                     if active_run == run_id:
                         for row in reversed(rows):
@@ -289,12 +292,13 @@ class WhyYouN02SeedAdapter:
         self._overlays = {
             key: value for key, value in self._overlays.items() if key[0] != run_id
         }
+        self._prerequisites = {key: value for key, value in self._prerequisites.items() if key[0] != run_id}
         for subject in plan.subjects:
             self.credentials.remove(subject.subject_ref)
         return AdapterResult(
             True,
             "N02_LANES_REMOVED",
-            {"count": len(plan.lanes), "seed_digest": plan.digest},
+            {"count": len(plan.lanes), "seed_digest": plan.digest, "product_rows_removed": product_rows_removed},
         )
 
 

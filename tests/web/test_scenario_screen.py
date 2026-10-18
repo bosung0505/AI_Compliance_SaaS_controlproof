@@ -21,6 +21,12 @@ from tests.web.conftest import no_overflow
 
 def _fake_cli(command, **kwargs):
     scenario_id = command[4]
+    if scenario_id == "H-03":
+        payload = {"schema_version": "controlproof.cli.v1", "command": "preflight", "result_kind": "ERROR",
+                   "error_kind": "CONFIG", "error": "ConfigError",
+                   "detail": "required local/test settings are missing: WHYYOU_BASE_URL, WHYYOU_COMPANY_TOKEN"}
+        return SimpleNamespace(returncode=1, stdout=json.dumps(payload)
+                               + "\n[0x61032620] ANOMALY: meaningless REX prefix used\n", stderr="")
     if scenario_id == "E-02":
         payload = {"schema_version": "controlproof.cli.v1", "command": "preflight", "result_kind": "ERROR",
                    "error_kind": "USAGE", "error": "USAGE", "detail": "the following arguments are required"}
@@ -89,6 +95,25 @@ def test_usage_error_is_a_tool_error_not_readiness(screen, actual_site) -> None:
     assert readiness.locator("[data-badge=tool_error]").count() == 1
     assert readiness.locator("[data-badge=ready], [data-badge=runner_not_ready]").count() == 0
     assert "확인 도구 오류" in readiness.inner_text()
+
+
+def test_config_with_windows_noise_shows_guidance_instead_of_tool_error(screen, actual_site) -> None:
+    screen.goto(f"{actual_site.url}/scenarios/H-03")
+    screen.locator("form[data-testid=preflight-form] button[type=submit]").first.click()
+    screen.wait_for_url(f"{actual_site.url}/scenarios/H-03")
+    guide = screen.locator("[data-testid=run-guide]")
+    assert guide.locator("[data-badge=configuration_required]").first.is_visible()
+    assert guide.locator("[data-badge=tool_error], [data-badge=ready]").count() == 0
+    guidance = guide.locator("[data-testid=configuration-guidance]").first
+    assert "서비스 접속 주소" in guidance.inner_text() and "다시" in guidance.inner_text()
+    assert no_overflow(screen)
+    screen.goto(actual_site.url)
+    row = screen.locator("tr.scenario-row[data-id=H-03]")
+    assert row.locator("[data-badge=configuration_required]").is_visible()
+    assert row.locator("[data-badge=tool_error], [data-badge=ready]").count() == 0
+    assert "설정" in row.inner_text() and "다시" in row.inner_text()
+    assert screen.locator(".legend [data-badge=tool_error]").is_hidden()
+    assert no_overflow(screen)
 
 
 def test_workbench_detail_link_opens_the_scenario(screen, actual_site) -> None:

@@ -1,6 +1,21 @@
 # ControlProof 팀 통합 인수인계
 
+현재 후속 통합 브랜치: **`fixes-and-remaining-work`**. 사용자는 2026-10-18 현재 마감 상태의
+커밋·푸시와 향후 수정·남은 작업의 계속 통합을 승인했다. 두 작업 폴더에서 같은 이름을 사용하며,
+ControlProof는 `origin`, WhyYou는 `fork` (`bosung0505/gbsa_aws`)에 게시한다.
+아래 예전 브랜치 이름과 actual Run의 source SHA는 당시 이력으로 보존한다. main 병합은 별도다.
+WhyYou 게시 checkpoint는 `33aa9967e6b69de4b3789d2009cae1d3eb798d74`이며, 실제 검증 당시
+`e64ff9d`와 구분한다. 새 브랜치는 검증된 로컬 마감과 동일한 구현을 담고 후속 문서만 덧붙였다.
+
+2026-10-18 최신: N-02 최종 재테스트 `16dbd987…` **A1~A7 PASS / VERIFIED21**,
+복구 성공·실행 소유 DB 잔여행 0. 로컬 실행 목표 5개 완료. 자세한 기록은 Spec003
+`actual-closure.md`·`validation.md`. 아래 과거 checkpoint는 이력을 보존한 것이다.
+
+
 ## 1. 이 문서의 역할
+
+2026-10-16 T093: 현재 UI는 테스트·재테스트·테스트용으로 통일했다. 비교 표는 '테스트에 넣은 AI 평가 / 서비스가 실제 저장한 결과'다.
+EMPTY 조건은 답변이 있지만 점수에 연결하지 않은 입력임을 설명한다. 원본·과거 이력은 보존한다. 상세는 Spec005 terminology.md.
 
 이 문서는 새 팀원이 저장소의 **현재 공식 상태**, 완료된 작업, 검증 범위, 재현 방법과 다음 결정 지점을
 한곳에서 이해하기 위한 단일 진입점이다. 과거의 `TEAM_HANDOFF_SPEC_001.md`를 대체하며, 프로젝트 상태를
@@ -13,6 +28,12 @@
   main 병합은 사용자가 명시적으로 금지했다. 두 현재 전달 브랜치를 pull하며, 실제 Run의 source SHA는 검증 원장의 당시 값으로 유지한다.
 - 이 문서가 설명하는 범위: Spec 001·002 전체, Spec 003 기록·PR 검토 보완, Spec 004 T001~T097·actual 재현·converge 마감
 - 현재 사용자 접점: 개발·검증용 `controlproof` CLI와 Spec 005 로컬 웹 워크벤치. 2026-10-15 조건별 관찰·근거 탐색 UX 개편은 `specs/005-web-workbench-report/ux-redesign.md`를 따른다. 아래 Spec 001~004 실행 이력은 보존한다.
+- 추가 승인 T089~T092: 원래 이름 12개·실행별 결과 요약·쉬운 시험 설명·모델 출력/검증 후 저장값 비교를 표시한다.
+  별도 DB 진단은 화면 요약에 섞지 않고 `specs/005-web-workbench-report/readable-results.md`에 보존한다.
+  본시험은 고정 시험용 모델 출력에 대한 서비스 검증·저장 동작을 시험하며, 외부 AI의 자율 생성 품질 시험은 아니다.
+- 2026-10-15 준비 확인 보완: 알려진 Windows stdout 진단 로그를 분리하고 CONFIG를 '시험 환경 설정 필요'로 안내한다.
+  실제 두 서버 E-01 확인 8회에서 도구 오류 표시 없음. 신규 시험용 설정은 아직 연결하지 않아 READY는 아니다.
+  계약·검증·한계는 `specs/005-web-workbench-report/preflight-fix.md`와 validation의 T085~T088 절을 따른다.
 
 이 문서는 상세 요구사항, 기술 계약 또는 실행 원본을 복제하지 않는다. 각 사실의 상세 근거는 아래에
 연결한 Spec, Validation, Traceability와 Decision 문서가 보존한다.
@@ -25,7 +46,7 @@
 | Constitution | Complete | 모든 기능 Spec과 구현이 따라야 할 개발·검증 원칙이 확정됐다. |
 | Spec 001 | Complete | 실행·증적 기본 모델과 H-03 최소 수직 흐름을 구현하고 실제 WhyYou 로컬 스택에서 검증했다. |
 | Spec 002 | Complete | H-03 DLQ 확장과 E-03 저장 전/후 장애·재시도·멱등성을 구현하고 `LOCAL_EMULATED`에서 검증했다. |
-| Spec 003 | 구현·actual validation 기록 완료, PR 검토 보완 | T001~T093 기록 완료. child `7b59237e…`는 INCONCLUSIVE. PR 검토에서 복구 시간 오판, A7 재시도 증거 누락, H-03 동의 전제조건을 추가 보완했다(ID-003-19). 최신 자동 회귀 결과는 validation의 PR review closure 참조. Spec 전체 Complete는 아직 선언하지 않는다. |
+| Spec 003 | Complete (LOCAL_EMULATED) | 2026-10-18 final child `16dbd987…`: A1~A7 PASS, VERIFIED21, restore SUCCEEDED, owned DB residues0. Historical failures preserved; exact source/manifest in Spec003 validation. |
 | N-02 최초 actual Run | 봉인·검증 완료, 제품 판정 미종결 | 부모 `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`: A1~A3 PASS, A4~A7 개별 FAIL, 전체 `INCONCLUSIVE` (`RESTORE_FAILED` 우선). 19개 파일 bundle `VERIFIED`는 무결성 확인이며 빠진 관찰 사실의 증명은 아니다. 원본 verdict와 bundle은 변경하지 않는다. |
 | N-02 child Run (T084 attempt 3) | 봉인·검증 완료, 제품 판정 `INCONCLUSIVE` | child `7b59237e-0a96-403a-9add-28b91011e950`: A1~A4·A6 PASS, A5·A7 `INCONCLUSIVE`, 복구 `SUCCEEDED`, 차단 없음, 21개 파일 bundle `VERIFIED`, 부모 manifest 불변. 동의 전 세 경계 차단과 장애 원자성·복구는 입증됐고, 동의 뒤 처리 순서는 녹화·AI 평가만 입증됐다. 문서 분석 결과는 격리 대상이 LLM 분석을 못 해서 미입증이다. attempt 1·2(중단·INVALID/RESTORE_FAILED)는 보존된 실행기 결함 증거다. |
 | Spec 004 | Complete | T001~T097 및 converge 완료(T087 NOT_REQUIRED). 최초 E-01 FAIL 보존 → 승인 수정 child PASS; WhyYou 374b122에서 새 checkout E-01 4030503c…·E-02 970108fe… 실제 PASS/SUCCEEDED/VERIFIED, 잔여행 0. 전체 CP 939 PASS·WhyYou scoped 188 PASS. 다른 PC·AWS는 미검증. |
@@ -38,12 +59,10 @@
 | 독립 PC 재현 | 인정됨(현재 통합 대상 `374b122` 기준, D-019) | 연우 PC의 H-03 `H03_DLQ_V2` Run `277d3f5a…`(ControlProof `9856a03` dirty 0, WhyYou `374b122` dirty 0, `LOCAL_EMULATED`, fixture `h03-report-v1`, A1~A9 PASS, 복구 SUCCEEDED, VERIFIED 33 files, manifest SHA-256 `3d6b0a85…`)을 2026-10-13 제품 책임자가 독립 PC 재현 gate로 인정했다. 기존 clean clone을 쓴 별도 PC 재현이며, 플레이북 §6 지정 commit과 동일 조건의 재현은 아니다. 이 한 건에만 적용하고 다른 시나리오·AWS로 확대하지 않는다(AWS는 `NOT_RUN`). |
 | main 통합 | 보류 | 독립 재현 gate는 인정됐으나(D-019) main 병합은 별도 승인이 남는다. 승인 뒤 Spec 001·002를 포함한 현재 브랜치를 검토 가능한 PR로 통합한다. |
 
-따라서 저장소의 공식 상태는 **Spec 001·002 Complete, Spec 003 actual validation 완료·converge 전,
-Spec 004 Complete(승인된 같은 PC의 두 번째 checkout 재현 포함)**이다.
-child 판정이 `INCONCLUSIVE`(A5·A7 문서 분석 결과 미입증)이므로 WhyYou N-02 PASS로 부르지 않는다.
-T092 문서는 이번 검토 결과로 다시 동기화했다. 전달 브랜치 통합 뒤 최종 converge에서 이 한계와
-검토 보완 후 실제 Run `NOT_RUN`을 명시하고 종료 범위를 확정한다. 추가 실제 시험을 하면 새 child로
-봉인한다. main 통합은 별도 승인 전까지 금지한다.
+현재 공식 상태는 **Spec001·002·003·004의 승인된 로컬 실행 범위 Complete**다.
+N-02 최신 child `16dbd987…`는 A1~A7 PASS, VERIFIED21, 복구·DB 정리 확인 완료다.
+위 최초/과거 child 행은 불변 이력이다. Spec005 전체 마감·비작성자 사용성, 최신 N-02의 별도 PC 재현,
+AWS와 main 통합은 별도다. 아래 2026-10-18 closure와 Spec003 Validation을 최신 기준으로 읽는다.
 
 ## 3. 절대로 바꾸어 해석하면 안 되는 제품 원칙
 
@@ -158,16 +177,16 @@ source queue와 DLQ의 visible, in-flight, delayed 수도 모두 0이었다.
 
 - 원격 고객용 운영 웹 서비스(로컬 검토 화면과 보고서는 Spec 005에서 구현됨)
 - 웹 결과 화면을 대상으로 한 실제 사용자 이해도·사용성 검토
-- N-02 최종 검증과 N-01·N-03 실행기·최종 검증
+- N-01·N-03 실행기·최종 검증 (N-02 로컬 범위는 2026-10-18 마감)
 - H-01, H-02 실행기와 최종 검증
-- E-01, E-02 실행기와 최종 검증
+- E-01·E-02의 별도 PC 재현 (실행기·로컬 최종 검증은 Spec004에서 완료)
 - A-01~A-03의 기능 구현: 이번 MVP에서는 WhyYou에 시험 대상이 없어 `NO_TEST_TARGET`로 보고하는 범위
 - 전체 시나리오 카탈로그를 한 번에 실행하는 제품 흐름
 - 조직·사용자·권한 관리, 결제, 운영 배포와 상용 SaaS 운영 기능
 - 실제 AWS·production 환경 검증
 - Spec 001·002 feature branch의 PR 검토와 main 통합
 
-### Spec 003의 현재 사실과 남은 작업
+### Spec 003의 과거 checkpoint와 당시 남은 작업 (최신 closure는 문서 상단/말미 참조)
 
 최초 Run(부모 `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`, ControlProof `b92b9ada…`, WhyYou `94ad7f2c…`, manifest
 `d2306f3c…`)은 불변이다. 그 FAIL은 전부 원인별로 분류됐고 결과는
@@ -504,3 +523,24 @@ Spec 004는 현재 작업 브랜치에서 Complete다. 다음 기능은 Spec 005
 
 현재 상태를 바꾸는 설명을 새 문서에 따로 추가해서는 안 된다. **현재 상태는 이 문서와 README,
 각 Spec의 Status 및 최종 Validation closure가 서로 일치해야 한다.**
+
+
+## 2026-10-18 N-02 후속 준비 checkpoint
+
+사용자는 작업을 두 단계로 나누고 이번에는 1단계 구현·자동 검증만 승인했다.
+양쪽 작업 브랜치는 `feature/n02-analysis-preparation`; 기존 UX 미커밋 변경은 보존했다.
+새 `n02-analysis-v1` 모델/임베딩 연결, 필수 이력서·자기소개서 API 제출, opt-in scenario,
+모델 허용 목록 점검과 fixture-only 부모 연결을 준비하고 자동 검증을 마쳤다. 상세 명세/계획/Tasks/검증은
+[후속 기록](../specs/003-n02-consent-order/analysis-preparation.md)과 최신 validation을 따른다.
+실제 Run·공식 카탈로그·UI 마무리는 2단계이며 N-02 실제 판정은 여전히 INCONCLUSIVE다.
+위 기존 엔진 완료/역사 기록을 이번 준비로 PASS/Complete로 올리지 않는다.
+
+## N-02 2단계 로컬 마감 — 2026-10-18
+
+최종 Run `16dbd987-23a5-4030-bb62-77787488969b`: COMPLETED/PASS, A1~A7 PASS,
+VERIFIED21, 복구 SUCCEEDED, DB 잔여행0. 문서 분석도 실제 업로드·모델 응답 검증·저장 경로로 완주했다.
+CP 실제 실행 소스 `3ea1509`, WhyYou `e64ff9d`; 원래 작업 폴더의 미커밋 UX 변경은 보존했다.
+초기 INVALID와 중간 실행 뒤 정리 결함은 새 실행으로 보완했고 원본은 유지했다.
+재현은 `scripts/n02_local.py`와 Spec003 Quickstart의 2026-10-18 절차를 따른다.
+화면: http://localhost:8766/scenarios/N-02 / 최종 실행은 해당 화면의 실행 기록에서 연다.
+AWS NOT_RUN, 고정 테스트 모델 사용, 별도 PC 재현·main 통합·Spec005 전체 마감은 별도다.

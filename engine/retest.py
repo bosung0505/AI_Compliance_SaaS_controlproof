@@ -24,6 +24,7 @@ from engine.models import (
     Run,
     RunState,
     RunSubjectLane,
+    ScenarioSnapshot,
     TargetEnvironmentSnapshot,
     TargetSnapshot,
     TestSubject,
@@ -49,6 +50,7 @@ def prepare_retest(
     child_environment: TargetEnvironmentSnapshot | None = None,
     child_queue: QueueTopologySnapshot | None = None,
     cleanup_evidence: Path | None = None,
+    child_scenario_snapshot: ScenarioSnapshot | None = None,
 ) -> tuple[Run, str, dict[str, Any]]:
     directory = parent_bundle.resolve()
     verification = verify_bundle(directory)
@@ -90,6 +92,7 @@ def prepare_retest(
             child_environment=child_environment,
             child_queue=child_queue,
             cleanup_confirmation=cleanup_confirmation,
+            child_scenario_snapshot=child_scenario_snapshot,
         )
     if parent_profile in SPEC004_PROFILES:
         return _prepare_spec004_retest(
@@ -279,16 +282,34 @@ def _prepare_n02_retest(
     child_environment: TargetEnvironmentSnapshot | None,
     child_queue: QueueTopologySnapshot | None,
     cleanup_confirmation: dict[str, Any] | None,
+    child_scenario_snapshot: ScenarioSnapshot | None,
 ) -> tuple[Run, str, dict[str, Any]]:
     if RestoreBlockStore(directory.parent).blocked(parent_run.target_id, "n02-consent-order"):
         raise RetestError("N-02 retest refused: unresolved manual cleanup block")
     if child_target.target_id != parent_run.target_id:
         raise RetestError("N-02 retest must use the same target")
-    if (
+    scenario_changed = (
         child_scenario_version != parent_run.scenario_version
         or child_scenario_digest != parent_run.scenario_digest
-    ):
-        raise RetestError("N-02 retest must inherit the parent scenario snapshot")
+    )
+    if scenario_changed:
+        from engine.n02_revision import validate_fixture_revision
+
+        if child_scenario_snapshot is None:
+            raise RetestError("N-02 retest must inherit the parent scenario snapshot")
+        try:
+            if (child_scenario_snapshot.version, child_scenario_snapshot.digest) != (
+                child_scenario_version, child_scenario_digest
+            ):
+                raise ValueError("child snapshot identity mismatch")
+            validate_fixture_revision(
+                _read(directory / "scenario.snapshot.yaml"),
+                child_scenario_snapshot.model_dump(mode="json"),
+                fixture_id=child_target.model_fixture_id,
+                fixture_digest=child_target.model_fixture_digest,
+            )
+        except (OSError, TypeError, ValueError) as error:
+            raise RetestError("N-02 fixture-only scenario revision is invalid") from error
     if child_queue is not None:
         raise RetestError("N-02 retest has no Spec 002 queue topology")
     if child_environment is None:
@@ -324,7 +345,8 @@ def _prepare_n02_retest(
         "scenario": {
             "before": {"version": parent_run.scenario_version, "digest": parent_run.scenario_digest},
             "after": {"version": child_scenario_version, "digest": child_scenario_digest},
-            "changed": False,
+            "changed": scenario_changed,
+            **({"revision_kind": "MODEL_FIXTURE_ONLY"} if scenario_changed else {}),
         },
         "target": {
             "before_digest": parent_target.target_version,

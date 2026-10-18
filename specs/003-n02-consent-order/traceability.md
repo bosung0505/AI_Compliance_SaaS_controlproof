@@ -1,5 +1,9 @@
 # Spec 003 Traceability
 
+Current actual mapping (2026-10-18): final `16dbd987-23a5-4030-bb62-77787488969b`, A1~A7 PASS,
+VERIFIED21. Tables below describing parent/teammate child are historical; current mapping follows at end.
+
+
 This matrix connects approved requirements to planned tasks, tests, implementation
 and actual artifacts. `A~B` includes both endpoints. The actual-artifact cells below
 refer to the first local Run (parent `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`) and, where noted, to the
@@ -78,3 +82,30 @@ Child `7b59237e-0a96-403a-9add-28b91011e950` at `.controlproof/runs/7b59237e-0a9
 | SC-006/SC-008, T072/T085 | `test_n02_review_closure.py::test_slow_normal_retry_does_not_consume_the_restore_budget`; existing `test_spec003_timing.py` slow-teardown cases | `N02Executor._restore_operation` and cumulative restore timing | Fake-clock timing only; no new actual Run |
 | N02-A7, EV3-02/05/06/09, T071/T072 | `test_a7_pass_seals_retry_consent_effects_and_causal_proof`; `test_a7_pass_cannot_be_sealed_from_summary_flags_alone` (consent/causal/effects) | `N02FaultRecoverySliceResult`, `_write_n02_rows`, `_recovered_n02_proof_readable` | Future PASS bundles require raw recovered proof; historical parent/child unchanged |
 | H-03 compatibility with T083 | `test_pending_report_has_active_consent_for_the_new_target_guard`; `test_pending_report_without_consent_is_rejected_before_apply` | H-03 fixture, seed apply/teardown and invariant check | Synthetic consent prerequisite; no claim that a user completed N-02 |
+
+
+## 2026-10-18 stage-1 extension
+
+| Requirement | Implementation | Automatic evidence | Actual evidence |
+|---|---|---|---|
+| FR-042 | WhyYou ControlProofAnalysisModel | test_controlproof_analysis_substitute.py, native PDF pipeline test | NOT_RUN; stage 2 |
+| FR-043 | worker.py analysis resolver; protected_processing.py required materials | composition tests; test_n02_processing_adapter.py; pipeline validation/replay | NOT_RUN; stage 2 |
+| FR-044 | readiness.py, n02_revision.py, retest.py/cli.py, evidence.py | test_n02_analysis_preparation.py, test_n02_fixture_revision.py, existing readiness/lineage/bundle tests | NOT_RUN; stage 2 |
+| FR-045 | opt-in scenario and entry/status documentation | legacy snapshot and published parent verify regression | Historical INCONCLUSIVE preserved |
+
+Detailed gate and validation ledger: [analysis-preparation.md](analysis-preparation.md).
+
+## Stage-2 final current mapping — 2026-10-18
+
+| Requirements / criteria | Tasks / implementation | Automatic evidence | Final actual evidence |
+|---|---|---|---|
+| FR-001~019, SC-001/002 | T101~104, adapter snapshots / isolated lanes | N-02 processing/seed/judge regression | A1~A4 PASS, no pre-consent effects |
+| FR-020~025, SC-003/004 | T103/104, real analysis pipeline / causal receipts | causality/judge/strict bundle tests | A5 PROVEN, all three full request/start/result chains |
+| FR-026~033, SC-005~008 | T103/104, fault recovery / scoped product cleanup | restoration/review closure/product cleanup tests | A6/A7 PASS; exactly-once consent, restore SUCCEEDED, 112.41s Run, independent verify within600s, DB residues0 |
+| FR-034~041, SC-009~012 | T104~106, evidence/retest/web/docs | bundle/security/lineage/web regression | VERIFIED21, EV3-01~10; parent manifest unchanged; strict scan0 |
+| FR-042/043 | T095~097, real product upload/analysis validation/storage | WhyYou385 PASS, adapter tests | Normal/recovered document result events, fixed model on real workers |
+| FR-044/045 | T098~104, fixture-only revision / readiness / retest verifier | revision and preparation integration tests | READY16/16; sealed revision; historical results unchanged |
+| Readable N-02 conditions | T105, `n02_review.py`, templates/readmodel | `test_web_n02_review.py`, HTTP and browser QA | Final run/overview/evidence/compare displayed from sealed facts |
+
+Final Run `16dbd987-23a5-4030-bb62-77787488969b`, manifest `fa3ee50a571852f303683be72eb80e5b460d31d44753d78063cc24886f4fca2c`.
+Exact source and runtime journals: [actual-closure.md](actual-closure.md), [validation.md](validation.md).

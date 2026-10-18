@@ -367,6 +367,7 @@ def _retest(args: argparse.Namespace) -> int:
         child_environment=child_environment,
         child_queue=child_queue,
         cleanup_evidence=args.cleanup_evidence,
+        child_scenario_snapshot=runtime.scenario.snapshot(),
     )
     run, judgement, bundle = runtime.execute(
         readiness,

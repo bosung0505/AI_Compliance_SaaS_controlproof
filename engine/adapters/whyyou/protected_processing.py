@@ -274,6 +274,31 @@ class WhyYouProtectedProcessingAdapter:
             headers | {"Idempotency-Key": str(_attempt_id(subject, ProtectedPathId.DOCUMENT_ANALYSIS, "register", ordinal))},
         )
         steps.append(f"register:{_status(register)}")
+        if (
+            self.settings.model_fixture_id == "n02-analysis-v1"
+            and register is not None and 200 <= register.status_code < 300
+        ):
+            # The seeded WhyYou requirements include resume AND cover_letter. Submit both
+            # through the product API so analysis completion can finalize the strategy.
+            cover_intent = self._post(
+                "/v1/applicant/submissions/upload-intents",
+                {"source_type": "cover_letter", "filename": "controlproof-synthetic-cover.pdf",
+                 "media_type": "application/pdf", "byte_size": len(data), "sha256": sha256_hex(data)},
+                headers | {"Idempotency-Key": str(_attempt_id(subject, ProtectedPathId.DOCUMENT_ANALYSIS, "cover-intent", ordinal))},
+            )
+            steps.append(f"cover-request:{_status(cover_intent)}")
+            if cover_intent is None or not 200 <= cover_intent.status_code < 300:
+                return steps
+            steps.append("cover-" + self._upload(cover_intent.json(), data))
+            if not steps[-1].endswith(("200", "201", "204")):
+                return steps
+            cover = self._post(
+                "/v1/applicant/submissions",
+                {"material_type": "cover_letter", "source_type": "cover_letter",
+                 "upload_id": str(cover_intent.json()["upload_id"])},
+                headers | {"Idempotency-Key": str(_attempt_id(subject, ProtectedPathId.DOCUMENT_ANALYSIS, "cover-register", ordinal))},
+            )
+            steps.append(f"cover-register:{_status(cover)}")
         return steps
 
     def _attempt_assessment(
@@ -449,6 +474,24 @@ class WhyYouProtectedProcessingAdapter:
                 if start_receipt_ids or refusal_receipt_ids or time.monotonic() >= deadline:
                     break
                 time.sleep(min(_RECEIPT_POLL_GRANULARITY, float(self.receipt_wait_seconds)))
+        if path is not ProtectedPathId.AI_ASSESSMENT:
+            observed = self.read_processing_receipts(
+                run_id=str(subject["run_id"]), lane_id=str(subject["lane_id"]),
+                subject_ref=str(subject["subject_ref"]),
+            )
+            boundaries = {
+                ProtectedPathId.DOCUMENT_ANALYSIS: {"ANALYSIS_HANDLER_ENTERED"},
+                ProtectedPathId.RECORDING: {"INTERVIEW_SESSION_CREATED", "INTERVIEW_SESSION_STARTED"},
+            }[path]
+            if not observed.ok:
+                status_projection["observer_status"] = "UNAVAILABLE"
+            else:
+                start_receipt_ids = tuple(sorted({
+                    str(row["receipt_id"])
+                    for row in observed.data.get("receipts", ())
+                    if row.get("path_id") == path.value and row.get("boundary") in boundaries
+                    and isinstance(row.get("receipt_id"), str)
+                }))
         digest = sha256_bytes(
             canonical_json_bytes(
                 {

@@ -21,7 +21,7 @@ def test_fail_run_plain_first_developer_collapsed(screen, demo_site) -> None:
     lead = screen.locator("[data-testid=run-lead]")
     assert lead.locator("[data-badge=fail]").count() == 1
     plain = screen.locator("[data-testid=plain-explanation]")
-    assert plain.is_visible() and "무엇이" in plain.inner_text()
+    assert plain.is_visible() and "이번 테스트 결과" in plain.inner_text()
     developer = screen.locator("details[data-testid=developer]")
     assert developer.count() >= 1
     for item in developer.all():

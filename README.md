@@ -1,10 +1,21 @@
 # ControlProof
 
-ControlProof는 합성 데이터를 이용해 AI 서비스의 절차적 보호조치가 정상·우회·예외·장애 조건에서 실제로 작동하는지 시험하고, 판정과 재현 가능한 증적을 남기는 도구다. 첫 번째 검증 대상은 AI 면접 서비스 WhyYou다.
+후속 수정·남은 작업의 통합 브랜치: **`fixes-and-remaining-work`** (2026-10-18 사용자 승인).
+ControlProof는 `origin`, WhyYou의 같은 이름 브랜치는 `bosung0505/gbsa_aws` 포크에서 관리한다.
+
+2026-10-18 최신: N-02 최종 재테스트 `16dbd987…` **A1~A7 PASS / VERIFIED21**,
+복구 성공·실행 소유 DB 잔여행 0. 로컬 실행 목표 5개 완료. 자세한 기록은 Spec003
+`actual-closure.md`·`validation.md`. 아래 과거 checkpoint는 이력을 보존한 것이다.
+
+
+ControlProof는 합성 데이터를 이용해 AI 서비스의 절차적 보호조치가 정상·우회·예외·장애 조건에서 실제로 작동하는지 테스트하고, 판정과 재현 가능한 증적을 남기는 도구다. 첫 번째 검증 대상은 AI 면접 서비스 WhyYou다.
 
 ## 로컬 웹 워크벤치 (Spec 005)
 
-현재 UX 개편 브랜치는 `refactor/controlproof-web-ux`이며, `005-web-workbench-report`에서 분기했다. 웹은 구현되어 있으며 시나리오 개요·조건별 실제 관찰·연결 근거·재시험 비교·보고서를 제공한다.
+2026-10-16 화면 용어를 테스트·재테스트·테스트용으로 통일했다. 비교 표는 '테스트에 넣은 AI 평가'와
+'서비스가 실제 저장한 결과'를 보여준다. 원본 기록과 과거 검증 이력은 보존한다.
+
+현재 UX 개편 브랜치는 `refactor/controlproof-web-ux`이며, `005-web-workbench-report`에서 분기했다. 웹은 구현되어 있으며 시나리오 개요·조건별 실제 관찰·연결 근거·재테스트 비교·보고서를 제공한다.
 2026-10-15 승인 UX 개편은 공통 헤더·탐색·표·버튼을 유지하면서 E-01 조건별 관찰과 E-02 규칙 설명을 우선 개선한다.
 봉인된 판정·파일은 수정하지 않으며, 원본 규칙의 개수와 조건별 관찰의 개수를 구분한다.
 
@@ -15,8 +26,13 @@ ControlProof는 합성 데이터를 이용해 AI 서비스의 절차적 보호�
 ```
 
 기본 주소는 `http://localhost:8765/`, 합성 화면은 `/demo/`다. 카탈로그의 공식 검증 이력과 현재 서버에 연결된 실제 기록은 구분한다.
-시나리오 상단의 최근 결과 또는 실행 기록에서 개별 결과로 이동하고, 조건별 ‘근거 확인’으로 자료를 펼친다.
-웹에서 새 시험·재시험을 시작하지 않는다. 새 시험 준비 상태는 과거 결과와 별도다.
+시나리오 상단의 최근 결과 또는 실행 기록에서 개별 결과로 이동하고, 조건별 ‘이 결과의 확인 자료 보기’로 자료를 펼친다.
+V4 원래 시나리오 이름 12개와 쉬운 설명을 함께 표시한다. E-01 결과는 실제 처리·복원 결과를 요약하고,
+고정 테스트용 모델의 출력과 WhyYou 응답 검증 후 저장값을 비교한다. 새 테스트 준비 안내는 실행 기록 뒤에 있다.
+상세와 문서에 보존한 별도 진단 범위: [결과 설명 보완](specs/005-web-workbench-report/readable-results.md).
+웹에서 새 테스트·재테스트을 시작하지 않는다. 새 테스트 준비 상태는 과거 결과와 별도다.
+준비 확인은 알려진 Windows 진단 로그가 섞여도 정상 JSON을 읽는다. 서버에 새 테스트용 설정이 없으면
+'테스트 환경 설정 필요'와 다음 조치를 표시한다. 이는 READY를 뜻하지 않는다([오류 보완](specs/005-web-workbench-report/preflight-fix.md)).
 Spec 005 전체 종료와 비작성자 사용성 검토는 아직 완료로 선언하지 않는다. 상세: [승인 UX 개편 명세](specs/005-web-workbench-report/ux-redesign.md).
 
 
@@ -36,10 +52,10 @@ Spec 005 전체 종료와 비작성자 사용성 검토는 아직 완료로 선�
 - AI 작업 플레이북: [다른 AI 세션에서도 같은 Spec Kit 사이클을 재현하는 방법](./docs/AI_SPEC_KIT_PLAYBOOK.md)
 - Spec 003 소스 기준선: [WhyYou N-02 확인 사실과 미확인 사항](./docs/research/Spec003_N02_WhyYou_Source_Baseline.md)
 - 작성된 기능 명세: [Spec 003 — N-02 동의·AI 처리 순서 검증](./specs/003-n02-consent-order/spec.md)
-- Spec 003 기술 계획: [경계·lane·fault·인과관계·시험 설계](./specs/003-n02-consent-order/plan.md)
+- Spec 003 기술 계획: [경계·lane·fault·인과관계·테스트 설계](./specs/003-n02-consent-order/plan.md)
 - Spec 003 작업 목록: [테스트 우선 구현·최초 Run·조건부 보완 순서](./specs/003-n02-consent-order/tasks.md)
 - Spec 003 검증 기록: [부모·child actual Run 원장, 회귀 기록, 알려진 한계](./specs/003-n02-consent-order/validation.md)
-  — child `7b59237e…`는 A1~A4·A6 PASS, A5·A7 `INCONCLUSIVE`(격리 대상의 문서 분석 결과 미입증)
+  — 최신 child `16dbd987…` A1~A7 PASS·VERIFIED21; 이전 `7b59237e…` INCONCLUSIVE는 보존
 - Spec 003 구현 계약: [데이터 모델](./specs/003-n02-consent-order/data-model.md),
   [계약](./specs/003-n02-consent-order/contracts/),
   [구현 후 재현 절차](./specs/003-n02-consent-order/quickstart.md)
@@ -70,7 +86,7 @@ $speckit-converge
 
 Spec 001과 Spec 002는 clarify, plan, tasks, analyze, implement와 actual-stack 검증을 마쳤다.
 Spec 002는 로컬 WhyYou를 대상으로 H-03 재시도 소진·DLQ·결정 우회와 E-03 저장 전/후 장애,
-사람 최종결정 멱등성, 봉인 증적과 불변 FAIL→PASS 재시험을 구현했다. 이는 전체 2주 MVP나
+사람 최종결정 멱등성, 봉인 증적과 불변 FAIL→PASS 재테스트을 구현했다. 이는 전체 2주 MVP나
 ControlProof 웹 UI가 완성됐다는 뜻이 아니며, 현재 사용자 접점은 개발·검증용 CLI와 로컬 웹 워크벤치다. 웹의 실제 검증·내부 검토 기록은 Spec 005를 따른다.
 
 ## 후속 Spec 로드맵
@@ -80,7 +96,7 @@ ControlProof 웹 UI가 완성됐다는 뜻이 아니며, 현재 사용자 접점
 
 | 순서 | 상태 | 범위 |
 |---|---|---|
-| Spec 003 | 구현·actual validation 기록 완료, PR 검토 보완 | T001~T093 기록 완료. 실제 child `7b59237e…`는 A1~A4·A6 PASS, A5·A7 INCONCLUSIVE. 2026-10-07 검토에서 복구 시간·A7 원본 증거·H-03 동의 seed 보완; 최신 회귀는 validation 참조. 최종 converge 전이며 Spec 전체 Complete 또는 실제 N-02 PASS로 선언하지 않는다. |
+| Spec 003 | Complete (LOCAL_EMULATED) | 2026-10-18 final child `16dbd987…`: A1~A7 PASS, VERIFIED21, restore SUCCEEDED, owned DB residues0. Historical failures preserved; exact source/manifest in Spec003 validation. |
 | Spec 004 | Complete | T001~T097 및 converge 완료(T087 NOT_REQUIRED). 최초 E-01 FAIL 보존 → 승인 수정 child PASS; WhyYou 374b122에서 새 checkout E-01 4030503c…·E-02 970108fe… 실제 PASS/SUCCEEDED/VERIFIED, 잔여행 0. 전체 CP 939 PASS·WhyYou scoped 188 PASS. 다른 PC·AWS는 미검증. |
 | Spec 005 | 웹 구현·실제 검증 기록·내부 UX 개편 중 | 조건별 관찰·연결 근거·공통 디자인. 전체 converge와 비작성자 사용성 검토는 별도 |
 
@@ -116,7 +132,7 @@ Spec 002는 나란히 있는 두 저장소를 사용한다.
 | 저장소 | 허용 브랜치 | 용도 |
 |---|---|---|
 | `AI_Compliance_SaaS_controlproof` | `yeonwoo/004-e01-e02-score-evidence` | Spec 001~003 기반(병합된 `003-n02-consent-order`)과 현재 기능 Spec 004 |
-| `gbsa_aws` | `bosung/controlproof-n02-integration` | WhyYou local/test 전용 N-02 observer·fault hook; product guard 변경 전 최초 사실 시험 대상 |
+| `gbsa_aws` | `bosung/controlproof-n02-integration` | WhyYou local/test 전용 N-02 observer·fault hook; product guard 변경 전 최초 사실 테스트 대상 |
 
 WhyYou의 `main`에 ControlProof 변경을 직접 commit 또는 push하지 않는다. actual Run 전에는 두 checkout이
 모두 clean이어야 하며, preflight가 commit·dirty 상태와 target snapshot을 다시 고정한다. `.env`,
@@ -143,7 +159,7 @@ git status --short
 
 ## 실행 프로필의 의미
 
-| Profile | Scenario | 시험하는 경계 | 핵심 질문 |
+| Profile | Scenario | 테스트하는 경계 | 핵심 질문 |
 |---|---|---|---|
 | `H03_MINIMAL_V1` | H-03 | Spec 001 최소 흐름 | 기본 장애·복구·사람 최종결정 안전성이 작동하는가 |
 | `H03_DLQ_V2` | H-03 | 저장 전 반복 장애와 DLQ | 실패가 숨지 않고 세 최종결정 경로가 모두 차단되는가 |
@@ -179,7 +195,7 @@ controlproof run E-03 --profile E03_AFTER_V2 --target whyyou-local --label e03-a
 ```
 
 - preflight가 `READY`가 아니면 Run은 만들어지지 않는다.
-- target의 보호조치가 실제로 실패한 정상 시험 결과는 exit 3이다. 이는 ControlProof 구현 실패가 아니다.
+- target의 보호조치가 실제로 실패한 정상 테스트 결과는 exit 3이다. 이는 ControlProof 구현 실패가 아니다.
 - 실행 중 오류나 중단 뒤에도 restore를 먼저 수행한다.
 - `RESTORE_FAILED`이면 같은 target/subject의 다음 Run이 막힌다. marker 부재와 target 안전을
   확인한 evidence 파일로만 `cleanup-confirm`할 수 있으며 force 해제는 없다.
@@ -187,7 +203,7 @@ controlproof run E-03 --profile E03_AFTER_V2 --target whyyou-local --label e03-a
 - `retest`는 부모 bundle을 수정하지 않고 새 Run과 `retest-diff.json`을 만든다. 부모가 이미
   PASS라면 데모를 위해 결함 버전을 만들 필요가 없다.
 
-최초 actual Run의 FAIL은 시험기 실패로 덮어쓰지 않는다. 먼저 bundle을 봉인하고 `verify`한 뒤,
+최초 actual Run의 FAIL은 테스트기 실패로 덮어쓰지 않는다. 먼저 bundle을 봉인하고 `verify`한 뒤,
 그 증적으로 확인된 제품 또는 판정 경계만 수정한다. 수정 후 결과는 반드시 새 child Run으로 만들고
 부모 FAIL의 manifest digest와 모든 파일을 그대로 보존한다. Spec 002의 실제 H-03/E-03 계보와
 manifest SHA-256은 [검증 기록](./specs/002-h03-e03-fault-expansion/validation.md)에 있다.
@@ -215,7 +231,7 @@ CLI 결과 검토 정책과 웹 UX 이관 결정은
 
 ## 구현 구조
 
-- `engine/`: 실행·관찰·판정·증적·재시험 엔진
+- `engine/`: 실행·관찰·판정·증적·재테스트 엔진
 - `scenarios/`: 버전 고정 H-03 시나리오와 템플릿
 - `seeds/`: 합성 상태 seed 구현
 - `tests/`: 단위·계약·통합·보안 회귀 테스트
@@ -229,7 +245,7 @@ CLI 결과 검토 정책과 웹 UX 이관 결정은
 - `engine/judges/`: H03-A7~A9와 E03-A1~A8 증적 기반 판정
 - `engine/judge.py`: Spec 001 H03-A1~A6와 공통 verdict 우선순위
 - `engine/presentation.py`: 비개발자 검토용 요약
-- `engine/retest.py`: 부모 불변 재시험 계보와 diff
+- `engine/retest.py`: 부모 불변 재테스트 계보와 diff
 - `engine/adapters/whyyou/`: WhyYou HTTP/DB/브라우저/fault/capability 경계
 - `scenarios/H-03.yaml`: Spec 001 버전 고정 시나리오
 - `scenarios/H-03-DLQ.yaml`, `E-03-BEFORE.yaml`, `E-03-AFTER.yaml`: Spec 002 profile snapshot
@@ -250,4 +266,22 @@ WhyYou `bosung/controlproof-n02-integration`:
 
 같은 PC의 두 번째 clean checkout 재현은 승인된 SC-006 기준을 충족한다(ID-004-36/D-017).
 다른 PC 재현과 main 통합 승인은 별도이며 아직 완료되지 않았다. AWS NOT_RUN, 전체 MVP 미완료,
-Spec 003의 INCONCLUSIVE·최종 converge 대기도 그대로다.
+이 문단은 2026-10-08 checkpoint다. N-02의 최신 결과는 아래 2026-10-18 closure를 따른다.
+
+
+## N-02 문서 분석 후속 준비 — 2026-10-18
+
+두 저장소의 작업 브랜치 `feature/n02-analysis-preparation`에서 1단계 구현·자동 검증을 마쳤다.
+상세 명세·분할 범위·검증 원장은 [Spec003 후속 기록](specs/003-n02-consent-order/analysis-preparation.md).
+1단계 시점에는 기존 INCONCLUSIVE 및 4개 완료 상태를 유지했다. 이후 2단계의 최신 결과는 아래와 같다.
+기존 UX 미커밋 변경도 그대로 보존했으며 이번 단계에서 웹 디자인은 수정하지 않는다.
+
+## N-02 2단계 로컬 마감 — 2026-10-18
+
+최종 Run `16dbd987-23a5-4030-bb62-77787488969b`: COMPLETED/PASS, A1~A7 PASS,
+VERIFIED21, 복구 SUCCEEDED, DB 잔여행0. 문서 분석도 실제 업로드·모델 응답 검증·저장 경로로 완주했다.
+CP 실제 실행 소스 `3ea1509`, WhyYou `e64ff9d`; 원래 작업 폴더의 미커밋 UX 변경은 보존했다.
+초기 INVALID와 중간 실행 뒤 정리 결함은 새 실행으로 보완했고 원본은 유지했다.
+재현은 `scripts/n02_local.py`와 Spec003 Quickstart의 2026-10-18 절차를 따른다.
+화면: http://localhost:8766/scenarios/N-02 / 최종 실행은 해당 화면의 실행 기록에서 연다.
+AWS NOT_RUN, 고정 테스트 모델 사용, 별도 PC 재현·main 통합·Spec005 전체 마감은 별도다.

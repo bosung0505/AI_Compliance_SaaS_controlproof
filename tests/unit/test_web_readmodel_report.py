@@ -18,7 +18,7 @@ from tests.fixtures import web_bundles as wb
 MATRIX = Path("docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md")
 ITEMS = [f"R{index}" for index in range(1, 14)] + [f"C{index}" for index in range(1, 10)]
 FORBIDDEN = ("12개 검증 완료", "12개 PASS", "12개 시나리오 PASS", "12개 시나리오 검증 완료", "9개 중 8개 실행")
-FIXTURE_NAMES = ("h03-report-v1", "spec004-report-v1")
+FIXTURE_NAMES = ("h03-report-v1", "spec004-report-v1", "n02-analysis-v1")
 
 
 @pytest.fixture(scope="module")
@@ -57,7 +57,7 @@ def test_fixed_sentence_is_the_matrix_quote(catalog, tmp_path) -> None:
 
 def test_counts_and_status_rows_copy_the_catalog(catalog, tmp_path) -> None:
     report = _report(catalog, tmp_path / "runs", tmp_path)
-    assert (report["counts"]["PASS"], report["counts"]["FAIL"], report["counts"]["NOT_RUN"]) == (4, 0, 4)
+    assert (report["counts"]["PASS"], report["counts"]["FAIL"], report["counts"]["NOT_RUN"]) == (5, 0, 4)
     assert report["counts"]["INCONCLUSIVE"]["by_reason"]["NO_TEST_TARGET"] == 3
     rows = {row["id"]: row for row in report["catalog_status"]}
     assert len(rows) == 12
@@ -110,7 +110,9 @@ def test_failures_lineages_and_expectations(catalog, tmp_path) -> None:
     assert {item["scenario_id"] for item in report["lineages"]} == failures
     expectations = {item["scenario_id"] for item in report["scenario_expectations"]}
     assert expectations == {"H-03", "E-03", "N-02", "E-01", "E-02"}
-    assert any(item["scenario_id"] == "N-02" and item["missing"] for item in report["evidence_summary"])
+    n02 = next(item for item in report["evidence_summary"] if item["scenario_id"] == "N-02")
+    assert n02["missing"] == []  # accepted actual evidence is complete
+    assert n02["records_on_this_pc"] == 0 and n02["official_present"] is False
 
 
 def test_forbidden_phrases_absent(catalog, tmp_path) -> None:

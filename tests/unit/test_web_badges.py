@@ -1,4 +1,4 @@
-"""T022 — badge table equals the 15 rows of spec "승인된 화면 구조와 상태 이름" (FR-005, SC-006, R-016). RED until T028."""
+"""Badge table equals spec "승인된 화면 구조와 상태 이름" (FR-005, SC-006, R-016), including CONFIG guidance."""
 
 from __future__ import annotations
 
@@ -36,10 +36,10 @@ def _labels(name: str) -> tuple[str, str | None]:
     return korean or english, english
 
 
-def test_exactly_the_fifteen_spec_rows() -> None:
+def test_badges_match_the_spec_rows() -> None:
     rows = _spec_rows()
-    assert len(rows) == 15
-    assert len(badges.BADGES) == 15
+    assert len(rows) == 16
+    assert len(badges.BADGES) == 16
     table = list(badges.BADGES.values())
     for (category, name, icon, shape, description), badge in zip(rows, table, strict=True):
         korean, english = _labels(name)

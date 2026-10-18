@@ -7,6 +7,8 @@ Only one check runs at a time. Stored payloads pass the output boundary (paths a
 from __future__ import annotations
 
 import json
+import os
+import re
 import subprocess
 import sys
 import threading
@@ -21,6 +23,8 @@ SCHEMA_VERSION = "controlproof.web-preflight.v1"
 TIMEOUT_SECONDS = 120
 TIMEOUT_ACTION = "준비 상태 확인 시간이 초과됐습니다"
 UNREADABLE_ACTION = "준비 상태 확인 결과를 읽을 수 없습니다. 명령줄에서 같은 확인을 실행해 보세요"
+WINDOWS_DIAGNOSTIC = re.compile(r"\[0x[0-9a-fA-F]+\] ANOMALY: meaningless REX prefix used")
+READINESS_VALUES = {"READY", "RUNNER_NOT_READY", "ACCESS_BLOCKED", "NO_TEST_TARGET"}
 
 
 class UnknownProfile(ValueError):
@@ -79,14 +83,22 @@ class PreflightRunner:
             for entry in catalog["scenarios"]
             for profile in entry["profiles"]
         }
+        self._explicit_files = {
+            (entry["id"], profile["execution_profile"]): profile["scenario_file"]
+            for entry in catalog["scenarios"] for profile in entry["profiles"]
+            if profile.get("explicit_scenario_file") is True
+        }
 
     def command(self, scenario_id: str, profile: str) -> list[str]:
         if (scenario_id, profile) not in self._profiles:
             raise UnknownProfile(f"{scenario_id} has no executable profile {profile}")
-        return [
+        command = [
             self._python, "-m", "engine.cli", "preflight", scenario_id, "--profile", profile,
             "--target", self.target, "--json",
         ]
+        if source := self._explicit_files.get((scenario_id, profile)):
+            command.extend(["--scenario-file", source])
+        return command
 
     def check(self, scenario_id: str, profile: str) -> dict[str, Any]:
         command = self.command(scenario_id, profile)
@@ -103,14 +115,13 @@ class PreflightRunner:
         base = {"schema_version": SCHEMA_VERSION, "scenario_id": scenario_id, "execution_profile": profile}
         try:
             completed = self._run(
-                command, capture_output=True, text=True, encoding="utf-8", timeout=self._timeout, cwd=self._cwd
+                command, capture_output=True, text=True, encoding="utf-8", timeout=self._timeout, cwd=self._cwd,
+                env={**os.environ, "PYTHONIOENCODING": "utf-8"},
             )
         except subprocess.TimeoutExpired:
             return _error(base, "UNEXPECTED", TIMEOUT_ACTION, exit_code=None)
         try:
-            payload = json.loads(completed.stdout)
-            if not isinstance(payload, dict) or payload.get("result_kind") not in {"READINESS", "ERROR"}:
-                raise ValueError("not a CLI readiness payload")
+            payload = _cli_payload(completed.stdout)
         except (TypeError, ValueError):
             return _error(base, "UNEXPECTED", UNREADABLE_ACTION, exit_code=completed.returncode)
         stored = redact(display_paths(payload))
@@ -126,6 +137,20 @@ class PreflightRunner:
             "exit_code": completed.returncode,
             "stored_payload": stored,
         }
+
+
+def _cli_payload(output: str) -> dict[str, Any]:
+    # Some Windows background processes append these native diagnostics to stdout.
+    # Exclude only this observed whole-line form; never fish JSON out of arbitrary logs.
+    clean = "".join(line for line in output.splitlines(keepends=True)
+                    if not WINDOWS_DIAGNOSTIC.fullmatch(line.strip()))
+    payload = json.loads(clean)
+    if (not isinstance(payload, dict) or payload.get("schema_version") != "controlproof.cli.v1"
+            or payload.get("command") != "preflight" or payload.get("result_kind") not in {"READINESS", "ERROR"}):
+        raise ValueError("not a CLI preflight payload")
+    if payload["result_kind"] == "READINESS" and payload.get("readiness") not in READINESS_VALUES:
+        raise ValueError("invalid readiness")
+    return payload
 
 
 def _error(base: dict[str, Any], error_kind: str, action: str, *, exit_code: int | None) -> dict[str, Any]:

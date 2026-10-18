@@ -1,5 +1,17 @@
 # Contract: 웹 read model (`controlproof.web.v1`)
 
+2026-10-15 결과 설명 보완(T089~T092): 기존 `question`과 원본 값은 보존하고 목록·보고서에 V4 원래 이름인
+`title`과 쉬운 `description`을 추가한다. Run/비교/자료에는 `scenario_title`, 개요에는 `latest_summary`를 추가한다.
+`run.review`는 실행별 실제 사실로 만든 `summary_sentences[]`, `summary`, `process`를 제공한다.
+조건은 `setup`과 receipt로 연결된 모델 점수/실제 저장값의 `comparison[]`를 추가한다. 원본 없는 숫자는 만들지 않는다.
+E01-D1은 본시험 규칙의 근거가 아니므로 조건별 sources에서 제외하되 원본 bundle·전체 파일 색인은 보존한다.
+별도 진단의 사실과 향후 재시험 범위는 [설명 보완 명세](../readable-results.md)에 기록한다.
+
+2026-10-15 준비 확인 보완: `ERROR/CONFIG`의 표시 배지는 `configuration_required`('시험 환경 설정 필요')다.
+`value=null`과 원본 `error_kind=CONFIG`를 유지하고, 프로필에 비민감 `note`, `missing_settings[]`,
+출력 경계를 통과한 `error_detail`을 제공한다. 사용법·미해석 오류는 기존 `tool_error`다.
+목록은 같은 배지와 조치를 표시하며 상태 설명 사전은 기본 접힘이다. 준비 상태 enum·판정은 추가하지 않는다.
+
 화면과 JSON 응답이 같은 뷰를 쓴다. 모든 값은 봉인 bundle·카탈로그·준비 상태 저장본에서 복사하며 웹이 판정을 계산하지 않는다. 모든 응답은
 출력 경계 redaction(경로는 `<run_root>/…` 또는 `[PATH]`)을 거친다. 엔티티 정의는 [data-model.md](../data-model.md).
 
