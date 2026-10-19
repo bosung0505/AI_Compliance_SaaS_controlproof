@@ -7,7 +7,7 @@ from contextlib import AbstractContextManager
 from typing import Any
 from uuid import UUID
 
-from sqlalchemy import create_engine
+from sqlalchemy import create_engine, text
 
 from engine.adapters.base import AdapterResult
 from engine.adapters.whyyou.n02_seed import (
@@ -100,6 +100,35 @@ class WhyYouSpec009SeedAdapter:
         if plan is None:
             raise LookupError("Spec 009 seed is not owned by this adapter")
         return plan.by_lane(lane_id).display_name
+
+    def read_consent_facts(self, *, subject: Mapping[str, Any]) -> AdapterResult:
+        """The latest active consent record of a lane: stored policy identifiers and completion time."""
+        try:
+            params = {
+                "company_id": UUID(self.settings.whyyou_company_id),
+                "invitation_id": UUID(str(subject["invitation_id"])),
+            }
+            with self._read_factory() as connection:
+                rows = connection.execute(
+                    text(
+                        "SELECT consent_record_id, policy_version, evidence_digest, accepted_at "
+                        "FROM consent_records WHERE company_id=:company_id AND invitation_id=:invitation_id "
+                        "AND withdrawn_at IS NULL ORDER BY accepted_at DESC LIMIT 1"
+                    ),
+                    params,
+                ).mappings().all()
+            record = None
+            if rows:
+                row = rows[0]
+                record = {
+                    "consent_record_id": str(UUID(str(row["consent_record_id"]))),
+                    "policy_version": str(row["policy_version"]),
+                    "evidence_digest": str(row["evidence_digest"]),
+                    "accepted_at": row["accepted_at"].isoformat(),
+                }
+        except Exception as exc:  # noqa: BLE001 - an unread record is an evidence fact, never a crash
+            return AdapterResult(False, "SPEC009_CONSENT_FACTS_UNAVAILABLE", detail=type(exc).__name__)
+        return AdapterResult(True, "SPEC009_CONSENT_FACTS_READ", {"record": record})
 
     def teardown_lanes(
         self, *, run_id: str, lanes: tuple[Spec009SubjectLane, ...]

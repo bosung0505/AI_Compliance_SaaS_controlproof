@@ -290,6 +290,54 @@ def test_nonzero_recount_marks_cleanup_failed_and_keeps_ownership(settings, prof
     assert store._values
 
 
+def test_read_consent_facts_returns_the_latest_active_record(settings) -> None:
+    """T009: stored policy identifiers for N01-A3/N03-A2 come straight from consent_records."""
+    db = FakeDatabase()
+    db.tables["consent_records"] = []
+    adapter = _adapter(settings, db)
+    run_id = str(uuid4())
+    lanes = adapter.seed_lanes(run_id=run_id, profile=N03)
+    subject = adapter.subject_for(run_id=run_id, lane_id=N03LaneId.STALE)
+    seen = []
+
+    class _Rows(_Result):
+        pass
+
+    def execute(sql, params):
+        if "FROM consent_records" in sql and "withdrawn_at IS NULL" in sql:
+            seen.append((sql, params))
+            from datetime import UTC, datetime
+
+            return _Rows([{
+                "consent_record_id": UUID(int=5), "policy_version": "2026-08-v1",
+                "evidence_digest": "a" * 64, "accepted_at": datetime(2026, 10, 20, tzinfo=UTC),
+            }])
+        return FakeDatabase.execute(db, sql, params)
+
+    db.execute = execute
+    result = adapter.read_consent_facts(subject=subject)
+    assert (result.ok, result.code) == (True, "SPEC009_CONSENT_FACTS_READ")
+    assert result.data["record"] == {
+        "consent_record_id": str(UUID(int=5)), "policy_version": "2026-08-v1",
+        "evidence_digest": "a" * 64, "accepted_at": "2026-10-20T00:00:00+00:00",
+    }
+    sql, params = seen[0]
+    assert "ORDER BY accepted_at DESC" in sql and "LIMIT 1" in sql
+    assert str(params["invitation_id"]) == str(lanes[0].invitation_id)
+    assert db.transactions[-1] == "connect"
+
+    db.execute = lambda sql, params: _Result()
+    empty = adapter.read_consent_facts(subject=subject)
+    assert empty.ok and empty.data["record"] is None
+
+    def broken(sql, params):
+        raise RuntimeError("database unavailable")
+
+    db.execute = broken
+    failed = adapter.read_consent_facts(subject=subject)
+    assert (failed.ok, failed.code) == (False, "SPEC009_CONSENT_FACTS_UNAVAILABLE")
+
+
 def test_composition_shares_one_store_across_spec009_adapters(settings) -> None:
     adapters, _client = create_whyyou_adapter(settings)
     assert isinstance(adapters.spec009_seed, WhyYouSpec009SeedAdapter)

@@ -12,6 +12,7 @@ from uuid import UUID, uuid4
 from engine.lifecycle import atomic_write
 from engine.models import (
     SPEC004_PROFILES,
+    SPEC009_PROFILES,
     EvidenceArtifact,
     ExecutionProfile,
     IntegrityStatus,
@@ -23,6 +24,7 @@ from engine.models import (
     utcnow,
 )
 
+SPEC009_PROFILE_CONTRACT = "controlproof.bundle-profile.spec009.v1"
 REDACTED = "[REDACTED]"
 HASHED = "[HASHED]"
 FORBIDDEN_KEYS = {
@@ -63,6 +65,10 @@ FORBIDDEN_KEYS = {
     "transcript_text",
     "criterion_description",
     "playback_url",
+    # Spec 009: applicant invitation tokens and session cookies never enter a bundle.
+    "invitation_token",
+    "raw_invitation_token",
+    "raw_session_cookie",
 }
 PII_KEYS = {
     "name",
@@ -249,6 +255,7 @@ def _is_spec004_profile(profile: ExecutionProfile | None) -> bool:
 def _is_versioned_profile(profile: ExecutionProfile | None) -> bool:
     return (
         profile in {ExecutionProfile.H01_HUMAN_DECISION_V1, ExecutionProfile.H02_CAPABILITY_SURFACE_V1}
+        or profile in SPEC009_PROFILES
         or _is_spec002_profile(profile)
         or _is_spec003_profile(profile)
         or _is_spec004_profile(profile)
@@ -261,6 +268,9 @@ def _canonical_files(profile: ExecutionProfile | None) -> set[str]:
         return REQUIRED_FILES
     if profile is ExecutionProfile.H01_HUMAN_DECISION_V1:
         from engine.h01_evidence import REQUIRED_FILES
+        return REQUIRED_FILES
+    if profile is ExecutionProfile.N03_STALE_CONSENT_V1:
+        from engine.n03_evidence import REQUIRED_FILES
         return REQUIRED_FILES
     if profile in {ExecutionProfile.H03_DLQ_V2, ExecutionProfile.E03_BEFORE_V2}:
         return set(SPEC002_DLQ_CANONICAL_FILES)
@@ -755,6 +765,10 @@ class EvidenceBundleWriter:
             manifest.update(profile_contract='controlproof.bundle-profile.spec006.v1',
                             execution_profile=self.profile.value,
                             environment_snapshot_digest=self.run.environment_snapshot_digest)
+        elif self.profile in SPEC009_PROFILES:
+            manifest.update(profile_contract=SPEC009_PROFILE_CONTRACT,
+                            execution_profile=self.profile.value,
+                            environment_snapshot_digest=self.run.environment_snapshot_digest)
         elif _is_spec002_profile(self.profile):
             manifest.update(
                 {
@@ -887,6 +901,9 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
         elif profile is ExecutionProfile.H01_HUMAN_DECISION_V1:
             from engine.h01_evidence import verify_links
             verify_links(directory, required_evidence, registered, artifact_records, result)
+        elif profile is ExecutionProfile.N03_STALE_CONSENT_V1:
+            from engine.n03_evidence import verify_links
+            verify_links(directory, required_evidence, registered, artifact_records, result)
         elif _is_spec002_profile(profile):
             _verify_spec002_evidence(
                 directory,
@@ -943,6 +960,9 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
         verify_facts(directory, manifest, result)
     elif profile is ExecutionProfile.H01_HUMAN_DECISION_V1:
         from engine.h01_evidence import verify_facts
+        verify_facts(directory, manifest, result)
+    elif profile is ExecutionProfile.N03_STALE_CONSENT_V1:
+        from engine.n03_evidence import verify_facts
         verify_facts(directory, manifest, result)
     if _is_spec002_profile(profile):
         _verify_spec002_snapshot_links(directory, manifest, result)
@@ -1034,6 +1054,8 @@ def _resolve_bundle_profile(
         expected_contract = 'controlproof.bundle-profile.spec007.v1'
     elif profile is ExecutionProfile.H01_HUMAN_DECISION_V1:
         expected_contract = 'controlproof.bundle-profile.spec006.v1'
+    elif profile in SPEC009_PROFILES:
+        expected_contract = SPEC009_PROFILE_CONTRACT
     elif _is_spec003_profile(profile):
         expected_contract = SPEC003_PROFILE_CONTRACT
     elif _is_spec004_profile(profile):

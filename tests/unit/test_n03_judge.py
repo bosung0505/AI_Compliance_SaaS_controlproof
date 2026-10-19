@@ -178,6 +178,28 @@ def test_recovery_failure_makes_verdict_inconclusive(evidence) -> None:
     assert "applicant_access_tokens" not in tables and cleanup_verified(_recovery())
 
 
+def test_unread_current_or_reread_policy_is_inconclusive(evidence) -> None:
+    """T009: an executor that could not read the policy seals the attempt without identifiers."""
+    evidence["stale_attempt"] = _attempt(
+        current=None, submitted=None, response_status=None, adapter_code="NOT_ATTEMPTED", durable_state="NOT_ATTEMPTED"
+    )
+    evidence["latest_commit"] = _latest(reread=None, response_status=None, stored=None, adapter_code="NOT_ATTEMPTED")
+    results = _run(evidence)
+    assert _statuses(results) == {"N03-A1": "INCONCLUSIVE", "N03-A2": "INCONCLUSIVE", "N03-A3": "PASS"}
+    assert results[0].actual["current"] is None and results[1].actual["reread"] is None
+
+
+def test_success_class_without_exact_status_counts_as_2xx(evidence) -> None:
+    """The consent adapter's success envelope carries no status code; ok=True is recorded as class 2xx."""
+    evidence["stale_attempt"] = _attempt(
+        response_status=None, response_class="2xx", adapter_code="CONSENT_COMMIT_RESPONSE_RECEIVED", durable_state="COMMITTED"
+    )
+    evidence["latest_commit"] = _latest(response_status=None, response_class="2xx")
+    results = _run(evidence)
+    assert _statuses(results)["N03-A1"] == "FAIL" and _statuses(results)["N03-A2"] == "PASS"
+    assert results[0].actual["response_class"] == "2xx"
+
+
 def test_consent_state_lane_id_accepts_spec009_lanes_and_keeps_n02_values() -> None:
     assert _state("stale", step="x")["lane_id"] == "stale"
     snapshot = ConsentStateSnapshot.model_validate(_state("past", step="x"))

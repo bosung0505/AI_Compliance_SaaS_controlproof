@@ -15,6 +15,7 @@ from engine.models import (
     SPEC003_UNVERIFIED_SCOPE,
     SPEC004_PROFILES,
     SPEC004_UNVERIFIED_SCOPE,
+    SPEC009_PROFILES,
     TERMINAL_RUN_STATES,
     ExecutionProfile,
     FaultVariant,
@@ -78,12 +79,16 @@ def prepare_retest(
         raise RetestError("retest child must inherit the parent execution profile")
     if child_fault_variant is not parent_run.fault_variant:
         raise RetestError("retest child must inherit the parent fault variant")
-    if parent_profile in {ExecutionProfile.H01_HUMAN_DECISION_V1, ExecutionProfile.H02_CAPABILITY_SURFACE_V1}:
+    if parent_profile in {
+        ExecutionProfile.H01_HUMAN_DECISION_V1, ExecutionProfile.H02_CAPABILITY_SURFACE_V1, *SPEC009_PROFILES
+    }:
+        # Spec 009 reuses the H-01 rule: clean child sources and a parent whose owned residue is zero.
+        name = 'Spec 009' if parent_profile in SPEC009_PROFILES else 'H01'
         if child_environment is None or child_environment.controlproof_commit.dirty or child_environment.whyyou_commit.dirty:
-            raise RetestError('H01 child requires clean source environment')
+            raise RetestError(f'{name} child requires clean source environment')
         recovery = _read(directory / 'recovery.json')
         if recovery.get('status') != 'SUCCEEDED' or any(recovery.get('owned_residue_counts',{'unknown':1}).values()):
-            raise RetestError('H01 parent cleanup is unresolved')
+            raise RetestError(f'{name} parent cleanup is unresolved')
         return parent_run, parent_digest, {
             'link': {'parent_run_id':str(parent_run.run_id),'child_run_id':str(child_run_id),
                      'parent_bundle_digest':parent_digest,'reason':f'{parent_run.scenario_id} 최초 사실 보존 후 독립 재테스트',

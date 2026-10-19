@@ -6,7 +6,7 @@ N03-U1~U3 and N03-L1 are never judged here; the executor carries them in Judgeme
 from __future__ import annotations
 
 import re
-from typing import Any
+from typing import Any, Literal
 from uuid import UUID
 
 from pydantic import BaseModel, ConfigDict
@@ -55,17 +55,21 @@ class N03StoredPolicy(N03Model):
 
 class N03StaleAttempt(N03Model):
     subject: N03Subject
-    current: N03Identifier
-    submitted: N03Identifier
+    # None when the executor could not read the current policy (sealed as-is, judged INCONCLUSIVE).
+    current: N03Identifier | None
+    submitted: N03Identifier | None
     response_status: int | None = None
+    # The consent adapter's success envelope has no status code; ok=True is recorded as "2xx".
+    response_class: Literal["2xx", "non-2xx"] | None = None
     adapter_code: str
     durable_state: str
 
 
 class N03LatestCommit(N03Model):
     subject: N03Subject
-    reread: N03Identifier
+    reread: N03Identifier | None
     response_status: int | None = None
+    response_class: Literal["2xx", "non-2xx"] | None = None
     adapter_code: str
     stored: N03StoredPolicy | None = None
     consent_record_id: UUID | None = None
@@ -100,8 +104,10 @@ def stale_identifier(current) -> dict[str, str]:
     return stale
 
 
-def _success(status: int | None) -> bool:
-    return status is not None and 200 <= status < 300
+def _success(status: int | None, response_class: str | None = None) -> bool:
+    if status is not None:
+        return 200 <= status < 300
+    return response_class == "2xx"
 
 
 def _readable(state: ConsentStateSnapshot | None) -> bool:
@@ -111,12 +117,15 @@ def _readable(state: ConsentStateSnapshot | None) -> bool:
 def assess_stale(
     attempt: N03StaleAttempt, before: ConsentStateSnapshot | None, after: ConsentStateSnapshot | None
 ) -> tuple[str, str]:
+    if attempt.current is None or attempt.submitted is None:
+        return "INCONCLUSIVE", "현재 정책 식별값을 읽지 못해 이전 식별값을 제출하지 못했습니다."
     if attempt.submitted.version == attempt.current.version or attempt.submitted.digest == attempt.current.digest:
         return "INCONCLUSIVE", "실행기 결함: 이전 식별값이 현재와 같음."
     if not (_readable(before) and _readable(after)):
         return "INCONCLUSIVE", "이전 식별값 제출 전후의 동의 상태를 읽지 못했습니다."
-    if _success(attempt.response_status):
-        return "FAIL", f"이전 정책 식별값 제출이 성공 응답({attempt.response_status})을 받았습니다."
+    if _success(attempt.response_status, attempt.response_class):
+        shown = attempt.response_status or attempt.response_class
+        return "FAIL", f"이전 정책 식별값 제출이 성공 응답({shown})을 받았습니다."
     if before.state_digest != after.state_digest:
         return "FAIL", "이전 정책 식별값 제출 뒤 동의 기록·초대 상태·상태 이력·outbox가 바뀌었습니다."
     if attempt.adapter_code in TRANSPORT_CODES:
@@ -127,10 +136,12 @@ def assess_stale(
 
 
 def assess_latest(commit: N03LatestCommit) -> tuple[str, str]:
-    if commit.stored is None or commit.response_status is None:
+    if commit.reread is None:
+        return "INCONCLUSIVE", "최신 정책을 다시 읽지 못해 재조회 값으로 제출하지 못했습니다."
+    if commit.stored is None or (commit.response_status is None and commit.response_class is None):
         return "INCONCLUSIVE", "재조회 값으로 낸 동의의 응답이나 저장 기록을 읽지 못했습니다."
     if (
-        _success(commit.response_status)
+        _success(commit.response_status, commit.response_class)
         and commit.stored.policy_version == commit.reread.version
         and commit.stored.evidence_digest == commit.reread.digest
     ):
@@ -196,9 +207,10 @@ def assertions_for(
             stale[0],
             {"response": "non-2xx", "state": "unchanged", "submitted_differs_from_current": True},
             {
-                "submitted": attempt.submitted.model_dump(),
-                "current": attempt.current.model_dump(),
+                "submitted": attempt.submitted.model_dump() if attempt.submitted else None,
+                "current": attempt.current.model_dump() if attempt.current else None,
                 "response_status": attempt.response_status,
+                "response_class": attempt.response_class,
                 "adapter_code": attempt.adapter_code,
                 "before": _digest(before),
                 "after": _digest(after),
@@ -211,8 +223,9 @@ def assertions_for(
             latest[0],
             {"response": "2xx", "stored == reread": True},
             {
-                "reread": commit.reread.model_dump(),
+                "reread": commit.reread.model_dump() if commit.reread else None,
                 "response_status": commit.response_status,
+                "response_class": commit.response_class,
                 "stored": commit.stored.model_dump() if commit.stored else None,
             },
             latest[1],

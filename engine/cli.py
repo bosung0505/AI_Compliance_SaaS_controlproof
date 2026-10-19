@@ -23,6 +23,7 @@ from engine.models import (
     SPEC003_UNVERIFIED_SCOPE,
     SPEC004_PROFILES,
     SPEC004_UNVERIFIED_SCOPE,
+    SPEC009_PROFILES,
     AwsDeploymentStatus,
     EnvironmentKind,
     ExecutionProfile,
@@ -355,6 +356,7 @@ def _retest(args: argparse.Namespace) -> int:
             ExecutionProfile.H03_MINIMAL_V1,
             ExecutionProfile.N02_CONSENT_ORDER_V1,
             *SPEC004_PROFILES,
+            *SPEC009_PROFILES,
         }
         else None
     )
@@ -636,7 +638,7 @@ def _scenario_selection(
     args: argparse.Namespace,
 ) -> tuple[Path, ExecutionProfile]:
     raw_profile = getattr(args, "profile", None)
-    if args.scenario_id in {"E-03", "N-02", "E-01", "E-02"} and raw_profile is None:
+    if args.scenario_id in {"E-03", "N-02", "E-01", "E-02", "N-03"} and raw_profile is None:
         raise CliContractError(
             "PROFILE_REQUIRED",
             f"{args.scenario_id} requires an explicit compatible --profile",
@@ -654,6 +656,7 @@ def _scenario_selection(
         "N-02": {ExecutionProfile.N02_CONSENT_ORDER_V1},
         "E-01": {ExecutionProfile.E01_CITATION_EVIDENCE_V1},
         "E-02": {ExecutionProfile.E02_SCORING_FREEZE_V1},
+        "N-03": {ExecutionProfile.N03_STALE_CONSENT_V1},
     }
     if profile not in allowed.get(args.scenario_id, set()):
         raise CliContractError(
@@ -675,6 +678,7 @@ def _profile_scenario_path(profile: ExecutionProfile) -> Path:
         ExecutionProfile.N02_CONSENT_ORDER_V1: root / "N-02.yaml",
         ExecutionProfile.E01_CITATION_EVIDENCE_V1: root / "E-01.yaml",
         ExecutionProfile.E02_SCORING_FREEZE_V1: root / "E-02.yaml",
+        ExecutionProfile.N03_STALE_CONSENT_V1: root / "N-03.yaml",
     }[profile]
 
 
