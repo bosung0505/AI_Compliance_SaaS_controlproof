@@ -33,10 +33,9 @@
 
 - Validation run 1 (2026-10-19): FR sections were reordered so FR numbers read N-01 (FR-010~013) before H-01 (FR-020~025);
   mentions of the marker in Status/Clarifications were reworded so only the three real markers remain. Re-check: 15/16 pass.
-- Open by design: three [NEEDS CLARIFICATION] markers — FR-005 (record/show the target access kind per scenario so
-  buyers can read their judgment scope), FR-023 (how to treat `SYSTEM` and the AI assistant, which have no HTTP
-  credentials), FR-031 (N-03 policy-swap injection and analysis-job attribution). The session instruction was to stop at
-  Specify, so they are left for `$speckit-clarify`.
+- Clarify (2026-10-19): the three [NEEDS CLARIFICATION] markers (FR-005, FR-023, FR-031) are closed with the product
+  owner's answers; none remain. The H01-A4 "요청 주체" criterion follows recommendation A (연우 선택), pending product
+  owner confirmation. Re-check: 16/16 pass.
 - Not raised as a marker but to confirm in Clarify: V4 §7.3 adds "회사 사용자가 AI 점수 순위와 독립적으로 결정" to H-02,
   which §10.5 does not; the draft follows §10.5 and records this under Assumptions.
 - Domain terms kept on purpose: status names and reason codes (D-011), `SYSTEM`, `LOCAL_EMULATED`, `verify`, policy
