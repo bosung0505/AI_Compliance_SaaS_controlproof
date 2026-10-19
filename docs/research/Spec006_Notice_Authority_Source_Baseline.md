@@ -87,7 +87,8 @@
 - **실행 중 정책을 바꿀 수단이 없다.** 정책은 코드 상수이고 서비스 생성자 기본값으로 들어간다
   (`applicant_access_service.py` 60). 관리 API나 DB 경로가 없다. 교체를 일으키려면 WhyYou 쪽 시험용 수단이 필요하다
   (Spec 003의 `runtime/controlproof_consent.py`처럼 로컬·시험 환경에서만 켜지는 방식이 선례다).
-- 동의 기록에는 `policy_version`이 저장된다. 제출 승인 객체에도 `policy_version`이 실린다
+- 동의 기록에는 `policy_version`이 저장된다. 제출된 내용 해시도 동의 기록의 `evidence_digest`로 저장된다
+  (`company_management/application/applicant_access_service.py` 153·157). 제출 승인 객체에도 `policy_version`이 실린다
   (`integration/company_submission.py` 58·74).
 - 분석 작업이 어느 정책 버전으로 시작됐는지 남기는 저장 필드는 `submission_analysis/`·`workers/`에서 찾지 못했다.
   (`submission_analysis/application/authorization.py` 99의 `"2026-08-v1"`은 시험용 대역 객체의 고정값이다.)
