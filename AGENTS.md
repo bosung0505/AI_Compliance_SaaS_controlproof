@@ -172,3 +172,18 @@ changes require a reviewed new snapshot context, never resealing evidence. Keep 
 Read specs/008-shared-run-records/validation.md and review-data/README.md for current validation/launch.
 The isolated Git clone test is shared-view validation, not independent WhyYou re-execution. Preserve
 D-014/D-018 as historical decisions and D-019's actual reproduction scope.
+
+## Spec 009 N-01·N-03 stage1 preparation (2026-10-19, 연우)
+
+Active feature: `specs/009-n01-n03-notice-scenarios/`, branch `009-n01-n03-notice-scenarios` (from
+`fixes-and-remaining-work` `b76af4c`; WhyYou `bosung0505/gbsa_aws` `fixes-and-remaining-work` `0166d9e`).
+Decision D-030. The earlier `006-notice-authority-scenarios` branch (Spec 006 draft covering N-01·N-03·H-01·H-02,
+its own D-024) is superseded and must not be merged; H-01/H-02 follow Spec006/Spec007 above. Register the two
+profiles `N01_NOTICE_V1`/`N03_STALE_CONSENT_V1` the same way H-01/H-02 were registered (models canonical,
+scenario validation branch, runner registry, CLI maps, evidence REQUIRED_FILES/verify_links/verify_facts,
+retest branch, presentation). Scenario schema `controlproof.scenario.v9`, bundle contract
+`controlproof.bundle-profile.spec009.v1`, evidence ids EV9-01~07. Keep catalog 12/7/2/3, N-01/N-03 official
+NOT_RUN and `tests/unit/test_catalog_matrix_parity.py` unchanged until Spec 009 closure. Do not modify WhyYou;
+the applicant app is started only by the harness (`scripts/spec009_local.py`, API port 8080 because the vite
+proxy target is fixed). No actual Run, npm/playwright install, commit or push without the user's explicit approval.
+Report documentation mismatches instead of editing other specs.

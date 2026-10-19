@@ -543,3 +543,30 @@ E01/E02 재현 원본2건을 추가 발견했다. N02 과거 중간1건은 미�
 공유본 조회 검증이며 새로운 WhyYou 실행/별도 PC 테스트/AWS 검증이 아니다. 기존 시나리오 판정과 source SHA는 유지한다.
 사용자 목표인 팀원 Git 인계를 위해 기존 fixes-and-remaining-work에 코드/공유 기록/문서를 함께 게시한다.
 검증 상세와 실제 게시 checkpoint는 Spec008 Validation 및 TEAM_HANDOFF를 따른다.
+
+## D-030. 카탈로그 `NOT_RUN` 2개(N-01·N-03)를 Spec 009 실행 범위로 확대한다
+
+- 상태: 확정 (2026-10-19). 연우 제안, 제품 책임자 구두 승인(2026-10-19, 연우 전달).
+- 경위: 2026-10-19 연우는 당시 `NOT_RUN` 4개(N-01·N-03·H-01·H-02)를 한 Spec(006)으로 묶어 `006-notice-authority-scenarios`
+  브랜치에 Specify·Clarify·Plan 초안과 같은 번호의 D-024 초안을 썼다. 같은 날 제품 책임자가 `fixes-and-remaining-work`에서
+  H-01(Spec 006, D-024·D-025)·H-02(Spec 007, D-026·D-027)를 실제 실행·마감하고 Spec 008·D-029까지 번호를 썼다.
+  번호가 겹치고 H-01·H-02가 끝났으므로, 연우의 초안은 병합하지 않고 남은 N-01·N-03만 Spec 009와 이 결정으로 옮긴다.
+  H-01·H-02는 보성의 결과가 기준이며 다시 실행하지 않는다.
+- 변경 전: D-013·D-014와 범위표 §2·§3은 N-01·N-03을 2주 MVP에서 실행하지 않는 `NOT_RUN`으로 고정했다. 범위표 §4 규칙 5는
+  이 둘을 실제 실행하려면 별도 Spec 또는 제품 책임자의 범위 변경을 Decision Log에 먼저 남기게 한다.
+- 변경 후:
+  1. N-01·N-03을 Spec 009 하나에서 실제 실행 대상으로 다룬다. N-03의 범위(교체 수단이 없어 일부만 대상이 있음)는 Spec 009
+     Clarify대로 N03-A1~A3만 판정하고 나머지는 미검증 범위로 표시한다("N-03 일부 실행").
+  2. 기준 source는 ControlProof `fixes-and-remaining-work` `b76af4c`, WhyYou `bosung0505/gbsa_aws` `fixes-and-remaining-work`
+     `0166d9e`다. 사전 조사는 `docs/research/Spec009_N01_N03_WhyYou_Source_Baseline.md`에 있다.
+  3. 실제 Run과 검증 기록이 생기기 전까지 두 시나리오의 상태는 `NOT_RUN` 그대로다. 범위표·카탈로그·README·Product Brief의
+     "실행 7 / NOT_RUN 2" 숫자와 고정 문구는 Spec 009 closure에서만 바꾼다.
+  4. A-01~A-03은 `NO_TEST_TARGET`을 유지한다.
+  5. 합성 데이터, 외부 AI 차단, `LOCAL_EMULATED`, AWS `NOT_RUN`, 최초 FAIL 보존, 공식 Run마다 승인 원칙은 그대로다.
+     WhyYou 변경이 필요하면 `fixes-and-remaining-work`에서 분기한 개인 브랜치와 PR로만 한다.
+  6. 작업 브랜치는 `fixes-and-remaining-work`에서 분기한 `009-n01-n03-notice-scenarios`이고, 통합은 보성 검토 뒤 그 브랜치로 한다.
+- 이유: 원천 기준선에서 N-01은 WhyYou 수정 없이 시험 대상이 있고, N-03은 낡은 정책 거부만 대상이 있음을 확인했다. 고지
+  영역의 실행 범위를 넓히면 카탈로그의 실제 실행 시나리오는 7개에서 9개가 된다(N-03은 일부 실행 표기).
+- 영향: Spec 009를 새로 만든다. 범위표 §2·§3, `catalog/mvp-scenarios.yaml`의 `mvp_treatment`, Product Brief §14.6, README,
+  TEAM_HANDOFF는 Spec 009 closure에서 실제 결과대로 갱신한다. 연우의 `006-notice-authority-scenarios` 브랜치는 이력으로만 남긴다.
+- 재검토 조건: WhyYou 수정이 필요해질 때, 일정상 한 시나리오를 다시 `NOT_RUN`으로 둘 때, 기준 source가 바뀔 때.
