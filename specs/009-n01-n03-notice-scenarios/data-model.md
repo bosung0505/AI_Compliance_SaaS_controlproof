@@ -14,9 +14,9 @@ ControlProof 쪽 모델만 정의한다. WhyYou 표는 읽기 대상이며 바�
 |---|---|---|
 | `ExecutionProfile` 2값 | `engine/models.py` | `N01_NOTICE_V1`, `N03_STALE_CONSENT_V1` |
 | `SPEC009_PROFILES` | `engine/models.py` | 위 두 값의 frozenset |
-| `TargetAccessKind` | `engine/models.py` | `SCREEN`, `API`, `SOURCE` (값·표시 문구는 contracts/scenario-profile-v5.md) |
-| `ScenarioDefinition.target_access` | `engine/scenario.py` | `tuple[TargetAccessKind, ...]`, v5 필수 |
-| `ScenarioDefinition.unverified_scope_items`, `limitations` | `engine/scenario.py` | `ScopeItem{id, text, follow_up?}` 목록, v5 선택 |
+| `TargetAccessKind` | `engine/models.py` | `SCREEN`, `API`, `SOURCE` (값·표시 문구는 contracts/scenario-profile-v9.md) |
+| `ScenarioDefinition.target_access` | `engine/scenario.py` | `tuple[TargetAccessKind, ...]`, v9 필수 |
+| `ScenarioDefinition.unverified_scope_items`, `limitations` | `engine/scenario.py` | `ScopeItem{id, text, follow_up?}` 목록, v9 선택 |
 
 ## N-01
 

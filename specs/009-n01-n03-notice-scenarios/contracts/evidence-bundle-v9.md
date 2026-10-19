@@ -11,7 +11,7 @@
 | `run.json` | EV9-07 | Run 메타(프로필, 상태, fixture 식별, 계보) |
 | `scenario.snapshot.yaml` | EV9-01 | 시나리오 정의 사본·digest(`target_access` 포함) |
 | `target.snapshot.json` | EV9-01 | 대상 git sha, OpenAPI digest, 마이그레이션 head |
-| `environment.snapshot.json` | EV9-01 | `LOCAL_EMULATED`, 외부 AI 차단, AWS `NOT_RUN`, 미검증 범위·한계 ID, fixture 식별 |
+| `environment.snapshot.json` | EV9-01 | `LOCAL_EMULATED`, 외부 AI 차단, AWS `NOT_RUN`, fixture 식별. 기존 환경 어댑터 캡처 그대로(허용 집합 불변, plan.md Compatibility). 시나리오별 미검증 범위·한계 ID는 여기 두지 않고 `scenario.snapshot.yaml`과 `run.json`·`judgement.json`의 `unverified_scope`에 둔다 |
 | `subjects.json` | EV9-02 | Run 소유 합성 지원자·lane(원시 토큰·쿠키 없음) |
 | `observations.jsonl` | EV9-03/05 | 단계별 관찰 행 |
 | `assertions.json`, `judgement.json` | EV9-07 | assertion별 판정·사유·근거 EV 경로 |

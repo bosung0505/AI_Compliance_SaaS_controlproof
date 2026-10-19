@@ -186,4 +186,7 @@ retest branch, presentation). Scenario schema `controlproof.scenario.v9`, bundle
 NOT_RUN and `tests/unit/test_catalog_matrix_parity.py` unchanged until Spec 009 closure. Do not modify WhyYou;
 the applicant app is started only by the harness (`scripts/spec009_local.py`, API port 8080 because the vite
 proxy target is fixed). No actual Run, npm/playwright install, commit or push without the user's explicit approval.
-Report documentation mismatches instead of editing other specs.
+Report documentation mismatches instead of editing other specs. On this branch `scripts.share_records --verify` and the
+default shared web mode are expected to refuse ("Snapshot display code/catalog differs") because the snapshot pins
+`b76af4c` code; the real gate is that each of the 25 `review-data/bundles` keeps its recorded verification result.
+A new shared snapshot (new snapshot_id, bundle bytes and verdicts unchanged) is built at Spec 009 closure under 보성's review.

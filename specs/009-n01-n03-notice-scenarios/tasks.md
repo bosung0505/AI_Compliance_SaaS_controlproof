@@ -8,7 +8,7 @@
 
 - [X] T001 Source discovery·scope in `spec.md`, `research.md`, `docs/research/Spec009_N01_N03_WhyYou_Source_Baseline.md` [FR-001~005, 010~013, 030~032].
 - [X] T002 Plan·contracts·data model·checklist in `plan.md`, `contracts/*.md`, `data-model.md`, `checklists/requirements.md` [FR-001~056, SC-001~011].
-- [ ] T003 Analyze: spec·plan·contracts·tasks 교차 검토(CRITICAL·HIGH 0), 결과를 `analysis.md`에 기록.
+- [X] T003 Analyze: spec·plan·contracts·tasks 교차 검토(CRITICAL·HIGH 0), 결과를 `analysis.md`에 기록.
 - [ ] T004 [US1][US2] 모델·프로필 등록 — `engine/models.py`(`N01_NOTICE_V1`, `N03_STALE_CONSENT_V1`, `SPEC009_PROFILES`, `N01LaneId`, `N03LaneId`, `TargetAccessKind`, canonical, Run 검증; 환경 스냅샷 허용 집합은 그대로), `engine/scenario.py`(v9 세 필드, 프로필별 고정), `scenarios/N-01.yaml`, `scenarios/N-03.yaml`; 시험 `tests/contract/test_scenario_spec009.py`(v9 검증, 기존 YAML 의미 불변) [FR-002, FR-005, FR-055].
 - [ ] T005 [US1][US2] 순수 판정 — `engine/n01.py`(조각·항목·화면 관찰 모델, `assertions_for`), `engine/n03.py`(이전 식별값 규칙, projection 비교, `assertions_for`); 시험 `tests/unit/test_n01_judge.py`, `tests/unit/test_n03_judge.py`(PASS·FAIL·INCONCLUSIVE fixture, SC-003 한 화면 한 항목 가림, SC-004 미검증 범위 조립) [FR-011, FR-012, FR-030, FR-031, FR-050].
 - [ ] T006 [US1] 지원자 화면 어댑터 — `engine/adapters/whyyou/applicant_browser.py`(viewport별 컨텍스트, 접근→본인 확인→동의 단계, 정책 응답 관찰, 조각 측정, 캡처, DOM 토큰 검사, 체크박스·제출), `engine/adapters/base.py` Protocol, `create_whyyou_adapter` 조립; 시험 `tests/contract/test_applicant_browser_adapter.py`(fake page로 측정 해석·접근 거부·대상 부재·일시 장애 구분) [FR-010, FR-011, FR-012].
@@ -18,7 +18,7 @@
 - [ ] T010 [US1][US2] 준비 상태·capability — `engine/adapters/whyyou/capability.py`(`applicant.screen.open`, `browser.chromium.available`, `n01.invitations.*`), preflight 대조; 시험 `tests/contract/test_capability_spec009.py`(`ACCESS_BLOCKED`·`RUNNER_NOT_READY` 구분, 새 준비 상태 값 0) [FR-004, FR-005, SC-011].
 - [ ] T011 [US3] 워크벤치 한 줄 — `engine/presentation.py`, `engine/web/readmodel.py`, `templates/run.html`, `templates/scenario.html`(대상 접근, N-03 미검증 범위·후속 조건); 시험 `tests/web/test_spec009_display.py`(두 화면 표시, 기존 화면·공유 모드 회귀) [FR-054, SC-008, SC-011].
 - [ ] T012 하네스 — `scripts/spec009_local.py`(`spec004_local` 래퍼, `--api-port` 기본 8080, 8080·5174 점유 시 `up` 거부, `--with-applicant-app`으로 `npm run dev:applicant` 기동·`stop` 종료, `CONTROLPROOF_APPLICANT_APP_URL`); 시험 `tests/unit/test_spec009_local_setup.py` [FR-001].
-- [ ] T013 자동 gate — `ruff check`, `pytest tests -q` 전체(기존 + 신규), `tests/unit/test_catalog_matrix_parity.py` 12/7/2/3 그대로 통과, `scripts.share_records --verify` 그대로 통과; 명령·결과를 `validation.md`에 기록(actual `NOT_RUN`) [SC-009].
+- [ ] T013 자동 gate — `ruff check`, `pytest tests -q` 전체(기존 + 신규), `tests/unit/test_catalog_matrix_parity.py` 12/7/2/3 그대로 통과, 공유 bundle 25건 각각의 `engine.shared_records.verification` 결과가 `review-data/snapshot.json` 기록과 같음(24 VERIFIED, `ce5f2750…` INVALID), `scripts.share_records --verify`는 "Snapshot display code/catalog differs; select its matching code version"으로 거부됨을 확인(plan Compatibility (a)(b)); 명령·결과를 `validation.md`에 기록(actual `NOT_RUN`) [SC-009].
 - [ ] T014 `traceability.md`(FR·SC·assertion·EV9·시험 파일 대응), AGENTS·TEAM_HANDOFF 1단계 상태 한 줄, Decision Log D-030 1단계 마감 후속.
 
 Dependencies: T003 → T004 → T005 → (T006, T007, T008 병렬) → T009 → T010 → T011 → T012 → T013 → T014. Tests precede code.
@@ -30,4 +30,4 @@ US1(N-01)·US2(N-03)는 각각 fake adapter로 독립 시험한다. 구현 중 �
 - [ ] T016 N-01 최초 Run → `verify` → 판정 기록. FAIL·INCONCLUSIVE는 보존하고 원인 분류 뒤 승인된 수정이 있으면 child만.
 - [ ] T017 N-03 최초 Run → `verify` → 판정 기록. 같은 규칙.
 - [ ] T018 독립 잔여 확인(소유 데이터 0), 워크벤치 로컬 모드 확인, `validation.md`·`actual-closure.md` 기록.
-- [ ] T019 Closure: 카탈로그(`mvp_treatment`·`profiles`·`official_status`), 범위표 §2·§3(N-03 질문 문구·일부 실행 표기), README, Product Brief §14.6, TEAM_HANDOFF, D-030 후속. 보성 검토 뒤 `fixes-and-remaining-work` 통합 PR.
+- [ ] T019 Closure: 카탈로그(`mvp_treatment`·`profiles`·`official_status`), 범위표 §2·§3(N-03 질문 문구·일부 실행 표기), README, Product Brief §14.6, TEAM_HANDOFF, D-030 후속, 공유 snapshot 재생성(보성 검토, 새 `snapshot_id`, bundle 불변). 보성 검토 뒤 `fixes-and-remaining-work` 통합 PR.

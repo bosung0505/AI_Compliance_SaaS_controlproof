@@ -92,7 +92,7 @@ ControlProof 쪽 vite `--config` 파일로 프록시 대상을 바꾸기 — Why
 | 프로필 enum | `engine/models.py` 86~87 | `H01_HUMAN_DECISION_V1` | `N01_NOTICE_V1`, `N03_STALE_CONSENT_V1` |
 | canonical 프로필 | `engine/models.py` 335~341, 449~450 | `ScenarioProfile.canonical` 분기, 적용 assertion 튜플 | 같은 분기 둘 |
 | Run 검증 | `engine/models.py` 1819~1834 | 로컬 source·environment identity 요구 | 같은 요구 |
-| 시나리오 검증 | `engine/scenario.py` 321~347, 506 | 프로필별 fixture·capability 고정 | v5 필드(`target_access`) + 프로필별 고정 |
+| 시나리오 검증 | `engine/scenario.py` 336~351, 506 | 프로필별 fixture·capability 고정 | v9 필드(`target_access`) + 프로필별 고정 |
 | 실행기 등록 | `engine/runner.py` 18~19, 916~917 | `PROFILE_REGISTRY.register` | `N01Executor`, `N03Executor` |
 | CLI | `engine/cli.py` 353~354, 650~651, 669~670 | 프로필 선택지·시나리오 대응·파일 대응 | 같은 세 곳 |
 | 증적 계약 | `engine/evidence.py` 251~263, 750~754, 884~888, 941~945, 1033~1035 | `engine/h01_evidence.py`의 `REQUIRED_FILES`·`verify_links`·`verify_facts` | `engine/n01_evidence.py`, `engine/n03_evidence.py` |
@@ -102,7 +102,7 @@ ControlProof 쪽 vite `--config` 파일로 프록시 대상을 바꾸기 — Why
 | 하네스 | `scripts/h01_local.py`(`spec004_local` 래퍼, `--instance`·`--state-root`) | 환경 덮어쓰기 | `scripts/spec009_local.py` + 지원자 앱 기동 |
 | 카탈로그 고정 | `tests/unit/test_catalog_matrix_parity.py` | 12/7/2/3·프로필 수 | closure 전 그대로 통과해야 함 |
 
-- `ScenarioDefinition`은 알 수 없는 키를 거부한다(`engine/scenario.py`). 대상 접근 종류 필드는 schema v5로 넣는다.
+- `ScenarioDefinition`은 알 수 없는 키를 거부한다(`engine/scenario.py`). 대상 접근 종류 필드는 schema v9로 넣는다.
 - 동의 어댑터 클라이언트는 지원자 세션 쿠키를 다루며 회사 Bearer는 N-01·N-03에 필요 없다.
 - 워크벤치 표시 지점: 결과 화면 한계 줄(`engine/web/templates/run.html`, `readmodel.py` run projection), 시나리오 화면 프로필
   준비 상태 옆(`scenario.html`, `readmodel.scenario`). `engine/web/review.py`에 N-01·N-03 제목·설명이 이미 있다.

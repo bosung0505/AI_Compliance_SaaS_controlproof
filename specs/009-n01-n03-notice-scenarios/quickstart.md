@@ -66,7 +66,11 @@ whyyou-local --label <label> --json`으로 child Run만 만든다.
 .\.venv\Scripts\python.exe -m engine.web --run-root <상태-루트>\<instance-run-root> --port 8767
 ```
 
-로컬 모드(`--run-root`)로 연다. 기본 모드는 Spec 008 공유 기록 읽기 전용이라 새 Run이 보이지 않는다. 시나리오 화면과 결과 화면에서
+로컬 모드(`--run-root`)로 연다. 기본 모드는 Spec 008 공유 기록 읽기 전용이라 새 Run이 보이지 않는다. 이 브랜치에서는 공유본이
+`b76af4c` 코드에 고정돼 기본 모드가 거부된다. 공유 기록은 `git -C <CP> worktree add <CP의 상위 폴더>\cp-frw-view
+origin/fixes-and-remaining-work` 뒤 그 폴더에서 `& <CP>\.venv\Scripts\python.exe -m engine.web --shared-snapshot
+review-data\snapshot.json --port 8766`으로 본다(먼저 그 폴더에서 `& <CP>\.venv\Scripts\python.exe -c "import engine,pathlib;
+print(pathlib.Path(engine.__file__).parents[1])"`가 worktree 경로를 출력하는지 확인). 시나리오 화면과 결과 화면에서
 대상 접근 한 줄과 한계 영역을 확인한다. closure 전 카탈로그 상태는 두 시나리오 모두 `NOT_RUN`이다.
 
 ## 6. 정리

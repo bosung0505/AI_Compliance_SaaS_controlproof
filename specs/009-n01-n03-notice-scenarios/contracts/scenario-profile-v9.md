@@ -20,9 +20,9 @@ H-01(v6/spec006)·H-02(v7/spec007) 관례다.
 
 | Field | 형식 | 규칙 |
 |---|---|---|
-| `target_access` | `SCREEN`·`API`·`SOURCE`의 비어 있지 않은 부분집합, 정렬된 목록 | 필수. 위 표 값과 정확히 같아야 한다(spec FR-005) |
+| `target_access` | `SCREEN`·`API`·`SOURCE`의 비어 있지 않은 부분집합, `TargetAccessKind` 선언 순서(SCREEN → API → SOURCE) | 필수. 위 표 값과 정확히 같아야 한다(spec FR-005) |
 | `unverified_scope_items` | `{id, text, follow_up}` 목록 | 선택. 아래 표의 ID만 허용, 프로필별 집합과 같아야 한다 |
-| `limitations` | `{id, text}` 목록 | 선택. 아래 표의 ID만 허용 |
+| `limitations` | `{id, text, follow_up}` 목록(`follow_up`은 비움) | 선택. 아래 표의 ID만 허용 |
 
 세 필드는 `ScenarioDefinition`에 기본값 빈 튜플로 들어가며 Spec 009 프로필이 아닌 정의에서는 비어 있어야 한다.
 표시 문구: `SCREEN` = "화면", `API` = "API", `SOURCE` = "소스 열람". 한 줄 표기는 " + "로 잇는다(예: "화면 + API").
@@ -66,7 +66,8 @@ EV9-07 judgement and sealed manifest                                            
 | N03-U3 | N-03 | unverified_scope | 분석 작업의 정책 귀속 | 같음 |
 | N03-L1 | N-03 | limitation | 이전 정책 식별값은 실제 교체 없이 만든 값 | — |
 
-모든 프로필은 공통 한계 `LOCAL_EMULATED`·합성 데이터·외부 AI 차단과 미검증 범위 `AWS`를 가진다(spec FR-056). `excluded_scope`에는
+모든 프로필은 공통 한계 `LOCAL_EMULATED`·합성 데이터·외부 AI 차단과 미검증 범위 `AWS`를 가진다(spec FR-056). 공통 항목은
+YAML ID가 아니라 환경 스냅샷·Run `unverified_scope`에서 나온다. 그래서 N-01 YAML의 두 목록은 비어 있다. `excluded_scope`에는
 `AWS`, `외부 AI 모델 품질`, 그리고 N-01은 `동의 전 처리 차단(N-02 소유)`, N-03은 `실행 중 정책 교체·분석 작업 정책 귀속`을 둔다.
 
 ## 프로필별 규칙

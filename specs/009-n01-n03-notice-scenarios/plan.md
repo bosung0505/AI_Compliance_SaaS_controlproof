@@ -168,7 +168,10 @@ redaction은 기존 함수를 쓴다. 캡처 PNG는 `write_bytes`로 넣는다.
 - **통합**: fake adapter로 시나리오별 전체 흐름, 복구 실패 → `RESTORE_FAILED`·후속 차단, child 재시험 부모 불변.
 - **web**: 대상 접근 한 줄과 N-03 미검증 범위 표시, 기존 화면 회귀(공유 모드 포함).
 - **회귀**: 기존 Spec 001~008 시험 전부. `tests/unit/test_catalog_matrix_parity.py`의 12/7/2/3·프로필 수 고정은 closure 전까지
-  그대로 통과해야 한다(catalog `profiles`를 closure 전에 바꾸지 않음).
+  그대로 통과해야 한다(catalog `profiles`를 closure 전에 바꾸지 않음). 기존 시나리오 13개의 snapshot digest 고정
+  (`tests/contract/test_scenario_digests_frozen.py`), 공유 bundle 25건의 verification 불변
+  (`tests/contract/test_review_data_bundles_unchanged.py`), 이 브랜치에서 공유본 거부 메시지
+  (`tests/contract/test_shared_snapshot_rejects_changed_code.py`) — Compatibility (a)(b).
 - **actual-stack**: 연우 승인 뒤 시나리오별 최초 Run → 판정 → 필요 시 child. [quickstart.md](./quickstart.md) 참조.
 
 ## Risks and Responses
@@ -210,7 +213,8 @@ specs/009-n01-n03-notice-scenarios/
 │   ├── assertions-v9.md
 │   └── evidence-bundle-v9.md
 ├── checklists/requirements.md
-└── tasks.md            # $speckit-tasks (아직 없음)
+├── tasks.md
+└── analysis.md         # T003 Analyze
 ```
 
 ### Source Code (ControlProof repository root)
@@ -241,12 +245,22 @@ tests/{unit,contract,integration,web}/test_*n01*.py, test_*n03*.py, test_*spec00
 
 ## Compatibility and Migration
 
-- v1~v7 시나리오·bundle profile·Run 검증은 그대로다. 기존 봉인 bundle(Spec 008 공유본 25건 포함)의 `verify` 결과가 바뀌지 않아야
-  한다(회귀 시험, `scripts.share_records --verify` 포함).
+- v1~v7 시나리오·bundle profile·Run 검증은 그대로다. 공유 기록과의 관계(analysis A1, 해소안 1):
+  - (a) `review-data/bundles`의 25건 각각에 대해 `engine.shared_records.verification(bundle_dir)` 결과가
+    `review-data/snapshot.json`의 해당 `record["verification"]`과 같아야 한다(24건 VERIFIED, `ce5f2750…` INVALID 그대로).
+    이것이 실제 회귀 gate다.
+  - (b) `scripts.share_records --verify`와 기본 공유 웹 모드는 `display_files`가 `b76af4c` 코드에 고정돼 있어 이 브랜치에서는
+    `"Snapshot display code/catalog differs; select its matching code version"`으로 거부되는 것이 정상이다. gate는 이 메시지를
+    확인한다.
+  - (c) 새 공유본(새 `snapshot_id`, 원본 bundle 바이트·판정 불변, 재봉인 없음)은 Spec 009 closure에서 보성 검토로 만든다.
+  - (d) 진행 중 공유 기록 열람은 `fixes-and-remaining-work` worktree에서 한다(quickstart §5).
 - 환경 스냅샷은 H-01·H-02처럼 기존 환경 어댑터 캡처(`SPEC002_UNVERIFIED_SCOPE`, AWS 구성 요소)를 그대로 쓴다. 시나리오별 미검증
   범위는 Run·Judgement의 `unverified_scope` 튜플에만 둔다(N-01: `AWS_NOT_RUN`, `EXTERNAL_MODEL_QUALITY_NOT_TESTED`,
   `N02_PRE_CONSENT_BLOCK_NOT_RETESTED`; N-03: `AWS_NOT_RUN`, `N03_U1_POLICY_SWAP_INJECTION`, `N03_U2_NEAR_SWAP_SUBMISSION`,
-  `N03_U3_ANALYSIS_POLICY_ATTRIBUTION`). `TargetEnvironmentSnapshot`의 허용 집합은 바꾸지 않는다.
+  `N03_U3_ANALYSIS_POLICY_ATTRIBUTION`). `TargetEnvironmentSnapshot`의 허용 집합은 바꾸지 않는다. Run 토큰
+  `N03_U1_*`~`N03_U3_*`는 YAML `unverified_scope_items`의 `N03-U1`~`N03-U3`와 같은 항목이다(표시 문구·후속 조건은 YAML 값).
+- `ScenarioDefinition.snapshot()`은 Spec 009 프로필이 아니면 `target_access`·`unverified_scope_items`·`limitations`를 digest
+  대상에서 뺀다(Spec 004의 `diagnostic_ids` 처리와 같음). 기존 시나리오 snapshot digest가 바이트 단위로 같아야 한다.
 - catalog `profiles`·`official_status`는 closure에서만 바꾼다.
 
 ## Complexity Tracking
