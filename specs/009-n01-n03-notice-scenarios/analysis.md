@@ -108,6 +108,27 @@ FR·SC 중 Task가 없는 항목은 없다. assertion 6개, EV9 7개 모두 계�
   Run `unverified_scope` 고정 여부는 T009에서 plan Compatibility 튜플로 정한다.
 - `timing_policy`는 계약이 값을 고정하지 않는다. H-01과 같이 YAML에 두고 검증은 하지 않는다(canonical `timing_policy={}`).
 
+### T005·T006에서 정한 것 (계약·지시와 다르거나 지시에 없던 것)
+
+- `N01Capture.file`은 선택 값이다. 어댑터는 `{sha256, bytes}`만 내고 봉인 파일 이름은 실행기(T009)가 붙인다.
+- `BROWSER_COMMIT_FAILED`는 측정 뒤 오류로 본다. N01-A1·A2는 측정값으로 판정하고, 동의 저장 실패는 N01-A3(저장 기록 없음 →
+  `INSUFFICIENT_EVIDENCE`)만 판정한다. 다른 `measurement_error`는 해당 lane을 INCONCLUSIVE로 둔다. 커밋 실패로 화면 결과까지
+  가리면 A1·A2와 A3의 독립(assertions-v9.md)이 깨지기 때문이다.
+- N03-A1 판정 순서: 이전 식별값 검증 → 전후 상태 읽힘 → 2xx 또는 `state_digest` 변화면 FAIL → 전송 오류 코드면 INCONCLUSIVE →
+  거부 코드(`CONSENT_POLICY_MISMATCH`·`CONSENT_COMMIT_REJECTED`)면 PASS → 그 밖의 코드(`CONSENT_COMMIT_RESPONSE_INVALID` 등)는
+  INCONCLUSIVE. 전송 오류여도 상태가 바뀌었으면 관찰된 변화가 있으므로 FAIL이다.
+- `N03Subject`를 두고 `applicant_id`는 선택이다(N-02 쿠키 시드 subject 모양에 맞춤).
+- `N02CredentialStore`의 쓰기 메서드는 `set`이 아니라 `put`이다. 어댑터는 `put(subject_ref, cookie)`를 쓴다.
+- 어댑터 결과 코드: 첫 페이지 로드 시간 초과만 `BROWSER_TIMEOUT`이다. 단계 안의 시간 초과·오류는 그 단계 코드
+  (`BROWSER_EXCHANGE_FAILED`·`BROWSER_IDENTITY_FAILED`·`BROWSER_CONSENT_STEP_MISSING`·`BROWSER_MEASURE_FAILED`·
+  `BROWSER_COMMIT_FAILED`)로 남기고 부분 record를 돌려준다. 추가 코드: `BROWSER_SESSION_COOKIE_MISSING`,
+  `N01_INVITATION_TOKEN_MISSING`, `BROWSER_RESULT_INVALID`, `BROWSER_STEP_INCOMPLETE`(오류 없이 ready에 못 간 경우).
+- 측정 JS: `center_hit`은 중심점에 요소가 있는지, `not_occluded`는 그 요소가 대상 자신·자손·조상이거나 같은 `label` 안인지다.
+- 조립: N-01은 별도 `N02CredentialStore`를 쓴다(`create_whyyou_adapter`의 `n01_credentials`). 같은 저장소를 쓰는 동의 어댑터
+  (`read_policy`·`read_state`)와 N-01 시드는 T007·T009에서 조립한다. `Settings.safe_projection`에는 `applicant_app_url`을
+  더하지 않았다(기존 projection 시험 불변).
+- `CONTROLPROOF_APPLICANT_APP_URL`은 다른 URL과 같이 로컬 호스트만 허용하고 끝의 `/`를 뗀다.
+
 ## Gate
 
 CRITICAL 0, HIGH 0(A1 RESOLVED). 해석 차이를 만드는 MEDIUM은 모두 Spec 009 안에서 고쳐 0이다. T004로 진행한다.

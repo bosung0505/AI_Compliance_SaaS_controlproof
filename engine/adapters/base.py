@@ -5,7 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from engine.models import (
     BusinessEffectSnapshot,
@@ -107,6 +107,22 @@ class FaultAdapter(Protocol):
 
 class BrowserAdapter(Protocol):
     def capture_review(self, *, subject: Mapping[str, Any]) -> AdapterResult: ...
+
+    def close(self) -> None: ...
+
+
+@runtime_checkable
+class ApplicantBrowserPort(Protocol):
+    """Spec 009 N-01: open the applicant consent step at one viewport and measure the notices."""
+
+    def observe_consent(
+        self,
+        *,
+        subject: Mapping[str, Any],
+        viewport: Mapping[str, int],
+        expected_fragments: Mapping[str, list[tuple[str, str]]],
+        display_name: str,
+    ) -> AdapterResult: ...
 
     def close(self) -> None: ...
 
@@ -388,3 +404,4 @@ class AdapterSet:
     spec004_versions: CriteriaVersionAdapter | None = None
     spec004_emissions: ModelEmissionAdapter | None = None
     spec004_scoring_source: ScoringSourceAdapter | None = None
+    applicant_browser: ApplicantBrowserPort | None = None

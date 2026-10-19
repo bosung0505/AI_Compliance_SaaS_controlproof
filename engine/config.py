@@ -60,6 +60,7 @@ class Settings:
     reporting_max_receive_count: int = 3
     reporting_visibility_timeout_seconds: int = 5
     timing: TimingConfig = TimingConfig()
+    applicant_app_url: str | None = None
 
     @classmethod
     def from_env(cls, environment: dict[str, str] | None = None) -> Settings:
@@ -86,6 +87,9 @@ class Settings:
         ):
             _require_local_url(name, value)
         _require_local_database(database_url)
+        applicant_app_url = env.get("CONTROLPROOF_APPLICANT_APP_URL", "").strip().rstrip("/") or None
+        if applicant_app_url is not None:
+            _require_local_url("CONTROLPROOF_APPLICANT_APP_URL", applicant_app_url)
         aws_endpoint = env.get("WHYYOU_AWS_ENDPOINT_URL", "http://localhost:4566").strip()
         _require_local_url("WHYYOU_AWS_ENDPOINT_URL", aws_endpoint)
         enabled = env.get("CONTROLPROOF_MODEL_SUBSTITUTE_ENABLED", "false").casefold() == "true"
@@ -167,6 +171,7 @@ class Settings:
             ).strip(),
             reporting_max_receive_count=max_receive_count,
             reporting_visibility_timeout_seconds=visibility_timeout,
+            applicant_app_url=applicant_app_url,
         )
 
     def validate_spec002_safety(

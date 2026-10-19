@@ -5,6 +5,7 @@ from __future__ import annotations
 from collections.abc import Mapping
 
 from engine.adapters.base import AdapterSet, CapabilityProbeResult
+from engine.adapters.whyyou.applicant_browser import WhyYouApplicantBrowserAdapter
 from engine.adapters.whyyou.browser import WhyYouBrowserAdapter
 from engine.adapters.whyyou.capability import WhyYouCapabilityProbe
 from engine.adapters.whyyou.causality import WhyYouCausalityAdapter
@@ -83,7 +84,11 @@ def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]
     spec004_mutation = WhyYouEvidenceMutationAdapter(settings)
     spec004_versions = WhyYouCriteriaVersionAdapter(settings)
     spec004_scoring_source = WhyYouScoringSourceAdapter(settings)
-    capability = WhyYouCapabilityProbe(
+    # Spec 009 N-01 lanes keep their own store: the seed puts `<subject_ref>:invitation_token`, the
+    # browser puts the session cookie under `<subject_ref>` for a consent adapter sharing this store.
+    n01_credentials = N02CredentialStore()
+    applicant_browser = WhyYouApplicantBrowserAdapter(settings, credentials=n01_credentials)
+    capability =WhyYouCapabilityProbe(
         settings,
         client,
         queue=queue,
@@ -131,5 +136,6 @@ def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]
         spec004_mutation=spec004_mutation,
         spec004_versions=spec004_versions,
         spec004_scoring_source=spec004_scoring_source,
+        applicant_browser=applicant_browser,
     )
     return adapters, client
