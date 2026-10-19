@@ -997,7 +997,8 @@ class ConsentPolicySnapshot(FrozenModel):
 class ConsentStateSnapshot(FrozenModel):
     schema_version: str = "controlproof.n02-consent-state.v1"
     run_id: UUID
-    lane_id: N02LaneId
+    # Spec 009 reuses this projection for N-01/N-03 lanes; N-02 values serialize unchanged.
+    lane_id: N02LaneId | N01LaneId | N03LaneId
     subject_ref: str
     phase: Phase
     step_id: str

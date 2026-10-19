@@ -248,3 +248,23 @@ def test_state_projection_keeps_only_transaction_identity(settings) -> None:
     assert state.consent_completed_event_ids == (event_id,)
     assert "must-not-appear" not in state.model_dump_json()
     assert len(state.trace_ids[0]) == 64
+
+
+def test_read_state_lane_id_accepts_spec009_lanes_and_keeps_n02_enum(settings) -> None:
+    from engine.models import N01LaneId, N03LaneId
+
+    def read(lane_id: str):
+        return WhyYouConsentAdapter(
+            settings,
+            state_reader=lambda _subject: {"invitation_status": "invited", "invitation_row_version": 0},
+        ).read_state(subject=_subject() | {"lane_id": lane_id}, phase=Phase.BASELINE.value, step_id="lane")
+
+    assert read(N02LaneId.NORMAL_ORDER.value).lane_id is N02LaneId.NORMAL_ORDER
+    assert read("pc").lane_id is N01LaneId.PC
+    assert read("past").lane_id is N03LaneId.PAST
+    try:
+        read("unknown-lane")
+    except ValueError:
+        pass
+    else:
+        raise AssertionError("unknown lane_id must be rejected")

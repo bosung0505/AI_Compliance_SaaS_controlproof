@@ -19,7 +19,9 @@ from engine.models import (
     ConsentPolicySnapshot,
     ConsentPurpose,
     ConsentStateSnapshot,
+    N01LaneId,
     N02LaneId,
+    N03LaneId,
     Phase,
     Presence,
     canonical_json_bytes,
@@ -34,6 +36,16 @@ _TARGET_REJECTION_REASONS = {
     "consent policy version or digest is stale": "CONSENT_POLICY_STALE",
     "stale invitation version": "INVITATION_VERSION_STALE",
 }
+
+
+def _lane_id(value: Any) -> N02LaneId | N01LaneId | N03LaneId:
+    """N-02 lanes first so their enum is unchanged; Spec 009 lanes reuse the same projection."""
+    for enum in (N02LaneId, N01LaneId, N03LaneId):
+        try:
+            return enum(str(value))
+        except ValueError:
+            continue
+    raise ValueError(f"unknown consent lane_id: {value}")
 
 
 def _target_rejection_reason(response: httpx.Response) -> str:
@@ -211,7 +223,7 @@ class WhyYouConsentAdapter:
         status = Presence(str(projection.get("source_status", Presence.PRESENT.value)))
         base = {
             "run_id": UUID(str(subject["run_id"])),
-            "lane_id": N02LaneId(str(subject["lane_id"])),
+            "lane_id": _lane_id(subject["lane_id"]),
             "subject_ref": str(subject["subject_ref"]),
             "phase": Phase(phase),
             "step_id": step_id,
