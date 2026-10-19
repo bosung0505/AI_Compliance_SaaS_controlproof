@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 
 from pydantic import ValidationError
 
+from engine import spec009_recovery
 from engine.adapters.whyyou.adapter import create_whyyou_adapter
 from engine.config import ConfigError, Settings
 from engine.evidence import display_paths, redact, verify_bundle
@@ -408,6 +409,15 @@ def _cleanup_confirm(args: argparse.Namespace) -> int:
         )
         if not safe:
             raise CliContractError("N02_SAFE_STATE_NOT_CONFIRMED", "N-02 target safety probe did not pass")
+    elif args.subject in spec009_recovery.BLOCK_SUBJECTS:
+        profile = spec009_recovery.BLOCK_SUBJECTS[args.subject]
+        run_id = _spec009_cleanup_run(blocks, args, evidence, profile)
+        counts = spec009_recovery.recount(settings, run_id=run_id, profile=profile)
+        safe = bool(counts) and not any(counts.values())
+        if not safe:
+            raise CliContractError(
+                "SPEC009_SAFE_STATE_NOT_CONFIRMED", "Spec 009 owned rows remain or could not be counted"
+            )
     elif args.subject in _SPEC004_BLOCK_SUBJECTS:
         profile = _SPEC004_BLOCK_SUBJECTS[args.subject]
         injections = _spec004_cleanup_injections(settings.run_root, blocks, args, profile)
@@ -435,6 +445,24 @@ def _cleanup_confirm(args: argparse.Namespace) -> int:
         run_root=settings.run_root,
     )
     return 0
+
+
+def _spec009_cleanup_run(blocks, args, evidence: bytes, profile: ExecutionProfile) -> str:
+    """The recovery evidence must name the blocked Run and its profile; returns that run_id."""
+    try:
+        record = json.loads(evidence)
+        block = json.loads(blocks.path_for(args.target, args.subject).read_text(encoding="utf-8"))
+        if (
+            record["schema_version"] != spec009_recovery.SCHEMA_VERSION
+            or record["run_id"] != block["run_id"]
+            or record["profile"] != profile.value
+        ):
+            raise ValueError("Spec 009 cleanup evidence does not match the block")
+        return str(block["run_id"])
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise CliContractError(
+            "SPEC009_CLEANUP_EVIDENCE_INVALID", "Spec 009 cleanup evidence or block is invalid"
+        ) from exc
 
 
 _SPEC004_BLOCK_SUBJECTS = {

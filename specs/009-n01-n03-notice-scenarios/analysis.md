@@ -197,6 +197,24 @@ FR·SC 중 Task가 없는 항목은 없다. assertion 6개, EV9 7개 모두 계�
 - 실제 Run 전에 확인할 것(이번에 고치지 않음): `cleanup-confirm`에 Spec 009 차단 subject 분기가 없어 H-03 기본 분기로 간다(H-01
   차단도 같다). 실제 Playwright 경로·버튼 이름·GET 응답 관찰, `read_consent_facts` SQL, LocalProbes는 fake로만 시험했다.
 
+### 복구 경로에서 정한 것
+
+- 복구 로직은 `engine/spec009_recovery.py`(`check_block`·`recover`·`recount`)에 두고 `scripts/spec009_recover.py`와
+  `cleanup-confirm` 분기가 같이 쓴다. 읽기 전용 재계수를 위해 `spec009_cleanup.expand_resources`(SELECT만)를 떼어 냈다.
+- 결정론 ID로 다시 만든 시드 계획에서 `session_hash`·`token_hash`는 시드 때 뽑은 원시 값에서 나오므로 다시 만들 수 없다. 복구는
+  이 두 열을 뺀 ID(`session_id`·`invitation_id`·`applicant_id` 등)로 시드 행을 식별·삭제한다. 그래서 `product_rows_removed`는
+  teardown과 같이 제품이 만든 행만 센다.
+- `check_block`은 블록 파일의 run_id와 봉인 `run.json`의 `execution_profile`을 본다. 거부 코드 `SPEC009_RECOVERY_BLOCK_MISSING`·
+  `SPEC009_RECOVERY_BLOCK_MISMATCH`·`SPEC009_RECOVERY_BUNDLE_MISSING`·`SPEC009_RECOVERY_PROFILE_MISMATCH`. 스크립트는 `SUCCEEDED`면
+  0, 아니면 1로 끝나고 증적 파일은 어느 쪽이든 쓴다.
+- `cleanup-confirm`은 증적의 `status` 값을 믿지 않고 재계수만 본다. 증적 불일치는 `SPEC009_CLEANUP_EVIDENCE_INVALID`, 재계수가
+  비었거나 0이 아니면 `SPEC009_SAFE_STATE_NOT_CONFIRMED`. 이 분기는 `create_runtime`을 부르지 않는다.
+
+## 보성에게 알릴 것
+
+1. `cleanup-confirm`에서 H-01 차단 subject(`h01-human-decision`)는 전용 분기가 없어 H-03 기본 분기(`fault.target_safe`)로 간다.
+   Spec 009는 전용 분기를 더했고 H-01 쪽은 고치지 않았다.
+
 ## Gate
 
 CRITICAL 0, HIGH 0(A1 RESOLVED). 해석 차이를 만드는 MEDIUM은 모두 Spec 009 안에서 고쳐 0이다. T004로 진행한다.

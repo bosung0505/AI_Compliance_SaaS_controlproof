@@ -98,20 +98,11 @@ def _is_seed_row(table: str, row: Mapping[str, Any], seed_rows: Iterable[SeedRow
     return False
 
 
-def delete_owned_rows(
-    connection: Any,
-    *,
-    company_id: UUID,
-    resources: Iterable[UUID],
-    inventory: Mapping[str, TableInfo],
-    seed_rows: Iterable[SeedRow] = (),
-) -> tuple[int, frozenset[UUID]]:
-    """Remove product rows owned by ``resources``; seed rows are left for the seed teardown.
-
-    Returns the number of product rows removed and the expanded resource set the recount uses.
-    """
+def expand_resources(
+    connection: Any, *, company_id: UUID, resources: Iterable[UUID], inventory: Mapping[str, TableInfo]
+) -> frozenset[UUID]:
+    """Read-only: add report, human review and outbox event IDs that hang off the owned roots."""
     owned = set(resources)
-    seeds = tuple(seed_rows)
     for table, column in _EXPANSIONS:
         if table not in inventory:
             continue
@@ -125,6 +116,23 @@ def delete_owned_rows(
             ).mappings().all()
             for row in found:
                 owned.update(UUID(str(row[key])) for key in _EXPANSION_KEYS if row.get(key))
+    return frozenset(owned)
+
+
+def delete_owned_rows(
+    connection: Any,
+    *,
+    company_id: UUID,
+    resources: Iterable[UUID],
+    inventory: Mapping[str, TableInfo],
+    seed_rows: Iterable[SeedRow] = (),
+) -> tuple[int, frozenset[UUID]]:
+    """Remove product rows owned by ``resources``; seed rows are left for the seed teardown.
+
+    Returns the number of product rows removed and the expanded resource set the recount uses.
+    """
+    owned = set(expand_resources(connection, company_id=company_id, resources=resources, inventory=inventory))
+    seeds = tuple(seed_rows)
     candidates = []
     for table, info in inventory.items():
         scoped = _predicate(table, info, company_id, owned)
