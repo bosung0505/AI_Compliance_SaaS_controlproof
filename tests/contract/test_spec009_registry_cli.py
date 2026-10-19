@@ -8,6 +8,7 @@ import json
 import pytest
 
 from engine import cli
+from engine.executors.n01 import N01Executor
 from engine.executors.n03 import N03Executor
 from engine.models import ExecutionProfile
 from engine.runner import PROFILE_REGISTRY, build_profile_runner
@@ -19,13 +20,14 @@ def _select(scenario_id: str, profile: str | None):
     return cli._scenario_selection(argparse.Namespace(scenario_id=scenario_id, profile=profile, scenario_file=None))
 
 
-def test_registry_maps_the_n03_profile() -> None:
+def test_registry_maps_both_profiles() -> None:
+    assert PROFILE_REGISTRY.registrations[ExecutionProfile.N01_NOTICE_V1] is N01Executor
     assert PROFILE_REGISTRY.registrations[ExecutionProfile.N03_STALE_CONSENT_V1] is N03Executor
 
 
 @pytest.mark.parametrize(
     ("scenario_id", "profile", "filename", "executor_type"),
-    [("N-03", "N03_STALE_CONSENT_V1", "N-03.yaml", N03Executor)],
+    [("N-01", "N01_NOTICE_V1", "N-01.yaml", N01Executor), ("N-03", "N03_STALE_CONSENT_V1", "N-03.yaml", N03Executor)],
 )
 def test_profile_selects_its_yaml_and_executor(tmp_path, scenario_id, profile, filename, executor_type) -> None:
     path, selected = _select(scenario_id, profile)
@@ -35,7 +37,7 @@ def test_profile_selects_its_yaml_and_executor(tmp_path, scenario_id, profile, f
     assert isinstance(runner, executor_type)
 
 
-@pytest.mark.parametrize("scenario_id", ["N-03"])
+@pytest.mark.parametrize("scenario_id", ["N-01", "N-03"])
 def test_spec009_scenarios_require_an_explicit_profile(scenario_id) -> None:
     with pytest.raises(cli.CliContractError) as exc:
         _select(scenario_id, None)
@@ -44,7 +46,7 @@ def test_spec009_scenarios_require_an_explicit_profile(scenario_id) -> None:
 
 @pytest.mark.parametrize(
     ("scenario_id", "profile"),
-    [("N-03", "N02_CONSENT_ORDER_V1"), ("N-02", "N03_STALE_CONSENT_V1"), ("H-01", "N03_STALE_CONSENT_V1")],
+    [("N-01", "N03_STALE_CONSENT_V1"), ("N-03", "N01_NOTICE_V1"), ("N-02", "N01_NOTICE_V1"), ("H-01", "N03_STALE_CONSENT_V1")],
 )
 def test_spec009_profiles_cannot_cross_scenarios(scenario_id, profile) -> None:
     with pytest.raises(cli.CliContractError) as exc:
@@ -59,8 +61,9 @@ def runtime_factory(tmp_path, target_snapshot, settings, monkeypatch):
 
     def create_runtime(_settings, scenario_path):
         scenario = load(scenario_path)
+        executor_type = N01Executor if scenario.scenario_id == "N-01" else N03Executor
         adapters, _backend, _store = make_spec009_adapters(tmp_path, target)
-        executor = N03Executor(scenario, adapters, _settings.run_root)
+        executor = executor_type(scenario, adapters, _settings.run_root)
         executor.preflight = lambda target_id: ready(scenario, target)
         built["executor"] = executor
         return executor
@@ -70,7 +73,7 @@ def runtime_factory(tmp_path, target_snapshot, settings, monkeypatch):
     return built
 
 
-@pytest.mark.parametrize(("scenario_id", "profile"), [("N-03", "N03_STALE_CONSENT_V1")])
+@pytest.mark.parametrize(("scenario_id", "profile"), [("N-01", "N01_NOTICE_V1"), ("N-03", "N03_STALE_CONSENT_V1")])
 def test_run_show_verify_and_retest_over_the_cli(tmp_path, runtime_factory, capsys, scenario_id, profile) -> None:
     root = str(tmp_path / "cli-runs")
     code = cli.main(["run", scenario_id, "--target", "whyyou-local", "--profile", profile, "--run-root", root, "--json"])

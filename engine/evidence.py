@@ -269,6 +269,9 @@ def _canonical_files(profile: ExecutionProfile | None) -> set[str]:
     if profile is ExecutionProfile.H01_HUMAN_DECISION_V1:
         from engine.h01_evidence import REQUIRED_FILES
         return REQUIRED_FILES
+    if profile is ExecutionProfile.N01_NOTICE_V1:
+        from engine.n01_evidence import REQUIRED_FILES
+        return REQUIRED_FILES
     if profile is ExecutionProfile.N03_STALE_CONSENT_V1:
         from engine.n03_evidence import REQUIRED_FILES
         return REQUIRED_FILES
@@ -901,6 +904,9 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
         elif profile is ExecutionProfile.H01_HUMAN_DECISION_V1:
             from engine.h01_evidence import verify_links
             verify_links(directory, required_evidence, registered, artifact_records, result)
+        elif profile is ExecutionProfile.N01_NOTICE_V1:
+            from engine.n01_evidence import verify_links
+            verify_links(directory, required_evidence, registered, artifact_records, result)
         elif profile is ExecutionProfile.N03_STALE_CONSENT_V1:
             from engine.n03_evidence import verify_links
             verify_links(directory, required_evidence, registered, artifact_records, result)
@@ -960,6 +966,9 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
         verify_facts(directory, manifest, result)
     elif profile is ExecutionProfile.H01_HUMAN_DECISION_V1:
         from engine.h01_evidence import verify_facts
+        verify_facts(directory, manifest, result)
+    elif profile is ExecutionProfile.N01_NOTICE_V1:
+        from engine.n01_evidence import verify_facts
         verify_facts(directory, manifest, result)
     elif profile is ExecutionProfile.N03_STALE_CONSENT_V1:
         from engine.n03_evidence import verify_facts

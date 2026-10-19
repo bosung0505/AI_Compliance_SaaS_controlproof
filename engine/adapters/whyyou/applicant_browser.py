@@ -93,9 +93,10 @@ class WhyYouApplicantBrowserAdapter:
         *,
         subject: Mapping[str, Any],
         viewport: Mapping[str, int],
-        expected_fragments: Mapping[str, list[tuple[str, str]]],
+        fragment_builder: Callable[[Mapping[str, Any]], Mapping[str, list[tuple[str, str]]]],
         display_name: str,
     ) -> AdapterResult:
+        """``fragment_builder`` turns the observed consent-policy GET body into expected fragments."""
         app_url = self.settings.applicant_app_url
         if not app_url:
             return AdapterResult(False, "APPLICANT_APP_URL_MISSING")
@@ -106,10 +107,7 @@ class WhyYouApplicantBrowserAdapter:
         request = {
             "subject": {name: str(subject[name]) for name in SUBJECT_FIELDS},
             "viewport": {"width": int(viewport["width"]), "height": int(viewport["height"])},
-            "expected_fragments": {
-                item: [(str(fid), str(text)) for fid, text in fragments]
-                for item, fragments in expected_fragments.items()
-            },
+            "fragment_builder": fragment_builder,
             "display_name": display_name,
             "raw_token": raw_token,
             "app_url": app_url,
@@ -197,6 +195,7 @@ class WhyYouApplicantBrowserAdapter:
             "commit_status": None,
             "session_cookie": None,
         }
+        policy_body: dict[str, Any] = {}
 
         def on_response(response) -> None:
             try:
@@ -208,6 +207,9 @@ class WhyYouApplicantBrowserAdapter:
                         "version": str(body["policy_version"]),
                         "digest": str(body["content_digest"]),
                     }
+                    # Kept only in this closure to build the expected fragments; never returned.
+                    policy_body.clear()
+                    policy_body.update(body)
                 elif response.request.method == "POST":
                     observed["commit_status"] = response.status
             except Exception:  # noqa: BLE001 - an unreadable response leaves screen_policy empty
@@ -248,10 +250,16 @@ class WhyYouApplicantBrowserAdapter:
                     state="visible", timeout=STEP_TIMEOUT_MS
                 )
                 observed["step_reached"] = "consent"
+                if not policy_body:
+                    raise _StepFailed("BROWSER_POLICY_RESPONSE_MISSING")
+                try:
+                    expected = request["fragment_builder"](dict(policy_body))
+                except (KeyError, TypeError, ValueError) as exc:
+                    raise _StepFailed("BROWSER_POLICY_RESPONSE_INVALID") from exc
                 stage = "BROWSER_MEASURE_FAILED"
                 order = [
-                    (item, fid, text)
-                    for item, fragments in request["expected_fragments"].items()
+                    (item, str(fid), str(text))
+                    for item, fragments in expected.items()
                     for fid, text in fragments
                 ]
                 measured = page.evaluate(

@@ -154,6 +154,49 @@ FR·SC 중 Task가 없는 항목은 없다. assertion 6개, EV9 7개 모두 계�
   있으므로 실제 Run 전 catalog 확인이 필요하다.
 - 조립: `AdapterSet.spec009_seed`·`spec009_consent`를 더했다. 저장소 변수 이름은 `n01_credentials` 그대로 두고 N-03도 쓴다.
 
+### T009·T010에서 정한 것 (계약·지시와 다르거나 지시에 없던 것)
+
+- 구조: 두 실행기의 공통 부분(preflight·journal·정리·봉인)은 `engine/executors/spec009.py`의 `Spec009Executor`, 공통
+  `verify_facts` 검사는 `engine/spec009_evidence.py`의 `verify_common`에 두었다. `n01.py`·`n03.py`(실행기·증적)는 그 위의 얇은 층이다.
+  `settings`는 `adapters.spec009_seed.settings`를 지연 읽기한다(registry가 어떤 adapters로도 실행기를 만들 수 있게).
+- N-03 판정 모델 확장(`engine/n03.py`): `N03StaleAttempt.current`·`submitted`, `N03LatestCommit.reread`를 선택 값으로 바꿨다. 정책을
+  못 읽은 Run도 그대로 봉인하고 INCONCLUSIVE로 판정하기 위해서다. `response_class`(`2xx`/`non-2xx`)를 더했다. 동의 어댑터의 성공
+  응답에는 상태 코드가 없다(`status_code`는 거부 응답에만 있음). 어댑터를 바꾸면 N-02·Spec 004 기록 모양이 바뀌므로 어댑터는 그대로
+  두고, 실행기가 `ok=True`를 `2xx`로 적는다. 정확한 코드를 지어내지 않는다.
+- N-03 past lane: 동의 완료 commit이 성공했을 때만 `past_before`를 기록한다. 준비 실패를 "과거 기록이 바뀜"(FAIL)으로 읽지 않고
+  N03-A3 INCONCLUSIVE가 되게 하기 위해서다.
+- 시드 실패: `seed_lanes`가 실패하면 증적 없이 `N0X_SEED_FAILED:<code>` RuntimeError로 끝낸다. 지시는 어댑터 실패에서 Run을 멈추지
+  말라고 했지만, 시드가 없으면 판정할 subject가 없다. 시드 트랜잭션은 통째로 롤백되므로 차단도 걸지 않는다. journal은 남는다.
+- 정리 결과: teardown이 `ok`이고 스스로 `SUCCEEDED`라고 할 때만 `SUCCEEDED`다. counts가 없으면 `{"unknown": 1}`. 120초를 넘기면
+  `FAILED`. 차단 이름은 `n01-notice`·`n03-stale-consent`다.
+- 반환: 인터페이스(run, judgement, directory)는 H-01과 같다. `verify_bundle` 결과는 `executor.verification`에 두고, VERIFIED가
+  아니면 `N0X_BUNDLE_INVALID`로 실패한다.
+- `observations.jsonl`: 단계별 행 `{step_id, phase, lane, action, ok, adapter_code}`. 실행기 예외는 `executor-error` 행으로 남긴다.
+- 증적 연결: EV9-07은 run·assertions·judgement 파일과 `intrinsic:sealed-manifest`. N-01 캡처 PNG는 있을 때만 EV9-03에 더 연결한다
+  (`LINKS` 상수에는 없음). `n03-lanes.json`은 `{lanes, past_setup(정책 읽기·commit 코드), errors}`, `n01-lanes.json`은 측정 기록에서
+  만든 lane 요약이다. `n0X-scope.json`은 `{scenario_id, target_access, unverified_scope, unverified_scope_items, limitations,
+  common_limitations, excluded_scope}`이고, 공통 한계 ID는 `LOCAL_EMULATED`·`SYNTHETIC_DATA`·`EXTERNAL_AI_BLOCKED`(문구는 이 구현이 정함)다.
+- `verify_facts` 추가 검사: subjects의 lane 순서·Run 소유, N-03 attempt·latest subject = stale lane, lanes 파일 = 측정 기록 요약,
+  identifiers의 lane·subject_ref, manifest의 PNG 집합 = 캡처 기록 집합. 불일치 파일 이름이 정해지지 않는 예외는 N-03은
+  `n03-stale-attempt.json`, N-01은 `n01-measurements.json`으로 적는다.
+- preflight: 검사 실패를 capability에 이렇게 붙였다. 설정 격리·`CONTROLPROOF_WHYYOU_PYTHON`·health fixture → `target.environment.read`,
+  git clean·target snapshot → `target.version.read`, openapi 경로 → `consent.policy.read`(N-03은 `consent.commit.write`도),
+  `consent_records`·`invitation_state_history` → `consent.state.read`, `applicant_access_sessions` → N-03 `n02.subjects.seed·teardown`
+  / N-01 `n01.invitations.teardown`, `applicant_access_tokens`·`applicant_profiles` → `n01.invitations.seed·teardown`. 연결 거부·
+  401·403은 ACCESS_BLOCKED, 그 밖은 RUNNER_NOT_READY. 전체 상태는 `evaluate_readiness`로 합친다(그래서 target snapshot의 dirty·
+  fixture 규칙도 같이 적용된다). N-01 지원자 앱 URL 미설정도 `applicant.screen.open` ACCESS_BLOCKED다. Chromium 검사는
+  `sync_playwright()`로 `executable_path`를 읽는다(드라이버 프로세스를 띄운다, 다운로드 없음). probe는 `adapters.spec009_probes`로
+  바꿀 수 있고 없으면 `LocalProbes`다. N-01·N-03은 WhyYou helper를 부르지 않지만 `CONTROLPROOF_WHYYOU_PYTHON` 확인은 지시대로 넣었다.
+- 화면 어댑터: `expected_fragments` 인자를 `fragment_builder`로 바꿨다. GET 응답 본문은 측정 함수 안에서만 쓰고 반환하지 않는다. 더한
+  코드 `BROWSER_POLICY_RESPONSE_MISSING`·`BROWSER_POLICY_RESPONSE_INVALID`. 조각 ID는 `ai_assist.title|description`,
+  `human_final.ai_role`, `recording_purpose.notice|<purpose>.title`, `retention.label|days`, `deletion.label|method`(11개).
+- N-01 실행기: 어댑터 예외는 `BROWSER_ADAPTER_ERROR`, 캡처 전 실패(`APPLICANT_APP_URL_MISSING`·`BROWSER_TIMEOUT` 등)는
+  `step_reached=error` 부분 기록으로 봉인한다. 캡처 해시가 받은 바이트와 다르면 캡처를 버린다(→ INCONCLUSIVE).
+- CLI: N-01·N-03도 `--profile` 필수 목록에 넣었다(H-01은 원래 없음). retest는 queue 스냅샷을 찍지 않는다. preflight payload의
+  `unverified_scope`는 H-01과 같이 기존 versioned 값 그대로다(표시는 T011). retest 규칙은 H-01 분기를 같이 쓰고 메시지만 `Spec 009`.
+- 실제 Run 전에 확인할 것(이번에 고치지 않음): `cleanup-confirm`에 Spec 009 차단 subject 분기가 없어 H-03 기본 분기로 간다(H-01
+  차단도 같다). 실제 Playwright 경로·버튼 이름·GET 응답 관찰, `read_consent_facts` SQL, LocalProbes는 fake로만 시험했다.
+
 ## Gate
 
 CRITICAL 0, HIGH 0(A1 RESOLVED). 해석 차이를 만드는 MEDIUM은 모두 Spec 009 안에서 고쳐 0이다. T004로 진행한다.

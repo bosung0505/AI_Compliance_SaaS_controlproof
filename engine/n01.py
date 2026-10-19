@@ -3,6 +3,7 @@
 from __future__ import annotations
 
 import hashlib
+from collections.abc import Mapping
 from datetime import datetime
 from typing import Any, Literal
 from uuid import UUID
@@ -122,6 +123,43 @@ class N01PolicyIdentifiers(N01Model):
     stored: N01StoredPolicy | None = None
     consented_at: datetime | None = None
     commit_status: int | None = None
+
+
+def expected_fragments(policy: Mapping[str, Any]) -> dict[str, list[tuple[str, str]]]:
+    """Expected notice fragments from the observed `GET /v1/applicant/consents` body (contracts/assertions-v9.md)."""
+
+    def text(value: Any) -> str:
+        if not isinstance(value, str) or not value.strip():
+            raise ValueError("consent policy notice text must be a non-empty string")
+        return value
+
+    try:
+        purposes = {str(item["purpose"]): item for item in policy["processing_purposes"]}
+        missing = {"document_analysis", "recording", "ai_assessment"} - set(purposes)
+        if missing:
+            raise ValueError(f"consent policy lacks processing purposes: {sorted(missing)}")
+        days = policy["retention_days"]
+        if type(days) is not int or days < 1:
+            raise ValueError("retention_days must be a positive integer")
+        assessment = purposes["ai_assessment"]
+        return {
+            "ai_assist": [
+                ("ai_assist.title", text(assessment["title"])),
+                ("ai_assist.description", text(assessment["description"])),
+            ],
+            "human_final": [("human_final.ai_role", text(policy["ai_role"]))],
+            "recording_purpose": [
+                ("recording_purpose.notice", text(policy["recording_notice"])),
+                *(
+                    (f"recording_purpose.{purpose}.title", text(purposes[purpose]["title"]))
+                    for purpose in ("document_analysis", "recording", "ai_assessment")
+                ),
+            ],
+            "retention": [("retention.label", "보관기간"), ("retention.days", f"{days}일")],
+            "deletion": [("deletion.label", "삭제 방법"), ("deletion.method", text(policy["deletion_method"]))],
+        }
+    except (KeyError, TypeError) as exc:
+        raise ValueError("consent policy response is incomplete") from exc
 
 
 def aggregate(statuses):

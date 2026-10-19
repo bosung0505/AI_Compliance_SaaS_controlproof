@@ -82,9 +82,13 @@ def credentials() -> N02CredentialStore:
     return store
 
 
+def _builder(_policy) -> dict:
+    return EXPECTED
+
+
 def _observe(adapter) -> AdapterResult:
     return adapter.observe_consent(
-        subject=SUBJECT, viewport=VIEWPORT, expected_fragments=EXPECTED, display_name="합성 지원자"
+        subject=SUBJECT, viewport=VIEWPORT, fragment_builder=_builder, display_name="합성 지원자"
     )
 
 
@@ -98,6 +102,8 @@ def test_observation_becomes_a_lane_record_without_secrets(app_settings, credent
     result = _observe(WhyYouApplicantBrowserAdapter(app_settings, credentials=credentials, capture=capture))
     assert (result.ok, result.code) == (True, "APPLICANT_CONSENT_OBSERVED")
     assert seen[0]["raw_token"] == RAW_TOKEN and seen[0]["app_url"] == "http://127.0.0.1:5174"
+    # T009b: fragments are built from the observed GET response inside the capture, not passed in.
+    assert seen[0]["fragment_builder"] is _builder and "expected_fragments" not in seen[0]
     record = N01LaneRecord.model_validate(result.data["record"])
     assert record.lane.value == "mobile" and record.viewport.width == 390 and record.step_reached == "ready"
     assert record.subject.subject_ref == "n01-mobile"
