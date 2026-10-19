@@ -446,3 +446,25 @@
   고정 테스트용 AI가 실제 제품 검증·저장을 거쳤다. 외부 AI 품질, 실제 AWS, 별도 PC 재현,
   main 병합과 Spec005 전체 마감·비작성자 사용성을 완료했다고 주장하지 않는다.
 - 원본 보존: 최초 실패·기존 UX 미커밋 변경을 유지하고 실제 bundle/환경 파일은 새로 게시하지 않는다.
+
+## D-024. 카탈로그 `NOT_RUN` 4개(N-01·N-03·H-01·H-02)를 Spec 006 실행 범위로 확대한다
+
+- 상태: 확정 (2026-10-19)
+- 변경 전: D-013·D-014와 범위표 §2·§3은 N-01·N-03·H-01·H-02를 2주 MVP에서 실행하지 않는 `NOT_RUN`으로 고정했다.
+  범위표 §4 규칙 5는 이 넷을 실제 실행하려면 별도 Spec 또는 제품 책임자의 범위 변경을 Decision Log에 먼저 남기게 한다.
+- 변경 후:
+  1. 네 시나리오를 Spec 006 하나에서 실제 실행 대상으로 다룬다. 묶는 순서와 N-03의 범위(교체 수단이 없어 일부만 대상이
+     있음)는 Spec 006 Clarify에서 정한다.
+  2. 기준 source는 ControlProof `fixes-and-remaining-work` `994dd3f`, WhyYou `bosung0505/gbsa_aws`
+     `fixes-and-remaining-work` `33aa996`이다. 사전 조사는 `docs/research/Spec006_Notice_Authority_Source_Baseline.md`에 있다.
+  3. 실제 Run과 검증 기록이 생기기 전까지 네 시나리오의 상태는 `NOT_RUN` 그대로다. 범위표·카탈로그·README·Product Brief의
+     "실행 5" 숫자와 고정 문구는 Spec 006 closure에서만 바꾼다. Spec 005 T075 동기화는 이 결정 때문에 숫자를 바꾸지 않는다.
+  4. A-01~A-03은 `NO_TEST_TARGET`을 유지한다.
+  5. 합성 데이터, 외부 AI 차단, `LOCAL_EMULATED`, AWS `NOT_RUN`, 최초 FAIL 보존, 공식 Run마다 승인 원칙은 그대로다.
+     WhyYou 변경이 필요하면 `fixes-and-remaining-work`에서 분기한 개인 브랜치와 PR로만 한다.
+- 이유: 사전 조사에서 N-01·H-01·H-02는 WhyYou 수정 없이 시험 대상이 있고, N-03은 낡은 정책 거부만 대상이 있음을 확인했다.
+  고지·사람 결정 두 통제 영역의 실행 범위를 넓힌다.
+- 영향: Spec 006을 새로 만든다. 범위표 §2·§3, `catalog/mvp-scenarios.yaml`의 `mvp_treatment`, Product Brief §14.6, README,
+  TEAM_HANDOFF는 Spec 006 closure에서 실제 결과대로 갱신한다.
+- 승인: 제품 책임자(2026-10-19, 구두 승인, 연우 전달).
+- 재검토 조건: Clarify에서 N-03 범위를 정할 때, WhyYou 수정이 필요해질 때, 일정상 일부 시나리오를 다시 `NOT_RUN`으로 둘 때.
