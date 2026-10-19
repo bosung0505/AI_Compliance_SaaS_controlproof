@@ -142,6 +142,8 @@ detail: {{ item.detail or "" }}</pre></details></td>
   {% endif %}
 
   <div class="card" id="memos" data-testid="memo-section"><h3>수정 메모</h3>
+    {% if view.shared_snapshot %}<p class="muted">공유 결과는 읽기 전용입니다. 별도 개발 보완과 재테스트 설명은 위의 실행 기록에 연결돼 있습니다.</p>
+    {% else %}
     <div class="note">메모는 봉인 기록과 분리된 별도 기록입니다. 판정·증적·무결성 값은 바뀌지 않습니다.</div>
     {% if view.memos %}<ul>{% for memo in view.memos %}<li><b>{{ memo.author }}</b> <span class="muted">{{ memo.created_at | when }}</span><br>{{ memo.text }}</li>{% endfor %}</ul>
     {% else %}<p class="muted">메모가 없습니다.</p>{% endif %}
@@ -152,6 +154,7 @@ detail: {{ item.detail or "" }}</pre></details></td>
       <button class="btn" type="submit"{% if not view.memo_allowed %} disabled{% endif %}>메모 추가</button>
       {% if not view.memo_allowed %}<p class="muted">DEMO DATA 기록에는 메모를 남기지 않습니다.</p>{% endif %}
     </form>
+    {% endif %}
   </div>
   <p><a href="{{ prefix }}/">← 워크벤치로</a></p>
 </section>

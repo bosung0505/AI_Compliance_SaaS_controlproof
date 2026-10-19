@@ -127,6 +127,10 @@
 
 ## 3. 데이터 출처 문제
 
+아래는 2026-10-08 당시 source baseline이다. 2026-10-19 D-029로 검토한 실제 기록을 공유하는 방향으로 변경했다.
+현재 로컬 원본 위치와 미발견 기록은 [기록 공유 조사·전환 준비](Run_Record_Sharing_Preparation.md)를 따른다.
+이 문서의 과거 PC별 보관 상태를 현재 공유 금지 규칙이나 현재 파일 목록으로 해석하지 않는다.
+
 - Git에 있는 실제 bundle은 Spec 003 N-02 부모 `.controlproof/runs/15cef078-ee24-4f0e-91ef-381e0f7a1cc2/`(21개 파일,
   RESTORE_FAILED, 판정 INCONCLUSIVE)와 대응 정비 기록 `.controlproof/runs/blocks/maintenance/15cef078….json`뿐이다
   (2026-10-02 일회성 예외, AGENTS.md). 그 밖의 공식 Run(H-03, E-03, N-02 child `7b59237e…`, E-01·E-02 부모·child·

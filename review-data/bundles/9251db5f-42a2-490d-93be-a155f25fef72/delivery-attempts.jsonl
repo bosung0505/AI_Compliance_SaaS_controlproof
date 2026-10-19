@@ -1,0 +1,1 @@
+{"acknowledged":true,"consumer_name":"reporting-worker","delivery_attempt":2,"event_version":1,"handler_skipped":true,"observed_at":"2026-09-28T15:30:01.397169+00:00","outbox_event_id":"48e9f8db-08c3-5e20-bd84-854160a90ec2","run_id":"9251db5f-42a2-490d-93be-a155f25fef72","schema_version":"controlproof.whyyou-duplicate-ack.v1","session_id":"61fd1ec9-833a-57a3-be8b-b8b5bcca2904"}

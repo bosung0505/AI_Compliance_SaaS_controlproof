@@ -1,5 +1,11 @@
 # ControlProof × WhyYou 2주 MVP Product Brief
 
+2026-10-19 기록 공유 방향(D-029): 검토한 실제 실행 원본·상세 근거·최초 FAIL부터 재테스트까지의 계보를 코드와 함께 배포한다.
+같은 코드와 같은 공유 snapshot이면 팀원이 같은 공식 결과·근거·비교를 열람할 수 있어야 한다. 새 독립 실행과는 구분한다.
+Spec008에서 원본25건/600파일의 공유 기능과 별도 Git clone 열람 검증을 구현했다.
+[실행 방법](../../review-data/README.md) · [설계 이유 조사](../research/Run_Record_Sharing_Preparation.md).
+PC별 준비 확인과 메모, 원격 접속 서비스(D-021)는 별도 경계를 유지한다. 기존 시나리오 판정·범위는 바뀌지 않는다.
+
 2026-10-19 결과 설명 보완: H-02 개요·실행 결과·비교 화면에서 **문제 발견 → WhyYou 개발 코드 보완 → ControlProof 재테스트**를 구분한다. 이전 FAIL과 실제 근거를 함께 보존하며 서비스 코드 보완은 별도 개발 작업임을 명시했다. 완료 시나리오 보완 이력은 [조사표](../research/WhyYou_Remediation_History_Audit.md) 참고. 실행 범위·봉인 판정·WhyYou 코드는 이번 표시 작업에서 변경하지 않았다.
 
 2026-10-19 H-02 **2단계 로컬 범위 완료**. 최종 `c12c2ce8-f607-4be3-9524-0dec27dc7260` A1~A6 PASS / VERIFIED19 / 복구 성공.

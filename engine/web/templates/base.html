@@ -15,7 +15,7 @@
 <div class="demo-banner" role="note">DEMO DATA <small>합성 데이터로 만든 화면입니다. 실제 실행·판정·증적이 아니며 실제 결과 개수·보고서에 섞이지 않습니다.</small></div>
 {% endif %}
 <header>
-  <div class="brand-row"><h1>ControlProof <span>검증 워크벤치</span></h1><span class="record-context">{{ "합성 데모 보기" if view.demo else "보관된 테스트 기록 보기" }}</span></div>
+  <div class="brand-row"><h1>ControlProof <span>검증 워크벤치</span></h1><span class="record-context">{{ "합성 데모 보기" if view.demo else "공유된 실제 테스트 기록" if view.shared_snapshot else "보관된 테스트 기록 보기" }}</span></div>
   {% set tv = (view.target.target_version if view.target else none) or (view.run.target_version if view.run else none) or view.target_version_now %}
   <div class="target">검증 대상: <b>WhyYou</b> 테스트 환경
     {% set commit = (view.run.target_commit if view.run else none) or (view.latest_run.target_commit if view.latest_run else none) or (view.child.target_commit if view.child else none) or (view.target.target_commit if view.target else none) or view.target_commit_now %}
@@ -33,6 +33,17 @@
   </nav>
 </header>
 <main>
+{% if view.shared_snapshot %}
+<div class="card" role="note" data-testid="shared-records">
+  <b>팀과 함께 보는 실제 실행 기록</b>
+  <p class="muted">같은 공유본에서는 동일한 결과·상세 근거·재테스트 이력을 볼 수 있습니다. 기록 확인 {{ view.shared_snapshot.reviewed_at | when }} · 시각은 한국 시간(KST) · 읽기 전용</p>
+  <details><summary>공유본 정보{% if view.shared_snapshot.missing_records %} · 원본 미확보 이력 {{ view.shared_snapshot.missing_records | length }}건{% endif %}</summary>
+    <p class="mono">{{ view.shared_snapshot.snapshot_id }} · SHA-256 {{ view.shared_snapshot.snapshot_digest }}</p>
+    <p class="muted">보관된 실제 테스트 결과입니다. 이 PC에서 새로 실행한 결과나 현재 실행 준비 상태를 뜻하지 않습니다.</p>
+    {% for item in view.shared_snapshot.missing_records %}<p class="muted">{{ item.run_id }}: {{ item.note }}</p>{% endfor %}
+  </details>
+</div>
+{% endif %}
 {% block content %}{% endblock %}
 </main>
 <script src="/static/workbench.js"></script>

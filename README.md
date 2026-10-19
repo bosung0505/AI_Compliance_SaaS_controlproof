@@ -1,5 +1,19 @@
 # ControlProof
 
+2026-10-19 Spec008: **실제 기록 공동 열람 구현**. `fixes-and-remaining-work`의 코드와 공유 기록을 함께 받으면
+7개 완료 시나리오·9개 프로필의 결과·근거·계보를 같은 화면에서 볼 수 있다. 원본 25건/600개 파일을
+`review-data/`에 포함한다. H03/E03도 상세 연결되며, N02 과거 중간 원본 1건의 부재와 원래 INVALID 중단 기록은 명시한다.
+실제 결과 열람에 WhyYou·Docker·DB·.env는 필요 없다. [팀원 실행 방법](review-data/README.md) ·
+[검증 기록](specs/008-shared-run-records/validation.md) · [기존 설계 이유](docs/research/Run_Record_Sharing_Preparation.md).
+
+```powershell
+& .\.venv\Scripts\python.exe -m scripts.share_records --verify
+& .\.venv\Scripts\python.exe -m engine.web --shared-snapshot review-data/snapshot.json --port 8766
+```
+
+주소는 `http://localhost:8766/`. 기본 웹 모드는 공유 기록 읽기 전용이다. 새 테스트 준비·로컬 메모는
+명시적 `--run-root <local-root>` 모드에서 사용한다. 공유 기록 조회와 새 독립 실행은 구분한다.
+
 2026-10-19 결과 설명 보완: H-02 개요·실행 결과·비교 화면에서 **문제 발견 → WhyYou 개발 코드 보완 → ControlProof 재테스트**를 구분한다. 이전 FAIL과 실제 근거를 함께 보존하며 서비스 코드 보완은 별도 개발 작업임을 명시했다. 완료 시나리오 보완 이력은 [조사표](docs/research/WhyYou_Remediation_History_Audit.md) 참고. 실행 범위·봉인 판정·WhyYou 코드는 이번 표시 작업에서 변경하지 않았다.
 
 2026-10-19 H-02 **2단계 로컬 범위 완료**. 최종 `c12c2ce8-f607-4be3-9524-0dec27dc7260` A1~A6 PASS / VERIFIED19 / 복구 성공.
@@ -278,8 +292,9 @@ WhyYou `bosung/controlproof-n02-integration`:
 
 재현은 [Spec 004 Quickstart](specs/004-e01-e02-score-evidence/quickstart.md) 하나를 따른다.
 `scripts/spec004_local.py`가 별도 합성 DB·큐·고정 모델 API/작업자를 기동한다. 실제 AI 키와 `.env`는 필요 없다.
-원본 bundle은 Git에 포함되지 않는다. 두 브랜치를 pull하고 새 Run을 만들어 확인하며, 상세 Run ID·manifest·시간·
+이 2026-10-08 checkpoint 당시 원본 bundle은 Git 전달 대상이 아니었다. 당시 재실행 방법과 상세 Run ID·manifest·시간·
 명령·이식성 수정·한계는 [Validation](specs/004-e01-e02-score-evidence/validation.md) 마지막 closure 기록에 있다.
+현재 공유 정책은 D-029와 위 준비 문서를 따른다. 기존 결과 열람과 새 Run 실행은 구분한다.
 
 같은 PC의 두 번째 clean checkout 재현은 승인된 SC-006 기준을 충족한다(ID-004-36/D-017).
 다른 PC 재현과 main 통합 승인은 별도이며 아직 완료되지 않았다. AWS NOT_RUN, 전체 MVP 미완료,

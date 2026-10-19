@@ -1,5 +1,10 @@
 # ControlProof AI·Spec Kit 작업 플레이북
 
+2026-10-19 공유 정책 변경(D-029): 검토한 실제 실행 기록과 계보를 코드와 함께 배포해 같은 결과 화면을 제공한다.
+§7이 현재 규칙이다. [설계 이유 조사·전환 준비](research/Run_Record_Sharing_Preparation.md)를 따른다.
+후속 Spec008에서 공유 snapshot·기본 읽기 모드와 별도 Git clone 검증을 구현했다. 현재 방법은
+[공유 기록 README](../review-data/README.md), 검증 범위는 Spec008 Validation을 따른다.
+
 최신 checkpoint(2026-10-18): Spec003 N-02 로컬 범위 Complete. 최종 `16dbd987…`
 A1~A7 PASS, VERIFIED21, 복구 성공, DB 잔여행0. 실제 소스 CP `3ea1509`/WhyYou `e64ff9d`.
 이전 2026-10-08 checkpoint의 N-02 대기 상태는 이력이다. 최신 절차는 Spec003 Quickstart와
@@ -81,8 +86,9 @@ Spec 문서 여러 개를 한꺼번에 만든 뒤 구현하는 방식이 아니�
 
 ## 6. 독립 재현 gate
 
-Spec 001·002의 현재 actual Run은 한 PC에서 생성됐고 runtime bundle은 Git에 없다. 따라서 main 병합 전
-다른 팀원이 다음 최소 gate를 수행한다.
+2026-10-01에는 Spec001·002 actual Run이 한 PC에 있어 다음 독립 재현 gate를 정했다.
+2026-10-19 D-029에 따라 검토한 원본은 공유할 수 있지만, 파일 열람은 다른 PC에서 새로 실행한 증거가 아니다.
+아래 gate와 D-019의 인정 범위는 공유 정책과 별도로 유지한다.
 
 1. 새 checkout에서 Quickstart의 개인 절대 경로가 없는지 확인한다.
 2. ControlProof와 WhyYou의 지정 브랜치·commit을 checkout한다.
@@ -112,16 +118,25 @@ Spec 001·002의 현재 actual Run은 한 PC에서 생성됐고 runtime bundle�
 
 ## 7. 증적 공유 원칙
 
-- `runs/`와 `.controlproof/` 전체는 Git에 commit하지 않는다.
-- 실제 개인정보, token, `.env`, 원본 queue URL, receipt handle, message body를 공유하지 않는다.
-- 대표 bundle 공유 기능이 생기기 전에는 Validation의 Run ID, source SHA, assertion 결과와 manifest
-  SHA-256이 공식 기록이다.
-- 향후 공유용 export를 만들면 redaction 재검증, allowlist 파일만 포함, 새 archive SHA-256과 import
-  verify 절차를 별도 Spec으로 정의한다.
+현재 정책은 **검토한 실제 실행 원본·상세 근거·계보를 코드와 함께 공유**하는 것이다(D-029, 2026-10-19 사용자 요청).
+기존 ‘실제 기록은 각 PC에만 두고 요약으로 인계’ 정책과 D-018의 기록 가져오기 보류는 이 범위에서 대체한다.
 
-2026-10-02 일회성 팀 인계 예외: 사용자가 공개 Git 게시를 승인한 Spec 003 N-02 부모 Run
+- `runs/`와 `.controlproof/` 전체 ignore는 유지한다. 검토한 파일은 별도 추적 경로의 버전 고정 snapshot으로 배포한다.
+  Spec008 경로는 `review-data/bundles/<run-id>`, 고정 목록은 `review-data/snapshot.json`이다.
+- 실제 개인정보, token, `.env`, 자격 증명, 원본 queue URL·receipt handle·비검토 message body와 임시 probe는 공유하지 않는다.
+- 파일 허용 목록·민감정보 재검사·bundle verify를 수행하고, Run ID·부모·원래 source SHA·manifest 해시를 함께 고정한다.
+  Git 파일 배포는 snapshot 목록과 파일 해시로 검증하며 archive를 만들 경우 그 SHA-256도 기록한다.
+- 최초 FAIL·INCONCLUSIVE·중단 기록을 보존한다. 원본 바이트를 고치거나 누락 파일을 예시 데이터로 대체하지 않는다.
+  찾지 못한 이력은 누락으로 명시한다. 공유에 부적합한 원본이 있으면 파생본 설계와 원본과의 관계를 별도로 정의한다.
+- 공유 기록 조회·무결성 검증은 독립 실행과 다르다. D-019 인정 범위와 AWS `NOT_RUN`은 바뀌지 않는다.
+- Spec008의 export/검증/로딩·같은 화면 확인을 사용한다. 별도 Git clone에서 원본25건·결과 API53개·근거24개를 확인했다.
+  [실행 방법](../review-data/README.md)을 따른다. 공유 snapshot과 표시 코드가 다르면 시작을 거부하므로
+  후속 표시 코드/카탈로그 변경 시 원본 바이트를 보존한 새 snapshot 맥락을 함께 검토·버전 관리한다.
+  조사 범위에서 미확보된 N02 중간 원본 1건은 부재로 표시한다. pull이 누락된 역사 전체를 복원한다는 뜻은 아니다.
+
+역사적 예외(2026-10-02): 사용자가 공개 Git 게시를 승인한 Spec 003 N-02 부모 Run
 `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`의 원본 bundle, 대응 정비 기록, WhyYou cleanup 증거 JSON만
-두 기능 브랜치에 추적한다. 그 밖의 `.controlproof/` 생성물과 이후 Run에는 위 원칙을 그대로 적용한다.
+두 기능 브랜치에 추적했다. 이 원본은 그대로 보존한다. 이후 공유는 위 D-029 정책을 따른다.
 이 예외는 독립 PC Run 완료나 대상 서비스 PASS를 뜻하지 않는다. 팀원은 pull 후 원본 SHA와 bundle
 `verify`를 확인한다.
 

@@ -1,5 +1,13 @@
 # ControlProof 팀 통합 인수인계
 
+2026-10-19 D-029: **검토한 실제 실행 기록을 함께 공유**하는 정책으로 변경했다.
+Spec008에서 `review-data/` 실제 원본 25건/600개 파일과 공유 읽기 모드를 구현했다. 7개 시나리오·9개 프로필
+대표 최종·주요 계보가 연결된다. 별도 Git clone의 API53개 일치, 근거24개·1280/1024px 화면 검증을 수행했다.
+[실행 방법](../review-data/README.md) · [Spec008 검증](../specs/008-shared-run-records/validation.md) ·
+[원래 설계 조사](research/Run_Record_Sharing_Preparation.md). N02 중간 `7b59237e…` 원본은 미확보,
+중단 `ce5f2750…`는 원래 INVALID로 보존한다. PC별 준비 상태·메모를 공유 모드에서 읽지 않는다.
+아래 ‘원본 Git 제외’는 당시 이력이며 현재 공유 금지 규칙이 아니다. 공유본 열람은 새 독립 실행이 아니다.
+
 2026-10-19 결과 설명 보완: H-02 개요·실행 결과·비교 화면에서 **문제 발견 → WhyYou 개발 코드 보완 → ControlProof 재테스트**를 구분한다. 이전 FAIL과 실제 근거를 함께 보존하며 서비스 코드 보완은 별도 개발 작업임을 명시했다. 완료 시나리오 보완 이력은 [조사표](research/WhyYou_Remediation_History_Audit.md) 참고. 실행 범위·봉인 판정·WhyYou 코드는 이번 표시 작업에서 변경하지 않았다.
 
 2026-10-19 H-02 **2단계 로컬 범위 완료**. 최종 `c12c2ce8-f607-4be3-9524-0dec27dc7260` A1~A6 PASS / VERIFIED19 / 복구 성공.
@@ -69,6 +77,7 @@ EMPTY 조건은 답변이 있지만 점수에 연결하지 않은 입력임을 �
 | Spec 004 | Complete | T001~T097 및 converge 완료(T087 NOT_REQUIRED). 최초 E-01 FAIL 보존 → 승인 수정 child PASS; WhyYou 374b122에서 새 checkout E-01 4030503c…·E-02 970108fe… 실제 PASS/SUCCEEDED/VERIFIED, 잔여행 0. 전체 CP 939 PASS·WhyYou scoped 188 PASS. 다른 PC·AWS는 미검증. |
 | Spec 005 | 웹 구현·실제 검증 기록·내부 UX 개편 중 | 공통 디자인을 유지하면서 E-01 조건별 관찰·근거, E-02 설명과 결과 진입을 개선한다. 비작성자 사용성 검토와 전체 converge는 완료로 선언하지 않는다. |
 | Spec 006 / H-01 | Complete — actual·독립 감사·웹 QA·문서 수렴 완료 | final `39a0d317-b36d-4cf1-8b09-aebb404d5891` A1~A6 PASS/VERIFIED17, 독립 DB44개 테이블 잔여행0. 최초 FAIL·중간 판정 불가 보존. |
+| Spec 008 / 실제 기록 공유 | 공동 열람 구현·실제 Git clone 검증 | 원본25건/600파일, 공유 snapshot 검증·읽기 전용 웹. 기존 Run 판정과 source SHA 유지. 새 WhyYou Run/독립 PC 실행/AWS 검증이 아님. |
 | 실제 AWS | `NOT_RUN` | AWS SQS·ECS·IAM·CloudWatch·운영 네트워크는 검증하지 않았다. |
 | ControlProof 웹 워크벤치 | 로컬 구현됨 | 봉인 결과를 읽기 전용으로 검토한다. 새 Run·재시험은 CLI로 수행한다. |
 | 2주 MVP 전체 | 미완료 | Spec 001·002 완료를 전체 제품 또는 전체 시나리오 완료로 확대하면 안 된다. |
@@ -296,7 +305,7 @@ git rev-list --left-right --count HEAD...@{upstream}
 현재 Spec 004 재현은 `specs/004-e01-e02-score-evidence/quickstart.md`와 최신 validation을 따른다.
 아래 원본 전달 예외·명령은 과거 Spec 003 checkpoint이며, Spec 004 원본 Run은 포함되지 않는다.
 
-일반 규칙상 `.env`, credential, `.controlproof/`와 Run bundle은 Git에 넣지 않는다. 다만 사용자가
+이 checkpoint 당시에는 `.env`, credential, `.controlproof/`와 Run bundle을 Git에 넣지 않는 규칙이었다. 다만 사용자가
 2026-10-02에 **공개 Git 게시를 승인한 일회성 예외**로, 이 부모의 정확한 bundle 20개 파일과
 정비 기록만 ControlProof 작업 브랜치에, cleanup 증거 JSON 하나만 WhyYou 작업 브랜치에 포함했다.
 따라서 팀원은 두 브랜치를 pull하면 아래 세 경로를 별도 복사 없이 받는다.
@@ -463,10 +472,11 @@ quickstart 7~8절). 같은 절차를 다시 밟으면 새 child가 생기며 기
 restore 상태, 실제 failure route, 누락·중복 effect, 미검증 범위와 implementation status를 확인한다.
 `verify`는 원본을 고치지 않고 hash, manifest, artifact envelope, scenario/target 연결을 검사한다.
 
-일반적으로 과거 Run bundle은 `.controlproof/`에만 있고 Git에 포함되지 않는다. 이번 N-02 부모
+당시에는 과거 Run bundle을 로컬에 보관하고 Git에 포함하지 않았다. 이 N-02 부모
 `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`만 위 일회성 예외로 공개 작업 브랜치에 정확한 원본을
 보존했다. 이 파일을 pull해 조회·검증하는 것은 팀원 PC에서 새 Run을 독립 재현한 결과가 아니다.
 과거 결과의 Run ID, source SHA, manifest SHA와 assertion 결과는 Validation에도 남아 있다.
+2026-10-19 이후 검토한 실제 기록은 D-029에 따라 별도 공유 snapshot으로 배포할 계획이다. 원본 불변과 열람/재실행 구분은 유지한다.
 
 N-02 최초 부모는 개별 A4~A7 FAIL이 있어도 복구 실패가 최종 판정보다 우선해 전체
 `INCONCLUSIVE`다. 이후 `cleanup-confirm`은 현재의 안전 상태를 증명할 뿐 부모의 과거 verdict를
@@ -519,7 +529,7 @@ Spec 004는 현재 작업 브랜치에서 Complete다. 다음 기능은 Spec 005
    - 366 tracked 파일/112 bundle 파일 보안 스캔 clean, 기존 4개와 새 2개 bundle VERIFIED. Q1 수정·재검증까지
      343.613371초, Q2 Run/show/verify 38.4084182초; 복구 성공, 증거·볼륨 보존 후 재현 환경만 종료했다.
    - ID-004-36/D-017: 기존 판정 사유 계약 및 두 번째 clean checkout 재현 기준을 보성이 명시 승인했다.
-     다른 PC와 AWS는 미검증이며 main 통합은 별도 승인 전 금지다. 원본 Run은 Git 전달 대상이 아니다.
+     다른 PC와 AWS는 미검증이며 main 통합은 별도 승인 전 금지다. 당시 원본 Run은 Git 전달 대상이 아니었다(현재 공유 정책 D-029).
    - 새 팀원은 두 현재 브랜치를 pull → README/이 문서 → Spec 004 quickstart의 `spec004_local.py`를 따른다.
      실제 AI 키·.env·연우 PC의 .pyd 우회는 필요 없다. dependency 설치 또는 설치된 interpreter 경로를 선택한다.
      이식성 결함·Run/manifest 원장은 Spec 004 validation 마지막 closure와 traceability에 있다.

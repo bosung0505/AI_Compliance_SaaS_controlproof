@@ -177,6 +177,7 @@ class WorkbenchReader:
         cache: VerifyCache | None = None,
         memos: MemoStore | None = None,
         target: str = "whyyou-local",
+        shared_snapshot: dict[str, Any] | None = None,
     ) -> None:
         if origin not in {"ACTUAL", "DEMO"}:
             raise ValueError("origin must be ACTUAL or DEMO")
@@ -185,19 +186,23 @@ class WorkbenchReader:
         self.readiness = readiness
         self.origin = origin
         self.cache = cache or VerifyCache()
-        self.memos = memos
+        self.memos = None if shared_snapshot else memos
         self.target = target
+        self.shared_snapshot = shared_snapshot
 
     def header(self, view: str) -> dict[str, Any]:
         return {
             "schema_version": SCHEMA_VERSION,
             "view": view,
-            "generated_at": datetime.now(UTC).isoformat(),
+            "generated_at": self.shared_snapshot["reviewed_at"] if self.shared_snapshot else datetime.now(UTC).isoformat(),
             "environment_kind": "LOCAL_EMULATED",
             "aws_deployment_status": "NOT_RUN",
             "claim_scope": "EXECUTED_SCENARIO_AND_EVIDENCE_ONLY",
             "data_origin": self.origin,
             "demo": self.origin == "DEMO",
+            "shared_snapshot": ({key: self.shared_snapshot[key] for key in
+                                 ("snapshot_id", "snapshot_digest", "reviewed_at", "missing_records")}
+                                if self.shared_snapshot else None),
         }
 
     def workbench(self) -> dict[str, Any]:
@@ -273,7 +278,7 @@ class WorkbenchReader:
 
     def _result_links(self, official: list[dict[str, Any]], local: list[str]) -> list[dict[str, Any]]:
         links = [{"run_id": item["run_id"], "role": "OFFICIAL"} for item in official]
-        role = "DEMO" if self.origin == "DEMO" else "WEB_VALIDATION"
+        role = "DEMO" if self.origin == "DEMO" else "SHARED_HISTORY" if self.shared_snapshot else "WEB_VALIDATION"
         links += [{"run_id": run_id, "role": role} for run_id in local if run_id not in {i["run_id"] for i in official}]
         return links[:RESULT_LINK_LIMIT]
 
@@ -289,7 +294,7 @@ class WorkbenchReader:
                 "source": "CATALOG", "note": None, "profiles": [],
             }
         profiles = [
-            _profile_readiness(profile["execution_profile"], self.readiness.latest(entry["id"], profile["execution_profile"]))
+            _profile_readiness(profile["execution_profile"], None if self.shared_snapshot else self.readiness.latest(entry["id"], profile["execution_profile"]))
             for profile in entry["profiles"]
         ]
         recorded = [item for item in profiles if item["recorded"]]
@@ -333,6 +338,8 @@ class WorkbenchReader:
 
     def _target_identity(self) -> dict[str, str | None]:
         """Target version and short WhyYou commit from the latest readiness record (ID-005-09)."""
+        if self.shared_snapshot:
+            return dict(self.shared_snapshot["target"])
         versions = []
         for entry in self.catalog["scenarios"]:
             for profile in entry["profiles"]:
@@ -402,7 +409,7 @@ class WorkbenchReader:
             "restore": None,
             "limitations": [],
             "memos": self.memos.list(run_id) if self.memos else [],
-            "memo_allowed": self.origin == "ACTUAL",
+            "memo_allowed": self.origin == "ACTUAL" and not self.shared_snapshot,
             "developer": {
                 "files": _manifest_paths(bundle),
                 "problems": integrity["problems"],
@@ -642,7 +649,7 @@ class WorkbenchReader:
         if self.origin == "DEMO":
             role = "OTHER"
         else:
-            role = "OFFICIAL" if bundle.name in official else "WEB_VALIDATION"
+            role = "OFFICIAL" if bundle.name in official else "SHARED_HISTORY" if self.shared_snapshot else "WEB_VALIDATION"
         return {
             "run_id": bundle.name,
             "scenario_id": record.get("scenario_id"),
@@ -730,7 +737,7 @@ class WorkbenchReader:
             item["label"] = labels.get(item["evidence_id"], item.get("description"))
         for item in definition["assertions"]:
             item["display"] = rule_display(item)
-        record = self.readiness.latest(entry["id"], name)
+        record = None if self.shared_snapshot else self.readiness.latest(entry["id"], name)
         return {
             "execution_profile": name,
             "scenario_file": profile["scenario_file"],

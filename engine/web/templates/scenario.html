@@ -82,14 +82,16 @@
       {% for run in view.previous_runs %}
       <tr><td><a class="result-link" href="{{ prefix }}/runs/{{ run.run_id }}">{{ run.started_at | when }}</a><div class="mono muted">{{ run.run_id | short_id }}</div></td><td>{{ run.execution_profile }}</td>
         <td>{% if run.verdict_badge %}{{ badge(run.verdict_badge) }}{% else %}{{ badge("integrity_failed") }}{% endif %}</td>
-        <td>{{ run.integrity }}</td><td>{{ "DEMO" if view.demo else ("공식" if run.record_role == "OFFICIAL" else "웹 검증") }}</td>
+        <td>{{ run.integrity }}</td><td>{{ "DEMO" if view.demo else ("공식" if run.record_role == "OFFICIAL" else "추가 보존" if view.shared_snapshot else "웹 검증") }}</td>
         <td>{% if run.parent_run_id %}<a class="compare-link" href="{{ prefix }}/compare/{{ run.run_id }}">재테스트 비교</a>{% endif %}</td></tr>
       {% endfor %}
     </tbody></table>
     {% else %}<p class="muted">이 화면의 기록 root에 이 시나리오의 실행 기록이 없습니다. 공식 기록: <span class="mono">{{ view.official.validation_ref }}</span></p>{% endif %}
   </div>
   {% endif %}
-  {% if view.profiles %}
+  {% if view.shared_snapshot and view.profiles %}
+  <div class="card"><h3>새 테스트 준비</h3><p class="muted">공유 화면은 보관된 결과를 읽는 화면입니다. 새 테스트의 준비 확인·실행은 각 PC의 로컬 실행 모드에서 진행합니다.</p></div>
+  {% elif view.profiles %}
   <div class="card" data-testid="run-guide"><h3>새 테스트 준비·실행 안내 <span class="muted">(웹은 실행을 시작하지 않습니다 · D-018)</span></h3>
     <p class="muted">아래는 새 테스트을 시작하려는 실행 담당자용 안내입니다. 위의 과거 결과를 읽는 데 준비 설정은 필요하지 않습니다.</p>
     {% if view.definition %}<details><summary>시나리오에 정의된 실행 전제 {{ view.definition.preconditions | length }}개</summary><ul>{% for item in view.definition.preconditions %}<li>{{ item.description }}</li>{% endfor %}</ul></details>{% endif %}

@@ -12,7 +12,7 @@ import json
 import re
 import secrets
 import urllib.parse
-from datetime import datetime
+from datetime import datetime, timedelta, timezone
 from http import HTTPStatus
 from http.server import BaseHTTPRequestHandler, ThreadingHTTPServer
 from pathlib import Path
@@ -105,7 +105,7 @@ class WebServer(ThreadingHTTPServer):
             loader=FileSystemLoader(PACKAGE / "templates"), autoescape=select_autoescape(["html"]), trim_blocks=True,
             lstrip_blocks=True,
         )
-        self.templates.filters["when"] = _when
+        self.templates.filters["when"] = lambda value: _when(value, shared=bool(actual.shared_snapshot))
         self.templates.filters["short_id"] = lambda value: f"{value[:8]}…" if value else ""
         self.templates.filters["size"] = _size
         self.templates.filters["mime_label"] = _mime_label
@@ -125,21 +125,27 @@ def make_server(
     catalog: dict[str, Any] | None = None,
     target: str = "whyyou-local",
     preflight_runner: Any = None,
+    shared_snapshot: dict[str, Any] | None = None,
 ) -> WebServer:
     """Create the server on 127.0.0.1:<port> (0 picks a free port). The caller runs `serve_forever`."""
     catalog = catalog or load_catalog()
     cache = VerifyCache()
-    actual_store = ReadinessStore(Path(state_dir) / "preflight")
-    memos = MemoStore(Path(state_dir) / "memos")
+    actual_store = _NoLocalReadiness() if shared_snapshot else ReadinessStore(Path(state_dir) / "preflight")
+    memos = None if shared_snapshot else MemoStore(Path(state_dir) / "memos")
     demo_store = ReadinessStore(Path(demo_root).parent / "preflight")
-    runner = preflight_runner or PreflightRunner(catalog, actual_store, target=target, cwd=REPO_ROOT)
+    runner = None if shared_snapshot else preflight_runner or PreflightRunner(catalog, actual_store, target=target, cwd=REPO_ROOT)
     return WebServer(
         port,
-        actual=WorkbenchReader(catalog, run_root, readiness=actual_store, origin="ACTUAL", cache=cache, memos=memos, target=target),
+        actual=WorkbenchReader(catalog, run_root, readiness=actual_store, origin="ACTUAL", cache=cache, memos=memos, target=target, shared_snapshot=shared_snapshot),
         demo=WorkbenchReader(catalog, demo_root, readiness=demo_store, origin="DEMO", cache=cache, target=target),
         runner=runner,
         catalog=catalog,
     )
+
+
+class _NoLocalReadiness:
+    def latest(self, scenario_id: str, profile: str) -> None:
+        return None
 
 
 class _Handler(BaseHTTPRequestHandler):
@@ -163,6 +169,9 @@ class _Handler(BaseHTTPRequestHandler):
         self._body = self._read_body() if method == "POST" else b""
         if self.headers.get("Host") not in self.server.allowed_hosts:
             self._error("CONTRACT", "HOST_NOT_ALLOWED", "허용되지 않은 Host입니다.", status=HTTPStatus.MISDIRECTED_REQUEST)
+            return
+        if method == "POST" and self.server.readers["ACTUAL"].shared_snapshot:
+            self._error("CONTRACT", "SHARED_READ_ONLY", "공유 결과는 읽기 전용입니다. 새 테스트 준비는 로컬 실행 모드에서 진행하세요.")
             return
         if method == "GET" and path == "/demo":
             self._redirect("/demo/", HTTPStatus.MOVED_PERMANENTLY)
@@ -399,11 +408,12 @@ def _boundary(view: dict[str, Any], run_root: Path) -> dict[str, Any]:
     return redact(display_paths(view, run_root=run_root))
 
 
-def _when(value: str | None) -> str:
+def _when(value: str | None, *, shared: bool = False) -> str:
     if not value:
         return ""
     try:
-        return datetime.fromisoformat(value).astimezone().strftime("%Y-%m-%d %H:%M")
+        stamp = datetime.fromisoformat(value)
+        return stamp.astimezone(timezone(timedelta(hours=9)) if shared else None).strftime("%Y-%m-%d %H:%M")
     except ValueError:
         return value
 

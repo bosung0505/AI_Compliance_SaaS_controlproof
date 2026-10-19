@@ -1,0 +1,1 @@
+{"changed_dimensions":{"scenario":false,"subject_initial_state":true,"subject_role":false,"target_paths":["git_commit_sha"]},"child_run_id":"e42482c9-ba84-42c6-984d-209e0f80b7d8","created_at":"2026-09-27T10:20:35.191732Z","parent_run_id":"f738081a-5fb3-4f21-af22-685a12355096","reason":"WhyYou 수정 후 독립 Run 재시험"}

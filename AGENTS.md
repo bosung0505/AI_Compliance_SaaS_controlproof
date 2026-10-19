@@ -38,11 +38,16 @@ without actual validation or an explicit truthful non-execution status. Update V
 - WhyYou integration uses `jhkim0602/gbsa_aws` branch `bosung/controlproof-n02-integration` (`374b122`) or a personal
   branch based on it. Never commit or push ControlProof work directly to WhyYou `main`.
 - Inspect both repositories' branch, HEAD and dirty state before an actual Run.
-- Never commit `.env`, credentials, production data, `.controlproof/`, or `runs/`.
+- Never commit `.env`, credentials or production data. Keep raw `.controlproof/` and `runs/` ignored.
+  User decision D-029 (2026-10-19) authorizes sharing reviewed actual evidence and lineage in a dedicated
+  tracked snapshot (proposed `review-data/bundles/`), after redaction/allowlist/integrity checks.
+  Read `docs/research/Run_Record_Sharing_Preparation.md` before implementing this transition.
+  Shared viewing is not independent re-execution; preserve frozen source SHAs, verdicts and original bytes.
 - Historical one-time exception approved on 2026-10-02: the exact synthetic Spec 003 N-02 parent bundle
   `15cef078-ee24-4f0e-91ef-381e0f7a1cc2`, its matching cleanup maintenance record, and the matching
   WhyYou cleanup evidence JSON were published on the two Spec 003 feature branches for teammate handoff.
-  Preserve those bytes; do not extend this exception to later Runs, probe logs, credentials, or other artifacts.
+  Preserve those bytes. Later shared records follow D-029's reviewed snapshot policy rather than extending
+  this raw-directory exception. Probe logs and credentials remain excluded.
 - Do not rewrite or delete prior validation history to make a result look successful.
 
 ## Active web review work (2026-10-15)
@@ -93,7 +98,8 @@ Continue future fixes and remaining tasks on `fixes-and-remaining-work` in both 
 ControlProof publishes to `origin` (`bosung0505/AI_Compliance_SaaS_controlproof`); WhyYou publishes
 to the `fork` remote (`bosung0505/gbsa_aws`). Keep WhyYou upstream `main` unchanged.
 The source SHAs in actual Run records remain the frozen validation SHAs, not later publication commits.
-Exclude runtime logs, new bundles, credentials and environment files from publication.
+Exclude runtime logs, credentials and environment files from publication. The former exclusion of all new
+bundles is superseded by D-029 for reviewed shared snapshots; raw runtime directories remain ignored.
 
 ## H-01 stage1 preparation (2026-10-18)
 
@@ -139,8 +145,9 @@ human review; after sealing FAIL, production pipeline reader narrowed to reposit
 Actual4readers unchanged and same-position/version35accept/90reject human controls passed. Source42
 items fully reviewed/actual runtime reconciled; fixed synthetic model, AWS/externalquality outside scope.
 Shared QA22pages/20panels and catalog12/7/2/3 converged. Earlier stage1 NOT_RUN paragraphs are historical.
-Keep fixes-and-remaining-work, original H01/N02 artifacts and historical exception unchanged; newbundles,
-credentials and runtime logs stay ignored. No H02 commit/push in this closure. See Spec007 actual-closure.
+Keep fixes-and-remaining-work, original H01/N02 artifacts and historical exception unchanged. At this closure,
+new bundles, credentials and runtime logs stayed ignored; reviewed bundle sharing later follows D-029.
+No H02 commit/push in this closure. See Spec007 actual-closure.
 
 
 ## Remediation history display (2026-10-19)
@@ -152,3 +159,16 @@ Never infer a target fix from a later PASS or source SHA change. Other scenarios
 is docs/research/WhyYou_Remediation_History_Audit.md; E03 includes a CP normalization fix, N02 includes
 prior consent guards and later test-model setup, E02 started PASS. This UI/audit closure changes no
 WhyYou source or sealed verdict. Full Spec005 external usability remains separate.
+
+## Shared actual records preparation (2026-10-19)
+
+D-029 replaces the local-only handoff policy with shared actual result snapshots so teammates can view
+the same records. Spec008 implements review-data/snapshot.json and25 actual records/600 sealed files.
+Default web mode verifies and opens the shared snapshot; explicit --run-root/env selects the original
+local mode. Shared mode ignores PC readiness/memos, rejects POST and fixes display time to KST.
+Keep missing N02 history explicit and the original INVALID attempt blocked; preserve all original
+bytes/source SHAs/verdicts. Display code/catalog/scenario JSON hashes are pinned; future relevant
+changes require a reviewed new snapshot context, never resealing evidence. Keep /review-data/** -text.
+Read specs/008-shared-run-records/validation.md and review-data/README.md for current validation/launch.
+The isolated Git clone test is shared-view validation, not independent WhyYou re-execution. Preserve
+D-014/D-018 as historical decisions and D-019's actual reproduction scope.
