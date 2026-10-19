@@ -1,0 +1,320 @@
+{
+  "a06299314d8b8b099375b1b7637a86b498489a347d61e3d8ea612f34a31964ee": {
+    "effects": {
+      "API_WORKER_HELPER:invitation_email": "AUXILIARY_WRITE",
+      "API_WORKER_HELPER:media_postprocess": "AUXILIARY_WRITE",
+      "API_WORKER_HELPER:privacy_deletion": "AUXILIARY_WRITE",
+      "API_WORKER_HELPER:report_generation": "AUXILIARY_WRITE",
+      "ASSISTANT_BINDING:AssistantAnswerService": "READ_ONLY",
+      "ASSISTANT_BINDING:AssistantSearchService": "READ_ONLY",
+      "ASSISTANT_BINDING:ReportSearchProjector": "AUXILIARY_WRITE",
+      "ASSISTANT_BINDING:create_assistant_router": "AUXILIARY_WRITE",
+      "ASSISTANT_BINDING:resolve_controlproof_assistant": "READ_ONLY",
+      "ASSISTANT_ROUTE:POST /v1/assistant/answers": "AUXILIARY_WRITE",
+      "ASSISTANT_ROUTE:POST /v1/assistant/answers/stream": "AUXILIARY_WRITE",
+      "ASSISTANT_ROUTE:POST /v1/assistant/search": "AUXILIARY_WRITE",
+      "DISPATCH_ANCHOR:AssistantAnswerService.answer": "READ_ONLY",
+      "DISPATCH_ANCHOR:AwsBedrockModel.generate": "READ_ONLY",
+      "DISPATCH_ANCHOR:MessageConsumer.consume_once": "AUXILIARY_WRITE",
+      "DISPATCH_ANCHOR:_pipeline_answer": "READ_ONLY",
+      "DISPATCH_ANCHOR:create_worker_runtime": "AUXILIARY_WRITE",
+      "DISPATCH_ANCHOR:main": "AUXILIARY_WRITE",
+      "MODEL_REQUEST_KEY:anthropic_version": "READ_ONLY",
+      "MODEL_REQUEST_KEY:max_tokens": "READ_ONLY",
+      "MODEL_REQUEST_KEY:messages": "READ_ONLY",
+      "MODEL_REQUEST_KEY:system": "READ_ONLY",
+      "MODEL_REQUEST_KEY:temperature": "READ_ONLY",
+      "MODEL_RESPONSE_FIELD:answer": "READ_ONLY",
+      "MODEL_RESPONSE_FIELD:source_ids": "READ_ONLY",
+      "ROUTING_ONLY:deletion.target_requested": "AUXILIARY_WRITE",
+      "ROUTING_ONLY:deletion.target_verified": "AUXILIARY_WRITE",
+      "ROUTING_ONLY:interview.session_paused": "AUXILIARY_WRITE",
+      "ROUTING_ONLY:interview.turn_finalized": "AUXILIARY_WRITE",
+      "ROUTING_ONLY:invitation.consent_completed": "AUXILIARY_WRITE",
+      "ROUTING_ONLY:report.ready": "AUXILIARY_WRITE",
+      "ROUTING_ONLY:strategy.ready": "AUXILIARY_WRITE",
+      "ROUTING_ONLY:system.parity_probe": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:capacity.reconcile_requested": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:deletion.requested": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:interview.completed": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:media.postprocess_requested": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:position.capacity_changed": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:report.generation_requested": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:retention.expired": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:submission.analysis_completed": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:submission.analysis_requested": "AUXILIARY_WRITE"
+    },
+    "mode": "read-only-pipeline-reader",
+    "review_basis": [
+      {
+        "path": "backend/src/interview_evidence/runtime/production.py",
+        "sha256": "d1cc290bc125d154615724122c83c04380b0e9c7d4de3996a59d05b5e1888168"
+      },
+      {
+        "path": "backend/src/interview_evidence/runtime/worker.py",
+        "sha256": "ea3a56ef4d8fd500775e0fae0583ab7b6b134d94f19b701f59fb70767c3060b7"
+      },
+      {
+        "path": "backend/src/interview_evidence/recruiting_assistant/api.py",
+        "sha256": "779e02f0eb4dd67fc242f996d60b6e2dfada159894f9bddca86b9ee7907e25e7"
+      },
+      {
+        "path": "backend/src/interview_evidence/recruiting_assistant/application.py",
+        "sha256": "8b8f748054a78dbaa79047ccc4387c3091906c41fdb67d850ca07354325c634d"
+      },
+      {
+        "path": "backend/src/interview_evidence/recruiting_assistant/prompt.py",
+        "sha256": "ddf12add2bf83a4f4247b2551314d73b22729c0bd57be6cb1b8fdfc96fcb90ac"
+      },
+      {
+        "path": "backend/src/interview_evidence/recruiting_assistant/repository.py",
+        "sha256": "36499c00cc0cdc984c20abd74229b409c2b7da2ac12801c4214785382ebcdb8d"
+      },
+      {
+        "path": "backend/src/interview_evidence/shared/aws_clients/production.py",
+        "sha256": "d263ddf32bc2a89fc33017fac4e97451424437c6252b4a65f1691fc8acdeb784"
+      },
+      {
+        "path": "backend/src/interview_evidence/shared/messaging/worker.py",
+        "sha256": "0c5b9514c955cc5b0c54931663f7593ee9e8f444520f3491afdd618168dc91e4"
+      },
+      {
+        "path": "backend/src/interview_evidence/company_management/application/hiring_service.py",
+        "sha256": "2a70b4a7aa729d3e13225a9860d2788a980733fee5278e34692035190e12c724"
+      },
+      {
+        "path": "backend/src/interview_evidence/company_management/application/company_service.py",
+        "sha256": "508f12fee2f53fd1fdef210ca785d7804b05daa178320422df1e86d4d58864bb"
+      },
+      {
+        "path": "backend/src/interview_evidence/company_management/repositories/postgres.py",
+        "sha256": "4e1770040f530161a6c0e35394fcf68ab1161ef9f8b89cd3f7f4e4bb1b70df08"
+      },
+      {
+        "path": "backend/src/interview_evidence/integration/reporting_company.py",
+        "sha256": "7eff2397e42816e81c70769c08c66d3ee2ea7d7e9eb3c1ab490a914a237fa4ca"
+      },
+      {
+        "path": "backend/src/interview_evidence/integration/privacy_deletion.py",
+        "sha256": "08f74e2b1f8b3d6396d1452387e6c81bbe2cd898d3551565cb13173ca66182c6"
+      },
+      {
+        "path": "backend/src/interview_evidence/integration/production_deletion.py",
+        "sha256": "f6784acf16f2b2659db46d96735775f4fff9654895dca5529f1d77831b58e7bf"
+      },
+      {
+        "path": "backend/src/interview_evidence/integration/interview_reporting.py",
+        "sha256": "890ef6a1167b7a8f2130e05dea6430739808d80c81440aada6a6ec3cb684cf6e"
+      },
+      {
+        "path": "backend/src/interview_evidence/reporting/api/company_routes.py",
+        "sha256": "833466c4caa6e9629d68357349386068844f8dc88e3a6d96d62e75baaade5ac1"
+      },
+      {
+        "path": "backend/src/interview_evidence/reporting/application/deletion_service.py",
+        "sha256": "bd5f956be517478301f8081a3ab406c083f2a86504bc813e1c2819a058283efc"
+      },
+      {
+        "path": "backend/src/interview_evidence/reporting/application/final_decision_service.py",
+        "sha256": "5fff3b89e5c447d919e4048993d66cf26ddcbbad66d900bd287d61c3e2d4cd39"
+      },
+      {
+        "path": "backend/src/interview_evidence/reporting/repositories/postgres.py",
+        "sha256": "05b9584e16fc72813cdbdbbb013b4c8aac59ae4025b821d7b0848bd56349557c"
+      },
+      {
+        "path": "backend/src/interview_evidence/workers/reporting/report.py",
+        "sha256": "12a9a9da2ef471f2700f0968d0cb29f4b579b9289538a85cbaed7726eeb13e13"
+      },
+      {
+        "path": "backend/src/interview_evidence/workers/reporting/media.py",
+        "sha256": "37ef75da2bba05b474eda31ca9c22fadaae5ed76b90e41e8c1b38911a2bfa19c"
+      },
+      {
+        "path": "backend/src/interview_evidence/workers/analysis/event_handler.py",
+        "sha256": "f8e323a483545a2cd7d1f9b5c80c515dc969119300f551b6c04d31d4d4bbdea3"
+      },
+      {
+        "path": "backend/src/interview_evidence/workers/analysis/pipeline.py",
+        "sha256": "e6bc86735ba6aa26804aa8604d7649505aa04a8f63ea5f8987f5143ffcaaac9c"
+      },
+      {
+        "path": "backend/src/interview_evidence/workers/analysis/handlers.py",
+        "sha256": "3b4018516f37a6a1d554ec2c3133789eb89333a5c3adb0f013ae29d6e3d4a1b4"
+      },
+      {
+        "path": "backend/src/interview_evidence/capacity_management/event_handler.py",
+        "sha256": "e95a4e2eabace7b99519375003e1c8cb0d0042620bb4a7c3fbc922d3e8c26dd5"
+      },
+      {
+        "path": "backend/src/interview_evidence/capacity_management/repository.py",
+        "sha256": "31e44c2a8e48a75aa93d6e168f8c310d09d0d3f0027e72e532869bcc9dd9b812"
+      },
+      {
+        "path": "backend/src/interview_evidence/capacity_management/scaling.py",
+        "sha256": "3d9e72487b96b24240395b58f72f686042839c2b83b721e305a3659645d5d0d5"
+      }
+    ],
+    "review_scope": "Bounded shipped source contracts and downstream local persistence, reconciled with actual composition. Not arbitrary Python/IAM security or external model quality.",
+    "surface_digest": "85f44d37345cbc5a74d76d7f2121f519cd19234fa85e051916e9854b810bc820"
+  },
+  "bbbacda3d0defbf7f220e0addd69e6aa8542f48cb6c45c6ae9ce9a7dc6b8f264": {
+    "effects": {
+      "API_WORKER_HELPER:invitation_email": "AUXILIARY_WRITE",
+      "API_WORKER_HELPER:media_postprocess": "AUXILIARY_WRITE",
+      "API_WORKER_HELPER:privacy_deletion": "AUXILIARY_WRITE",
+      "API_WORKER_HELPER:report_generation": "AUXILIARY_WRITE",
+      "ASSISTANT_BINDING:AssistantAnswerService": "READ_ONLY",
+      "ASSISTANT_BINDING:AssistantSearchService": "READ_ONLY",
+      "ASSISTANT_BINDING:ReportSearchProjector": "AUXILIARY_WRITE",
+      "ASSISTANT_BINDING:create_assistant_router": "HIRING_DECISION_WRITE",
+      "ASSISTANT_BINDING:resolve_controlproof_assistant": "READ_ONLY",
+      "ASSISTANT_ROUTE:POST /v1/assistant/answers": "HIRING_DECISION_WRITE",
+      "ASSISTANT_ROUTE:POST /v1/assistant/answers/stream": "HIRING_DECISION_WRITE",
+      "ASSISTANT_ROUTE:POST /v1/assistant/search": "AUXILIARY_WRITE",
+      "DISPATCH_ANCHOR:AssistantAnswerService.answer": "READ_ONLY",
+      "DISPATCH_ANCHOR:AwsBedrockModel.generate": "READ_ONLY",
+      "DISPATCH_ANCHOR:MessageConsumer.consume_once": "AUXILIARY_WRITE",
+      "DISPATCH_ANCHOR:_pipeline_answer": "HIRING_DECISION_WRITE",
+      "DISPATCH_ANCHOR:create_worker_runtime": "AUXILIARY_WRITE",
+      "DISPATCH_ANCHOR:main": "AUXILIARY_WRITE",
+      "MODEL_REQUEST_KEY:anthropic_version": "READ_ONLY",
+      "MODEL_REQUEST_KEY:max_tokens": "READ_ONLY",
+      "MODEL_REQUEST_KEY:messages": "READ_ONLY",
+      "MODEL_REQUEST_KEY:system": "READ_ONLY",
+      "MODEL_REQUEST_KEY:temperature": "READ_ONLY",
+      "MODEL_RESPONSE_FIELD:answer": "READ_ONLY",
+      "MODEL_RESPONSE_FIELD:source_ids": "READ_ONLY",
+      "ROUTING_ONLY:deletion.target_requested": "AUXILIARY_WRITE",
+      "ROUTING_ONLY:deletion.target_verified": "AUXILIARY_WRITE",
+      "ROUTING_ONLY:interview.session_paused": "AUXILIARY_WRITE",
+      "ROUTING_ONLY:interview.turn_finalized": "AUXILIARY_WRITE",
+      "ROUTING_ONLY:invitation.consent_completed": "AUXILIARY_WRITE",
+      "ROUTING_ONLY:report.ready": "AUXILIARY_WRITE",
+      "ROUTING_ONLY:strategy.ready": "AUXILIARY_WRITE",
+      "ROUTING_ONLY:system.parity_probe": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:capacity.reconcile_requested": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:deletion.requested": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:interview.completed": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:media.postprocess_requested": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:position.capacity_changed": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:report.generation_requested": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:retention.expired": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:submission.analysis_completed": "AUXILIARY_WRITE",
+      "WORKER_HANDLER:submission.analysis_requested": "AUXILIARY_WRITE"
+    },
+    "mode": "legacy-hiring-reader",
+    "review_basis": [
+      {
+        "path": "backend/src/interview_evidence/runtime/production.py",
+        "sha256": "b9f5a0d11edff3a8cff3f856c9d9d7cbd5fa3ee752c63cc901f26458ecad0b9e"
+      },
+      {
+        "path": "backend/src/interview_evidence/runtime/worker.py",
+        "sha256": "ea3a56ef4d8fd500775e0fae0583ab7b6b134d94f19b701f59fb70767c3060b7"
+      },
+      {
+        "path": "backend/src/interview_evidence/recruiting_assistant/api.py",
+        "sha256": "779e02f0eb4dd67fc242f996d60b6e2dfada159894f9bddca86b9ee7907e25e7"
+      },
+      {
+        "path": "backend/src/interview_evidence/recruiting_assistant/application.py",
+        "sha256": "21fb4a62454a4415944f5fc5ed6d78f411fc54e697f715e4e255a2419599c4ce"
+      },
+      {
+        "path": "backend/src/interview_evidence/recruiting_assistant/prompt.py",
+        "sha256": "ddf12add2bf83a4f4247b2551314d73b22729c0bd57be6cb1b8fdfc96fcb90ac"
+      },
+      {
+        "path": "backend/src/interview_evidence/recruiting_assistant/repository.py",
+        "sha256": "36499c00cc0cdc984c20abd74229b409c2b7da2ac12801c4214785382ebcdb8d"
+      },
+      {
+        "path": "backend/src/interview_evidence/shared/aws_clients/production.py",
+        "sha256": "d263ddf32bc2a89fc33017fac4e97451424437c6252b4a65f1691fc8acdeb784"
+      },
+      {
+        "path": "backend/src/interview_evidence/shared/messaging/worker.py",
+        "sha256": "0c5b9514c955cc5b0c54931663f7593ee9e8f444520f3491afdd618168dc91e4"
+      },
+      {
+        "path": "backend/src/interview_evidence/company_management/application/hiring_service.py",
+        "sha256": "2a70b4a7aa729d3e13225a9860d2788a980733fee5278e34692035190e12c724"
+      },
+      {
+        "path": "backend/src/interview_evidence/company_management/application/company_service.py",
+        "sha256": "508f12fee2f53fd1fdef210ca785d7804b05daa178320422df1e86d4d58864bb"
+      },
+      {
+        "path": "backend/src/interview_evidence/company_management/repositories/postgres.py",
+        "sha256": "4e1770040f530161a6c0e35394fcf68ab1161ef9f8b89cd3f7f4e4bb1b70df08"
+      },
+      {
+        "path": "backend/src/interview_evidence/integration/reporting_company.py",
+        "sha256": "7eff2397e42816e81c70769c08c66d3ee2ea7d7e9eb3c1ab490a914a237fa4ca"
+      },
+      {
+        "path": "backend/src/interview_evidence/integration/privacy_deletion.py",
+        "sha256": "08f74e2b1f8b3d6396d1452387e6c81bbe2cd898d3551565cb13173ca66182c6"
+      },
+      {
+        "path": "backend/src/interview_evidence/integration/production_deletion.py",
+        "sha256": "f6784acf16f2b2659db46d96735775f4fff9654895dca5529f1d77831b58e7bf"
+      },
+      {
+        "path": "backend/src/interview_evidence/integration/interview_reporting.py",
+        "sha256": "890ef6a1167b7a8f2130e05dea6430739808d80c81440aada6a6ec3cb684cf6e"
+      },
+      {
+        "path": "backend/src/interview_evidence/reporting/api/company_routes.py",
+        "sha256": "833466c4caa6e9629d68357349386068844f8dc88e3a6d96d62e75baaade5ac1"
+      },
+      {
+        "path": "backend/src/interview_evidence/reporting/application/deletion_service.py",
+        "sha256": "bd5f956be517478301f8081a3ab406c083f2a86504bc813e1c2819a058283efc"
+      },
+      {
+        "path": "backend/src/interview_evidence/reporting/application/final_decision_service.py",
+        "sha256": "5fff3b89e5c447d919e4048993d66cf26ddcbbad66d900bd287d61c3e2d4cd39"
+      },
+      {
+        "path": "backend/src/interview_evidence/reporting/repositories/postgres.py",
+        "sha256": "05b9584e16fc72813cdbdbbb013b4c8aac59ae4025b821d7b0848bd56349557c"
+      },
+      {
+        "path": "backend/src/interview_evidence/workers/reporting/report.py",
+        "sha256": "12a9a9da2ef471f2700f0968d0cb29f4b579b9289538a85cbaed7726eeb13e13"
+      },
+      {
+        "path": "backend/src/interview_evidence/workers/reporting/media.py",
+        "sha256": "37ef75da2bba05b474eda31ca9c22fadaae5ed76b90e41e8c1b38911a2bfa19c"
+      },
+      {
+        "path": "backend/src/interview_evidence/workers/analysis/event_handler.py",
+        "sha256": "f8e323a483545a2cd7d1f9b5c80c515dc969119300f551b6c04d31d4d4bbdea3"
+      },
+      {
+        "path": "backend/src/interview_evidence/workers/analysis/pipeline.py",
+        "sha256": "e6bc86735ba6aa26804aa8604d7649505aa04a8f63ea5f8987f5143ffcaaac9c"
+      },
+      {
+        "path": "backend/src/interview_evidence/workers/analysis/handlers.py",
+        "sha256": "3b4018516f37a6a1d554ec2c3133789eb89333a5c3adb0f013ae29d6e3d4a1b4"
+      },
+      {
+        "path": "backend/src/interview_evidence/capacity_management/event_handler.py",
+        "sha256": "e95a4e2eabace7b99519375003e1c8cb0d0042620bb4a7c3fbc922d3e8c26dd5"
+      },
+      {
+        "path": "backend/src/interview_evidence/capacity_management/repository.py",
+        "sha256": "31e44c2a8e48a75aa93d6e168f8c310d09d0d3f0027e72e532869bcc9dd9b812"
+      },
+      {
+        "path": "backend/src/interview_evidence/capacity_management/scaling.py",
+        "sha256": "3d9e72487b96b24240395b58f72f686042839c2b83b721e305a3659645d5d0d5"
+      }
+    ],
+    "review_scope": "Bounded shipped source contracts and downstream local persistence, reconciled with actual composition. Not arbitrary Python/IAM security or external model quality.",
+    "surface_digest": "58f13a4aeef241c44186b07623e5d6f4a35f37ec28617aface7850c753d327c7"
+  }
+}

@@ -62,7 +62,7 @@ def test_header_counts_and_groups_copy_the_catalog(catalog, tmp_path) -> None:
     assert (view["environment_kind"], view["aws_deployment_status"]) == ("LOCAL_EMULATED", "NOT_RUN")
     assert (view["data_origin"], view["demo"]) == ("ACTUAL", False)
     counts = view["counts"]
-    assert (counts["PASS"], counts["FAIL"], counts["NOT_RUN"]) == (5, 0, 4)
+    assert (counts["PASS"], counts["FAIL"], counts["NOT_RUN"]) == (7, 0, 2)
     assert counts["INCONCLUSIVE"]["by_reason"] == {
         "INSUFFICIENT_EVIDENCE": 0, "NO_TEST_TARGET": 3, "ACCESS_LIMITED": 0, "EVIDENCE_CONFLICT": 0,
     }

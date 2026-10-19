@@ -82,6 +82,8 @@ def load_bundle_summary(bundle: Path) -> dict[str, Any]:
             }
         )
     environment_restore = _latest_value(observations, "fault.environment_restore")
+    if run.execution_profile in {ExecutionProfile.H01_HUMAN_DECISION_V1, ExecutionProfile.H02_CAPABILITY_SURFACE_V1}:
+        environment_restore = _read_json(directory / 'recovery.json').get('status')
     report_recovery = _latest_value(observations, "report.processing_recovery")
     failed = [
         item["assertion_id"] for item in assertions if item["status"] == AssertionStatus.FAIL.value

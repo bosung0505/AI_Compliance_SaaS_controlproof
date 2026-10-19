@@ -203,3 +203,15 @@ Spec 005 산출물이 아닌 기존 시험: `unit/test_redaction_security.py`(Sp
 | Existing condition/observation/evidence and sealed-truth requirements | T094~095, n02_review/review/readmodel/templates/catalog/preflight | test_web_n02_review, preflight, readmodel, catalog parity, HTTP and browser QA | Spec003 child `16dbd987…` VERIFIED21; actual 1280/1024px inspection |
 
 Full ledger: [n02-results.md](n02-results.md). Does not close Spec005 or establish external usability.
+
+
+## 발견·보완·재테스트 표시 — 2026-10-19
+
+| 요구 | 작업 | 구현/근거 | 검증 |
+|---|---|---|---|
+| R1~3 / FR008~020/021~023 | T096 | remediation.py, readmodel, scenario/run/compare 공유템플릿 | 새8PASS/공유31PASS, 실제3화면탐색·근거링크 |
+| R4~5 / FR017/023 | T096/T098 | 고정manifest/버전쌍, 양쪽무결성/부모연결확인, ACTUAL전용 | 부모누락/변조/다른버전/digest음성검사, 291원본파일불변, 초기INC보존 |
+| R6 | T097 | docs/research/WhyYou_Remediation_History_Audit.md | 완료7개문서대조/13개현지공식bundleverify; H03/E03원장근거명시 |
+| R1~6 | T098 | 공통스타일/실제보관자료검수/필수문서수렴 |16화면/20근거패널/1280·1024/오류0, 확장회귀는validation최종결과 |
+
+설계·분석·상세검증원장: remediation-history.md. Spec005전체사용성검증은별도.

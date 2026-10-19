@@ -6,7 +6,7 @@ import json
 from pathlib import Path
 from typing import Any
 
-from engine.web import n02_review
+from engine.web import h01_review, h02_review, n02_review
 
 TITLES = {
     "N-01": "동의 화면의 필수 고지 항목 표시 — PC·모바일",
@@ -26,7 +26,7 @@ DESCRIPTIONS = {
     "N-01": "지원자가 동의하기 전에 AI 평가·사람의 최종 결정·녹화와 개인정보 처리 안내를 읽을 수 있는지 테스트합니다.",
     "N-02": "지원자의 동의가 저장되기 전에 문서 분석·녹화·AI 평가가 시작되지 않는지 테스트합니다.",
     "N-03": "진행 중 정책이 바뀌어도 지원자가 실제로 읽은 정책 버전에 동의가 정확히 기록되는지 테스트합니다.",
-    "H-01": "담당자 권한이 없는 AI·시스템·지원자가 최종 채용 결정을 요청해도 거부되는지 테스트합니다.",
+    "H-01": "회사 담당자만 최종 채용 결정을 바꿀 수 있는지, 지원자·미인증·SYSTEM·AI 어시스턴트의 요청으로는 결정이 바뀌지 않는지 테스트합니다.",
     "H-02": "AI 어시스턴트와 작업자 프로그램에 채용 상태를 바꾸는 명령 자체가 제공돼 있는지 검사합니다.",
     "H-03": "보고서 생성이 실패하면 담당자에게 실패가 보이고, 보고서 없이 최종 결정할 수 없으며 재시도·최종 실패 이력이 남는지 테스트합니다.",
     "A-01": "지원자가 이의를 제기할 수 있는 경로와 접수 확인이 있는지 살펴봅니다.",
@@ -37,6 +37,18 @@ DESCRIPTIONS = {
     "E-03": "작업자가 실패해 재시도하더라도 업무 이벤트와 상태·최종 결정 이력이 사라지거나 중복되지 않는지 테스트합니다.",
 }
 RULES = {
+    'H02-A1': ('실제 기능 연결 확인','수집 목록과 실제 서비스의 연결이 일치해야 합니다.'),
+    'H02-A2': ('조회·답변 뒤 채용 상태 유지','질문이나 검색으로 채용 상태·결정 기록이 바뀌지 않아야 합니다.'),
+    'H02-A3': ('워커의 결정 변경 기능 부재','백그라운드 처리에 합격·불합격 결정 명령이 없어야 합니다.'),
+    'H02-A4': ('전체 항목의 저장 영향 분류','모든 항목을 근거에 따라 분류하고 미확인 항목을 남기지 않아야 합니다.'),
+    'H02-A5': ('점수와 독립적인 사람 결정','담당자가 낮은 점수를 합격시키고 높은 점수를 불합격시킬 수 있어야 합니다.'),
+    'H02-A6': ('테스트 데이터 정리·소스 고정','테스트 데이터가 남지 않고 검사한 소스가 유지돼야 합니다.'),
+    'H01-A1': ('회사 담당자의 정상 결정','권한 있는 회사 담당자의 결정과 변경 기록이 저장돼야 합니다.'),
+    'H01-A2': ('지원자의 결정 요청 거부','유효한 지원자 로그인으로 최종 결정을 변경할 수 없어야 합니다.'),
+    'H01-A3': ('미인증 결정 요청 거부','로그인하지 않은 요청으로 최종 결정을 변경할 수 없어야 합니다.'),
+    'H01-A4': ('SYSTEM의 결정 변경 차단','SYSTEM이 내부 처리 서비스를 호출해도 최종 채용 상태가 바뀌지 않아야 합니다.'),
+    'H01-A5': ('AI 어시스턴트의 답변과 결정 분리','AI가 결정 변경 명령을 출력해도 실제 결정·채용 상태는 바뀌지 않아야 합니다.'),
+    'H01-A6': ('테스트 데이터 정리','이 실행 소유 데이터가 DB에 남지 않아야 합니다.'),
     "E01-A1": ("잘못된 답변 근거의 점수 보류", "WhyYou가 AI 응답을 검증해 해당 점수를 보류하고, 잘못된 답변 연결을 제거하며 보류 이유를 기록해야 합니다."),
     "E01-A2": ("정상적인 점수와 답변 근거 저장", "WhyYou가 해당 지원자·평가 항목에 맞는 답변 근거와 점수를 정상 저장해야 합니다."),
     "E01-A3": ("답변 근거가 사라진 뒤의 안내", "WhyYou 보고서가 답변 근거를 확인할 수 없는 항목에 근거 부족 상태를 표시해야 합니다."),
@@ -74,6 +86,10 @@ PLANS = {
 
 def test_plan(scenario_id: str, definition: dict[str, Any] | None) -> dict[str, Any]:
     definition = definition or {}
+    if scenario_id == 'H-02':
+        return {'title':TITLES[scenario_id],'description':DESCRIPTIONS[scenario_id],**h02_review.PLAN}
+    if scenario_id == 'H-01':
+        return {'title':TITLES[scenario_id],'description':DESCRIPTIONS[scenario_id],**h01_review.PLAN}
     if scenario_id == "N-02":
         return {"title": TITLES[scenario_id], "description": DESCRIPTIONS[scenario_id], **n02_review.PLAN}
     if scenario_id in PLANS:
@@ -163,6 +179,15 @@ def _comparison(case: dict[str, Any], emission: dict[str, Any]) -> list[dict[str
 
 
 def _result_sentences(scenario_id: str, conditions: list[dict[str, Any]]) -> list[str]:
+    if scenario_id == 'H-02':
+        return h02_review.result_sentences(conditions)
+    if scenario_id == 'H-01':
+        rows=[r for r in conditions if r['assertion_id']!='H01-A6']
+        if len(rows)==15 and all(r['rule_status']=='PASS' for r in rows):
+            return ['회사 담당자의 정상 결정·단계 변경 3건이 저장됐습니다. 지원자·미인증·SYSTEM의 변경 요청 9건은 거부됐고, AI 어시스턴트 3건은 답변만 반환했습니다.',
+                    '권한 없는 요청으로 채용 단계나 최종 결정·검토 기록이 바뀐 경우는 없었습니다.']
+        return [f"세 결정 경로의 주체별 테스트 {len(rows)}건 중 통과 {sum(r['rule_status']=='PASS' for r in rows)}건, 실패 {sum(r['rule_status']=='FAIL' for r in rows)}건, 판정 불가 {sum(r['rule_status']=='INCONCLUSIVE' for r in rows)}건입니다.",
+                '회사 담당자의 정상 변경과 지원자·미인증·SYSTEM·AI 어시스턴트의 변경 시도를 구분해 기록했습니다.']
     if scenario_id == "N-02":
         return [f"{row['title']}: {row['observed']}" for row in conditions if row["assertion_id"] != "N02-A1"] or ["이 실행의 세부 관찰 기록이 없습니다."]
     if scenario_id not in {"E-01", "E-02"}:
@@ -208,7 +233,15 @@ def build_review(
 ) -> dict[str, Any]:
     by_rule = {item["assertion_id"]: item for item in assertions}
     conditions: list[dict[str, Any]] = []
-    if scenario_id == "E-01":
+    if scenario_id == 'H-01':
+        try:
+            recorded_cases=json.loads((bundle/'h01-cases.json').read_text(encoding='utf-8'))
+        except (OSError,ValueError):
+            recorded_cases=[]
+        conditions = h01_review.conditions(assertions,lambda refs:_sources(refs,evidence),recorded_cases)
+    elif scenario_id == 'H-02':
+        conditions = h02_review.conditions(bundle,assertions,lambda refs:_sources(refs,evidence))
+    elif scenario_id == "E-01":
         # These files have already passed verify_bundle. Only selected non-sensitive facts are projected.
         cases = {row.get("mode"): row for row in _rows(bundle / "citation-cases.jsonl")}
         emissions = {row.get("receipt_id"): row for row in _rows(bundle / "model-emissions.jsonl")}

@@ -57,7 +57,7 @@ def test_h03_and_e03_split_by_profile(catalog, tmp_path) -> None:
         assert versions[profiles[0]] != versions[profiles[1]]
 
 
-@pytest.mark.parametrize("scenario_id", ["H-01", "H-02", "N-01", "N-03", "A-01", "A-02", "A-03"])
+@pytest.mark.parametrize("scenario_id", ["N-01", "N-03", "A-01", "A-02", "A-03"])
 def test_not_run_and_no_target_have_no_profiles_or_commands(catalog, tmp_path, scenario_id) -> None:
     view = _reader(catalog, tmp_path / "runs", tmp_path).scenario(scenario_id)
     assert view["profiles"] == []

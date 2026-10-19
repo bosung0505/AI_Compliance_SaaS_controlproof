@@ -83,6 +83,8 @@ class Presence(StrEnum):
 
 
 class ExecutionProfile(StrEnum):
+    H02_CAPABILITY_SURFACE_V1 = "H02_CAPABILITY_SURFACE_V1"
+    H01_HUMAN_DECISION_V1 = "H01_HUMAN_DECISION_V1"
     H03_MINIMAL_V1 = "H03_MINIMAL_V1"
     H03_DLQ_V2 = "H03_DLQ_V2"
     E03_BEFORE_V2 = "E03_BEFORE_V2"
@@ -330,6 +332,14 @@ class ScenarioProfile(FrozenModel):
 
     @classmethod
     def canonical(cls, profile: ExecutionProfile) -> ScenarioProfile:
+        if profile is ExecutionProfile.H02_CAPABILITY_SURFACE_V1:
+            return cls(execution_profile=profile, scenario_id='H-02', scenario_version='1.0.0',
+                       fault_variant=None, applicable_assertion_ids=tuple(f'H02-A{i}' for i in range(1,7)),
+                       required_evidence=tuple(f'EV7-{i:02d}' for i in range(1,7)), timing_policy={})
+        if profile is ExecutionProfile.H01_HUMAN_DECISION_V1:
+            return cls(execution_profile=profile, scenario_id='H-01', scenario_version='1.0.0',
+                       fault_variant=None, applicable_assertion_ids=tuple(f'H01-A{i}' for i in range(1,7)),
+                       required_evidence=tuple(f'EV6-{i:02d}' for i in range(1,7)), timing_policy={})
         timing = {
             "poll_seconds": 2,
             "dlq_deadline_seconds": 360,
@@ -436,6 +446,8 @@ class ScenarioProfile(FrozenModel):
         if not re.fullmatch(r"\d+\.\d+\.\d+", self.scenario_version):
             raise ValueError("scenario_version must be semantic versioning")
         canonical = {
+            ExecutionProfile.H02_CAPABILITY_SURFACE_V1: ('H-02', None, tuple(f'H02-A{i}' for i in range(1,7))),
+            ExecutionProfile.H01_HUMAN_DECISION_V1: ('H-01', None, tuple(f'H01-A{i}' for i in range(1,7))),
             ExecutionProfile.H03_MINIMAL_V1: ("H-03", None, tuple(f"H03-A{i}" for i in range(1, 7))),
             ExecutionProfile.H03_DLQ_V2: (
                 "H-03",
@@ -1804,6 +1816,22 @@ class Run(FrozenModel):
             raise ValueError("non-terminal Run cannot have ended_at")
         if self.state is RunState.RESTORE_FAILED and not self.manual_cleanup_required:
             raise ValueError("RESTORE_FAILED requires manual_cleanup_required=true")
+        if self.execution_profile is ExecutionProfile.H02_CAPABILITY_SURFACE_V1 and (
+            self.scenario_id != 'H-02' or self.scenario_version != '1.0.0'
+            or self.environment_kind is not EnvironmentKind.LOCAL_EMULATED
+            or self.aws_deployment_status is not AwsDeploymentStatus.NOT_RUN
+            or not _is_sha(self.environment_snapshot_digest) or self.fault_variant is not None
+        ):
+            raise ValueError('H02 requires canonical local source/environment identity')
+        if self.execution_profile is ExecutionProfile.H01_HUMAN_DECISION_V1 and (
+            self.scenario_id != "H-01"
+            or self.scenario_version != "1.0.0"
+            or self.environment_kind is not EnvironmentKind.LOCAL_EMULATED
+            or self.aws_deployment_status is not AwsDeploymentStatus.NOT_RUN
+            or not _is_sha(self.environment_snapshot_digest)
+            or self.fault_variant is not None
+        ):
+            raise ValueError("H01 Run requires canonical local source/environment identity")
         spec002_profiles = {
             ExecutionProfile.H03_DLQ_V2,
             ExecutionProfile.E03_BEFORE_V2,

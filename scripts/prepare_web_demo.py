@@ -59,7 +59,8 @@ def main(argv: list[str] | None = None) -> int:
     built.append(wb.h03_case(demo_root, "restore_failed"))
 
     _write_readiness(ReadinessStore(demo_root.parent / "preflight"))
-    print(f"DEMO bundles: {len(built)} (1 deliberately tampered) · readiness records: 7 profiles")
+    count = sum(len(entry['profiles']) for entry in load_catalog()['scenarios'])
+    print(f"DEMO bundles: {len(built)} (1 deliberately tampered) · readiness records: {count} profiles")
     return 0
 
 

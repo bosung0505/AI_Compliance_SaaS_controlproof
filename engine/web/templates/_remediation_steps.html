@@ -1,0 +1,33 @@
+{% set history = view.remediation %}
+<section data-testid="remediation-history" aria-label="문제 발견·WhyYou 보완·재테스트">
+  <h3>{{ history.title }}</h3>
+  <p class="note">{{ history.role_note }}</p>
+  <div class="card" data-testid="remediation-finding">
+    <h3>1. ControlProof가 발견한 문제 {{ badge("fail") }}</h3>
+    <p><b>현황을 질문했는데 채용 단계가 변경됐습니다.</b></p>
+    <p>{{ history.finding }}</p><p>{{ history.cause }}</p>
+    <table><caption class="page-meta">일반 답변 요청에서 관찰한 값</caption><thead><tr><th>확인한 값</th><th>질문 전</th><th>질문 후</th></tr></thead><tbody>
+      {% for row in history.before_rows %}<tr><th scope="row">{{ row.label }}</th><td>{{ row.before }}</td><td>{{ row.after }}</td></tr>{% endfor %}
+    </tbody></table>
+    <p><b>보완 필요:</b> {{ history.recommendation }}</p>
+    <p><a class="btn sec" href="{{ prefix }}/runs/{{ history.parent_run_id }}">당시 실패 결과 보기</a>
+    <a href="{{ prefix }}/runs/{{ history.parent_run_id }}/evidence?ref=file%3Ah02-reader-cases.json&amp;condition=reader-answer_legacy">당시 조회 전후 근거 보기</a></p>
+  </div>
+  <div class="card" data-testid="remediation-development">
+    <h3>2. WhyYou 서비스에서 보완한 내용</h3>
+    <p><b>AI의 현황 조회를 조회 전용 기능에 연결했습니다.</b></p>
+    <p>{{ history.remedy }}</p>
+    <p class="page-meta">{{ history.deployment_scope }}</p>
+  </div>
+  <div class="card" data-testid="remediation-retest">
+    <h3>3. ControlProof로 다시 확인한 결과 {{ badge("pass") }}</h3>
+    <p><b>같은 조건으로 질문해도 채용 단계가 유지됐습니다.</b></p>
+    <p>{{ history.retest }}</p>
+    <table><caption class="page-meta">보완 후 같은 조건의 일반 답변 요청</caption><thead><tr><th>확인한 값</th><th>질문 전</th><th>질문 후</th></tr></thead><tbody>
+      {% for row in history.after_rows %}<tr><th scope="row">{{ row.label }}</th><td>{{ row.before }}</td><td>{{ row.after }}</td></tr>{% endfor %}
+    </tbody></table>
+    <p><a class="btn sec" href="{{ prefix }}/runs/{{ history.child_run_id }}">재테스트 결과 보기</a>
+    <a href="{{ prefix }}/runs/{{ history.child_run_id }}/evidence?ref=file%3Ah02-reader-cases.json&amp;condition=reader-answer_legacy">보완 후 조회 전후 근거 보기</a></p>
+  </div>
+  <p class="page-meta">{{ history.review_source }}</p>
+</section>

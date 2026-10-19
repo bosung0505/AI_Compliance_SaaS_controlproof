@@ -15,6 +15,8 @@ from engine.executors.e01 import E01Executor
 from engine.executors.e02 import E02Executor
 from engine.executors.e03_after import E03AfterExecutor
 from engine.executors.e03_before import E03BeforeExecutor
+from engine.executors.h01 import H01Executor
+from engine.executors.h02 import H02Executor
 from engine.executors.h03_dlq import H03DlqExecutor
 from engine.executors.n02 import N02Executor
 from engine.judge import judge_h03
@@ -911,6 +913,8 @@ class ExecutionProfileRegistry:
 
 
 PROFILE_REGISTRY = ExecutionProfileRegistry()
+PROFILE_REGISTRY.register(ExecutionProfile.H01_HUMAN_DECISION_V1, H01Executor)
+PROFILE_REGISTRY.register(ExecutionProfile.H02_CAPABILITY_SURFACE_V1, H02Executor)
 
 # Registration is additive. The executor itself keeps full-profile execution fail-closed until
 # the later decision-path story composes every required H03_DLQ_V2 capability.

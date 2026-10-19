@@ -350,6 +350,8 @@ def _retest(args: argparse.Namespace) -> int:
     child_queue = (
         runtime.adapters.queue.capture_topology()
         if parent_profile not in {
+            ExecutionProfile.H02_CAPABILITY_SURFACE_V1,
+            ExecutionProfile.H01_HUMAN_DECISION_V1,
             ExecutionProfile.H03_MINIMAL_V1,
             ExecutionProfile.N02_CONSENT_ORDER_V1,
             *SPEC004_PROFILES,
@@ -645,6 +647,8 @@ def _scenario_selection(
         else ExecutionProfile.H03_MINIMAL_V1
     )
     allowed = {
+        "H-02": {ExecutionProfile.H02_CAPABILITY_SURFACE_V1},
+        "H-01": {ExecutionProfile.H01_HUMAN_DECISION_V1},
         "H-03": {ExecutionProfile.H03_MINIMAL_V1, ExecutionProfile.H03_DLQ_V2},
         "E-03": {ExecutionProfile.E03_BEFORE_V2, ExecutionProfile.E03_AFTER_V2},
         "N-02": {ExecutionProfile.N02_CONSENT_ORDER_V1},
@@ -662,6 +666,8 @@ def _scenario_selection(
 def _profile_scenario_path(profile: ExecutionProfile) -> Path:
     root = Path(__file__).resolve().parents[1] / "scenarios"
     return {
+        ExecutionProfile.H02_CAPABILITY_SURFACE_V1: root / 'H-02.yaml',
+        ExecutionProfile.H01_HUMAN_DECISION_V1: root / 'H-01.yaml',
         ExecutionProfile.H03_MINIMAL_V1: root / "H-03.yaml",
         ExecutionProfile.H03_DLQ_V2: root / "H-03-DLQ.yaml",
         ExecutionProfile.E03_BEFORE_V2: root / "E-03-BEFORE.yaml",

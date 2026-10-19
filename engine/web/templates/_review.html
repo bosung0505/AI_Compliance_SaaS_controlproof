@@ -9,7 +9,7 @@
       <tr class="observation-row" id="condition-{{ row.id }}" data-condition="{{ row.id }}" data-rule-status="{{ row.rule_status or '' }}" data-recorded="{{ 'true' if row.recorded else 'false' }}">
         <td><b>{{ row.title }}</b><p class="case-setup">{{ row.setup }}</p><div class="muted">원본 {{ row.assertion_id }}</div></td>
         <td>{{ row.expected }}</td>
-        <td><span class="observed-fact">{{ row.observed }}</span><div class="muted">{% if not row.recorded %}세부 관찰 기록이 없어 동작을 추정하지 않습니다.{% elif row.rule_status %}연결된 규칙: {{ row.rule_status }}{% endif %}</div></td>
+        <td><span class="observed-fact">{{ row.observed }}</span><div class="muted">{% if not row.recorded %}세부 관찰 기록이 없어 동작을 추정하지 않습니다.{% elif row.rule_status %}{{ "이 경로의 관찰 판정" if run.scenario_id == "H-01" else "연결된 규칙" }}: {{ row.rule_status }}{% endif %}</div></td>
         <td><button type="button" class="btn sec inspect-button" data-inspect="proof-{{ row.id }}" aria-expanded="false" aria-controls="proof-{{ row.id }}">이 결과의 확인 자료 보기</button></td>
       </tr>
       <tr class="condition-proof" id="proof-{{ row.id }}" hidden><td colspan="4">
@@ -17,7 +17,7 @@
         {% include "_comparison.html" %}
         {% include "_n02_facts.html" %}
         <p><b>저장·조회 기록으로 확인된 반응</b>: {{ row.observed }}</p>
-        <p class="muted">{% if run.scenario_id == "N-02" %}동의·처리·장애·복구 기록으로 실제 반응을 확인했습니다.{% else %}아래 자료는 이 반응을 확인한 테스트 기록입니다. AI가 점수에 붙이는 답변 근거와는 구분합니다.{% endif %} 연결된 원본 규칙: {{ row.assertion_id }}.</p>
+        <p class="muted">{% if run.scenario_id == "N-02" %}동의·처리·장애·복구 기록으로 실제 반응을 확인했습니다.{% elif run.scenario_id == "H-01" %}요청·응답과 독립적으로 읽은 채용 상태·검토·감사 기록을 비교했습니다.{% else %}아래 자료는 이 반응을 확인한 테스트 기록입니다. AI가 점수에 붙이는 답변 근거와는 구분합니다.{% endif %} 연결된 원본 규칙: {{ row.assertion_id }}.</p>
         {% if row.sources %}<ul class="source-list">{% for source in row.sources %}<li><a class="condition-source" href="{{ prefix }}/runs/{{ run.run_id }}/evidence?ref={{ source.ref | urlencode }}&amp;condition={{ row.id | urlencode }}">{{ source.label }}</a></li>{% endfor %}</ul>{% else %}<p class="warn">연결된 근거 자료가 없습니다.</p>{% endif %}
         <details data-testid="developer"><summary>원본 기록 보기</summary><pre class="raw">{{ row.facts | tojson }}</pre></details>
         </div>

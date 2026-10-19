@@ -9,11 +9,14 @@
 {% set child = view.child %}
 <section aria-label="재테스트 비교">
   <div class="page-heading"><p class="eyebrow">실행 기록 · 이전과 이후</p><h2>재테스트 비교</h2><p>{{ view.scenario_title }}</p><p class="page-meta">보존된 이전 결과와 재테스트의 판정·변경 조건·테스트 확인 자료를 함께 보여줍니다.</p></div>
+  {% if view.remediation %}{% include "_remediation_steps.html" %}
+  <details class="card" data-testid="history-technical"><summary>실행 버전·전체 이력·규칙별 비교 보기</summary>
+  {% endif %}
   {% if view.lineage | length > 1 %}
   <p class="muted">계보: {% for item in view.lineage %}<a href="{{ prefix }}/runs/{{ item.run_id }}" class="mono">{{ item.run_id | short_id }}</a>{% if item.badge %} {{ badge(item.badge) }}{% endif %}{% if not loop.last %} → {% endif %}{% endfor %}</p>
   {% endif %}
   <div class="side">
-    <div class="card" data-testid="compare-parent"><h3>최초 실행 {{ side_badge(parent) }}</h3>
+    <div class="card" data-testid="compare-parent"><h3>{{ "이전 문제 확인" if view.remediation else "최초 실행" }} {{ side_badge(parent) }}</h3>
       <p><a class="mono" href="{{ prefix }}/runs/{{ parent.run_id }}">{{ parent.run_id }}</a></p>
       <p>대상 버전 {% if parent.target_commit %}WhyYou commit <span class="mono">{{ parent.target_commit }}</span>{% else %}<span class="muted">commit 기록 없음</span>{% endif %}</p>
       <p class="muted">{{ parent.integrity_label or parent.integrity }}</p></div>
@@ -29,13 +32,13 @@
       {% elif view.parent_unchanged %}<span class="integrity-ok">✔ 부모 기록 불변 확인</span> 재테스트 기록에 남은 부모 무결성 값과 지금 부모 기록이 같습니다(<span class="mono">{{ (view.current_parent_digest or "")[:12] }}…</span>). 최초 결과는 지워지거나 바뀌지 않았습니다.
       {% else %}<b>부모 불변 값 기록 없음(이전 형식)</b>: 이 계보의 재테스트 기록은 부모 무결성 값을 남기지 않습니다. 부모 기록 자체의 무결성: {{ parent.integrity_label or parent.integrity }}.{% endif %}</p>
 
-    {% if view.fix_description %}<h3>수정 내용</h3><p>{{ (view.fix_description.text | replace("시험", "테스트")) if view.fix_description.source == "retest_link" else view.fix_description.text }} <span class="muted">({{ "수정 메모" if view.fix_description.source == "memo" else "재테스트 기록의 사유" }})</span></p>{% endif %}
+    {% if view.fix_description %}<h3>{{ "기록에 남긴 사유·메모" if view.remediation else "수정 내용" }}</h3><p>{{ (view.fix_description.text | replace("시험", "테스트")) if view.fix_description.source == "retest_link" else view.fix_description.text }} <span class="muted">({{ "수정 메모" if view.fix_description.source == "memo" else "재테스트 기록의 사유" }})</span></p>{% endif %}
 
     {% if view.changed_dimensions is not none %}
     <h3>바뀐 차원</h3>
     <table><thead><tr><th>차원</th><th>변화</th></tr></thead><tbody>
       {% for key, value in view.changed_dimensions.items() %}
-      <tr><td>{{ {"scenario": "시나리오 정의", "environment": "실행 환경", "model_fixture": "테스트용 고정 모델", "scoring_rule_source": "점수 규칙 원본", "target_paths": "대상 버전", "queue_topology": "작업 대기열 구성", "subject_initial_state": "합성 대상 초기 상태", "subject_role": "합성 대상 역할"}.get(key, key) }}</td>
+      <tr><td>{{ {"scenario": "시나리오 정의", "environment": "실행 환경", "model_fixture": "테스트용 고정 모델", "scoring_rule_source": "점수 규칙 원본", "target_paths": "대상 버전", "target": "대상 서비스 버전", "queue_topology": "작업 대기열 구성", "subject_initial_state": "합성 대상 초기 상태", "subject_role": "합성 대상 역할"}.get(key, key) }}</td>
         <td>{% if value is sameas true %}바뀜{% elif value is sameas false %}같음{% elif value is none %}기록 없음{% elif value %}바뀜({{ value | join(", ") }}){% else %}같음{% endif %}</td></tr>
       {% endfor %}
     </tbody></table>
@@ -59,6 +62,7 @@
     <p>재테스트은 웹에서 시작하지 않습니다. 다시 재테스트하려면 명령을 쓰세요:</p>
     <div class="cmd mono" id="cmd-retest" data-testid="retest-command" data-command="{{ view.retest_command }}">{{ view.retest_command }}<button type="button" data-copy="cmd-retest">복사</button></div>
   </div>
+  {% if view.remediation %}</details>{% endif %}
   <p><a href="{{ prefix }}/report">← 보고서로</a> · <a href="{{ prefix }}/">워크벤치로</a></p>
 </section>
 {% endblock %}

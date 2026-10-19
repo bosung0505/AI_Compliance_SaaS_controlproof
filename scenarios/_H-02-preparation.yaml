@@ -1,0 +1,7 @@
+schema: controlproof.h02-preparation.v1
+scenario_id: H-02
+version: 0.1.0
+stage: 1
+actual_status: NOT_RUN
+planned_assertions: [H02-A1, H02-A2, H02-A3, H02-A4, H02-A5, H02-A6]
+planned_effects: [READ_ONLY, AUXILIARY_WRITE, HIRING_DECISION_WRITE, UNKNOWN]

@@ -1,5 +1,22 @@
 # ControlProof 팀 통합 인수인계
 
+2026-10-19 결과 설명 보완: H-02 개요·실행 결과·비교 화면에서 **문제 발견 → WhyYou 개발 코드 보완 → ControlProof 재테스트**를 구분한다. 이전 FAIL과 실제 근거를 함께 보존하며 서비스 코드 보완은 별도 개발 작업임을 명시했다. 완료 시나리오 보완 이력은 [조사표](research/WhyYou_Remediation_History_Audit.md) 참고. 실행 범위·봉인 판정·WhyYou 코드는 이번 표시 작업에서 변경하지 않았다.
+
+2026-10-19 H-02 **2단계 로컬 범위 완료**. 최종 `c12c2ce8-f607-4be3-9524-0dec27dc7260` A1~A6 PASS / VERIFIED19 / 복구 성공.
+현황 질문만으로 이전 데이터가 최종합격으로 바뀌던 최초 FAIL을 보존한 뒤, AI의 조회 연결을 조회 전용으로 수정했다.
+조회4조건 상태 유지·같은 포지션35점 합격/90점 불합격 담당자 결정·독립44개 테이블 잔여행0을 확인했다.
+현재 **12개 관리 /7개 실제 실행 /2개 NOT_RUN(N-01·N-03) /3개 NO_TEST_TARGET**. 고정 합성 AI이며 AWS·외부 모델 품질은 미검증.
+이전 단계 상태와 수치는 당시 기록이다. 최신 소스·계보·한계는 [Spec007 검증 기록](../specs/007-h02-capability-surface/actual-closure.md)를 따른다.
+
+2026-10-19 H-02 **1단계 조사·검사 준비 완료, actual NOT_RUN**.
+AI·워커 연결42개 항목을 수집했다. 간접 연결1개와 조회 중 데이터 초기화 경로는2단계 확인 대상이다.
+실제 판정·공식 실행·결과 화면은 아직 진행하지 않았으며 현재 범위12/6/3/3을 유지한다. [Spec007 검증 기록](../specs/007-h02-capability-surface/validation.md).
+
+2026-10-18 H-01 2단계 actual 완료: **`39a0d317-b36d-4cf1-8b09-aebb404d5891` A1~A6 PASS / VERIFIED17**.
+세 경로×다섯 주체15조건 통과, 복구 성공, 독립 읽기 감사44개 테이블 잔여행0·기본 회사/사용자 각1 보존.
+최초 SYSTEM 일괄 이동 FAIL을 보존하고 해당 경로를 수정한 child 결과다. 고정 테스트용 AI이며 AWS/H-02는 미실행.
+현재6개 실제 실행 완료·3개 NOT_RUN·3개 NO_TEST_TARGET. [상세 검증](../specs/006-h01-human-decision/validation.md).
+
 현재 후속 통합 브랜치: **`fixes-and-remaining-work`**. 사용자는 2026-10-18 현재 마감 상태의
 커밋·푸시와 향후 수정·남은 작업의 계속 통합을 승인했다. 두 작업 폴더에서 같은 이름을 사용하며,
 ControlProof는 `origin`, WhyYou는 `fork` (`bosung0505/gbsa_aws`)에 게시한다.
@@ -51,6 +68,7 @@ EMPTY 조건은 답변이 있지만 점수에 연결하지 않은 입력임을 �
 | N-02 child Run (T084 attempt 3) | 봉인·검증 완료, 제품 판정 `INCONCLUSIVE` | child `7b59237e-0a96-403a-9add-28b91011e950`: A1~A4·A6 PASS, A5·A7 `INCONCLUSIVE`, 복구 `SUCCEEDED`, 차단 없음, 21개 파일 bundle `VERIFIED`, 부모 manifest 불변. 동의 전 세 경계 차단과 장애 원자성·복구는 입증됐고, 동의 뒤 처리 순서는 녹화·AI 평가만 입증됐다. 문서 분석 결과는 격리 대상이 LLM 분석을 못 해서 미입증이다. attempt 1·2(중단·INVALID/RESTORE_FAILED)는 보존된 실행기 결함 증거다. |
 | Spec 004 | Complete | T001~T097 및 converge 완료(T087 NOT_REQUIRED). 최초 E-01 FAIL 보존 → 승인 수정 child PASS; WhyYou 374b122에서 새 checkout E-01 4030503c…·E-02 970108fe… 실제 PASS/SUCCEEDED/VERIFIED, 잔여행 0. 전체 CP 939 PASS·WhyYou scoped 188 PASS. 다른 PC·AWS는 미검증. |
 | Spec 005 | 웹 구현·실제 검증 기록·내부 UX 개편 중 | 공통 디자인을 유지하면서 E-01 조건별 관찰·근거, E-02 설명과 결과 진입을 개선한다. 비작성자 사용성 검토와 전체 converge는 완료로 선언하지 않는다. |
+| Spec 006 / H-01 | Complete — actual·독립 감사·웹 QA·문서 수렴 완료 | final `39a0d317-b36d-4cf1-8b09-aebb404d5891` A1~A6 PASS/VERIFIED17, 독립 DB44개 테이블 잔여행0. 최초 FAIL·중간 판정 불가 보존. |
 | 실제 AWS | `NOT_RUN` | AWS SQS·ECS·IAM·CloudWatch·운영 네트워크는 검증하지 않았다. |
 | ControlProof 웹 워크벤치 | 로컬 구현됨 | 봉인 결과를 읽기 전용으로 검토한다. 새 Run·재시험은 CLI로 수행한다. |
 | 2주 MVP 전체 | 미완료 | Spec 001·002 완료를 전체 제품 또는 전체 시나리오 완료로 확대하면 안 된다. |

@@ -78,6 +78,24 @@ def prepare_retest(
         raise RetestError("retest child must inherit the parent execution profile")
     if child_fault_variant is not parent_run.fault_variant:
         raise RetestError("retest child must inherit the parent fault variant")
+    if parent_profile in {ExecutionProfile.H01_HUMAN_DECISION_V1, ExecutionProfile.H02_CAPABILITY_SURFACE_V1}:
+        if child_environment is None or child_environment.controlproof_commit.dirty or child_environment.whyyou_commit.dirty:
+            raise RetestError('H01 child requires clean source environment')
+        recovery = _read(directory / 'recovery.json')
+        if recovery.get('status') != 'SUCCEEDED' or any(recovery.get('owned_residue_counts',{'unknown':1}).values()):
+            raise RetestError('H01 parent cleanup is unresolved')
+        return parent_run, parent_digest, {
+            'link': {'parent_run_id':str(parent_run.run_id),'child_run_id':str(child_run_id),
+                     'parent_bundle_digest':parent_digest,'reason':f'{parent_run.scenario_id} 최초 사실 보존 후 독립 재테스트',
+                     'changed_dimensions':{'target':parent_run.target_version != child_target.target_version}},
+            'diff': {'schema_version':'controlproof.retest-diff.v1','parent_run_id':str(parent_run.run_id),
+                     'child_run_id':str(child_run_id),
+                     'target': {'before':parent_target.model_dump(mode='json'),'after':child_target.model_dump(mode='json')},
+                     'source': {'before':_read(directory / 'environment.snapshot.json'),
+                                'after':child_environment.model_dump(mode='json')},
+                     'scenario': {'before':parent_run.scenario_digest,'after':child_scenario_digest,
+                                  'changed':parent_run.scenario_digest != child_scenario_digest}},
+        }
     if parent_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
         return _prepare_n02_retest(
             directory=directory,

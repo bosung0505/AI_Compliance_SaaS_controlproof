@@ -318,6 +318,36 @@ class ScenarioDefinition(ScenarioModel):
                 or self.diagnostic_ids
             ):
                 raise ValueError("v1 scenario cannot declare partial v2 profile fields")
+        elif self.execution_profile is ExecutionProfile.H02_CAPABILITY_SURFACE_V1:
+            canonical = ScenarioProfile.canonical(self.execution_profile)
+            from engine.adapters.whyyou.h02_live import FIXTURE_DIGEST, FIXTURE_ID
+            if (self.schema_version != 'controlproof.scenario.v7'
+                    or self.scenario_id != 'H-02' or self.version != '1.0.0'
+                    or self.bundle_profile_contract != 'controlproof.bundle-profile.spec007.v1'
+                    or assertion_ids != canonical.applicable_assertion_ids
+                    or self.applicable_assertion_ids != assertion_ids
+                    or evidence_ids != canonical.required_evidence
+                    or self.fault_variant is not None or self.lanes
+                    or self.allowed_model_fixtures != {FIXTURE_ID:FIXTURE_DIGEST}
+                    or self.required_capabilities != {'h02.actual.lifecycle':'v1'}
+                    or tuple(s.step_id for s in self.steps) != ('inspect-bindings','observe-reader-state','human-independent-decision','cleanup-owned-subjects')
+                    or not self.steps[-1].always_run):
+                raise ValueError('H-02 source/runtime/control contract mismatch')
+        elif self.execution_profile is ExecutionProfile.H01_HUMAN_DECISION_V1:
+            canonical = ScenarioProfile.canonical(self.execution_profile)
+            if (self.schema_version != 'controlproof.scenario.v6'
+                    or self.scenario_id != 'H-01' or self.version != '1.0.0'
+                    or self.bundle_profile_contract != 'controlproof.bundle-profile.spec006.v1'
+                    or assertion_ids != canonical.applicable_assertion_ids
+                    or self.applicable_assertion_ids != assertion_ids
+                    or evidence_ids != canonical.required_evidence or self.fault_variant is not None):
+                raise ValueError('H-01 scenario contract mismatch')
+            from engine.adapters.whyyou.h01_live import FIXTURE_DIGEST, FIXTURE_ID
+            if (self.allowed_model_fixtures != {FIXTURE_ID:FIXTURE_DIGEST}
+                    or self.required_capabilities != {'h01.actual.lifecycle':'v1'}
+                    or tuple(s.step_id for s in self.steps) != ('prepare-reports','attempt-decisions','observe-decision-state','cleanup-owned-subjects')
+                    or not self.steps[-1].always_run):
+                raise ValueError('H-01 fixture/lifecycle contract mismatch')
         elif self.execution_profile in SPEC004_PROFILES:
             self._validate_spec004(assertion_ids, evidence_ids)
         elif self.execution_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
@@ -473,7 +503,7 @@ class ScenarioDefinition(ScenarioModel):
                 "applicable_assertion_ids",
                 "lanes",
             }
-        elif self.execution_profile is not ExecutionProfile.N02_CONSENT_ORDER_V1 and not spec004:
+        elif self.execution_profile not in {ExecutionProfile.N02_CONSENT_ORDER_V1, ExecutionProfile.H01_HUMAN_DECISION_V1, ExecutionProfile.H02_CAPABILITY_SURFACE_V1} and not spec004:
             exclude |= {"bundle_profile_contract", "lanes"}
         definition = self.model_dump(mode="json", exclude=exclude)
         if spec004:

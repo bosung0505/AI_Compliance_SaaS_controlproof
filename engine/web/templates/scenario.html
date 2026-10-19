@@ -10,6 +10,14 @@
   <div class="page-heading"><p class="eyebrow">{{ view.id }} · 테스트 개요</p><h2>{{ view.test_plan.title or view.question }}</h2>
   <p class="scenario-description">{{ view.test_plan.description }}</p><p class="page-meta">{{ view.control_label }} · 대상 WhyYou</p></div>
   <p class="official-context">프로젝트의 공식 검증 이력: {{ official_badge(view.official) }} {{ view.official.summary }}{% if view.official.note %} ({{ view.official.note }}){% endif %}</p>
+  {% if view.remediation %}
+  <div class="card" data-testid="remediation-overview">
+    <h3>{{ view.remediation.title }}</h3>
+    <p>{{ view.remediation.finding }} WhyYou의 조회 기능을 보완한 뒤, 같은 조건에서 채용 단계가 유지되는 것을 확인했습니다.</p>
+    <ol class="test-stages"><li><b>문제 확인</b> {{ badge("fail") }}</li><li><b>WhyYou 코드 보완</b><p>별도의 개발 작업으로 반영</p></li><li><b>재테스트</b> {{ badge("pass") }}</li></ol>
+    <a class="btn sec" href="{{ prefix }}/compare/{{ view.remediation.child_run_id }}">발견한 문제와 보완 과정 보기 →</a>
+  </div>
+  {% endif %}
   {% if view.profiles %}
     {% if view.latest_run %}<div class="card latest-result" data-testid="latest-result"><div><h3>최근 테스트에서 무엇이 확인됐나</h3><p class="page-meta">{{ view.latest_run.started_at | when }} · {{ view.latest_run.integrity }}</p>{% if view.latest_summary %}<p class="latest-summary">{{ view.latest_summary }}</p>{% else %}<p>상세 결과에서 이 기록의 판정과 확인 가능한 자료를 볼 수 있습니다.</p>{% endif %}</div><a class="btn result-link" href="{{ prefix }}/runs/{{ view.latest_run.run_id }}">최근 실행 결과 보기 →</a></div>
     {% else %}<div class="card empty-state"><h3>연결된 실제 실행 기록이 없습니다</h3><p>공식 검증 이력과 이 서버에 연결된 기록은 다를 수 있습니다. 결과를 보려면 해당 기록 저장소를 연결해야 합니다.</p>{% if not view.demo %}<a href="/demo/scenarios/{{ view.id }}">합성 DEMO 기록으로 화면 둘러보기</a>{% endif %}</div>{% endif %}

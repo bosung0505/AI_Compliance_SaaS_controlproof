@@ -41,7 +41,7 @@
   {% endif %}
 
   <div class="card result-summary" data-testid="plain-explanation" data-verdict="{{ view.verdict.value if view.verdict else 'UNAVAILABLE' }}">
-    <h3>이번 테스트 결과</h3>
+    <h3>{% if view.remediation and view.remediation.selected_stage == "retest" %}보완 후 재테스트 결과{% elif view.remediation %}문제가 확인된 당시 테스트 결과{% else %}이번 테스트 결과{% endif %}</h3>
     {% if view.verdict %}
     {% if view.review %}{% for sentence in view.review.summary_sentences %}<p class="summary-text">{{ sentence }}</p>{% endfor %}
     {% else %}<p class="summary-text">{{ view.verdict.plain_meaning }}</p>{% endif %}
@@ -50,6 +50,16 @@
     <p class="muted"><b>누락 증적</b>: {{ (view.verdict.missing_evidence + integrity.aborted_missing_evidence) | unique | join(", ") or "없음" }}{% if view.unresolved_refs %} · 연결되지 않은 증적 {{ view.unresolved_refs | length }}개{% endif %}</p>
     {% else %}<p>무결성을 확인하지 못해 판정과 관찰 내용을 표시하지 않습니다.</p>{% endif %}
   </div>
+  {% if view.remediation %}
+  <div class="card" data-testid="remediation-reason">
+    <h3>{{ "이 재테스트를 진행한 이유" if view.remediation.selected_stage == "retest" else "이후 보완과 재테스트 기록" }}</h3>
+    <p>{{ view.remediation.finding }}</p>
+    <p>{{ view.remediation.role_note }}</p>
+    <p class="page-meta">{{ view.remediation.deployment_scope }}</p>
+    <a class="btn sec" href="{{ prefix }}/runs/{{ view.remediation.parent_run_id if view.remediation.selected_stage == 'retest' else view.remediation.child_run_id }}">{{ "이전 실패 결과 보기" if view.remediation.selected_stage == "retest" else "보완 후 재테스트 결과 보기" }}</a>
+    <a class="btn sec" href="{{ prefix }}/compare/{{ view.remediation.child_run_id }}">보완 전후 비교하기</a>
+  </div>
+  {% endif %}
   {% if view.review %}<div class="note test-process" data-testid="test-process">{{ view.review.process }}{% if run.scenario_id == "E-01" %}<br>점수 보류는 0점 처리나 지원자의 답변 삭제가 아닙니다. 해당 점수를 미확정 상태로 두는 처리입니다.{% endif %}</div>{% endif %}
   {% if view.review %}{% include "_review.html" %}{% endif %}
   {% if view.restore %}<p data-testid="restore" class="{{ 'warn' if view.restore.manual_cleanup_required else 'page-meta' }}">환경 복구: {{ view.restore.status or "기록 없음" }} · 수동 정리 {{ "필요 — 실행 안전 문제를 먼저 확인하세요" if view.restore.manual_cleanup_required else "필요 없음" }}</p>{% endif %}

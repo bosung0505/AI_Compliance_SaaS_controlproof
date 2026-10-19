@@ -248,13 +248,20 @@ def _is_spec004_profile(profile: ExecutionProfile | None) -> bool:
 
 def _is_versioned_profile(profile: ExecutionProfile | None) -> bool:
     return (
-        _is_spec002_profile(profile)
+        profile in {ExecutionProfile.H01_HUMAN_DECISION_V1, ExecutionProfile.H02_CAPABILITY_SURFACE_V1}
+        or _is_spec002_profile(profile)
         or _is_spec003_profile(profile)
         or _is_spec004_profile(profile)
     )
 
 
 def _canonical_files(profile: ExecutionProfile | None) -> set[str]:
+    if profile is ExecutionProfile.H02_CAPABILITY_SURFACE_V1:
+        from engine.h02_evidence import REQUIRED_FILES
+        return REQUIRED_FILES
+    if profile is ExecutionProfile.H01_HUMAN_DECISION_V1:
+        from engine.h01_evidence import REQUIRED_FILES
+        return REQUIRED_FILES
     if profile in {ExecutionProfile.H03_DLQ_V2, ExecutionProfile.E03_BEFORE_V2}:
         return set(SPEC002_DLQ_CANONICAL_FILES)
     if profile is ExecutionProfile.E03_AFTER_V2:
@@ -740,7 +747,15 @@ class EvidenceBundleWriter:
             # T020: new bundles are sealed with the v2 scanner; verify judges each bundle by this value (none = v1).
             "redaction_profile": REDACTION_V2,
         }
-        if _is_spec002_profile(self.profile):
+        if self.profile is ExecutionProfile.H02_CAPABILITY_SURFACE_V1:
+            manifest.update(profile_contract='controlproof.bundle-profile.spec007.v1',
+                            execution_profile=self.profile.value,
+                            environment_snapshot_digest=self.run.environment_snapshot_digest)
+        elif self.profile is ExecutionProfile.H01_HUMAN_DECISION_V1:
+            manifest.update(profile_contract='controlproof.bundle-profile.spec006.v1',
+                            execution_profile=self.profile.value,
+                            environment_snapshot_digest=self.run.environment_snapshot_digest)
+        elif _is_spec002_profile(self.profile):
             manifest.update(
                 {
                     "profile_contract": SPEC002_PROFILE_CONTRACT,
@@ -866,7 +881,13 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
         if not isinstance(required_evidence, dict):
             result["mismatched_files"].append("manifest.json:required_evidence")
             required_evidence = {}
-        if _is_spec002_profile(profile):
+        if profile is ExecutionProfile.H02_CAPABILITY_SURFACE_V1:
+            from engine.h02_evidence import verify_links
+            verify_links(directory, required_evidence, registered, artifact_records, result)
+        elif profile is ExecutionProfile.H01_HUMAN_DECISION_V1:
+            from engine.h01_evidence import verify_links
+            verify_links(directory, required_evidence, registered, artifact_records, result)
+        elif _is_spec002_profile(profile):
             _verify_spec002_evidence(
                 directory,
                 required_evidence,
@@ -917,6 +938,12 @@ def verify_bundle(path: Path, *, require_all_evidence: bool = True) -> dict[str,
             _verify_v1_evidence(required_evidence, artifact_records, result)
     _verify_manifest_run_link(directory, manifest, result)
     _verify_snapshot_links(directory, result)
+    if profile is ExecutionProfile.H02_CAPABILITY_SURFACE_V1:
+        from engine.h02_evidence import verify_facts
+        verify_facts(directory, manifest, result)
+    elif profile is ExecutionProfile.H01_HUMAN_DECISION_V1:
+        from engine.h01_evidence import verify_facts
+        verify_facts(directory, manifest, result)
     if _is_spec002_profile(profile):
         _verify_spec002_snapshot_links(directory, manifest, result)
     elif _is_spec003_profile(profile):
@@ -1003,7 +1030,11 @@ def _resolve_bundle_profile(
         if _is_versioned_profile(profile):
             result["mismatched_files"].append("manifest.json:profile_contract")
         return profile
-    if _is_spec003_profile(profile):
+    if profile is ExecutionProfile.H02_CAPABILITY_SURFACE_V1:
+        expected_contract = 'controlproof.bundle-profile.spec007.v1'
+    elif profile is ExecutionProfile.H01_HUMAN_DECISION_V1:
+        expected_contract = 'controlproof.bundle-profile.spec006.v1'
+    elif _is_spec003_profile(profile):
         expected_contract = SPEC003_PROFILE_CONTRACT
     elif _is_spec004_profile(profile):
         expected_contract = SPEC004_PROFILE_CONTRACT

@@ -1,7 +1,24 @@
 # ControlProof
 
+2026-10-19 결과 설명 보완: H-02 개요·실행 결과·비교 화면에서 **문제 발견 → WhyYou 개발 코드 보완 → ControlProof 재테스트**를 구분한다. 이전 FAIL과 실제 근거를 함께 보존하며 서비스 코드 보완은 별도 개발 작업임을 명시했다. 완료 시나리오 보완 이력은 [조사표](docs/research/WhyYou_Remediation_History_Audit.md) 참고. 실행 범위·봉인 판정·WhyYou 코드는 이번 표시 작업에서 변경하지 않았다.
+
+2026-10-19 H-02 **2단계 로컬 범위 완료**. 최종 `c12c2ce8-f607-4be3-9524-0dec27dc7260` A1~A6 PASS / VERIFIED19 / 복구 성공.
+현황 질문만으로 이전 데이터가 최종합격으로 바뀌던 최초 FAIL을 보존한 뒤, AI의 조회 연결을 조회 전용으로 수정했다.
+조회4조건 상태 유지·같은 포지션35점 합격/90점 불합격 담당자 결정·독립44개 테이블 잔여행0을 확인했다.
+현재 **12개 관리 /7개 실제 실행 /2개 NOT_RUN(N-01·N-03) /3개 NO_TEST_TARGET**. 고정 합성 AI이며 AWS·외부 모델 품질은 미검증.
+이전 단계 상태와 수치는 당시 기록이다. 최신 소스·계보·한계는 [Spec007 검증 기록](specs/007-h02-capability-surface/actual-closure.md)를 따른다.
+
+2026-10-19 H-02 **1단계 조사·검사 준비 완료, actual NOT_RUN**.
+AI·워커 연결42개 항목을 수집했다. 간접 연결1개와 조회 중 데이터 초기화 경로는2단계 확인 대상이다.
+실제 판정·공식 실행·결과 화면은 아직 진행하지 않았으며 현재 범위12/6/3/3을 유지한다. [Spec007 검증 기록](specs/007-h02-capability-surface/validation.md).
+
 후속 수정·남은 작업의 통합 브랜치: **`fixes-and-remaining-work`** (2026-10-18 사용자 승인).
 ControlProof는 `origin`, WhyYou의 같은 이름 브랜치는 `bosung0505/gbsa_aws` 포크에서 관리한다.
+
+2026-10-18 H-01 2단계 actual 완료: **`39a0d317-b36d-4cf1-8b09-aebb404d5891` A1~A6 PASS / VERIFIED17**.
+세 경로×다섯 주체15조건 통과, 복구 성공, 독립 읽기 감사44개 테이블 잔여행0·기본 회사/사용자 각1 보존.
+최초 SYSTEM 일괄 이동 FAIL을 보존하고 해당 경로를 수정한 child 결과다. 고정 테스트용 AI이며 AWS/H-02는 미실행.
+현재6개 실제 실행 완료·3개 NOT_RUN·3개 NO_TEST_TARGET. [상세 검증](specs/006-h01-human-decision/validation.md).
 
 2026-10-18 최신: N-02 최종 재테스트 `16dbd987…` **A1~A7 PASS / VERIFIED21**,
 복구 성공·실행 소유 DB 잔여행 0. 로컬 실행 목표 5개 완료. 자세한 기록은 Spec003
@@ -39,7 +56,7 @@ Spec 005 전체 종료와 비작성자 사용성 검토는 아직 완료로 선�
 ## 현재 개발 기준
 
 - 제품 범위: [ControlProof × WhyYou 2주 MVP 기능 범위 V4](./docs/product/ControlProof_WhyYou_2주_MVP_기능범위_v4.md)
-- 시나리오 범위표: [12개 관리·5개 실행·4개 NOT_RUN·3개 NO_TEST_TARGET](./docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md)
+- 시나리오 범위표: [12개 관리·7개 실행·2개 NOT_RUN·3개 NO_TEST_TARGET](./docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md)
 - 제품 정의: [MVP Product Brief](./docs/product/ControlProof_MVP_Product_Brief.md)
 - 제품 결정: [MVP Decision Log](./docs/product/ControlProof_MVP_Decision_Log.md)
 - 개발 원칙: [ControlProof Constitution](./.specify/memory/constitution.md)

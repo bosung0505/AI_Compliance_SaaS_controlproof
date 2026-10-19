@@ -671,3 +671,71 @@ Parent and final bundle independently reverified from the viewer root: VERIFIED1
 manifest hashes, strict scan findings0. Existing E-01 screen preserved. Changed-source Ruff and
 both repositories' `git diff --check` pass. Earlier WhyYou385 scoped PASS remains stage-1 evidence;
 no WhyYou runtime source changes were introduced after that frozen source, only closure docs.
+
+## H-02 dependent result display — 2026-10-19
+
+Spec007 finalchildc12c2ce8… all6rulesPASS/VERIFIED19, firstFAILdd52deb1 preserved. Shared review
+layout adds42-item source/runtime review,4reader before/after facts and35/90human controls;10condition
+rows, no new style or web Run action. Actual browser22pages/20panels at1280/1024 allHTTP200, overflow0,
+console/pageerrors0; existingE01/N02/H01 included. Webworkbench/scenario34PASS. Catalog12/7/2/3;
+Spec007 actual-closure/validation has source/cleanup/limits. This does not close Spec005 overall
+or replace non-author usability validation.
+
+
+## T096~098 H02 발견·보완·재테스트 설명
+
+## 구현·실제 화면 검수 — 2026-10-19
+
+H02 개요 상단에 발견→WhyYou개발보완→재테스트 안내와 비교 링크를 추가했다. 최종실행은
+'보완 후 재테스트 결과'로, 부모는 '문제가 확인된 당시 테스트 결과'로 구분하며 이유와
+서로의결과/비교링크를 가까이둔다. 비교상단3카드에는실제미지정→최종합격/결정기록0→0과
+보완후미지정→미지정/0→0표를표시한다. 서비스개발보완과ControlProof검증의역할, 로컬개발
+코드반영범위와개발기록/봉인관찰출처를구분했다. ID·버전·전체초기INC이력·원본사유·메모·
+규칙비교는하단접기영역에보존했다. 기존card/table/badge/button스타일재사용, CSS추가없음.
+
+engine/web/remediation.py의설명은검토된H02버전쌍에만적용한다. 부모/자식원본verify,
+manifestSHA256,시나리오/프로필/상태/대상SHA/봉인판정/부모digest연결을모두확인한다.
+누락·변조·버전불일치·새Run에서는설명을추정하지않으며, DEMO에서는호출하지않는다.
+관찰표는봉인reader기록을읽고 판정은새로계산하지않는다. 최초INC는제품문제FAIL로바꾸지않았다.
+
+예상RED:새모듈부재ImportError. 구현후새회귀8PASS(정상역할구분,부모누락,무결성실패,
+재봉인변조,다른소스/부모/digest,다른Run적용방지). 공유readmodel/compare/scenario/H02선택31PASS.
+확장회귀는단위44PASS, HTTP8건은샌드박스localhost10013권한제한으로실패하여동일HTTP선택을
+승인된로컬통신환경에서재실행했다(아래최종결과참고). 판정실패로간주하거나테스트완료로숨기지않았다.
+
+실제보관bundle기반브라우저검수: 8화면×1280/1024=16화면, 기존10개근거패널×2=20패널,
+실패/수정후근거링크각2회총4회, 개요→비교/실패→재테스트탐색, 초기INC전체이력펼치기확인.
+모든HTTP200/가로넘침0/console·page오류0. E01이전비교/E02개요/N02·H01기존화면포함.
+새비교1280/개요1024스크린샷시각검수완료. 첫검수의원본발췌는기본접힘상태여서검수코드가
+펼치도록수정했다. 제품관찰이나원본자료를고친것이아니다.
+
+현재viewerroot291개파일의모든바이트SHA256이작업전후동일하다. 카탈로그에있는13개
+현지공식bundle을실제verify했다(모두VERIFIED). H03/E03공식bundle은이root에없으므로
+두사례는기존실행원장·보완commit기록을근거로분류했다. 신규WhyYou실행이나코드수정없음;
+현재WhyYou소스205Python tree a062993…불변. 원본브랜치fixes-and-remaining-work유지.
+localhost:8766서버를소유PID/생성시각검증후재시작, 실제3주소에서새설명·HTTP200확인.
+브라우저결과/캡처·해시원장은Git제외cp-local/h02-20261019/remediation-web-qa및.controlproof.
+
+완료7개조사결과: H02외H01/H03/E01/E03/N02에서서비스보완이력확인. E03는WhyYou멱등성
+보완외CPactor표현정규화도포함, N02는과거동의보호조치보완외최근문서분석모델/환경준비가
+최종PASS에필요했다. E02자체보호조치수정근거는없고최초부터PASS. 모든전후자료유지.
+조사표: [WhyYou 보완 이력 감사](../../docs/research/WhyYou_Remediation_History_Audit.md).
+Spec005전체마감/비작성자사용성검증과별도이며실제범위12/7/2/3/LOCAL_EMULATED/AWSNOTRUN불변.
+
+
+## Final closure — 2026-10-19
+
+T096~098 complete in this display/audit scope. Expanded unit/readmodel selection44 PASS; HTTP8
+PASS in35.24s after rerunning with permitted localhost access (initial sandbox10013 failures were
+environment restrictions). Total52 regression cases accepted; no further product change needed.
+New source-history8cases are included in44, not counted twice. Actual browser16screens/20proof
+panels/4scoped evidence-link visits at1280/1024 pass. Public localhost:8766 overview/result/compare
+allHTTP200 with updated text. Additional real-bundle checks confirm DEMO never loads the actual
+development history and a standalone child missing its parent has PARENT_NOT_IN_ROOT/no completed
+story. The missing-parent copy stays outside Git.
+
+All291viewerfiles byte-identical; actual source tree unchanged; changed Python RuffCP52/Why13
+PASS, git diff --check PASS; all4H01 original/viewer bundles reverified unchanged. No new WhyYou
+code change/Run/commit/push. The published runtime record remains the prior H02test, not a new one.
+Completed7-scenario remediation audit and required handoff/product/matrix/README/decision docs
+converged. Spec005 overall closure and non-author usability remain separate.

@@ -1,0 +1,11 @@
+schema: controlproof.h01-preparation.v1
+scenario_id: H-01
+version: 0.1.0
+stage: 1
+actual_status: NOT_RUN
+cases:
+  - COMPANY_CONTROL
+  - APPLICANT_HTTP
+  - ANONYMOUS_HTTP
+  - SYSTEM_BOUNDARY
+  - AI_ASSISTANT

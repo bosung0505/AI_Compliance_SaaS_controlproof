@@ -232,3 +232,8 @@ tests/
 
 Spec003 실제 검증 후 n02_review/review/readmodel/preflight와 공통 템플릿·카탈로그를 보완한다.
 별도 CSS나 새 디자인 체계 없이 기존 표/확인 자료 패널을 재사용한다. [n02-results.md](n02-results.md).
+
+
+## H02 이력 설명 확장
+
+2026-10-19 사용자가3단계 설명과 완료사례조사를 승인했다. 구현 전 계획·분석은 remediation-history.md. 기존 공통레이아웃과 봉인불변을 유지한다.

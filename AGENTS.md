@@ -94,3 +94,61 @@ ControlProof publishes to `origin` (`bosung0505/AI_Compliance_SaaS_controlproof`
 to the `fork` remote (`bosung0505/gbsa_aws`). Keep WhyYou upstream `main` unchanged.
 The source SHAs in actual Run records remain the frozen validation SHAs, not later publication commits.
 Exclude runtime logs, new bundles, credentials and environment files from publication.
+
+## H-01 stage1 preparation (2026-10-18)
+
+Active feature: `specs/006-h01-human-decision/`, branch `fixes-and-remaining-work` in both repos.
+Stage1 specification/planning/analyze/preparation code and automatic checks completed; actual
+H-01 remains NOT_RUN. No official profile/Run/catalog/UI promotion. The injected lifecycle is
+not a live fixture lifecycle: stage2 must bind normal report preparation/owned cleanup, actual
+principals, SYSTEM transaction/service, actual assistant operation and official evidence/CLI.
+Do not invent AI authentication or treat company actor-header spoofing as an AI test. Missing
+AI/refusal evidence and unresolved final-stage batch-route coverage cannot produce whole H-01 PASS.
+WhyYou adds only a disabled local/test SYSTEM helper and restores a stale H-01 SQL test; existing
+product authorization/composition unchanged. Final CP122 PASS / WhyYou224 PASS; see validation.
+
+## H-01 stage2 actual validation (2026-10-18)
+
+Final `39a0d317-b36d-4cf1-8b09-aebb404d5891` A1~A6 PASS, VERIFIED17, restore SUCCEEDED, independent read-only44-table
+owned residue audit0. Sources CP2edd0b0 / Why08c397e; local validation clones, not publication SHAs.
+First actual7d6024ce FAIL and9a297b8d/faa0a306 INCONCLUSIVE preserved. HiringService final-stage
+human guard fixed only after sealed factual FAIL. H-01-only assistant API fixed model binding;
+no new AI role. Current scope6 executed /3 NOT_RUN /3 NO_TEST_TARGET. H-02/AWS/external model
+quality/Spec005 full closure remain separate. Web final QA and document convergence completed 2026-10-19; Spec006 local scope Complete.
+Earlier stage1 NOT_RUN paragraph above is historical. Keep original fixes-and-remaining-work branches.
+
+## H-02 stage1 preparation (2026-10-19)
+
+Active Spec007, both fixes-and-remaining-work. Stage1 source discovery/spec/plan/analyze/collector
+and automatic checks complete; actual H-02 NOT_RUN, no official profile or READY. Current source
+inventory42 UNREVIEWED entries,204 Python files,161 import-closure paths. Collector BLOCKED on
+privacy_deletion's indirect runtime attribute; source trace is documented, actual binding/effect
+required in stage2. Do not suppress unknowns or infer safety from tool names/reader protocols.
+Assistant stage lookup can invoke legacy null-stage backfill through ensure_default_stages;
+preserve as an actual-review candidate, not an already-tested FAIL or a preauthorized product fix.
+Stage2 must include source/actual composition, dispatch/effect review and low/high-score human
+independence; no new AI actor. Existing H-01 source/history preserved,12/6/3/3 unchanged. See Spec007
+validation/traceability/inventory-review/quickstart. No H-02 product change/actual/commit/push yet.
+
+## H-02 stage2 local completion (2026-10-19)
+
+Spec007 Complete. Final c12c2ce8-f607-4be3-9524-0dec27dc7260 A1~A6PASS/VERIFIED19/restoreSUCCEEDED;
+independent44-table residue0. Frozen local sources CPf3ede39 / WhyYouaf36f25. First factual FAILdd52deb1
+and initial INC9532d923 preserved. Legacy assistant answers could backfill final acceptance without
+human review; after sealing FAIL, production pipeline reader narrowed to repository-only facade.
+Actual4readers unchanged and same-position/version35accept/90reject human controls passed. Source42
+items fully reviewed/actual runtime reconciled; fixed synthetic model, AWS/externalquality outside scope.
+Shared QA22pages/20panels and catalog12/7/2/3 converged. Earlier stage1 NOT_RUN paragraphs are historical.
+Keep fixes-and-remaining-work, original H01/N02 artifacts and historical exception unchanged; newbundles,
+credentials and runtime logs stay ignored. No H02 commit/push in this closure. See Spec007 actual-closure.
+
+
+## Remediation history display (2026-10-19)
+
+User authorized Spec005 T096~098: H02 overview/result/compare shows discovery FAIL→separate WhyYou
+development remedy→ControlProof retest PASS with actual before/after facts. Keep initial INC and
+first FAIL, version/parent integrity checks, and development-note vs sealed-observation provenance.
+Never infer a target fix from a later PASS or source SHA change. Other scenarios' remediation audit
+is docs/research/WhyYou_Remediation_History_Audit.md; E03 includes a CP normalization fix, N02 includes
+prior consent guards and later test-model setup, E02 started PASS. This UI/audit closure changes no
+WhyYou source or sealed verdict. Full Spec005 external usability remains separate.

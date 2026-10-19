@@ -78,13 +78,13 @@ def test_layout_demo_band_and_no_horizontal_overflow(page) -> None:
 
 
 def test_count_cards_and_neutral_inconclusive_card(page) -> None:
-    assert page.locator("[data-count=PASS] .num").inner_text() == "4"
+    assert page.locator("[data-count=PASS] .num").inner_text() == "7"
     assert page.locator("[data-count=FAIL] .num").inner_text() == "0"
-    assert page.locator("[data-count=NOT_RUN] .num").inner_text() == "4"
+    assert page.locator("[data-count=NOT_RUN] .num").inner_text() == "2"
     card = page.locator("[data-count=INCONCLUSIVE]")
-    assert card.locator(".num").inner_text() == "4"
+    assert card.locator(".num").inner_text() == "3"
     assert card.locator(".neutral-title").count() == 1
-    for key, icon, count in (("insufficient_evidence", "?", "1"), ("reason_no_test_target", "∅", "3")):
+    for key, icon, count in (("reason_no_test_target", "∅", "3"),):
         in_card = card.locator(f"[data-badge={key}]")
         assert in_card.locator(".ic").inner_text() == icon
         assert in_card.get_attribute("data-count-value") == count
@@ -100,7 +100,7 @@ def test_one_common_checked_at_and_only_differing_rows_show_time(page) -> None:
     assert page.locator("tr.scenario-row[data-id=N-02] .row-checked-at").count() == 1
 
 
-@pytest.mark.parametrize("name,expected", [("runnable", 5), ("failed", 0), ("inconclusive", 4)])
+@pytest.mark.parametrize("name,expected", [("runnable", 7), ("failed", 0), ("inconclusive", 3)])
 def test_filters_5_0_4(page, name, expected) -> None:
     page.locator(f"[data-filter={name}]").check()
     assert _visible_rows(page).count() == expected
@@ -116,7 +116,7 @@ def test_a_rows_have_no_run_control_or_progress(page) -> None:
 
 
 def test_runner_not_ready_and_no_test_target_badges_differ(page) -> None:
-    rnr = page.locator("tr.scenario-row[data-id=H-01] [data-badge=runner_not_ready]")
+    rnr = page.locator("tr.scenario-row[data-id=N-01] [data-badge=runner_not_ready]")
     ntt = page.locator("tr.scenario-row[data-id=A-01] [data-badge=readiness_no_test_target]")
     assert rnr.count() == 1 and ntt.count() == 1
     assert rnr.inner_text() != ntt.inner_text()

@@ -22,6 +22,7 @@ from engine.presentation import load_bundle_summary
 from engine.web import badges
 from engine.web.memos import MemoStore
 from engine.web.preflight import ReadinessStore
+from engine.web.remediation import h02_history
 from engine.web.review import DESCRIPTIONS, TITLES, build_review, rule_display, test_plan
 
 SCHEMA_VERSION = "controlproof.web.v1"
@@ -41,6 +42,20 @@ TEXT_MIME_TYPES = {"application/json", "application/x-ndjson", "application/yaml
 RESULT_LINK_LIMIT = 5
 # Human names for sealed files (FR-015, FR-019); the file names themselves stay in developer details.
 DISPLAY_NAMES = {
+    'h02-inventory.json':'수집한 AI·워커 기능과 입출력 계약',
+    'h02-runtime.json':'실제 서비스의 기능 연결 기록',
+    'h02-review.json':'기능별 저장 영향과 소스 근거',
+    'h02-reader-cases.json':'조회·답변 전후의 채용 상태',
+    'h02-human-controls.json':'AI 점수와 담당자의 실제 결정',
+    'h02-preparation.json':'동의·보고서 정상 생성 기록',
+    'h02-facts.json':'실행 기록과 연결한 확인 사실',
+    'h02-source.json':'검사한 소스와 실행 오류 기록',
+    'h01-subjects.json':'주체별 테스트 대상과 요청 연결',
+    'h01-cases.json':'주체별 요청 전후 채용 상태',
+    'h01-preparation.json':'동의·면접 상태·보고서 준비 기록',
+    'h01-requests.json':'실제 결정 요청과 서비스 응답',
+    'h01-model-emissions.json':'AI 어시스턴트의 실제 테스트 출력 기록',
+    'h01-source.json':'실행 소스와 준비 오류 기록',
     "run.json": "실행 기록",
     "judgement.json": "판정 기록",
     "assertions.json": "규칙별 결과 기록",
@@ -379,6 +394,7 @@ class WorkbenchReader:
             "safety_badges": ["restore_failed"] if state == "RESTORE_FAILED" else [],
             "verdict": None,
             "review": None,
+            "remediation": None,
             "assertions": None,
             "evidence": None,
             "steps": [],
@@ -494,6 +510,8 @@ class WorkbenchReader:
                 summary["scenario_id"], _definition(snapshot, "sealed_snapshot", run_id),
                 view["assertions"], bundle, view["evidence"],
             )
+        if self.origin == "ACTUAL" and summary["scenario_id"] == "H-02":
+            view["remediation"] = h02_history(self.run_root, run_id, self.cache.verify)
         return view
 
     def evidence(self, run_id: str, ref: str, *, condition_id: str | None = None) -> dict[str, Any]:
@@ -518,6 +536,22 @@ class WorkbenchReader:
         if condition and preview.get("viewable"):
             try:
                 text = preview.get("text") or ""
+                if record.get('scenario_id')=='H-02' and item.get('mime_type')=='application/json':
+                    data=json.loads(text)
+                    if isinstance(data,list) and condition.get('case'):
+                        selected=[row for row in data if isinstance(row,dict) and
+                                  (row.get('h02_contract_label') or row.get('name'))==condition['case']]
+                        if selected:
+                            excerpt=json.dumps(selected,ensure_ascii=False,indent=2)
+                if record.get('scenario_id')=='H-01' and item.get('mime_type')=='application/json':
+                    data=json.loads(text)
+                    if isinstance(data,list) and condition.get('case'):
+                        selected=[row for row in data if isinstance(row,dict) and
+                                  ((row.get('path')==condition['facts'].get('path') and
+                                    (row.get('subject',{}).get('case') or row.get('case'))==condition['case'])
+                                   or (condition.get('request_id') and row.get('request_id')==condition['request_id']))]
+                        if selected:
+                            excerpt=json.dumps(selected,ensure_ascii=False,indent=2)
                 if item.get("mime_type") == "application/x-ndjson":
                     rows = [json.loads(line) for line in text.splitlines() if line.strip()]
                     if ref == "file:citation-cases.jsonl":
@@ -649,6 +683,7 @@ class WorkbenchReader:
         runs = self._scenario_runs(scenario_id)
         profiles = [self._scenario_profile(entry, profile, runs) for profile in entry["profiles"]]
         latest_summary = None
+        latest_view = None
         if runs and runs[0]["integrity"] == "VERIFIED":
             latest_view = self.run(runs[0]["run_id"])
             latest_summary = (latest_view.get("review") or {}).get("summary")
@@ -675,6 +710,7 @@ class WorkbenchReader:
             "previous_runs": runs,
             "latest_run": runs[0] if runs else None,
             "latest_summary": latest_summary,
+            "remediation": (latest_view or {}).get("remediation"),
             "test_plan": test_plan(scenario_id, profiles[0]["definition"] if profiles else None),
             "readiness": self._readiness(entry),
         }
@@ -784,6 +820,7 @@ class WorkbenchReader:
             "recorded_parent_digest": recorded,
             "current_parent_digest": current,
             "lineage_problem": problem,
+            "remediation": child_view.get("remediation") if problem is None else None,
             "lineage": self._lineage(child_run_id),
             "fix_description": (
                 {"text": memos[-1]["text"], "source": "memo"}

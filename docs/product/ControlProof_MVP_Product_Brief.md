@@ -1,5 +1,22 @@
 # ControlProof × WhyYou 2주 MVP Product Brief
 
+2026-10-19 결과 설명 보완: H-02 개요·실행 결과·비교 화면에서 **문제 발견 → WhyYou 개발 코드 보완 → ControlProof 재테스트**를 구분한다. 이전 FAIL과 실제 근거를 함께 보존하며 서비스 코드 보완은 별도 개발 작업임을 명시했다. 완료 시나리오 보완 이력은 [조사표](../research/WhyYou_Remediation_History_Audit.md) 참고. 실행 범위·봉인 판정·WhyYou 코드는 이번 표시 작업에서 변경하지 않았다.
+
+2026-10-19 H-02 **2단계 로컬 범위 완료**. 최종 `c12c2ce8-f607-4be3-9524-0dec27dc7260` A1~A6 PASS / VERIFIED19 / 복구 성공.
+현황 질문만으로 이전 데이터가 최종합격으로 바뀌던 최초 FAIL을 보존한 뒤, AI의 조회 연결을 조회 전용으로 수정했다.
+조회4조건 상태 유지·같은 포지션35점 합격/90점 불합격 담당자 결정·독립44개 테이블 잔여행0을 확인했다.
+현재 **12개 관리 /7개 실제 실행 /2개 NOT_RUN(N-01·N-03) /3개 NO_TEST_TARGET**. 고정 합성 AI이며 AWS·외부 모델 품질은 미검증.
+이전 단계 상태와 수치는 당시 기록이다. 최신 소스·계보·한계는 [Spec007 검증 기록](../../specs/007-h02-capability-surface/actual-closure.md)를 따른다.
+
+2026-10-19 H-02 **1단계 조사·검사 준비 완료, actual NOT_RUN**.
+AI·워커 연결42개 항목을 수집했다. 간접 연결1개와 조회 중 데이터 초기화 경로는2단계 확인 대상이다.
+실제 판정·공식 실행·결과 화면은 아직 진행하지 않았으며 현재 범위12/6/3/3을 유지한다. [Spec007 검증 기록](../../specs/007-h02-capability-surface/validation.md).
+
+2026-10-18 H-01 2단계 actual 완료: **`39a0d317-b36d-4cf1-8b09-aebb404d5891` A1~A6 PASS / VERIFIED17**.
+세 경로×다섯 주체15조건 통과, 복구 성공, 독립 읽기 감사44개 테이블 잔여행0·기본 회사/사용자 각1 보존.
+최초 SYSTEM 일괄 이동 FAIL을 보존하고 해당 경로를 수정한 child 결과다. 고정 테스트용 AI이며 AWS/H-02는 미실행.
+현재6개 실제 실행 완료·3개 NOT_RUN·3개 NO_TEST_TARGET. [상세 검증](../../specs/006-h01-human-decision/validation.md).
+
 ## 현재 웹 표시 보완 (2026-10-15)
 
 2026-10-16 추가: UI 용어는 테스트·재테스트·테스트용으로 통일하고, 비교 표는 테스트 입력과 실제 저장 결과로 구분한다.
@@ -710,7 +727,7 @@ Spec 003~005로 사용한다. 각 Spec은 문서만 만든 뒤 한꺼번에 개�
 clarify·plan·tasks·analyze를 마치면 곧바로 구현·실제 검증·converge까지 닫고 다음 Spec으로 넘어간다.
 
 12개 시나리오는 전부 실행한다는 뜻이 아니라 제품 카탈로그에서 상태를 관리한다는 뜻이다. 2주 MVP의
-실제 실행 목표 5개, `NOT_RUN` 4개, `NO_TEST_TARGET` 3개의 정확한 구분과 발표 문구는
+H-01 후속 포함 실제 실행 목표 6개, `NOT_RUN` 3개, `NO_TEST_TARGET` 3개의 정확한 구분과 발표 문구는
 [시나리오 범위표](./ControlProof_MVP_Scenario_Coverage_Matrix.md)와 Decision Log D-014를 따른다.
 
 기존 “남은 WhyYou 연결과 시험 조건” 후보는 독립 Spec으로 만들지 않는다. H-03·E-03 연결은 이미
