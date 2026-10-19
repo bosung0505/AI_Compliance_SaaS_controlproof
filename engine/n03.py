@@ -5,6 +5,7 @@ N03-U1~U3 and N03-L1 are never judged here; the executor carries them in Judgeme
 
 from __future__ import annotations
 
+import re
 from typing import Any
 from uuid import UUID
 
@@ -24,6 +25,7 @@ REQUIRED_RESIDUE_TABLES = frozenset(
         "audit_events",
     }
 )
+_HEX64 = re.compile(r"[0-9a-f]{64}")
 REJECTED_CODES = frozenset({"CONSENT_POLICY_MISMATCH", "CONSENT_COMMIT_REJECTED"})
 TRANSPORT_CODES = frozenset({"CONSENT_COMMIT_TRANSPORT_UNAVAILABLE", "CONSENT_COMMIT_RESPONSE_UNKNOWN"})
 SOURCE = ("V4-N03",)
@@ -82,6 +84,20 @@ def cleanup_verified(recovery):
         and REQUIRED_RESIDUE_TABLES.issubset(counts)
         and all(type(value) is int and value == 0 for value in counts.values())
     )
+
+
+def stale_identifier(current) -> dict[str, str]:
+    """The previous policy identifier the stale lane presents: version and digest both differ."""
+    version, digest = current.get("version"), current.get("digest")
+    if not isinstance(version, str) or not version.strip():
+        raise ValueError("current policy version must be a non-empty string")
+    if not isinstance(digest, str) or not _HEX64.fullmatch(digest):
+        raise ValueError("current policy digest must be 64 lowercase hex characters")
+    last = "0" if digest[-1] != "0" else "1"
+    stale = {"version": f"{version}-stale", "digest": digest[:-1] + last}
+    if stale["version"] == version or stale["digest"] == digest:
+        raise ValueError("stale identifier must differ from the current one")
+    return stale
 
 
 def _success(status: int | None) -> bool:

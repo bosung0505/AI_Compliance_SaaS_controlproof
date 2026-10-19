@@ -129,6 +129,31 @@ FR·SC 중 Task가 없는 항목은 없다. assertion 6개, EV9 7개 모두 계�
   더하지 않았다(기존 projection 시험 불변).
 - `CONTROLPROOF_APPLICANT_APP_URL`은 다른 URL과 같이 로컬 호스트만 허용하고 끝의 `/`를 뗀다.
 
+### T007·T008에서 정한 것 (계약·지시와 다르거나 지시에 없던 것)
+
+- 커밋: N-03 lane은 같은 시드 계획·어댑터 안에 있어 T007·T008을 커밋 하나로 합쳤다.
+- N-03 `raw_session_cookie`도 `secrets.token_urlsafe(48)`이다. N-02의 Run 유도 문자열은 쓰지 않는다. 그래서 같은 run_id라도
+  `token_hash`·`session_hash`는 빌드마다 다르다. 결정론은 ID와 `plan.digest`에 적용된다(N-02와 같이 digest는 `*_id` 열만 덮는다).
+- N-03 `display_name`은 `CP-N03-{lane}-{run_id[:8]}`이다(지시는 N-01만 정함). `applicant_email_normalized`는
+  `<subject_ref>@example.invalid`이다.
+- `json.dumps(plan)`은 dataclass라 직접 되지 않는다. JSON 표면으로 `plan.manifest()`(run_id·profile·lanes·tables·seed_digest)를 두고,
+  시험은 repr·manifest·행 값·subject payload·lane dump 어디에도 raw 값이 없는지 본다. `plan.rows`는 `repr=False`다.
+- 어댑터 생성자에 키워드 `read_factory`(재계수용 별도 connection; 기본 `engine.connect`, 주입한 transaction factory만 있으면 그것)와
+  `inventory`(기본 SQLAlchemy inspector)를 더했다. `display_name_for(run_id, lane_id)`도 더했다(T009에서 N-01 본인 확인 이름을
+  브라우저 어댑터에 넘길 때 씀). `Spec009SeedPort`에 포함했다.
+- 결과 코드: 성공 `SPEC009_LANES_REMOVED`. 더한 코드: `SPEC009_PROFILE_UNSUPPORTED`, `SPEC009_TEARDOWN_FAILED`(정리 트랜잭션 롤백),
+  `SPEC009_RESIDUE_READ_FAILED`(재계수 실패), `SPEC009_RESIDUE_REMAINS`(ok=False, data.status=`FAILED`). 소유권과 credentials는
+  `SUCCEEDED`일 때만 놓는다. `FAILED`면 같은 ID로 다시 정리할 수 있게 남긴다.
+- 정리 알고리즘: `OWNED_COLUMNS`는 h01_live 값을 import해 `criterion_id`·`recruiting_stage_id`를 더했다(h01_live.py 불변).
+  (a)는 시드 행 identity와 같은 행을 건너뛰고 (b) 시드 역순 삭제에 맡긴다. 그래서 `product_rows_removed`는 제품이 만든 행만 센다.
+  (a)의 PK 삭제는 `_delete_row` 대신 PK 열로 직접 지운다. `applicant_access_tokens`의 PK `token_hash`는 `_id`로 끝나지 않아
+  `_delete_row`가 identity 없음으로 실패하기 때문이다.
+- residue 표 집합: `spec009_cleanup.REQUIRED_RESIDUE_TABLES`(9개) == `engine/n01.py` 필수 표이고, `engine/n03.py` 필수 표(8개,
+  `applicant_access_tokens` 없음)는 그 부분집합이다. 불일치 없음. 판정 모듈은 고치지 않았다. N-03 counts에도 tokens(0)가 들어간다.
+- 필수 표가 catalog에 없거나 소유 열이 없으면 0으로 보고한다(지시대로). 스키마가 바뀌어 소유 열이 사라지면 잔여가 0으로 보일 수
+  있으므로 실제 Run 전 catalog 확인이 필요하다.
+- 조립: `AdapterSet.spec009_seed`·`spec009_consent`를 더했다. 저장소 변수 이름은 `n01_credentials` 그대로 두고 N-03도 쓴다.
+
 ## Gate
 
 CRITICAL 0, HIGH 0(A1 RESOLVED). 해석 차이를 만드는 MEDIUM은 모두 Spec 009 안에서 고쳐 0이다. T004로 진행한다.

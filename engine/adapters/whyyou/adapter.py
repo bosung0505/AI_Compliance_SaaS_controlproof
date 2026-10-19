@@ -28,6 +28,7 @@ from engine.adapters.whyyou.queue import WhyYouQueueAdapter
 from engine.adapters.whyyou.report_records import WhyYouSpec004ReportAdapter
 from engine.adapters.whyyou.seed import WhyYouSeedAdapter
 from engine.adapters.whyyou.spec004_seed import WhyYouSpec004SeedAdapter
+from engine.adapters.whyyou.spec009_seed import WhyYouSpec009SeedAdapter
 from engine.adapters.whyyou.state import WhyYouStateAdapter
 from engine.config import Settings
 from engine.models import TargetSnapshot
@@ -84,10 +85,13 @@ def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]
     spec004_mutation = WhyYouEvidenceMutationAdapter(settings)
     spec004_versions = WhyYouCriteriaVersionAdapter(settings)
     spec004_scoring_source = WhyYouScoringSourceAdapter(settings)
-    # Spec 009 N-01 lanes keep their own store: the seed puts `<subject_ref>:invitation_token`, the
-    # browser puts the session cookie under `<subject_ref>` for a consent adapter sharing this store.
+    # Spec 009 N-01/N-03 lanes keep their own store: the seed puts `<subject_ref>:invitation_token`
+    # (N-01) or the session cookie under `<subject_ref>` (N-03); the N-01 browser puts the cookie it
+    # receives under `<subject_ref>`; the Spec 009 consent adapter reads from the same store.
     n01_credentials = N02CredentialStore()
     applicant_browser = WhyYouApplicantBrowserAdapter(settings, credentials=n01_credentials)
+    spec009_seed = WhyYouSpec009SeedAdapter(settings, credentials=n01_credentials)
+    spec009_consent = WhyYouConsentAdapter(settings, credentials=n01_credentials)
     capability =WhyYouCapabilityProbe(
         settings,
         client,
@@ -137,5 +141,7 @@ def create_whyyou_adapter(settings: Settings) -> tuple[AdapterSet, WhyYouClient]
         spec004_versions=spec004_versions,
         spec004_scoring_source=spec004_scoring_source,
         applicant_browser=applicant_browser,
+        spec009_seed=spec009_seed,
+        spec009_consent=spec009_consent,
     )
     return adapters, client

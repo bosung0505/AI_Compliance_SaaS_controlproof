@@ -940,6 +940,33 @@ class RunSubjectLane(FrozenModel):
         return self
 
 
+class Spec009SubjectLane(FrozenModel):
+    """Spec 009 seeded lane; its dump is the subject mapping the consent adapter reads."""
+
+    schema_version: str = "controlproof.spec009-subject-lane.v1"
+    run_id: UUID
+    lane_id: N01LaneId | N03LaneId
+    subject_ref: str
+    invitation_id: UUID
+    applicant_id: UUID
+    seed_kind: Literal["invited-token", "identity-verified-session"]
+    trace_namespace: str
+    seed_correlation_id: str
+
+    @model_validator(mode="after")
+    def validate_lane(self) -> Spec009SubjectLane:
+        expected_kind = (
+            "invited-token" if isinstance(self.lane_id, N01LaneId) else "identity-verified-session"
+        )
+        if self.seed_kind != expected_kind:
+            raise ValueError("seed_kind does not match the lane's profile")
+        if self.trace_namespace != f"controlproof:{self.run_id}:{self.lane_id.value}":
+            raise ValueError("trace_namespace must bind the Run and lane")
+        if not self.subject_ref.strip() or not self.seed_correlation_id.strip():
+            raise ValueError("lane identity fields must be non-empty")
+        return self
+
+
 class ProtectedProcessingPath(FrozenModel):
     schema_version: str = "controlproof.n02-processing-path.v1"
     path_id: ProtectedPathId
