@@ -137,8 +137,10 @@ detail: {{ item.detail or "" }}</pre></details></td>
     {% if view.evidence %}<ul class="mono">{% for item in view.evidence %}<li>{{ item.ref }} → {{ item.relative_path }}</li>{% endfor %}</ul>{% endif %}
   </details>
 
-  {% if view.limitations or view.legal_scope_notice %}
-  <div class="limit"><b>실행 한계</b>: {{ (view.limitations + (["미검증: " ~ (view.unverified_scope | join(", "))] if view.unverified_scope else [])) | join(" · ") }}{% if view.legal_scope_notice %}<br>{{ view.legal_scope_notice }}{% endif %}</div>
+  {% if view.target_access %}<p class="target-access">대상 접근: {{ view.target_access }}</p>{% endif %}
+  {% if view.limitations or view.legal_scope_notice or view.scope_items %}
+  <div class="limit"><b>실행 한계</b>: {{ (view.limitations + (["미검증: " ~ (view.unverified_scope | join(", "))] if view.unverified_scope else [])) | join(" · ") }}{% if view.legal_scope_notice %}<br>{{ view.legal_scope_notice }}{% endif %}
+    {% if view.scope_items %}<ul class="scope-items">{% for line in view.scope_items %}<li class="scope-item">{{ line }}</li>{% endfor %}</ul>{% endif %}</div>
   {% endif %}
 
   <div class="card" id="memos" data-testid="memo-section"><h3>수정 메모</h3>

@@ -10,6 +10,7 @@
   <div class="page-heading"><p class="eyebrow">{{ view.id }} · 테스트 개요</p><h2>{{ view.test_plan.title or view.question }}</h2>
   <p class="scenario-description">{{ view.test_plan.description }}</p><p class="page-meta">{{ view.control_label }} · 대상 WhyYou</p></div>
   <p class="official-context">프로젝트의 공식 검증 이력: {{ official_badge(view.official) }} {{ view.official.summary }}{% if view.official.note %} ({{ view.official.note }}){% endif %}</p>
+  {% if view.target_access %}<p class="target-access">대상 접근: {{ view.target_access }}</p>{% endif %}
   {% if view.remediation %}
   <div class="card" data-testid="remediation-overview">
     <h3>{{ view.remediation.title }}</h3>
