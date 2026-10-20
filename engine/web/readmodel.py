@@ -723,6 +723,7 @@ class WorkbenchReader:
             "test_plan": test_plan(scenario_id, profiles[0]["definition"] if profiles else None),
             "readiness": self._readiness(entry),
             "target_access": _scenario_target_access(scenario_id, profiles),
+            "scope_items": _scenario_scope_items(scenario_id),
         }
 
     def _scenario_profile(self, entry: dict[str, Any], profile: dict[str, Any], runs: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1121,8 +1122,18 @@ def _scenario_target_access(scenario_id: str, profiles: list[dict[str, Any]]) ->
         line = target_access_line((profile.get("definition") or {}).get("target_access"))
         if line:
             return line
+    return target_access_line(_spec009_scenario_yaml(scenario_id).get("target_access"))
+
+
+def _scenario_scope_items(scenario_id: str) -> list[str]:
+    """Unverified scope and limits from the scenario YAML, regardless of run state; only N-03 declares them."""
+    raw = _spec009_scenario_yaml(scenario_id)
+    return scope_item_lines(raw) if raw.get("unverified_scope_items") else []
+
+
+def _spec009_scenario_yaml(scenario_id: str) -> dict[str, Any]:
     if scenario_id not in _SPEC009_SCENARIO_PROFILES:
-        return None
+        return {}
     from engine.cli import _profile_scenario_path
     from engine.models import ExecutionProfile
 
@@ -1130,8 +1141,8 @@ def _scenario_target_access(scenario_id: str, profiles: list[dict[str, Any]]) ->
     try:
         raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
     except (OSError, yaml.YAMLError):
-        return None
-    return target_access_line(raw.get("target_access"))
+        return {}
+    return raw if isinstance(raw, dict) else {}
 
 
 def _read_json(path: Path) -> Any:

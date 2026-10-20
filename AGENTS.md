@@ -200,3 +200,4 @@ ControlProof executor defect (missed hidden/transparent/clipped/line-clamped not
 not a WhyYou change; `engine/n01.py` keeps the v1 rule for v1 records so sealed parents re-verify unchanged. All three Runs are
 VERIFIED with 44-table residue 0. Catalog/matrix are now 12/9/0/3 (`tests/unit/test_catalog_matrix_parity.py`). Do not rewrite
 `cp-local/spec009-local/s009/runs`. The proposed shared snapshot adding these three records needs 보성's review before publishing.
+Closure follow-up 2026-10-20 (branch `009-closure-followups`): harness uses `getattr(subprocess, "CREATE_NO_WINDOW", 0)`; the N-03 scenario screen shows its unverified scope and limit from `scenarios/N-03.yaml`; shared snapshot is now `shared-actual-20261020-r2` (same 28 records and bundle bytes, display code re-pinned).

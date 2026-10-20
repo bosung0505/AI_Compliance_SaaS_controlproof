@@ -42,3 +42,4 @@ US1(N-01)·US2(N-03)는 각각 fake adapter로 독립 시험한다. 구현 중 �
 - [X] T019 Closure: 카탈로그(`mvp_treatment`·`profiles`·`official_status`), 범위표 §2·§3(N-03 질문 문구·일부 실행 표기), README, Product Brief §14.6, TEAM_HANDOFF, D-030 후속, 공유 snapshot 재생성(보성 검토, 새 `snapshot_id`, bundle 불변). 보성 검토 뒤 `fixes-and-remaining-work` 통합 PR.
   - 2026-10-20 closure 메모: 워크벤치는 새 공유본으로 별도 checkout 공유 모드에서 확인했다(validation.md). 공유본 `shared-actual-20261020`은
     제안본이며 보성 검토와 `fixes-and-remaining-work` 통합 PR은 아직 남아 있다.
+- [X] T020 (후속) 하네스 `CREATE_NO_WINDOW` 이식성, 실행된 N-03 시나리오 화면의 미검증 범위·한계 표시, 공유본 `shared-actual-20261020-r2`(같은 28건) — validation.md "closure 후속 (2026-10-20)".

@@ -4,7 +4,8 @@
 같은 `fixes-and-remaining-work` 코드와 `snapshot.json`을 받으면 같은 결과·근거·계보를 조회한다.
 새 테스트를 실행한 것, 외부 AI 품질이나 AWS를 검증한 것은 아니다.
 
-2026-10-20 현재 공유본 `shared-actual-20261020`은 `009-n01-n03-notice-scenarios` 브랜치 코드에 맞춰 구성한 **제안본**이다.
+2026-10-20 현재 공유본 `shared-actual-20261020-r2`는 `009-closure-followups` 브랜치 코드에 맞춰 구성한 **제안본**이다
+(`shared-actual-20261020`과 28건 기록·bundle 바이트가 같고, N-03 시나리오 화면 표시 코드만 다시 고정했다).
 보성 검토 뒤 `fixes-and-remaining-work`에 통합되면 그 브랜치의 공식 공유본이 된다. 표시 코드·카탈로그가 다른 checkout에서는
 이 공유본이 시작을 거부한다.
 
@@ -35,9 +36,10 @@ WhyYou·Docker·DB·.env·다른 사람의 PC 폴더는 기존 결과 열람에 
 
 ## 포함 범위와 보존
 
-- 공유본 `shared-actual-20261020`: 9개 시나리오·11개 프로필의 대표 최종 결과, 발견한 최초 FAIL·재테스트·중단 등
+- 공유본 `shared-actual-20261020-r2`: 9개 시나리오·11개 프로필의 대표 최종 결과, 발견한 최초 FAIL·재테스트·중단 등
   **28개 Run / 652개 파일**. `share_records --verify` 기대 출력:
-  `shared-actual-20261020 records=28 missing=1 sha256=0c51f56e67f753047635399c2c66ee146cd7f3d520d05195171910c0e62068ee`.
+  `shared-actual-20261020-r2 records=28 missing=1 sha256=8e88ccf5bcccce7a870124cbd711b1ebe38e3fceab1c6c4484783e05d9e18bcb`.
+  직전 `shared-actual-20261020`과 28건 record(파일 해시·무결성 상태·메타데이터)·bundle 바이트는 차이 0이다.
 - N01 2개(부모 `48a70f5e…` 측정 v1 PASS, final `d3aac7d9…` 측정 v2 PASS), N02 4개, N03 1개(`f27b68e8…` PASS), H01 4개, H02 3개,
   H03 4개, E01 4개, E02 2개, E03 4개. E01/E02 추가 재현 원본도 포함한다. N01 화면 캡처 PNG 4장은 사실 관찰을
   [Spec009 validation](../specs/009-n01-n03-notice-scenarios/validation.md)에 남기고 검토 PNG로 허용했다.
