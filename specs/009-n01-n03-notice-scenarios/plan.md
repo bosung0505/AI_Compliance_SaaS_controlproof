@@ -3,8 +3,9 @@
 **Branch**: `009-n01-n03-notice-scenarios`
 **Date**: 2026-10-19
 **Spec**: [spec.md](./spec.md)
-**Status**: 1단계 준비 완료(2026-10-20), actual NOT_RUN. Plan 산출물(Spec 006 초안의 Plan을 N-01·N-03으로 줄이고 보성 H-01·H-02
-등록 방식에 맞춤)대로 1단계 구현을 마쳤다([validation.md](./validation.md)). 다음은 2단계(실제 Run) 승인이다.
+**Status**: Complete — LOCAL_EMULATED actual(N-03 일부 실행), 2026-10-20. Plan 산출물(Spec 006 초안의 Plan을 N-01·N-03으로
+줄이고 보성 H-01·H-02 등록 방식에 맞춤)대로 구현·실제 Run·closure를 마쳤다([validation.md](./validation.md),
+[actual-closure.md](./actual-closure.md)).
 
 ## Summary
 

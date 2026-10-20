@@ -578,3 +578,16 @@ E01/E02 재현 원본2건을 추가 발견했다. N02 과거 중간1건은 미�
   1 skipped, ruff 통과(Spec 009 `validation.md`). 모든 시험은 fake adapter로 돌았다.
 - 실제 Run은 하지 않았다. N-01·N-03은 `NOT_RUN`, 카탈로그·범위표·README·Product Brief 숫자는 그대로다.
 - 이 브랜치에서 공유 snapshot은 코드 고정 때문에 거부되며, 새 공유본(새 `snapshot_id`, bundle 불변)은 closure에서 보성 검토로 만든다.
+
+### D-030 closure — 2026-10-20
+
+- 최종 기록: N-03 `f27b68e8-0df8-46b3-a198-c7917c2f08bb` PASS(N03-A1~A3, 일부 실행). N-01 부모 `48a70f5e-aa62-41fc-bf58-3624a6102b4f`
+  PASS(측정 v1, 보존) → child `d3aac7d9-0a52-4f9a-9c8f-f6e1f7b6de18` PASS(측정 v2, 공식 final). 모두 `LOCAL_EMULATED`, 합성 데이터,
+  외부 AI 차단, AWS `NOT_RUN`, WhyYou `0166d9e` 무수정.
+- 측정 v2 경위: 부모 Run 뒤 실제 Chromium 음성 대조에서 숨김·투명·조상 잘림·line-clamp 네 가지를 v1 측정이 잡지 못함을 발견했다.
+  실행기 결함(측정 누락)으로 분류하고 ControlProof 측정을 보강한 뒤 승인된 child 1건으로 다시 확인했다. 부모 판정은 바꾸지 않았다.
+- 범위 숫자: 12개 관리 / 9개 실제 실행(N-03은 일부 범위) / 0개 `NOT_RUN` / 3개 `NO_TEST_TARGET`. 카탈로그·범위표·README·Product
+  Brief·TEAM_HANDOFF를 같은 날 갱신한다.
+- 공유본: N-01·N-03 세 기록을 더한 새 공유본 제안(`shared-actual-20261020`)은 보성 검토 뒤 확정한다. 기존 25건 원본 바이트·판정은
+  그대로 둔다.
+- 상세: `specs/009-n01-n03-notice-scenarios/actual-closure.md`, `validation.md`.

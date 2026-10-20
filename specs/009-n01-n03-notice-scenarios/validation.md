@@ -107,9 +107,52 @@ PC는 오른쪽에 INTERVIEW BRIEF 카드가, 모바일은 동의 카드 아래�
 
 원인 분류: 두 Run 모두 PASS라 해당 없음.
 
+## N-01 측정 v2 child Run (2026-10-20)
+
+소스: ControlProof `04f4f9e3a6cbd338ef06f414758d62936d4ce8a7`(`yeonwoo/spec009-cp-run` worktree), WhyYou
+`0166d9eb5d25c7a95fafdbe39b802fdbd69a8713`(`yeonwoo/spec009-run` worktree, `node_modules`는 `gbsa_aws\node_modules` junction).
+직전 확인: 두 worktree·원래 checkout 변경 없음, Docker `29.8.1`, 포트 네 개 비어 있음. 하네스 `up`은 첫 시도에 34초로 성공(compose
+재시도 없음), status CP `04f4f9e…`·WhyYou `0166d9e…`·ready true, `interview_evidence.__file__` = `gbsa_aws-spec009\backend\src\…`,
+5174 응답 200, preflight N-01 READY(모든 capability READY). 명령: `cli --instance s009 --state-root <STATE> -- retest
+48a70f5e-aa62-41fc-bf58-3624a6102b4f --target whyyou-local --label n01-measure-v2 --json`.
+
+| 항목 | 값 |
+|---|---|
+| child run_id | `d3aac7d9-0a52-4f9a-9c8f-f6e1f7b6de18` |
+| 부모 | `48a70f5e-aa62-41fc-bf58-3624a6102b4f` (run.json `parent_run_id` 일치, retest-link `parent_bundle_digest` `65a49f31…4583`) |
+| 시작·종료(KST, run.json) | 2026-10-20 15:38:10 → 15:38:18 (CLI 명령 전체 19.5초) |
+| Run 상태 / verdict | COMPLETED / PASS |
+| verify | VERIFIED, 17 files, missing·mismatched 없음 |
+| manifest SHA-256 | `68220e0088e8468345cbdcc7fe1af3ba91547bca7c6188b2d6a97dc0273ccf0f` |
+| retest-diff 소스 | ControlProof `914a4d9…` → `04f4f9e…`(둘 다 dirty false), WhyYou `0166d9e…` → `0166d9e…` |
+| recovery.json | SUCCEEDED, `SPEC009_LANES_REMOVED`, product_rows_removed 12, 정리 1.44초 |
+| 독립 잔여(읽기 전용 `spec009_recovery.recount`) | 44개 표 모두 0, 차단 `n01-notice`·`n03-stale-consent` 없음 |
+| 부모 불변 | 실행 전 부모 폴더 16개 파일 SHA-256(`test-logs\parent-48a70f5e-before.json`)과 실행 뒤 비교 차이 0, 부모 verify VERIFIED 15 files |
+
+| assertion | status | reason_code | 근거 |
+|---|---|---|---|
+| N01-A1 | PASS | — | pc 1440×900, `measurement_version` 2, step `ready`, 5항목 11조각 여섯 플래그 모두 참, `clip_ancestor` 모두 null, `computed_opacity` 1.0, `computed_visibility` visible, 조작 없음, token_absent_in_dom 참, 캡처 99409 bytes |
+| N01-A2 | PASS | — | mobile 390×844, `measurement_version` 2, step `ready`, 5항목 11조각 여섯 플래그 모두 참, `clip_ancestor` 모두 null, `computed_opacity` 1.0, `computed_visibility` visible, scroll 1회(`ai_assist.description`), token_absent_in_dom 참, 캡처 178488 bytes |
+| N01-A3 | PASS | — | 두 lane 모두 화면·서버·저장 `2026-08-v1`/`47bdb38b…d4e8` 같음, commit_status 201 |
+
+캡처 관찰(사실만): 두 PNG 모두 지원자 포털 "CONSENT · 지원자 면접"의 "STEP 2 OF 2 개인정보 및 면접 처리 동의" 단계다. AI 역할 문장,
+녹화 안내 문장, "보관기간 180일", "삭제 방법" 문장, 체크박스 세 개("문서 분석", "면접 녹화", "AI 평가 보조")와 설명이 보인다. 체크박스는
+선택되지 않았고 "동의하고 계속" 버튼은 비활성으로 보인다. 잘리거나 가린 문구는 눈에 띄지 않는다.
+
+원인 분류: PASS라 해당 없음. 스택은 Run 뒤 `stop`(STOPPED, 볼륨·증적 보존), 포트 네 개 비어 있음.
+
+## Run 뒤 자동 시험
+
+- Run 뒤 하네스 인자 수정·실제 Chromium 음성 대조·측정 v2 보강을 거친 `04f4f9e`에서 폴더별 전체 1701 passed, 1 skipped
+  (unit 746, contract 522/1 skipped, integration 321, web 94, 폴더 밖 두 파일 18), xfail 0, ruff 통과.
+- 그보다 앞서 하네스 스택이 떠 있던 상태의 `tests/integration` 1회 실행에서 1 failed / 316 passed / 6 xfailed가 나왔다. 실패한
+  시험 이름은 출력에 남지 않았고, 같은 코드로 다시 돌린 2회차는 시스템 메모리 부족으로 중단, 스택을 내린 뒤 3회차는 317 passed /
+  6 xfailed로 실패가 없었다. 원인은 확인하지 못했다.
+
 ## 범위
 
-- 이 기록은 코드·자동 시험·하네스까지의 1단계 gate다. 모든 시험은 fake adapter·fake 트랜잭션으로 돌았고 WhyYou·DB·브라우저·
-  Docker에 접속하지 않았다.
-- **actual N-01·N-03: NOT_RUN**(1단계 준비 완료, 실제 Run은 2단계 승인 뒤).
-- 카탈로그·범위표·README·Product Brief는 바꾸지 않았다(D-030 3항).
+- 1단계 gate(위 자동 시험)는 fake adapter·fake 트랜잭션으로만 돌았고 WhyYou·DB·브라우저·Docker에 접속하지 않았다.
+- 실제 Run은 2단계 절의 세 건이다: N-03 `f27b68e8-0df8-46b3-a198-c7917c2f08bb` PASS, N-01 부모
+  `48a70f5e-aa62-41fc-bf58-3624a6102b4f` PASS(측정 v1), N-01 child `d3aac7d9-0a52-4f9a-9c8f-f6e1f7b6de18` PASS(측정 v2).
+  모두 `LOCAL_EMULATED`, 합성 데이터, 외부 AI 차단, AWS `NOT_RUN`. N-03은 N03-A1~A3만 판정했고 N03-U1~U3는 미검증 범위다.
+- 마감 기록은 [actual-closure.md](./actual-closure.md).
