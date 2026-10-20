@@ -227,6 +227,34 @@ FR·SC 중 Task가 없는 항목은 없다. assertion 6개, EV9 7개 모두 계�
   포트 거부 코드는 `SPEC009_PORT_IN_USE:<port>`이고 `up`에서만, API 포트(기본 8080)와 5174 중 하나라도 쓰이면 거부한다.
   `--with-applicant-app`은 `up` 밖에서 쓰면 사용 오류다. 지원자 앱 환경은 `environment(state, for_cp=False)`를 쓴다.
 
+## Run 뒤 음성 대조 (2026-10-20, 측정 로직 무수정)
+
+`tests/integration/test_applicant_measure_real.py`: WhyYou 동의 단계 모양의 정적 HTML을 실제 Chromium(Playwright 번들)에서
+`measure_fragments`(=`MEASURE_JS`, 동작 불변으로 모듈 함수로 꺼냄)로 측정했다. 조각은 `engine.n01.expected_fragments(고정 정책)`.
+
+| # | 경우 | 화면 | 기대 | 실제 거짓 플래그 | 결과 |
+|---|---|---|---|---|---|
+| 1 | 변형 없음 | PC·모바일 | 전부 참 | 없음 | 기준 맞음 |
+| 2 | 보관기간 dd 위 `position:fixed` 불투명 div | PC | not_occluded 거짓 | `retention.days`: not_occluded | 잡음 |
+| 3 | 삭제 방법 dd `white-space:nowrap` 긴 문구 | 모바일 | no_horizontal_overflow 거짓 | `deletion.method`: in_viewport·not_occluded·no_horizontal_overflow, 나머지 10조각: no_horizontal_overflow(문서 전체 넘침) | 잡음 |
+| 4 | ai_role 문단 `position:absolute; left:-3000px` | PC·모바일 | in_viewport 거짓 | `human_final.ai_role`: in_viewport·not_occluded | 잡음 |
+| 5 | 삭제 방법 dd `visibility:hidden` | PC·모바일 | 어느 플래그든 거짓 | 없음(전부 참) | **못 잡음**(strict xfail) |
+| 6 | recording_notice 문단 `opacity:0` | PC·모바일 | 어느 플래그든 거짓 | 없음(전부 참) | **못 잡음**(strict xfail) |
+| 7 | recording_notice를 `height:1.2em; overflow:hidden` 부모로 감쌈 | 모바일 | 어느 플래그든 거짓 | 없음(전부 참) | **못 잡음**(strict xfail) |
+| 8 | recording_notice `-webkit-line-clamp:1` | 모바일 | 어느 플래그든 거짓 | 없음(전부 참) | **못 잡음**(strict xfail) |
+| 9 | ai_role 문단 삭제 | PC·모바일 | text_present 거짓 | `human_final.ai_role`: 네 플래그 모두 | 잡음 |
+
+못 잡은 원인으로 보이는 코드(`engine/adapters/whyyou/applicant_browser.py` `MEASURE_JS`):
+- 5: 49~50줄 `related`가 `hit.contains(found)`(조상 hit)를 허용한다. `visibility:hidden` 요소는 `elementFromPoint`가 건너뛰어
+  부모를 돌려주므로 가림 없음으로 판정된다.
+- 6: 계산된 스타일(`opacity`·`visibility`·`color`)을 보지 않는다.
+- 7: 45~46줄 `in_viewport`가 요소 자신의 경계 상자만 보고 조상의 `overflow` 잘림을 보지 않는다.
+- 8: 51줄 `noOverflow`가 가로(`scrollWidth`)만 보고 세로 잘림(`scrollHeight > clientHeight`)을 보지 않는다.
+
+보강안(구현하지 않음): `getComputedStyle`로 `visibility`·`opacity`(조상 누적 포함)를 검사하는 플래그를 더하고, 조상 hit 허용을 label 안으로만
+좁힌다. 조상 중 `overflow`가 `visible`이 아닌 요소의 경계와 교차 영역이 요소 경계보다 작은지, 요소의 `scrollHeight > clientHeight`인지를
+보는 세로 잘림 검사를 더한다. 이번 실제 Run(`48a70f5e…`) 판정에는 손대지 않는다.
+
 ## 보성에게 알릴 것
 
 1. `cleanup-confirm`에서 H-01 차단 subject(`h01-human-decision`)는 전용 분기가 없어 H-03 기본 분기(`fault.target_safe`)로 간다.

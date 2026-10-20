@@ -68,6 +68,19 @@ SECRETS_ABSENT_JS = """
 """
 
 
+def measure_fragments(
+    page, expected: Mapping[str, list[tuple[str, str]]]
+) -> tuple[list[dict[str, Any]], list[dict[str, Any]]]:
+    """Run MEASURE_JS on the page at its current viewport; returns (items, operations) in item order."""
+    order = [(item, str(fid), str(text)) for item, fragments in expected.items() for fid, text in fragments]
+    measured = page.evaluate(MEASURE_JS, [{"fragment_id": fid, "expected_text": text} for _, fid, text in order])
+    by_item: dict[str, list[dict[str, Any]]] = {}
+    for (item, _, _), fragment in zip(order, measured["fragments"], strict=True):
+        by_item.setdefault(item, []).append(fragment)
+    items = [{"item_id": item, "fragments": fragments} for item, fragments in by_item.items()]
+    return items, measured["operations"]
+
+
 class _StepFailed(Exception):
     def __init__(self, code: str) -> None:
         super().__init__(code)
@@ -257,21 +270,7 @@ class WhyYouApplicantBrowserAdapter:
                 except (KeyError, TypeError, ValueError) as exc:
                     raise _StepFailed("BROWSER_POLICY_RESPONSE_INVALID") from exc
                 stage = "BROWSER_MEASURE_FAILED"
-                order = [
-                    (item, str(fid), str(text))
-                    for item, fragments in expected.items()
-                    for fid, text in fragments
-                ]
-                measured = page.evaluate(
-                    MEASURE_JS, [{"fragment_id": fid, "expected_text": text} for _, fid, text in order]
-                )
-                by_item: dict[str, list[dict[str, Any]]] = {}
-                for (item, _, _), fragment in zip(order, measured["fragments"], strict=True):
-                    by_item.setdefault(item, []).append(fragment)
-                observed["items"] = [
-                    {"item_id": item, "fragments": fragments} for item, fragments in by_item.items()
-                ]
-                observed["operations"] = measured["operations"]
+                observed["items"], observed["operations"] = measure_fragments(page, expected)
                 secrets = [value for value in (request["raw_token"], session_cookie()) if value]
                 observed["token_absent_in_dom"] = bool(page.evaluate(SECRETS_ABSENT_JS, secrets))
                 observed["screenshot_bytes"] = page.screenshot(full_page=True)
