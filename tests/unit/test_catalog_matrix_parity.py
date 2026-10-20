@@ -66,7 +66,7 @@ def test_rule1_matrix_rows_match_12_of_12(catalog) -> None:
 
 def test_rule2_counts_and_fixed_sentence(catalog) -> None:
     treatments = [entry["mvp_treatment"] for entry in catalog["scenarios"]]
-    assert (treatments.count("EXECUTED"), treatments.count("NOT_RUN"), treatments.count("NO_TEST_TARGET")) == (7, 2, 3)
+    assert (treatments.count("EXECUTED"), treatments.count("NOT_RUN"), treatments.count("NO_TEST_TARGET")) == (9, 0, 3)
     assert " ".join(catalog["fixed_scope_sentence"].split()) == " ".join(_matrix_sentence().split())
 
 
@@ -86,7 +86,7 @@ def test_rule2_status_shapes(catalog) -> None:
             assert status["reason_code"]
 
 
-def test_rule3_seven_profiles_map_to_existing_scenario_files(catalog) -> None:
+def test_rule3_nine_executed_scenarios_profiles_map_to_existing_scenario_files(catalog) -> None:
     seen = []
     for entry in catalog["scenarios"]:
         for profile in entry["profiles"]:
@@ -98,7 +98,7 @@ def test_rule3_seven_profiles_map_to_existing_scenario_files(catalog) -> None:
             assert active.value == profile["execution_profile"]
             assert "{target}" in profile["run_command"] and "--json" in profile["run_command"]
             seen.append(profile["execution_profile"])
-    assert len(seen) == 9 and len(set(seen)) == 9
+    assert len(seen) == 11 and len(set(seen)) == 11
 
 
 def test_rule4_sources_present_and_no_legal_articles(catalog) -> None:

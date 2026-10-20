@@ -192,3 +192,11 @@ default shared web mode are expected to refuse ("Snapshot display code/catalog d
 A new shared snapshot (new snapshot_id, bundle bytes and verdicts unchanged) is built at Spec 009 closure under 보성's review.
 Stage 1 done 2026-10-20: commits `6bf2a53`..this docs commit (T001~T014 plus recovery path), automatic gate 1674 passed /
 1 skipped with ruff clean (`specs/009-n01-n03-notice-scenarios/validation.md`); actual N-01·N-03 NOT_RUN; catalog 12/7/2/3 unchanged.
+
+Closure 2026-10-20 (D-030): N-03 final `f27b68e8-0df8-46b3-a198-c7917c2f08bb` PASS (N03-A1~A3 only; policy swap injection,
+near-swap submission and analysis policy attribution stay unverified). N-01 parent `48a70f5e-aa62-41fc-bf58-3624a6102b4f` PASS
+(measurement v1, preserved) → final child `d3aac7d9-0a52-4f9a-9c8f-f6e1f7b6de18` PASS (measurement v2). The v2 change was a
+ControlProof executor defect (missed hidden/transparent/clipped/line-clamped notices found by real-Chromium negative controls),
+not a WhyYou change; `engine/n01.py` keeps the v1 rule for v1 records so sealed parents re-verify unchanged. All three Runs are
+VERIFIED with 44-table residue 0. Catalog/matrix are now 12/9/0/3 (`tests/unit/test_catalog_matrix_parity.py`). Do not rewrite
+`cp-local/spec009-local/s009/runs`. The proposed shared snapshot adding these three records needs 보성's review before publishing.

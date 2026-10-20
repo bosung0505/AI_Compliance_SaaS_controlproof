@@ -78,9 +78,9 @@ def test_layout_demo_band_and_no_horizontal_overflow(page) -> None:
 
 
 def test_count_cards_and_neutral_inconclusive_card(page) -> None:
-    assert page.locator("[data-count=PASS] .num").inner_text() == "7"
+    assert page.locator("[data-count=PASS] .num").inner_text() == "9"
     assert page.locator("[data-count=FAIL] .num").inner_text() == "0"
-    assert page.locator("[data-count=NOT_RUN] .num").inner_text() == "2"
+    assert page.locator("[data-count=NOT_RUN] .num").inner_text() == "0"
     card = page.locator("[data-count=INCONCLUSIVE]")
     assert card.locator(".num").inner_text() == "3"
     assert card.locator(".neutral-title").count() == 1
@@ -100,7 +100,7 @@ def test_one_common_checked_at_and_only_differing_rows_show_time(page) -> None:
     assert page.locator("tr.scenario-row[data-id=N-02] .row-checked-at").count() == 1
 
 
-@pytest.mark.parametrize("name,expected", [("runnable", 7), ("failed", 0), ("inconclusive", 3)])
+@pytest.mark.parametrize("name,expected", [("runnable", 9), ("failed", 0), ("inconclusive", 3)])
 def test_filters_5_0_4(page, name, expected) -> None:
     page.locator(f"[data-filter={name}]").check()
     assert _visible_rows(page).count() == expected
@@ -116,12 +116,17 @@ def test_a_rows_have_no_run_control_or_progress(page) -> None:
 
 
 def test_runner_not_ready_and_no_test_target_badges_differ(page) -> None:
-    rnr = page.locator("tr.scenario-row[data-id=N-01] [data-badge=runner_not_ready]")
+    # Since Spec 009 closure (12/9/0/3) no catalog row is NOT_RUN, so the runner_not_ready badge has no live row;
+    # its distinction from NO_TEST_TARGET is checked on the badge definitions and the A-01 row.
+    from engine.web.badges import BADGES
+
+    assert page.locator("tr.scenario-row [data-badge=runner_not_ready]").count() == 0
     ntt = page.locator("tr.scenario-row[data-id=A-01] [data-badge=readiness_no_test_target]")
-    assert rnr.count() == 1 and ntt.count() == 1
-    assert rnr.inner_text() != ntt.inner_text()
-    assert rnr.locator(".ic").inner_text() != ntt.locator(".ic").inner_text()
-    assert rnr.get_attribute("class") != ntt.get_attribute("class")
+    assert ntt.count() == 1
+    rnr = BADGES["runner_not_ready"]
+    assert ntt.locator(".ic").inner_text() == BADGES["readiness_no_test_target"].icon != rnr.icon
+    assert BADGES["readiness_no_test_target"].label_ko != rnr.label_ko
+    assert ntt.get_attribute("class") == BADGES["readiness_no_test_target"].css_class != rnr.css_class
 
 
 def test_no_pass_badge_on_not_run_or_inconclusive_rows(page) -> None:

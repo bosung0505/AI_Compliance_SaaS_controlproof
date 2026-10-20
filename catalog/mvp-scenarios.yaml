@@ -4,7 +4,7 @@
 schema_version: controlproof.catalog.v1
 source: docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md
 fixed_scope_sentence: >-
-  ControlProof MVP는 12개 시나리오를 한 화면에서 관리한다. 이 가운데 7개는 실제 실행과 증적을 제공하고, 2개는 아직 실행하지 않은 `NOT_RUN`, 3개는 대상 기능이 없는 `NO_TEST_TARGET`로 사실대로 구분한다.
+  ControlProof MVP는 12개 시나리오를 한 화면에서 관리한다. 이 가운데 9개는 실제 실행과 증적을 제공하고(N-03은 정책 교체 주입을 뺀 일부 범위), 3개는 대상 기능이 없는 `NO_TEST_TARGET`로 사실대로 구분한다.
 controls:
   - {control: N, control_label: 고지·동의 (N)}
   - {control: H, control_label: 사람 결정 (H)}
@@ -16,21 +16,33 @@ scenarios:
     control: N
     control_label: 고지·동의 (N)
     question: PC·모바일에서 필수 AI 고지가 보이는가
-    mvp_treatment: NOT_RUN
-    owner_spec: Spec 005 카탈로그
+    mvp_treatment: EXECUTED
+    owner_spec: Spec 009
     target_exists: true
-    profiles: []
+    profiles:
+      - execution_profile: N01_NOTICE_V1
+        scenario_file: scenarios/N-01.yaml
+        run_command: python -m engine.cli run N-01 --profile N01_NOTICE_V1 --target {target} --label {label} --json
+        retest_command: python -m engine.cli retest {parent_run_id} --target {target} --label {label} --json
     official_status:
-      result: NOT_RUN
-      summary: 이번 2주 MVP 범위에서 실행하지 않음
-      validation_ref: docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md
-      records: []
+      result: PASS
+      reason_code: null
+      note: 최초 통과 보존 · 화면 측정 보강 뒤 재테스트 통과 · 정리·증거 검증 완료
+      summary: PC와 390px 모바일 동의 화면에서 다섯 필수 고지가 가림·잘림 없이 보였고, 화면·서버·저장 기록의 정책 버전과 해시가 같음
+      validation_ref: specs/009-n01-n03-notice-scenarios/validation.md
+      records:
+        - {role: parent, execution_profile: N01_NOTICE_V1, run_id: 48a70f5e-aa62-41fc-bf58-3624a6102b4f, result: PASS, manifest_sha256: 82c1b6ce554873d78b8c121bb35a1c19c1c7b4d03f6c5339dd8eaeb408c542a9}
+        - {role: final, execution_profile: N01_NOTICE_V1, run_id: d3aac7d9-0a52-4f9a-9c8f-f6e1f7b6de18, result: PASS, manifest_sha256: 68220e0088e8468345cbdcc7fe1af3ba91547bca7c6188b2d6a97dc0273ccf0f}
     explanation:
       intent: {text: "지원자가 자료를 내고 AI 처리가 시작되기 전에 AI 평가 보조·사람의 최종 결정·녹화와 개인정보 처리 내용을 읽을 수 있게 확인했는지 본다.", source: "V4 §10.1 N-01"}
+      failure_impact: {text: "고지 문구가 화면 밖에 있거나 가려지고 잘리면 지원자가 내용을 읽지 못한 채 동의하게 되고, 화면 정책과 저장된 정책이 다르면 어떤 내용에 동의했는지 설명할 수 없다.", source: "V4 §10.1 N-01 실패 의미"}
       protected_object: {text: "지원자가 동의 전에 알아야 할 고지 내용과 그 동의 기록", source: "V4 §10.1 N-01"}
       policy_basis: {text: "내부 통제 기준: AI 처리 전에 필수 고지를 읽을 수 있는 형태로 보인다. · 시나리오 근거: V4 §10.1 N-01", source: "V4 §10.1"}
-      not_run_reason: {text: "대상 기능은 있지만 이번 MVP는 실행 범위를 5개로 정했고 이 시나리오의 실행기는 만들지 않았다.", source: "범위표 §2·§3, Decision Log D-013·D-014"}
-      follow_up_condition: {text: "PC·모바일 화면 확인 실행기와 정책 버전 연결 증적 계약을 별도 Spec에서 정하고 제품 책임자가 범위 확대를 결정하면 실행한다.", source: "범위표 §4 규칙 5"}
+      implementation_location: {text: "지원자 앱의 초대 확인·본인 확인 뒤 동의 단계 화면과, 동의 정책을 내주고 동의를 저장하는 서버 처리", source: "docs/research/Spec009_N01_N03_WhyYou_Source_Baseline.md"}
+      synthetic_data: {text: "PC 화면과 390px 모바일 화면에 서로 다른 합성 초대 지원자를 두고, 실제 브라우저로 동의 단계까지 진행해 다섯 고지의 표시·가림·잘림과 정책 버전을 비교한다.", source: "specs/009-n01-n03-notice-scenarios/spec.md"}
+      manual_steps:
+        - {text: "실제 실행 승인과 측정 보강 뒤 재테스트 승인", source: "D-030"}
+        - {text: "복구 실패 시 소유 데이터 정리와 명령줄 정리 확인", source: "specs/009-n01-n03-notice-scenarios/quickstart.md"}
   - id: N-02
     control: N
     control_label: 고지·동의 (N)
@@ -67,22 +79,38 @@ scenarios:
   - id: N-03
     control: N
     control_label: 고지·동의 (N)
-    question: 진행 중 정책 버전·본문 해시가 바뀌면 기존 동의가 무효화되는가
-    mvp_treatment: NOT_RUN
-    owner_spec: Spec 005 카탈로그
+    question: 정책 교체 구간에서 동의가 지원자가 실제로 읽은 버전에 귀속되는가
+    mvp_treatment: EXECUTED
+    owner_spec: Spec 009
     target_exists: true
-    profiles: []
+    profiles:
+      - execution_profile: N03_STALE_CONSENT_V1
+        scenario_file: scenarios/N-03.yaml
+        run_command: python -m engine.cli run N-03 --profile N03_STALE_CONSENT_V1 --target {target} --label {label} --json
+        retest_command: python -m engine.cli retest {parent_run_id} --target {target} --label {label} --json
     official_status:
-      result: NOT_RUN
-      summary: 이번 2주 MVP 범위에서 실행하지 않음
-      validation_ref: docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md
-      records: []
+      result: PASS
+      reason_code: null
+      note: 일부 실행 · 이전 정책 거부·최신 정책 저장·과거 기록 불변 통과 · 정리·증거 검증 완료
+      summary: 이전 정책 버전으로 낸 동의는 거부되고 상태가 바뀌지 않았으며, 다시 읽은 정책으로 낸 동의는 같은 버전으로 저장됨. 실행 중 정책 교체는 미검증
+      validation_ref: specs/009-n01-n03-notice-scenarios/validation.md
+      records:
+        - {role: final, execution_profile: N03_STALE_CONSENT_V1, run_id: f27b68e8-0df8-46b3-a198-c7917c2f08bb, result: PASS, manifest_sha256: 2a8511c3884548a34974d0aa6e4dfd167e49a8fb525742b109761661aae2f59a}
     explanation:
-      intent: {text: "지원자가 읽은 정책과 서버에 기록된 동의 정책이 정책 교체 구간에서도 일치하는지 본다.", source: "V4 §10.3 N-03"}
+      intent: {text: "지원자가 읽은 정책과 서버에 기록된 동의 정책이 정책 교체 구간에서도 일치하는지 본다. 이번에는 이전 정책으로 낸 동의의 거부, 다시 읽은 정책의 저장, 과거 동의 기록의 보존까지 확인했다.", source: "V4 §10.3 N-03, Spec009 Clarify"}
+      failure_impact: {text: "이전 정책으로 낸 동의가 저장되거나 과거 동의 기록이 바뀌면, 지원자가 실제로 읽지 않은 정책에 동의한 것으로 남을 수 있다.", source: "V4 §10.3 N-03 실패 의미"}
       protected_object: {text: "지원자가 실제로 읽고 동의한 정책 버전과 본문 해시", source: "V4 §10.3 N-03"}
       policy_basis: {text: "내부 통제 기준: 동의 기록은 지원자가 실제로 확인한 정책 버전에 귀속된다. · 시나리오 근거: V4 §10.3 N-03", source: "V4 §10.3"}
-      not_run_reason: {text: "정책 교체를 테스트 중에 일으키는 변경 주입 capability가 없고 이번 MVP 실행 범위에 들지 않았다.", source: "범위표 §3"}
-      follow_up_condition: {text: "정책 교체 주입과 되돌림 capability, 화면 값과 저장 값 대조 증적 계약이 생기고 범위 확대가 결정되면 실행한다.", source: "범위표 §3·§4 규칙 5"}
+      implementation_location: {text: "지원자 동의를 저장할 때 제출된 정책 버전과 해시를 현재 정책과 비교하는 서버 처리", source: "docs/research/Spec009_N01_N03_WhyYou_Source_Baseline.md"}
+      synthetic_data: {text: "아직 동의하지 않은 합성 지원자와 이미 동의를 마친 합성 지원자를 따로 두고, 이전 정책 값은 실제 정책 교체 없이 현재 값에서 만든다.", source: "specs/009-n01-n03-notice-scenarios/spec.md"}
+      unverified_scope:
+        - {text: "실행 중 정책 교체 주입", source: "scenarios/N-03.yaml N03-U1"}
+        - {text: "교체 시점 근접 제출", source: "scenarios/N-03.yaml N03-U2"}
+        - {text: "분석 작업의 정책 귀속", source: "scenarios/N-03.yaml N03-U3"}
+      follow_up_condition: {text: "WhyYou 시험용 정책 교체 수단과 분석 작업 정책 귀속 저장 필드", source: "scenarios/N-03.yaml"}
+      manual_steps:
+        - {text: "실제 실행 승인", source: "D-030"}
+        - {text: "복구 실패 시 소유 데이터 정리와 명령줄 정리 확인", source: "specs/009-n01-n03-notice-scenarios/quickstart.md"}
   # ------------------------------------------------------------------ H
   - id: H-01
     control: H
@@ -336,7 +364,7 @@ scenarios:
       follow_up_condition: {text: "접수부터 결과 통지까지 전체 기능이 생기면 새 Spec에서 재검토자 분리·처리기한·단계별 증적을 포함해 테스트한다.", source: "범위표 §4 규칙 6"}
 # ------------------------------------------------------------------ report (US3, V4 §8.7·§12.4)
 report:
-  target_and_versions: {text: "WhyYou 테스트 환경. 공식 기록의 대상 버전: E-01 최초 실행은 ce8d862, 그 뒤 기록은 통합 브랜치 374b122(Spec 004), H-03 DLQ 프로필·E-03은 511ae9e(Spec 002), H-03 최소 프로필 재테스트은 aa0ae2b(Spec 001), N-02 최종 재테스트는 e64ff9d(Spec 003 문서 분석 후속), H-01 최종 재테스트는 08c397e(Spec 006).", source: "specs/002·003·004·006 validation.md"}
+  target_and_versions: {text: "WhyYou 테스트 환경. 공식 기록의 대상 버전: E-01 최초 실행은 ce8d862, 그 뒤 기록은 통합 브랜치 374b122(Spec 004), H-03 DLQ 프로필·E-03은 511ae9e(Spec 002), H-03 최소 프로필 재테스트은 aa0ae2b(Spec 001), N-02 최종 재테스트는 e64ff9d(Spec 003 문서 분석 후속), H-01 최종 재테스트는 08c397e(Spec 006), N-01·N-03은 0166d9e(Spec 009).", source: "specs/002·003·004·006·009 validation.md"}
   purpose_and_scope: {text: "AI 채용 서비스의 통제 네 가지(고지·동의, 사람 결정, 근거·기록, 이의제기)가 실제로 작동하는지 합성 시나리오로 테스트하고 그 증적을 남긴다. 주장 범위는 실행한 시나리오와 확보한 증적이다.", source: "V4 §1·§8.7, 범위표 §1"}
   synthetic_data_notice: {text: "모든 지원자·답변·문서는 합성 데이터다. 실제 지원자 개인정보를 쓰지 않았다.", source: "AGENTS.md, Constitution 데이터 안전"}
   versions: {text: "테스트용 고정 모델을 썼다. E-01·E-02 평가용, H-03 보고서용, N-02 문서 분석·평가용, H-01 어시스턴트 명령 출력용 모델을 구분한다. 동의 정책 버전은 N-02 기록, 평가기준 버전 변경 전후는 E-02 기록에 있다. 외부 AI 호출은 차단했다.", source: "specs/003·004 spec.md, Decision Log D-012"}
@@ -347,7 +375,7 @@ report:
   ai_score_principle: {text: "AI 점수는 참고 정보다. 점수로 합격·탈락을 자동 확정하지 않으며 최종 채용 결정은 권한 있는 사람이 한다.", source: "Constitution III, V4 §12.4"}
   human_decision_location: {text: "H-01 결과에서 담당자의 정상 결정과 다른 주체의 변경 차단을 비교한다. H-03 결과에는 리포트 없는 결정 거부와 사람 결정 기록이 있다.", source: "specs/001·002·006 validation.md"}
   other_pc_reproduction: {status: NOT_VERIFIED, text: "다른 PC 재현은 검증하지 않았다. 같은 PC의 새 checkout 재현만 있다(Spec 004 E-01·E-02).", source: "범위표 §5, specs/004-e01-e02-score-evidence/validation.md"}
-  unverified_scope: [N-01·N-03(미실행), A-01~A-03(대상 없음), 실제 AWS(NOT_RUN), 실제 AI 모델 품질, 다른 PC 재현]
+  unverified_scope: [N-03 실행 중 정책 교체·분석 작업 정책 귀속, A-01~A-03(대상 없음), 실제 AWS(NOT_RUN), 실제 AI 모델 품질, 다른 PC 재현]
   limitations:
     - {text: "실행 환경 LOCAL_EMULATED, 실제 AWS NOT_RUN", source: "범위표 §1, D-018"}
     - {text: "합성 데이터만 사용", source: AGENTS.md}
@@ -401,6 +429,13 @@ evidence_labels:
   EV4-08: 점수 재계산 기록
   EV4-09: 변경 주입·복원과 안전 상태
   EV4-10: 규칙 결과와 봉인 목록
+  EV9-01: 시나리오·대상·환경과 범위 기록
+  EV9-02: 합성 대상과 화면별 구분
+  EV9-03: PC·모바일 화면 캡처와 고지 측정
+  EV9-04: 화면·서버·저장 정책 식별값
+  EV9-05: 이전·최신 정책 제출과 동의 기록 전후
+  EV9-06: 복구와 잔여 확인
+  EV9-07: 규칙 결과와 봉인 목록
 scope_labels:
   AWS_NOT_RUN: 실제 AWS 환경
   H02_TOOL_SURFACE_NOT_RUN: H-02 전체 명령·도구 검사
@@ -415,8 +450,12 @@ scope_labels:
   AWS_IAM: 실제 AWS 권한
   AWS_CLOUDWATCH: 실제 AWS 모니터링
   AWS_NETWORK: 실제 AWS 네트워크
-  N-01: N-01(미실행)
-  N-03: N-03(미실행)
+  N-01: N-01(당시 미실행)
+  N-03: N-03(당시 미실행)
+  N02_PRE_CONSENT_BLOCK_NOT_RETESTED: 동의 전 처리 차단 재확인(N-02에서 검증)
+  N03_U1_POLICY_SWAP_INJECTION: 실행 중 정책 교체 주입
+  N03_U2_NEAR_SWAP_SUBMISSION: 교체 시점 근접 제출
+  N03_U3_ANALYSIS_POLICY_ATTRIBUTION: 분석 작업의 정책 귀속
 condition_labels:
   EVIDENCE_SEGMENT_REMOVAL: 근거 답변 구간 제거
   STORAGE_PROBE_WRITE: 저장소 직접 쓰기 진단

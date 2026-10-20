@@ -67,14 +67,15 @@ def test_e01_shows_preconditions_and_copyable_command_without_run_button(screen,
     assert "법 조문 대응은 표시하지 않음(법적 준수 비보증)" in screen.locator("main").inner_text()
 
 
-@pytest.mark.parametrize("scenario_id", ["N-01", "A-01"])
+@pytest.mark.parametrize("scenario_id", ["A-01"])
 def test_not_run_and_no_target_have_no_run_elements(screen, actual_site, scenario_id) -> None:
+    # Since Spec 009 closure no scenario is NOT_RUN; the no-target case keeps the same guarantees.
     screen.goto(f"{actual_site.url}/scenarios/{scenario_id}")
     assert no_overflow(screen)
     assert screen.locator("main button, main form, progress, [role=progressbar]").count() == 0
     assert screen.locator("[data-testid=run-command], [data-badge=pass]").count() == 0
     text = screen.locator("main").inner_text()
-    assert ("미실행" in text) if scenario_id == "N-01" else ("부재" in text)
+    assert "부재" in text
 
 
 def test_preflight_from_detail_stores_a_new_checked_at(screen, actual_site) -> None:
