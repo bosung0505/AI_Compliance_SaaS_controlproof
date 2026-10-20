@@ -65,6 +65,22 @@ def test_api_port_defaults_to_8080_and_flag_is_stripped(monkeypatch) -> None:
     assert local.environment is not spec009_local.environment  # restored after the call
 
 
+def test_cli_mode_keeps_api_port_before_the_engine_separator(monkeypatch) -> None:
+    """Stage 2 preparation: the default port was appended after `--` and reached the engine CLI."""
+    seen = []
+    monkeypatch.setattr(local, "main", lambda argv: seen.append(list(argv)) or 0)
+    command = ["preflight", "N-03", "--profile", "N03_STALE_CONSENT_V1", "--target", "whyyou-local", "--json"]
+    assert spec009_local.main(["cli", "--instance", "x", "--state-root", "y", "--", *command]) == 0
+    assert seen[-1] == ["cli", "--instance", "x", "--state-root", "y", "--api-port", "8080", "--", *command]
+    harness, engine = seen[-1][: seen[-1].index("--")], seen[-1][seen[-1].index("--") + 1 :]
+    assert "--api-port" not in engine and harness[-2:] == ["--api-port", "8080"]
+    assert spec009_local.main(["cli", "--api-port", "9000", "--", *command]) == 0
+    assert seen[-1] == ["cli", "--api-port", "9000", "--", *command]
+    # An engine-side argument named like the harness flag does not count as the harness port.
+    assert spec009_local.main(["cli", "--", "run", "--api-port", "1"]) == 0
+    assert seen[-1] == ["cli", "--api-port", "8080", "--", "run", "--api-port", "1"]
+
+
 def test_with_applicant_app_is_up_only() -> None:
     with pytest.raises(SystemExit):
         spec009_local.main(["status", "--with-applicant-app"])

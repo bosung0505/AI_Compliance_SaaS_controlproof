@@ -107,8 +107,11 @@ def main(argv=None):
     mode = argv[0] if argv else None
     if with_app and mode != "up":
         raise SystemExit("--with-applicant-app is only valid with up")
-    if not any(item == "--api-port" or item.startswith("--api-port=") for item in argv):
-        argv += ["--api-port", str(API_PORT)]
+    # Only harness arguments (before `--`) are inspected; the default goes there too, never into the engine command.
+    separator = argv.index("--") if "--" in argv else len(argv)
+    harness = argv[:separator]
+    if not any(item == "--api-port" or item.startswith("--api-port=") for item in harness):
+        argv[separator:separator] = ["--api-port", str(API_PORT)]
     if mode == "up":
         index = next(i for i, item in enumerate(argv) if item == "--api-port" or item.startswith("--api-port="))
         port = int(argv[index].split("=", 1)[1] if "=" in argv[index] else argv[index + 1])
