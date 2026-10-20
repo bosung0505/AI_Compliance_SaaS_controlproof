@@ -4,8 +4,8 @@
 
 **Created**: 2026-10-19
 
-**Status**: Draft — Specify·Clarify 완료(2026-10-19, Spec 006 초안에서 이관). Plan 작성 중. 두 시나리오의 공식 상태는 실제 Run과
-closure 전까지 `NOT_RUN`이다.
+**Status**: 1단계 준비 완료(2026-10-20), actual NOT_RUN. 코드·자동 시험·하네스까지 끝났고([validation.md](./validation.md)) 실제
+Run은 2단계 승인 뒤다. 두 시나리오의 공식 상태는 실제 Run과 closure 전까지 `NOT_RUN`이다.
 
 **이관 경위**: 이 Spec은 2026-10-19 `006-notice-authority-scenarios` 브랜치에서 N-01·N-03·H-01·H-02 네 시나리오를 한 Spec(006)으로
 Specify·Clarify·Plan까지 작성한 초안에서 출발한다. 같은 날 제품 책임자(보성)가 `fixes-and-remaining-work`에서 H-01(Spec 006,

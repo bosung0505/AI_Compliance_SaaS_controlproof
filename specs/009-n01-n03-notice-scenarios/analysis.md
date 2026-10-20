@@ -9,6 +9,8 @@
 - 기준선 시험: `pytest tests/contract tests/unit -q` → 1037 passed, 1 skipped (구현 전).
 - 결과(최초): CRITICAL 0, HIGH 1, MEDIUM 3, LOW 6.
 - 결과(2026-10-19 A1 결정 반영 뒤): **CRITICAL 0, HIGH 0(A1 RESOLVED), MEDIUM 0(3건 고침), LOW 1 남음(A10 Status 문구, T014).**
+- 결과(2026-10-20 T014 뒤): **CRITICAL 0, HIGH 0, MEDIUM 0, LOW 0** — A10은 spec.md·plan.md Status를 "1단계 준비 완료(2026-10-20),
+  actual NOT_RUN"으로 바꿔 해소했다.
   Phase Gate(Tasks → Implement) 통과.
 
 ## 판정 요약
@@ -24,7 +26,7 @@
 | A7 | LOW | 모호 | scenario-profile-v9.md 미검증 범위 절 | 공통 한계(LOCAL_EMULATED 등)가 YAML ID인지 불명확 | 고침(YAML ID 아님, N-01 목록 비어 있음) |
 | A8 | LOW | 이름 대응 | plan.md Compatibility | Run 토큰 `N03_U1_POLICY_SWAP_INJECTION` 등과 YAML ID `N03-U1` 대응이 적혀 있지 않음 | 고침(대응 한 줄) |
 | A9 | LOW | 줄 번호 | research.md R3 | H-01 시나리오 검증을 `scenario.py 321~347`로 적었으나 실제 H-01 분기는 336~351(321~335는 H-02) | 고침 |
-| A10 | LOW | 낡은 상태 문구 | plan.md Project Structure, spec.md·plan.md Status | `tasks.md (아직 없음)`, "Plan 작성 중"·"다음은 Tasks다" | Project Structure만 고침. Status 줄은 Converge(T014)에서 갱신 |
+| A10 | LOW | 낡은 상태 문구 | plan.md Project Structure, spec.md·plan.md Status | `tasks.md (아직 없음)`, "Plan 작성 중"·"다음은 Tasks다" | Project Structure 고침, Status 줄은 T014에서 갱신(해소) |
 
 ## A1 (HIGH) 공유 기록 검증과 Spec 009 코드 변경의 충돌
 
@@ -210,10 +212,32 @@ FR·SC 중 Task가 없는 항목은 없다. assertion 6개, EV9 7개 모두 계�
 - `cleanup-confirm`은 증적의 `status` 값을 믿지 않고 재계수만 본다. 증적 불일치는 `SPEC009_CLEANUP_EVIDENCE_INVALID`, 재계수가
   비었거나 0이 아니면 `SPEC009_SAFE_STATE_NOT_CONFIRMED`. 이 분기는 `create_runtime`을 부르지 않는다.
 
+### T011·T012에서 정한 것
+
+- T011: `engine/presentation.py`(검토 projection)는 바꾸지 않았다. 지시대로 `engine/web/readmodel.py`가 봉인
+  `scenario.snapshot.yaml`의 `definition`에서 `target_access`·`unverified_scope_items`·`limitations`를 읽는다(`target_access_line`,
+  `scope_item_lines`). 결과 화면은 "실행 한계" div 바로 위에 대상 접근 줄, div 안에 `<ul class="scope-items">`로 미검증 세 줄과
+  한계 한 줄을 둔다. 한계 줄 형식은 "한계: …"로 정했다. `Judgement.unverified_scope` 코드값은 기존처럼 개발자 영역에만 있다.
+- 시나리오 화면의 "프로필 준비 상태" 줄은 카탈로그 `profiles`가 있어야 나온다. N-01·N-03은 closure 전이라 `profiles`가 비어
+  그 블록이 없으므로, 대상 접근 줄은 공식 검증 이력 줄 바로 아래에 둔다. 값은 프로필 정의에 있으면 그것을, 없으면 CLI의
+  프로필→파일 대응(`_profile_scenario_path`)으로 `scenarios/N-01.yaml`·`N-03.yaml`을 읽는다.
+- T012: `start_applicant_app`은 기본 `start`를 감싼 래퍼에서 ready 뒤에 부른다. `processes["applicant_app"]`에 기본 하네스와 같은
+  `{ProcessId, ParentProcessId, Created}`를 기록해 기존 `stop`이 생성 시각을 다시 확인하고 내린다(`spec004_local.py` 무수정).
+  `pending_process` 기록도 같다. 60초 안에 200이 없으면 `SPEC009_APPLICANT_APP_NOT_READY`로 실패하되 PID는 남겨 `stop`이 내린다.
+  포트 거부 코드는 `SPEC009_PORT_IN_USE:<port>`이고 `up`에서만, API 포트(기본 8080)와 5174 중 하나라도 쓰이면 거부한다.
+  `--with-applicant-app`은 `up` 밖에서 쓰면 사용 오류다. 지원자 앱 환경은 `environment(state, for_cp=False)`를 쓴다.
+
 ## 보성에게 알릴 것
 
 1. `cleanup-confirm`에서 H-01 차단 subject(`h01-human-decision`)는 전용 분기가 없어 H-03 기본 분기(`fault.target_safe`)로 간다.
    Spec 009는 전용 분기를 더했고 H-01 쪽은 고치지 않았다.
+2. 이 브랜치에서는 `scripts.share_records --verify`와 기본 공유 웹 모드가 "Snapshot display code/catalog differs"로 거부된다
+   (snapshot이 `b76af4c` 코드를 고정). 공유 bundle 25건의 verification은 그대로이며, 새 공유본은 closure에서 재생성해야 한다.
+3. `engine/models.py` `ConsentStateSnapshot.lane_id` 타입을 `N02LaneId | N01LaneId | N03LaneId`로 넓혔다(T005). N-02 값의
+   직렬화는 바뀌지 않으며 기존 bundle 25건 verification과 digest 고정 시험이 그대로 통과한다.
+4. 구현 중 본 다른 Spec 문서 불일치: T003 때 적은 Spec 008 quickstart·AGENTS Spec 008 절의 "코드가 바뀐 브랜치에서 `--verify`
+   거부" 안내 누락 외에 새로 본 것은 없다. 관련 코드 관찰 하나: CLI preflight 출력의 `unverified_scope`는 versioned 프로필(H-01
+   포함)에 Spec 002 AWS 목록을 그대로 보인다(Spec 009는 고치지 않음).
 
 ## Gate
 

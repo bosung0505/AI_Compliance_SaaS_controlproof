@@ -3,8 +3,8 @@
 **Branch**: `009-n01-n03-notice-scenarios`
 **Date**: 2026-10-19
 **Spec**: [spec.md](./spec.md)
-**Status**: Draft. Plan 산출물 작성 완료(Spec 006 초안의 Plan을 N-01·N-03으로 줄이고 보성 H-01·H-02 등록 방식에 맞춤). 열린
-제품 해석 질문 없음. 다음은 Tasks다.
+**Status**: 1단계 준비 완료(2026-10-20), actual NOT_RUN. Plan 산출물(Spec 006 초안의 Plan을 N-01·N-03으로 줄이고 보성 H-01·H-02
+등록 방식에 맞춤)대로 1단계 구현을 마쳤다([validation.md](./validation.md)). 다음은 2단계(실제 Run) 승인이다.
 
 ## Summary
 

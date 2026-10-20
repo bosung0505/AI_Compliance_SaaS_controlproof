@@ -570,3 +570,11 @@ E01/E02 재현 원본2건을 추가 발견했다. N02 과거 중간1건은 미�
 - 영향: Spec 009를 새로 만든다. 범위표 §2·§3, `catalog/mvp-scenarios.yaml`의 `mvp_treatment`, Product Brief §14.6, README,
   TEAM_HANDOFF는 Spec 009 closure에서 실제 결과대로 갱신한다. 연우의 `006-notice-authority-scenarios` 브랜치는 이력으로만 남긴다.
 - 재검토 조건: WhyYou 수정이 필요해질 때, 일정상 한 시나리오를 다시 `NOT_RUN`으로 둘 때, 기준 source가 바뀔 때.
+
+### D-030 1단계 마감 — 2026-10-20
+
+- 코드·시험 범위: 두 프로필 등록, 순수 판정, 지원자 화면 어댑터, Run 소유 시드·정리·잔여 재계수, 실행기·증적 계약·preflight,
+  복구 스크립트와 `cleanup-confirm` 분기, 워크벤치 대상 접근 한 줄, 하네스(`scripts/spec009_local.py`). 자동 gate 1674 passed /
+  1 skipped, ruff 통과(Spec 009 `validation.md`). 모든 시험은 fake adapter로 돌았다.
+- 실제 Run은 하지 않았다. N-01·N-03은 `NOT_RUN`, 카탈로그·범위표·README·Product Brief 숫자는 그대로다.
+- 이 브랜치에서 공유 snapshot은 코드 고정 때문에 거부되며, 새 공유본(새 `snapshot_id`, bundle 불변)은 closure에서 보성 검토로 만든다.

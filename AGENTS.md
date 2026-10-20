@@ -190,3 +190,5 @@ Report documentation mismatches instead of editing other specs. On this branch `
 default shared web mode are expected to refuse ("Snapshot display code/catalog differs") because the snapshot pins
 `b76af4c` code; the real gate is that each of the 25 `review-data/bundles` keeps its recorded verification result.
 A new shared snapshot (new snapshot_id, bundle bytes and verdicts unchanged) is built at Spec 009 closure under 보성's review.
+Stage 1 done 2026-10-20: commits `6bf2a53`..this docs commit (T001~T014 plus recovery path), automatic gate 1674 passed /
+1 skipped with ruff clean (`specs/009-n01-n03-notice-scenarios/validation.md`); actual N-01·N-03 NOT_RUN; catalog 12/7/2/3 unchanged.

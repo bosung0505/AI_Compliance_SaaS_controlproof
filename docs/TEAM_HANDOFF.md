@@ -27,6 +27,8 @@ AI·워커 연결42개 항목을 수집했다. 간접 연결1개와 조회 중 �
 
 2026-10-19 Spec 009 시작(연우): 남은 `NOT_RUN` 2개(N-01·N-03)를 D-030에 따라 브랜치 `009-n01-n03-notice-scenarios`(`fixes-and-remaining-work` `b76af4c` 기준)에서 준비한다. 1단계(코드·자동 시험·하네스)까지는 공식 상태 `NOT_RUN`과 12/7/2/3을 유지하고, 실제 Run과 숫자 갱신은 2단계 승인 뒤 closure에서 한다. 이전 `006-notice-authority-scenarios` 초안 브랜치는 병합하지 않는다. [Spec 009](../specs/009-n01-n03-notice-scenarios/spec.md)
 
+2026-10-20 Spec 009 **1단계 준비 완료, actual NOT_RUN**(연우): N-01·N-03 프로필·판정·화면 어댑터·시드·정리·실행기·증적·preflight·복구 경로·워크벤치 한 줄·하네스까지 구현했고 자동 시험 1674 passed / 1 skipped, ruff 통과다. 실제 Run·카탈로그 숫자(12/7/2/3)·공유본 재생성은 2단계 승인 뒤 closure에서 한다. [Spec 009 검증 기록](../specs/009-n01-n03-notice-scenarios/validation.md)
+
 현재 후속 통합 브랜치: **`fixes-and-remaining-work`**. 사용자는 2026-10-18 현재 마감 상태의
 커밋·푸시와 향후 수정·남은 작업의 계속 통합을 승인했다. 두 작업 폴더에서 같은 이름을 사용하며,
 ControlProof는 `origin`, WhyYou는 `fork` (`bosung0505/gbsa_aws`)에 게시한다.
