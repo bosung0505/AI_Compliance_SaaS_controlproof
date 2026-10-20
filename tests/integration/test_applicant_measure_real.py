@@ -1,4 +1,4 @@
-"""Real-Chromium negative controls for the N-01 notice measurement (measure_fragments + MEASURE_JS unchanged).
+"""Real-Chromium negative controls for the N-01 notice measurement (measure_fragments + MEASURE_JS, measurement v2).
 
 A static page with the WhyYou consent-step structure is measured at PC 1440x900 and mobile 390x844. Each case hides
 or damages one notice fragment; the four flags the current code reports are pinned. Cases the measurement does not
@@ -12,7 +12,7 @@ import html
 import pytest
 
 from engine.adapters.whyyou.applicant_browser import measure_fragments
-from engine.n01 import FLAGS, VIEWPORTS, N01LaneId, expected_fragments
+from engine.n01 import FLAGS_V2, VIEWPORTS, N01LaneId, expected_fragments
 
 POLICY = {
     "policy_version": "2026-08-v1",
@@ -112,16 +112,18 @@ def measure(chromium, case: str, lane: N01LaneId) -> dict[str, dict[str, bool]]:
         items, _operations = measure_fragments(page, expected_fragments(POLICY))
     finally:
         context.close()
-    return {fragment["fragment_id"]: {flag: fragment[flag] for flag in FLAGS} for item in items for fragment in item["fragments"]}
+    return {fragment["fragment_id"]: {flag: fragment[flag] for flag in FLAGS_V2} for item in items for fragment in item["fragments"]}
 
 
 def false_flags(flags: dict[str, dict[str, bool]]) -> dict[str, list[str]]:
-    return {fid: [flag for flag in FLAGS if not values[flag]] for fid, values in flags.items() if not all(values.values())}
+    return {fid: [flag for flag in FLAGS_V2 if not values[flag]] for fid, values in flags.items() if not all(values.values())}
 
 
 PC, MOBILE = N01LaneId.PC, N01LaneId.MOBILE
+
+
 ALL_FRAGMENTS = [fid for pairs in expected_fragments(POLICY).values() for fid, _ in pairs]
-#: Flags the current code reports false, per case (case 3 overflows the document, so every fragment fails it).
+#: Flags measurement v2 reports false, per case (case 3 overflows the document, so every fragment fails it).
 CAUGHT = {
     ("base", PC): {},
     ("base", MOBILE): {},
@@ -132,34 +134,39 @@ CAUGHT = {
     },
     ("offscreen_ai_role", PC): {"human_final.ai_role": ["in_viewport", "not_occluded"]},
     ("offscreen_ai_role", MOBILE): {"human_final.ai_role": ["in_viewport", "not_occluded"]},
-    ("missing_ai_role", PC): {"human_final.ai_role": list(FLAGS)},
-    ("missing_ai_role", MOBILE): {"human_final.ai_role": list(FLAGS)},
+    ("hidden_deletion", PC): {"deletion.method": ["not_occluded", "style_visible"]},
+    ("hidden_deletion", MOBILE): {"deletion.method": ["not_occluded", "style_visible"]},
+    ("transparent_recording", PC): {"recording_purpose.notice": ["style_visible"]},
+    ("transparent_recording", MOBILE): {"recording_purpose.notice": ["style_visible"]},
+    ("clipped_recording", MOBILE): {"recording_purpose.notice": ["not_occluded", "not_clipped"]},
+    ("line_clamp_recording", MOBILE): {"recording_purpose.notice": ["not_clipped"]},
+    ("missing_ai_role", PC): {"human_final.ai_role": list(FLAGS_V2)},
+    ("missing_ai_role", MOBILE): {"human_final.ai_role": list(FLAGS_V2)},
 }
-#: Cases the notice cannot be read but every flag stays true: (case, lane, damaged fragment, gap).
-GAPS = [
-    ("hidden_deletion", PC, "deletion.method", "visibility:hidden — elementFromPoint returns the ancestor, which is accepted"),
-    ("hidden_deletion", MOBILE, "deletion.method", "visibility:hidden — elementFromPoint returns the ancestor, which is accepted"),
-    ("transparent_recording", PC, "recording_purpose.notice", "opacity:0 — no visibility/opacity check"),
-    ("transparent_recording", MOBILE, "recording_purpose.notice", "opacity:0 — no visibility/opacity check"),
-    ("clipped_recording", MOBILE, "recording_purpose.notice", "ancestor overflow:hidden clip — own bbox is used"),
-    ("line_clamp_recording", MOBILE, "recording_purpose.notice", "line clamp — only horizontal scroll overflow is checked"),
-]
 
 
 @pytest.mark.parametrize(("case", "lane"), list(CAUGHT), ids=lambda value: getattr(value, "value", value))
-def test_current_flags_are_pinned(chromium, case, lane) -> None:
+def test_v2_flags_are_pinned(chromium, case, lane) -> None:
     assert false_flags(measure(chromium, case, lane)) == CAUGHT[(case, lane)]
 
 
-@pytest.mark.parametrize(("case", "lane", "fragment", "gap"), GAPS, ids=lambda value: getattr(value, "value", value))
-def test_gap_cases_currently_report_every_flag_true(chromium, case, lane, fragment, gap) -> None:
-    assert false_flags(measure(chromium, case, lane)) == {}
+def test_v2_records_clip_ancestor_and_computed_style(chromium) -> None:
+    def fragment(case, lane, fragment_id):
+        width, height = VIEWPORTS[lane]
+        context = chromium.new_context(viewport={"width": width, "height": height}, locale="ko-KR")
+        try:
+            page = context.new_page()
+            page.set_content(build_page(case))
+            items, _ = measure_fragments(page, expected_fragments(POLICY))
+        finally:
+            context.close()
+        return next(f for item in items for f in item["fragments"] if f["fragment_id"] == fragment_id)
 
-
-@pytest.mark.parametrize(
-    ("case", "lane", "fragment", "gap"),
-    [pytest.param(*row, marks=pytest.mark.xfail(strict=True, reason=f"measurement gap: {row[3]}")) for row in GAPS],
-    ids=lambda value: getattr(value, "value", value),
-)
-def test_unreadable_notice_should_fail_a_flag(chromium, case, lane, fragment, gap) -> None:
-    assert fragment in false_flags(measure(chromium, case, lane))
+    clipped = fragment("clipped_recording", MOBILE, "recording_purpose.notice")
+    assert clipped["clip_ancestor"] == "div"
+    transparent = fragment("transparent_recording", PC, "recording_purpose.notice")
+    assert transparent["computed_opacity"] == 0 and transparent["computed_visibility"] == "visible"
+    hidden = fragment("hidden_deletion", PC, "deletion.method")
+    assert hidden["computed_visibility"] == "hidden"
+    base = fragment("base", PC, "recording_purpose.notice")
+    assert base["clip_ancestor"] is None and base["computed_opacity"] == 1

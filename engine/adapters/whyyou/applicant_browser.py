@@ -14,7 +14,7 @@ from urllib.parse import urlparse
 from engine.adapters.base import AdapterResult
 from engine.adapters.whyyou.n02_seed import N02CredentialStore
 from engine.config import Settings
-from engine.n01 import N01LaneRecord
+from engine.n01 import MEASUREMENT_VERSION, N01LaneRecord
 
 SESSION_COOKIE = "iep_applicant_session"
 CONSENT_PATH = "/v1/applicant/consents"
@@ -36,7 +36,9 @@ MEASURE_JS = """
     if (!found) {
       return {fragment_id, expected_text, text_present: false, bbox: null, in_viewport: false, center_hit: false,
               not_occluded: false, doc_scroll_width: doc.scrollWidth, doc_client_width: doc.clientWidth,
-              el_scroll_width: 0, el_client_width: 0, no_horizontal_overflow: false};
+              el_scroll_width: 0, el_client_width: 0, no_horizontal_overflow: false,
+              style_visible: false, not_clipped: false, clip_ancestor: null, computed_opacity: null,
+              computed_visibility: null};
     }
     const before = window.scrollY;
     found.scrollIntoView({block: "nearest"});
@@ -45,16 +47,43 @@ MEASURE_JS = """
     const inViewport = rect.left >= 0 && rect.right <= window.innerWidth && rect.top >= 0
       && rect.bottom <= window.innerHeight;
     const hit = document.elementFromPoint(rect.left + rect.width / 2, rect.top + rect.height / 2);
-    const label = found.closest("label");
-    const related = !!hit && (hit === found || found.contains(hit) || hit.contains(found)
-      || (!!label && hit.closest("label") === label));
+    // v2: only the target or its descendants count; an ancestor hit is accepted only when it is the target's label.
+    const related = !!hit && (hit === found || found.contains(hit)
+      || (hit.tagName === "LABEL" && hit.contains(found)));
     const noOverflow = doc.scrollWidth <= doc.clientWidth && found.scrollWidth <= found.clientWidth;
+    // v2 style_visible: no display:none on the element or any ancestor, own computed visibility, cumulative opacity.
+    const ownStyle = getComputedStyle(found);
+    let opacity = 1, displayed = true;
+    for (let node = found; node && node.nodeType === 1; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (style.display === "none") displayed = false;
+      opacity *= parseFloat(style.opacity);
+    }
+    const styleVisible = displayed && ownStyle.visibility === "visible" && opacity > 0;
+    // v2 not_clipped: inside every non-visible-overflow ancestor's inner box (1px tolerance) and no own clipping.
+    let clipAncestor = null;
+    for (let node = found.parentElement; node && node !== doc && node !== document.body; node = node.parentElement) {
+      const style = getComputedStyle(node);
+      if (style.overflowX === "visible" && style.overflowY === "visible") continue;
+      const box = node.getBoundingClientRect();
+      const left = box.left + node.clientLeft, top = box.top + node.clientTop;
+      const right = left + node.clientWidth, bottom = top + node.clientHeight;
+      if (rect.left < left - 1 || rect.top < top - 1 || rect.right > right + 1 || rect.bottom > bottom + 1) {
+        const classes = typeof node.className === "string" && node.className.trim()
+          ? "." + node.className.trim().split(/\\s+/).join(".") : "";
+        clipAncestor = (node.tagName.toLowerCase() + classes).slice(0, 80);
+        break;
+      }
+    }
+    const ownClipped = found.scrollHeight > found.clientHeight + 1 || found.scrollWidth > found.clientWidth + 1;
     return {fragment_id, expected_text, text_present: true,
             bbox: {x: rect.x, y: rect.y, width: rect.width, height: rect.height},
             in_viewport: inViewport, center_hit: !!hit, not_occluded: related,
             doc_scroll_width: doc.scrollWidth, doc_client_width: doc.clientWidth,
             el_scroll_width: found.scrollWidth, el_client_width: found.clientWidth,
-            no_horizontal_overflow: noOverflow};
+            no_horizontal_overflow: noOverflow,
+            style_visible: styleVisible, not_clipped: clipAncestor === null && !ownClipped,
+            clip_ancestor: clipAncestor, computed_opacity: opacity, computed_visibility: ownStyle.visibility};
   });
   return {fragments: measured, operations};
 }
@@ -168,6 +197,7 @@ class WhyYouApplicantBrowserAdapter:
                         for item in raw.get("items", ())
                     ],
                     "measurement_error": raw.get("measurement_error"),
+                    "measurement_version": raw.get("measurement_version"),
                 }
             )
         except (KeyError, TypeError, ValueError) as exc:
@@ -207,6 +237,7 @@ class WhyYouApplicantBrowserAdapter:
             "screen_policy": None,
             "commit_status": None,
             "session_cookie": None,
+            "measurement_version": MEASUREMENT_VERSION,
         }
         policy_body: dict[str, Any] = {}
 

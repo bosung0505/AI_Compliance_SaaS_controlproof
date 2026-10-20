@@ -32,6 +32,22 @@
 | N01-A2 | 모바일 390×844에서 같은 조건 | 같음 | 같음 |
 | N01-A3 | 화면 값 = 서버 현재 값 = 저장 기록(`policy_version`, `evidence_digest`), 두 lane 모두 | 셋 중 하나라도 다름(어느 lane이든) | 화면 값·저장 기록을 읽지 못함 → `INSUFFICIENT_EVIDENCE` |
 
+### 측정 v2 (2026-10-20)
+
+첫 실제 Run 뒤 음성 대조(analysis.md "Run 뒤 음성 대조")에서 v1 네 조건이 `visibility:hidden`, `opacity:0`, 조상 `overflow` 잘림,
+`line-clamp`를 잡지 못했다(실행기 결함: 측정 누락). v2에서 조각 "읽을 수 있게 표시됨"은 다음 여섯 조건이 모두 참이다.
+
+1~4. `text_present`, `in_viewport`, `not_occluded`, `no_horizontal_overflow`(v1과 같다. 다만 `not_occluded`는 아래처럼 좁힌다).
+5. `style_visible`: 요소와 모든 조상의 계산 스타일에 `display:none`이 없고, 요소 자신의 계산 `visibility`가 `visible`이며, 조상까지
+   곱한 `opacity`가 0보다 크다.
+6. `not_clipped`: 요소 경계 상자가 `overflow`가 `visible`이 아닌 모든 조상의 안쪽 상자(테두리 제외) 안에 완전히 들어가고(1px
+   허용), 요소 자신의 `scrollHeight ≤ clientHeight + 1`·`scrollWidth ≤ clientWidth + 1`이다.
+- `not_occluded`(v2): 중심점의 `elementFromPoint`가 대상 자신 또는 자손일 때만 참. 조상은 그것이 `label`이고 대상이 그 안에 있을
+  때만 허용한다(체크박스 행).
+- 버전 선택: lane 기록의 `measurement_version`이 없거나 1이면 v1 네 조건, 2면 v2 여섯 조건, 그 밖의 값은 `INSUFFICIENT_EVIDENCE`.
+  v2 기록에 5·6 측정값이 없어도 `INSUFFICIENT_EVIDENCE`. v1 규칙은 첫 Run(`48a70f5e…`) 봉인 기록을 같은 결과로 다시 판정하기 위해서만
+  남긴다. 새 Run은 v2로 측정한다.
+
 A1과 A2는 서로의 결과를 쓰지 않는다(spec US1 수용 4). 서버 정책 자체를 읽지 못하면 세 assertion 모두 `INSUFFICIENT_EVIDENCE`.
 A3는 lane마다 세 값을 대조하고 두 lane이 모두 같아야 PASS다. 지원자 앱에 닿지 못하면 Run 전에 `ACCESS_BLOCKED`로 막히며
 assertion 판정에 이르지 않는다(FR-004·FR-005).

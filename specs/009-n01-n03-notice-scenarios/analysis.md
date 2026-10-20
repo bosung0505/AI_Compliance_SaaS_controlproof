@@ -255,6 +255,31 @@ FR·SC 중 Task가 없는 항목은 없다. assertion 6개, EV9 7개 모두 계�
 좁힌다. 조상 중 `overflow`가 `visible`이 아닌 요소의 경계와 교차 영역이 요소 경계보다 작은지, 요소의 `scrollHeight > clientHeight`인지를
 보는 세로 잘림 검사를 더한다. 이번 실제 Run(`48a70f5e…`) 판정에는 손대지 않는다.
 
+### 원인 분류와 측정 v2 결정 (2026-10-20)
+
+- 분류: **실행기 결함(측정 누락)**. 대상(WhyYou) 동작이나 복구 운영의 문제가 아니다. 첫 실제 Run `48a70f5e…`의 캡처에는 네
+  상황이 보이지 않았고 그 판정(PASS)은 v1 기록으로 봉인된 그대로 보존한다(덮어쓰지 않음).
+- 결정: `MEASURE_JS`를 v2로 바꾸고 lane 기록에 `measurement_version`을 둔다. `engine/n01.py`는 기록의 버전으로 규칙을 고른다
+  (없음·1 → v1 네 조건, 코드 경로·출력 모양 불변 / 2 → v2 여섯 조건 / 그 밖 → INCONCLUSIVE). `verify_facts`가 같은 함수로
+  재판정하므로 v1 봉인 bundle은 새 코드에서도 같은 결과다. 새 코드로 두 실제 Run(`48a70f5e…` 15 files, `f27b68e8…` 17 files)을
+  다시 verify해 둘 다 VERIFIED·mismatch 0을 확인했다.
+- v2 음성 대조 결과(실제 Chromium, `test_applicant_measure_real.py`, xfail 0):
+
+| # | 경우 | 화면 | v2 거짓 플래그 |
+|---|---|---|---|
+| 1 | 변형 없음 | PC·모바일 | 없음(여섯 플래그 모두 참) |
+| 2 | 보관기간 위 fixed 불투명 div | PC | `retention.days` not_occluded |
+| 3 | 삭제 방법 nowrap 긴 문구 | 모바일 | `deletion.method` in_viewport·not_occluded·no_horizontal_overflow, 나머지 10조각 no_horizontal_overflow |
+| 4 | ai_role `left:-3000px` | PC·모바일 | `human_final.ai_role` in_viewport·not_occluded |
+| 5 | 삭제 방법 `visibility:hidden` | PC·모바일 | `deletion.method` not_occluded·style_visible |
+| 6 | recording_notice `opacity:0` | PC·모바일 | `recording_purpose.notice` style_visible |
+| 7 | recording_notice 부모 1.2em `overflow:hidden` | 모바일 | `recording_purpose.notice` not_occluded·not_clipped(`clip_ancestor` = `div`) |
+| 8 | recording_notice line-clamp 1 | 모바일 | `recording_purpose.notice` not_clipped |
+| 9 | ai_role 문단 삭제 | PC·모바일 | `human_final.ai_role` 여섯 플래그 모두 |
+
+- 새 v1 기록(가짜 어댑터)은 v2 전용 필드를 null로 직렬화하지만, 실제 첫 Run 기록에는 그 키가 없다. 모델은 둘 다 v1로 읽는다.
+- 실제 화면(WhyYou 동의 단계)에서 v2 여섯 조건이 어떻게 나오는지는 N-01 child Run에서 처음 확인된다.
+
 ## 보성에게 알릴 것
 
 1. `cleanup-confirm`에서 H-01 차단 subject(`h01-human-decision`)는 전용 분기가 없어 H-03 기본 분기(`fault.target_safe`)로 간다.

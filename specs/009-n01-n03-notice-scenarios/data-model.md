@@ -24,7 +24,10 @@ ControlProof 쪽 모델만 정의한다. WhyYou 표는 읽기 대상이며 바�
 - `ViewportSpec{lane, width, height}`: `pc` 1440×900, `mobile` 390×844.
 - `NoticeFragmentMeasurement{fragment_id, expected_text_digest, text_present, bbox, viewport, in_viewport, center_hit,
   not_occluded, doc_scroll_width, doc_client_width, el_scroll_width, el_client_width, no_horizontal_overflow, operations[]}`.
+  - 측정 v2(2026-10-20, 코드 `N01Fragment`)에서 더한 필드: `style_visible`, `not_clipped`, `clip_ancestor`(잘림을 만든 조상의
+    태그·클래스 요약 또는 null), `computed_opacity`(조상 누적), `computed_visibility`(요소 자신). v1 기록에는 없거나 null이다.
 - `NoticeItemMeasurement{item_id, fragments[1..]}` — 항목은 조각 전부가 표시될 때만 표시됨.
+- lane 기록(코드 `N01LaneRecord`, `n01-measurements.json`)의 `measurement_version`: 없거나 1이면 v1, 2면 v2. 그 밖의 값은 판정 불가.
 - `ScreenObservation{lane, viewport, step_reached, capture_ref, items[5], token_absent_in_dom, observed_at}`.
 - `PolicyIdentifierTriple{lane, screen{version, digest}, server{version, digest}, stored{policy_version, evidence_digest},
   consented_at, subject_ref}`.

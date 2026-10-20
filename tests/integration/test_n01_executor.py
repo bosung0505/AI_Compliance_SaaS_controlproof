@@ -206,3 +206,33 @@ def test_retest_child_keeps_parent_bytes(tmp_path, target) -> None:
     assert {p.name: hashlib.sha256(p.read_bytes()).hexdigest() for p in parent_dir.iterdir()} == before
     assert child.parent_run_id == parent.run_id
     assert verify_bundle(child_dir)["bundle_status"] == "VERIFIED"
+
+
+def test_v1_measurement_bundle_still_verifies_with_the_v2_code(tmp_path, target) -> None:
+    """The first actual Run (48a70f5e) was sealed with v1 records; v2 code must re-judge them unchanged."""
+    _run, judgement, directory, _ = _execute(tmp_path, target)
+    records = _read(directory, "n01-measurements.json")
+    assert all("measurement_version" not in record or record["measurement_version"] is None for record in records)
+    # New code serializes the v2-only fields as null in a v1 record; the real first-Run bundle has no such keys.
+    assert all(f.get("style_visible") is None for r in records for i in r["items"] for f in i["fragments"])
+    assert _read(directory, "assertions.json")[0]["expected"]["flags"] == [
+        "text_present", "in_viewport", "not_occluded", "no_horizontal_overflow"
+    ]
+    result = verify_bundle(directory)
+    assert result["bundle_status"] == "VERIFIED" and result["mismatched_files"] == []
+    assert judgement.verdict.value == "PASS"
+
+
+def test_v2_measurement_flow_seals_and_verifies(tmp_path, target) -> None:
+    _run, judgement, directory, _ = _execute(tmp_path, target, modes={"measurement_v2"})
+    assert judgement.verdict.value == "PASS"
+    assert {record["measurement_version"] for record in _read(directory, "n01-measurements.json")} == {2}
+    assert _read(directory, "assertions.json")[0]["expected"]["flags"][-2:] == ["style_visible", "not_clipped"]
+    assert verify_bundle(directory)["bundle_status"] == "VERIFIED"
+
+
+def test_v2_hidden_notice_fails_the_mobile_lane(tmp_path, target) -> None:
+    _run, judgement, directory, _ = _execute(tmp_path, target, modes={"measurement_v2", "hidden_notice_mobile"})
+    assert _statuses(judgement) == {"N01-A1": "PASS", "N01-A2": "FAIL", "N01-A3": "PASS"}
+    assert "style_visible" in judgement.assertion_results[1].detail
+    assert verify_bundle(directory)["bundle_status"] == "VERIFIED"

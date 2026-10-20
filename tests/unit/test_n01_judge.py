@@ -222,3 +222,71 @@ def test_fragment_digest_must_match_text() -> None:
     value["expected_text_digest"] = "0" * 64
     with pytest.raises(ValueError):
         N01Fragment.model_validate(value)
+
+
+# ---- measurement v2 (2026-10-20): hidden and vertically clipped notices -------------------------------------
+
+
+def _v2(lane: dict) -> dict:
+    lane = copy.deepcopy(lane)
+    lane["measurement_version"] = 2
+    for item in lane["items"]:
+        for fragment in item["fragments"]:
+            fragment.update(
+                style_visible=True,
+                not_clipped=True,
+                clip_ancestor=None,
+                computed_opacity=1.0,
+                computed_visibility="visible",
+            )
+    return lane
+
+
+def test_v1_record_keeps_the_v1_rules_and_actual(evidence) -> None:
+    lanes, identifiers = evidence
+    explicit = [dict(lane, measurement_version=1) for lane in lanes]
+    baseline = assertions_for(lanes, identifiers, _recovery())
+    assert assertions_for(explicit, identifiers, _recovery()) == baseline
+    assert "measurement_version" not in baseline[0].actual
+    assert baseline[0].expected["flags"] == ["text_present", "in_viewport", "not_occluded", "no_horizontal_overflow"]
+
+
+def test_v2_record_passes_with_all_six_flags(evidence) -> None:
+    lanes, identifiers = evidence
+    results = assertions_for([_v2(lane) for lane in lanes], identifiers, _recovery())
+    assert _statuses(results) == {"N01-A1": "PASS", "N01-A2": "PASS", "N01-A3": "PASS"}
+    assert results[0].expected["flags"][-2:] == ["style_visible", "not_clipped"]
+    assert results[0].actual["measurement_version"] == 2
+    fragment = results[0].actual["items"][0]["fragments"][0]
+    assert fragment["style_visible"] is True and fragment["not_clipped"] is True
+
+
+@pytest.mark.parametrize("flag", ["style_visible", "not_clipped"])
+def test_v2_new_flag_false_fails_that_lane(evidence, flag) -> None:
+    lanes, identifiers = evidence
+    mobile = _v2(lanes[1])
+    _set_flag(mobile, "recording_purpose", "recording_notice", **{flag: False})
+    results = assertions_for([_v2(lanes[0]), mobile], identifiers, _recovery())
+    assert _statuses(results) == {"N01-A1": "PASS", "N01-A2": "FAIL", "N01-A3": "PASS"}
+    assert flag in results[1].detail
+
+
+def test_v1_record_ignores_v2_only_flags(evidence) -> None:
+    lanes, identifiers = evidence
+    _set_flag(lanes[1], "recording_purpose", "recording_notice", style_visible=False, not_clipped=False)
+    assert _statuses(assertions_for(lanes, identifiers, _recovery()))["N01-A2"] == "PASS"
+
+
+@pytest.mark.parametrize("version", [0, 3])
+def test_unknown_measurement_version_is_inconclusive(evidence, version) -> None:
+    lanes, identifiers = evidence
+    lanes[0]["measurement_version"] = version
+    result = assertions_for(lanes, identifiers, _recovery())[0]
+    assert (result.status.value, result.reason_code.value) == ("INCONCLUSIVE", "INSUFFICIENT_EVIDENCE")
+
+
+def test_v2_record_without_v2_measurements_is_inconclusive(evidence) -> None:
+    lanes, identifiers = evidence
+    lanes[0]["measurement_version"] = 2
+    result = assertions_for(lanes, identifiers, _recovery())[0]
+    assert result.status.value == "INCONCLUSIVE"

@@ -15,6 +15,11 @@ from engine.models import AssertionResult, N01LaneId
 NOTICE_ITEMS = ("ai_assist", "human_final", "recording_purpose", "retention", "deletion")
 VIEWPORTS = {N01LaneId.PC: (1440, 900), N01LaneId.MOBILE: (390, 844)}
 FLAGS = ("text_present", "in_viewport", "not_occluded", "no_horizontal_overflow")
+#: Measurement v2 (2026-10-20) adds computed-style visibility and vertical/ancestor clipping. A lane record without
+#: ``measurement_version`` (or 1) is judged with ``FLAGS`` exactly as before, so v1 bundles keep their result.
+FLAGS_V2 = (*FLAGS, "style_visible", "not_clipped")
+V2_FIELDS = ("style_visible", "not_clipped", "clip_ancestor", "computed_opacity", "computed_visibility")
+MEASUREMENT_VERSION = 2
 REQUIRED_RESIDUE_TABLES = frozenset(
     {
         "invitations",
@@ -63,6 +68,12 @@ class N01Fragment(N01Model):
     el_scroll_width: int
     el_client_width: int
     no_horizontal_overflow: bool
+    # v2 only; absent (None) in v1 records.
+    style_visible: bool | None = None
+    not_clipped: bool | None = None
+    clip_ancestor: str | None = None
+    computed_opacity: float | None = None
+    computed_visibility: str | None = None
 
     @model_validator(mode="after")
     def digest_matches_text(self) -> N01Fragment:
@@ -70,8 +81,8 @@ class N01Fragment(N01Model):
             raise ValueError("expected_text_digest must be the SHA-256 of expected_text")
         return self
 
-    def false_flags(self) -> tuple[str, ...]:
-        return tuple(flag for flag in FLAGS if not getattr(self, flag))
+    def false_flags(self, flags: tuple[str, ...] = FLAGS) -> tuple[str, ...]:
+        return tuple(flag for flag in flags if not getattr(self, flag))
 
 
 class N01Item(N01Model):
@@ -103,6 +114,15 @@ class N01LaneRecord(N01Model):
     operations: tuple[dict[str, Any], ...] = ()
     items: tuple[N01Item, ...] = ()
     measurement_error: str | None = None
+    measurement_version: int | None = None
+
+    @property
+    def is_v2(self) -> bool:
+        return self.measurement_version == MEASUREMENT_VERSION
+
+
+def _flags_for(record: N01LaneRecord) -> tuple[str, ...]:
+    return FLAGS_V2 if record.is_v2 else FLAGS
 
 
 class N01PolicyValue(N01Model):
@@ -178,6 +198,8 @@ def cleanup_verified(recovery):
 
 
 def assess_lane(record: N01LaneRecord) -> tuple[str, str]:
+    if record.measurement_version not in (None, 1, MEASUREMENT_VERSION):
+        return "INCONCLUSIVE", f"알 수 없는 측정 버전입니다({record.measurement_version})."
     expected = VIEWPORTS[record.lane]
     if (record.viewport.width, record.viewport.height) != expected or record.subject.lane_id != record.lane:
         return "INCONCLUSIVE", "화면 크기나 lane 기록이 계약과 다릅니다."
@@ -192,11 +214,19 @@ def assess_lane(record: N01LaneRecord) -> tuple[str, str]:
         return "INCONCLUSIVE", "다섯 고지 항목의 측정이 정확히 한 번씩 있지 않습니다."
     if record.token_absent_in_dom is not True:
         return "INCONCLUSIVE", "캡처 전 화면에 원시 토큰·세션 값이 없음을 확인하지 못했습니다."
-    failures = [
-        f"{item.item_id}/{fragment.fragment_id}({', '.join(fragment.false_flags())})"
+    flags = _flags_for(record)
+    if record.is_v2 and any(
+        getattr(fragment, flag) is None
         for item in record.items
         for fragment in item.fragments
-        if fragment.false_flags()
+        for flag in ("style_visible", "not_clipped")
+    ):
+        return "INCONCLUSIVE", "측정 v2 기록에 표시 스타일·잘림 측정값이 없습니다."
+    failures = [
+        f"{item.item_id}/{fragment.fragment_id}({', '.join(fragment.false_flags(flags))})"
+        for item in record.items
+        for fragment in item.fragments
+        if fragment.false_flags(flags)
     ]
     if failures:
         return "FAIL", f"읽을 수 있게 표시되지 않은 고지 조각이 있습니다: {'; '.join(failures)}."
@@ -223,7 +253,9 @@ def assess_identifiers(records: list[N01PolicyIdentifiers]) -> tuple[str, str]:
 
 
 def _lane_actual(record: N01LaneRecord) -> dict[str, Any]:
-    return {
+    # v1 output is byte-for-byte the pre-v2 shape so sealed v1 assertions re-judge identically.
+    flags = _flags_for(record)
+    actual = {
         "step_reached": record.step_reached,
         "viewport": record.viewport.model_dump(),
         "capture": record.capture.model_dump() if record.capture else None,
@@ -236,7 +268,8 @@ def _lane_actual(record: N01LaneRecord) -> dict[str, Any]:
                     {
                         "fragment_id": fragment.fragment_id,
                         "expected_text_digest": fragment.expected_text_digest,
-                        **{flag: getattr(fragment, flag) for flag in FLAGS},
+                        **{flag: getattr(fragment, flag) for flag in flags},
+                        **({"clip_ancestor": fragment.clip_ancestor} if record.is_v2 else {}),
                     }
                     for fragment in item.fragments
                 ],
@@ -244,6 +277,9 @@ def _lane_actual(record: N01LaneRecord) -> dict[str, Any]:
             for item in record.items
         ],
     }
+    if record.is_v2:
+        actual["measurement_version"] = record.measurement_version
+    return actual
 
 
 def _result(assertion_id, subject_ref, status, expected, actual, detail) -> AssertionResult:
@@ -265,8 +301,9 @@ def assertions_for(lanes: list[dict], identifiers: list[dict], recovery: dict) -
     results = []
     for assertion_id, lane in (("N01-A1", N01LaneId.PC), ("N01-A2", N01LaneId.MOBILE)):
         width, height = VIEWPORTS[lane]
-        expected = {"viewport": {"width": width, "height": height}, "items": list(NOTICE_ITEMS), "flags": list(FLAGS)}
         selected = [record for record in records if record.lane is lane]
+        flags = _flags_for(selected[0]) if len(selected) == 1 else FLAGS
+        expected = {"viewport": {"width": width, "height": height}, "items": list(NOTICE_ITEMS), "flags": list(flags)}
         if len(selected) != 1:
             results.append(
                 _result(assertion_id, lane.value, "INCONCLUSIVE", expected, None, f"{lane.value} 화면 기록이 하나가 아닙니다.")

@@ -304,16 +304,31 @@ def browser_capture(backend: FakeBackend):
         width = request["viewport"]["width"]
         overflow_lane = "overflow_mobile" in backend.modes and lane == "mobile"
         fragments = request["fragment_builder"](POLICY_JSON)
+        v2 = "measurement_v2" in backend.modes
+        hidden_lane = "hidden_notice_mobile" in backend.modes and lane == "mobile"
+
+        def measured(fid, text, item):
+            flags = _flags(fid, text, width=width, overflow=overflow_lane and item == "deletion")
+            if v2:
+                visible = not (hidden_lane and fid == "recording_purpose.notice")
+                flags.update(
+                    style_visible=visible,
+                    not_clipped=True,
+                    clip_ancestor=None,
+                    computed_opacity=1.0 if visible else 0.0,
+                    computed_visibility="visible",
+                )
+            return flags
+
+        if v2:
+            observed["measurement_version"] = 2
         observed.update(
             step_reached="consent",
             screen_policy=CURRENT | {"raw_echo": request["raw_token"]},
             items=[
                 {
                     "item_id": item,
-                    "fragments": [
-                        _flags(fid, text, width=width, overflow=overflow_lane and item == "deletion")
-                        for fid, text in pairs
-                    ],
+                    "fragments": [measured(fid, text, item) for fid, text in pairs],
                 }
                 for item, pairs in fragments.items()
             ],
