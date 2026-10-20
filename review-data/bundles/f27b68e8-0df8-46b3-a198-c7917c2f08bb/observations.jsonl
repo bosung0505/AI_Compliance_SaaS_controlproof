@@ -1,0 +1,13 @@
+{"action":"seed_lanes","adapter_code":"SPEC009_LANES_SEEDED","lane":null,"ok":true,"phase":"BASELINE","step_id":"seed-lanes"}
+{"action":"read_policy","adapter_code":"OK","lane":"past","ok":true,"phase":"BASELINE","step_id":"seed-lanes"}
+{"action":"commit","adapter_code":"CONSENT_COMMIT_RESPONSE_RECEIVED","lane":"past","ok":true,"phase":"BASELINE","step_id":"seed-lanes"}
+{"action":"read_state","adapter_code":"OK","lane":"past","ok":true,"phase":"BASELINE","step_id":"seed-lanes"}
+{"action":"read_policy","adapter_code":"OK","lane":"stale","ok":true,"phase":"INJECTED","step_id":"submit-stale-consent"}
+{"action":"read_state","adapter_code":"OK","lane":"stale","ok":true,"phase":"BASELINE","step_id":"submit-stale-consent"}
+{"action":"commit","adapter_code":"CONSENT_POLICY_MISMATCH","lane":"stale","ok":false,"phase":"INJECTED","step_id":"submit-stale-consent"}
+{"action":"read_state","adapter_code":"OK","lane":"stale","ok":true,"phase":"INJECTED","step_id":"submit-stale-consent"}
+{"action":"read_policy","adapter_code":"OK","lane":"stale","ok":true,"phase":"INJECTED","step_id":"reread-and-commit"}
+{"action":"commit","adapter_code":"CONSENT_COMMIT_RESPONSE_RECEIVED","lane":"stale","ok":true,"phase":"INJECTED","step_id":"reread-and-commit"}
+{"action":"read_consent_facts","adapter_code":"SPEC009_CONSENT_FACTS_READ","lane":"stale","ok":true,"phase":"INJECTED","step_id":"reread-and-commit"}
+{"action":"read_state","adapter_code":"OK","lane":"past","ok":true,"phase":"INJECTED","step_id":"reread-and-commit"}
+{"action":"teardown_lanes","adapter_code":"SPEC009_LANES_REMOVED","lane":null,"ok":true,"phase":"RECOVERED","step_id":"cleanup-owned-subjects"}

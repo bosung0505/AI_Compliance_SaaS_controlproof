@@ -151,6 +151,7 @@ def build_snapshot(
     repo: Path = REPO_ROOT,
     reviewed_pngs: set[str] | None = None,
     expected_invalid: set[str] | None = None,
+    snapshot_id: str = "shared-actual-20261019",
 ) -> dict[str, Any]:
     """Copy reviewed records to a NEW directory; never repair or modify source records."""
     import shutil
@@ -212,7 +213,7 @@ def build_snapshot(
     target = json.loads((latest_source / "target.snapshot.json").read_text(encoding="utf-8"))
     data = {
         "schema_version": SCHEMA,
-        "snapshot_id": "shared-actual-20261019",
+        "snapshot_id": snapshot_id,
         "reviewed_at": datetime.now(UTC).isoformat(),
         "records": [r for _, r in sorted(unique.values(), key=lambda pair: pair[1]["run_id"])],
         "missing_records": [

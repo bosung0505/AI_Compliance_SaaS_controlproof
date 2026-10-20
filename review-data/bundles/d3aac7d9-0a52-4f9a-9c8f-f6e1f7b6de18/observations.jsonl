@@ -1,0 +1,8 @@
+{"action":"seed_lanes","adapter_code":"SPEC009_LANES_SEEDED","lane":null,"ok":true,"phase":"BASELINE","step_id":"seed-invitations"}
+{"action":"observe_consent","adapter_code":"APPLICANT_CONSENT_OBSERVED","lane":"pc","ok":true,"phase":"INJECTED","step_id":"open-consent-screens"}
+{"action":"read_policy","adapter_code":"OK","lane":"pc","ok":true,"phase":"INJECTED","step_id":"complete-consent"}
+{"action":"read_consent_facts","adapter_code":"SPEC009_CONSENT_FACTS_READ","lane":"pc","ok":true,"phase":"INJECTED","step_id":"complete-consent"}
+{"action":"observe_consent","adapter_code":"APPLICANT_CONSENT_OBSERVED","lane":"mobile","ok":true,"phase":"INJECTED","step_id":"open-consent-screens"}
+{"action":"read_policy","adapter_code":"OK","lane":"mobile","ok":true,"phase":"INJECTED","step_id":"complete-consent"}
+{"action":"read_consent_facts","adapter_code":"SPEC009_CONSENT_FACTS_READ","lane":"mobile","ok":true,"phase":"INJECTED","step_id":"complete-consent"}
+{"action":"teardown_lanes","adapter_code":"SPEC009_LANES_REMOVED","lane":null,"ok":true,"phase":"RECOVERED","step_id":"cleanup-owned-subjects"}

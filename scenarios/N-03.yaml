@@ -1,0 +1,145 @@
+scenario_id: N-03
+version: 1.0.0
+title: 정책 교체 구간에서 어떤 버전에 동의한 것으로 기록되는가
+control_intent: 진행 중 정책이 바뀌어도 지원자가 실제로 읽은 정책 버전에 동의가 정확히 기록되는지 테스트합니다.
+required_capabilities:
+  target.version.read: v1
+  target.environment.read: v1
+  n02.subjects.seed: v1
+  n02.subjects.teardown: v1
+  consent.policy.read: v1
+  consent.commit.write: v1
+  consent.state.read: v1
+preconditions:
+- precondition_id: n03-isolated
+  kind: RUNNER
+  description: 깨끗한 두 소스와 격리 로컬 API·DB, Run 소유 합성 지원자 두 lane(동의 전·동의 완료)을 준비한다.
+steps:
+- step_id: seed-lanes
+  phase: BASELINE
+  action: seed-lanes
+  outputs: []
+  evidence_requirements:
+  - EV9-01
+  - EV9-02
+  always_run: false
+- step_id: submit-stale-consent
+  phase: INJECTED
+  action: submit-stale-consent
+  outputs: []
+  evidence_requirements:
+  - EV9-05
+  always_run: false
+- step_id: reread-and-commit
+  phase: INJECTED
+  action: reread-and-commit
+  outputs: []
+  evidence_requirements:
+  - EV9-05
+  always_run: false
+- step_id: cleanup-owned-subjects
+  phase: RECOVERED
+  action: cleanup-owned-subjects
+  outputs: []
+  evidence_requirements:
+  - EV9-06
+  always_run: true
+assertions:
+- assertion_id: N03-A1
+  description: 이전 정책 식별값의 동의는 거부되고 동의 기록·상태가 바뀌지 않는다
+  expectation:
+    stale_rejected_unchanged: true
+  required_observation_keys: []
+  required_evidence_ids:
+  - EV9-02
+  - EV9-05
+  - EV9-07
+  source_requirements:
+  - V4-N03
+- assertion_id: N03-A2
+  description: 최신 정책 재확인 뒤 동의는 저장되고 식별값이 재확인한 값과 같다
+  expectation:
+    latest_commit_matches: true
+  required_observation_keys: []
+  required_evidence_ids:
+  - EV9-02
+  - EV9-05
+  - EV9-07
+  source_requirements:
+  - V4-N03
+- assertion_id: N03-A3
+  description: 이미 완료된 과거 동의 기록은 바뀌지 않는다
+  expectation:
+    past_record_unchanged: true
+  required_observation_keys: []
+  required_evidence_ids:
+  - EV9-02
+  - EV9-05
+  - EV9-07
+  source_requirements:
+  - V4-N03
+required_evidence:
+- evidence_id: EV9-01
+  description: 시나리오·대상·환경·capability 스냅샷
+  artifact_types:
+  - application/json
+- evidence_id: EV9-02
+  description: lane과 Run 소유 합성 지원자(원시 토큰·쿠키 없음)
+  artifact_types:
+  - application/json
+- evidence_id: EV9-05
+  description: 이전·최신 식별값, 거부 응답, 과거 동의 기록 전후
+  artifact_types:
+  - application/json
+- evidence_id: EV9-06
+  description: 복구·안전 상태·잔여 확인
+  artifact_types:
+  - application/json
+- evidence_id: EV9-07
+  description: 판정과 봉인 manifest
+  artifact_types:
+  - application/json
+timing_policy:
+  poll_seconds: 2
+  environment_restore_deadline_seconds: 120
+  run_deadline_seconds: 540
+  stability_consecutive: 3
+  stability_seconds: 4
+restore_policy:
+  mandatory: true
+  action: n03.owned.cleanup
+  report_processing_result_field: n03.cleanup
+observation_comparators: {}
+source_requirements:
+- V4-N03
+allowed_model_fixtures:
+  n02-analysis-v1: 092de5950a39ba3a7255c8696ffb073cddc65cda4615237044e3d910e32f9828
+excluded_scope:
+- AWS
+- 외부 AI 모델 품질
+- 실행 중 정책 교체·분석 작업 정책 귀속
+schema_version: controlproof.scenario.v9
+execution_profile: N03_STALE_CONSENT_V1
+bundle_profile_contract: controlproof.bundle-profile.spec009.v1
+applicable_assertion_ids:
+- N03-A1
+- N03-A2
+- N03-A3
+lanes:
+- stale
+- past
+target_access:
+- API
+unverified_scope_items:
+- id: N03-U1
+  text: 실행 중 정책 교체 주입
+  follow_up: WhyYou 시험용 정책 교체 수단과 분석 작업 정책 귀속 저장 필드
+- id: N03-U2
+  text: 교체 시점 근접 제출
+  follow_up: WhyYou 시험용 정책 교체 수단과 분석 작업 정책 귀속 저장 필드
+- id: N03-U3
+  text: 분석 작업의 정책 귀속
+  follow_up: WhyYou 시험용 정책 교체 수단과 분석 작업 정책 귀속 저장 필드
+limitations:
+- id: N03-L1
+  text: 이전 정책 식별값은 실제 교체 없이 만든 값

@@ -1,5 +1,12 @@
 # ControlProof
 
+2026-10-20 Spec 009: **N-01·N-03 실제 실행 완료**. N-01 final `d3aac7d9-0a52-4f9a-9c8f-f6e1f7b6de18` PASS(PC·390px 모바일
+동의 화면의 다섯 고지와 정책 식별값; ControlProof 측정 보강 뒤 재테스트, 부모 `48a70f5e…` PASS 보존), N-03 final
+`f27b68e8-0df8-46b3-a198-c7917c2f08bb` PASS(이전 정책 거부·최신 정책 저장·과거 기록 불변; 실행 중 정책 교체는 미검증).
+현재 **12개 관리 / 9개 실제 실행(N-03은 일부 범위) / 0개 NOT_RUN / 3개 NO_TEST_TARGET**. `LOCAL_EMULATED`, 합성 데이터,
+외부 AI 차단, AWS 미검증. [Spec 009 마감 기록](specs/009-n01-n03-notice-scenarios/actual-closure.md).
+아래 공유 열람 명령은 그대로이며, 두 시나리오 기록을 더한 새 공유본은 보성 검토 뒤 확정한다.
+
 2026-10-19 Spec008: **실제 기록 공동 열람 구현**. `fixes-and-remaining-work`의 코드와 공유 기록을 함께 받으면
 7개 완료 시나리오·9개 프로필의 결과·근거·계보를 같은 화면에서 볼 수 있다. 원본 25건/600개 파일을
 `review-data/`에 포함한다. H03/E03도 상세 연결되며, N02 과거 중간 원본 1건의 부재와 원래 INVALID 중단 기록은 명시한다.

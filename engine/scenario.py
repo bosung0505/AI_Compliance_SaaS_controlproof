@@ -12,15 +12,19 @@ from engine.models import (
     SPEC004_FIXTURE_ID,
     SPEC004_PROFILES,
     SPEC004_TIMING_POLICY,
+    SPEC009_PROFILES,
     ComparatorPolicy,
     E01LaneId,
     E02LaneId,
     ExecutionProfile,
     FaultVariant,
+    N01LaneId,
     N02LaneId,
+    N03LaneId,
     Phase,
     ScenarioProfile,
     ScenarioSnapshot,
+    TargetAccessKind,
     canonical_json_bytes,
     sha256_bytes,
 )
@@ -209,6 +213,46 @@ SPEC004_PROFILE_RULES = {
         "preconditions": frozenset({"source-clean", "fixture-spec004", "scoring-source-pinned"}),
     },
 }
+#: Spec 009 (contracts/scenario-profile-v9.md). The model fixture is not called; the harness value pins identity.
+SPEC009_FIXTURES = {"n02-analysis-v1": "092de5950a39ba3a7255c8696ffb073cddc65cda4615237044e3d910e32f9828"}
+SPEC009_FIELDS = frozenset({"target_access", "unverified_scope_items", "limitations"})
+SPEC009_PROFILE_RULES = {
+    ExecutionProfile.N01_NOTICE_V1: {
+        "target_access": (TargetAccessKind.SCREEN, TargetAccessKind.API),
+        "lanes": tuple(N01LaneId),
+        "steps": ("seed-invitations", "open-consent-screens", "complete-consent", "cleanup-owned-subjects"),
+        "capabilities": {
+            "target.version.read": "v1",
+            "target.environment.read": "v1",
+            "applicant.screen.open": "v1",
+            "browser.chromium.available": "v1",
+            "n01.invitations.seed": "v1",
+            "n01.invitations.teardown": "v1",
+            "consent.policy.read": "v1",
+            "consent.state.read": "v1",
+        },
+        "unverified": (),
+        "limitations": (),
+        "forbidden": ("policy swap", "final-decision"),
+    },
+    ExecutionProfile.N03_STALE_CONSENT_V1: {
+        "target_access": (TargetAccessKind.API,),
+        "lanes": tuple(N03LaneId),
+        "steps": ("seed-lanes", "submit-stale-consent", "reread-and-commit", "cleanup-owned-subjects"),
+        "capabilities": {
+            "target.version.read": "v1",
+            "target.environment.read": "v1",
+            "n02.subjects.seed": "v1",
+            "n02.subjects.teardown": "v1",
+            "consent.policy.read": "v1",
+            "consent.commit.write": "v1",
+            "consent.state.read": "v1",
+        },
+        "unverified": ("N03-U1", "N03-U2", "N03-U3"),
+        "limitations": ("N03-L1",),
+        "forbidden": ("viewport", "final-decision"),
+    },
+}
 
 
 class ScenarioError(ValueError):
@@ -273,6 +317,14 @@ class RestorePolicy(ScenarioModel):
     report_processing_result_field: str
 
 
+class ScopeItem(ScenarioModel):
+    """Spec 009 unverified-scope or limitation item (contracts/scenario-profile-v9.md)."""
+
+    id: str
+    text: str
+    follow_up: str | None = None
+
+
 class ScenarioDefinition(ScenarioModel):
     schema_version: str | None = None
     scenario_id: str
@@ -282,7 +334,7 @@ class ScenarioDefinition(ScenarioModel):
     bundle_profile_contract: str | None = None
     applicable_assertion_ids: tuple[str, ...] = ()
     diagnostic_ids: tuple[str, ...] = ()
-    lanes: tuple[N02LaneId | E01LaneId | E02LaneId, ...] = ()
+    lanes: tuple[N02LaneId | E01LaneId | E02LaneId | N01LaneId | N03LaneId, ...] = ()
     title: str
     control_intent: str
     required_capabilities: dict[str, str]
@@ -296,6 +348,9 @@ class ScenarioDefinition(ScenarioModel):
     source_requirements: tuple[str, ...]
     allowed_model_fixtures: dict[str, str]
     excluded_scope: tuple[str, ...] = ()
+    target_access: tuple[TargetAccessKind, ...] = ()
+    unverified_scope_items: tuple[ScopeItem, ...] = ()
+    limitations: tuple[ScopeItem, ...] = ()
 
     @model_validator(mode="after")
     def validate_definition(self) -> ScenarioDefinition:
@@ -307,6 +362,10 @@ class ScenarioDefinition(ScenarioModel):
         evidence_ids = tuple(item.evidence_id for item in self.required_evidence)
         if self.diagnostic_ids and self.execution_profile not in SPEC004_PROFILES:
             raise ValueError("diagnostic_ids are a Spec 004 scenario field")
+        if self.execution_profile not in SPEC009_PROFILES and (
+            self.target_access or self.unverified_scope_items or self.limitations
+        ):
+            raise ValueError("target_access, unverified_scope_items and limitations are Spec 009 fields")
         if self.execution_profile is None:
             if self.schema_version not in {None, "controlproof.scenario.v1"}:
                 raise ValueError("v1 scenario has an unsupported schema_version")
@@ -348,6 +407,8 @@ class ScenarioDefinition(ScenarioModel):
                     or tuple(s.step_id for s in self.steps) != ('prepare-reports','attempt-decisions','observe-decision-state','cleanup-owned-subjects')
                     or not self.steps[-1].always_run):
                 raise ValueError('H-01 fixture/lifecycle contract mismatch')
+        elif self.execution_profile in SPEC009_PROFILES:
+            self._validate_spec009(assertion_ids, evidence_ids)
         elif self.execution_profile in SPEC004_PROFILES:
             self._validate_spec004(assertion_ids, evidence_ids)
         elif self.execution_profile is ExecutionProfile.N02_CONSENT_ORDER_V1:
@@ -489,11 +550,50 @@ class ScenarioDefinition(ScenarioModel):
             if any(term in searchable for term in SPEC004_FORBIDDEN_STEP_TERMS):
                 raise ValueError("N-01/N-03, product deletion and direct version edits are forbidden")
 
+    def _validate_spec009(self, assertion_ids: tuple[str, ...], evidence_ids: tuple[str, ...]) -> None:
+        """Canonical N-01/N-03 contract (contracts/scenario-profile-v9.md)."""
+        assert self.execution_profile is not None
+        canonical = ScenarioProfile.canonical(self.execution_profile)
+        rules = SPEC009_PROFILE_RULES[self.execution_profile]
+        if (
+            self.schema_version != "controlproof.scenario.v9"
+            or self.scenario_id != canonical.scenario_id
+            or self.version != canonical.scenario_version
+            or self.bundle_profile_contract != "controlproof.bundle-profile.spec009.v1"
+            or self.fault_variant is not None
+        ):
+            raise ValueError("Spec 009 scenario identity does not match the v9 contract")
+        if (
+            assertion_ids != canonical.applicable_assertion_ids
+            or self.applicable_assertion_ids != assertion_ids
+            or evidence_ids != canonical.required_evidence
+        ):
+            raise ValueError("Spec 009 assertions or required evidence do not match the v9 contract")
+        if self.lanes != rules["lanes"] or self.target_access != rules["target_access"]:
+            raise ValueError("Spec 009 lanes or target_access do not match the v9 contract")
+        if tuple(step.step_id for step in self.steps) != rules["steps"] or not self.steps[-1].always_run:
+            raise ValueError("Spec 009 ordered steps or final always-run cleanup do not match the v9 contract")
+        if self.allowed_model_fixtures != SPEC009_FIXTURES or self.required_capabilities != rules["capabilities"]:
+            raise ValueError("Spec 009 fixture or required capabilities do not match the v9 contract")
+        if (
+            tuple(item.id for item in self.unverified_scope_items) != rules["unverified"]
+            or any(not item.follow_up for item in self.unverified_scope_items)
+            or tuple(item.id for item in self.limitations) != rules["limitations"]
+            or any(item.follow_up is not None for item in self.limitations)
+        ):
+            raise ValueError("Spec 009 unverified scope or limitation IDs do not match the v9 contract")
+        for step in self.steps:
+            searchable = f"{step.step_id} {step.action}".casefold()
+            if any(term in searchable for term in rules["forbidden"]):
+                raise ValueError("step uses a term forbidden in this Spec 009 profile")
+
     def snapshot(self) -> ScenarioSnapshot:
         spec004 = self.execution_profile in SPEC004_PROFILES
-        # `diagnostic_ids` arrived with Spec 004; excluding it elsewhere keeps every earlier
-        # profile's snapshot digest byte-identical.
+        # `diagnostic_ids` arrived with Spec 004 and the v9 fields with Spec 009; excluding them
+        # elsewhere keeps every earlier profile's snapshot digest byte-identical.
         exclude = set() if spec004 else {"diagnostic_ids"}
+        if self.execution_profile not in SPEC009_PROFILES:
+            exclude |= SPEC009_FIELDS
         if self.execution_profile is None:
             exclude |= {
                 "schema_version",
@@ -503,7 +603,7 @@ class ScenarioDefinition(ScenarioModel):
                 "applicable_assertion_ids",
                 "lanes",
             }
-        elif self.execution_profile not in {ExecutionProfile.N02_CONSENT_ORDER_V1, ExecutionProfile.H01_HUMAN_DECISION_V1, ExecutionProfile.H02_CAPABILITY_SURFACE_V1} and not spec004:
+        elif self.execution_profile not in {ExecutionProfile.N02_CONSENT_ORDER_V1, ExecutionProfile.H01_HUMAN_DECISION_V1, ExecutionProfile.H02_CAPABILITY_SURFACE_V1, *SPEC009_PROFILES} and not spec004:
             exclude |= {"bundle_profile_contract", "lanes"}
         definition = self.model_dump(mode="json", exclude=exclude)
         if spec004:

@@ -494,6 +494,8 @@ class WorkbenchReader:
         view["conditions"] = _conditions(bundle, record, self.catalog.get("condition_labels", {}))
         view["restore"] = _restore(bundle, record, summary, snapshot)
         view["phase_summary"] = _phase_summary(view["steps"], view["conditions"], view["restore"])
+        view["target_access"] = target_access_line(snapshot.get("target_access"))
+        view["scope_items"] = scope_item_lines(snapshot)
         codes = list(summary.get("limitations") or [])
         view["limitations"] = [LIMITATION_LABELS.get(code, code) for code in codes]
         view["developer"]["limitation_codes"] = codes
@@ -720,6 +722,7 @@ class WorkbenchReader:
             "remediation": (latest_view or {}).get("remediation"),
             "test_plan": test_plan(scenario_id, profiles[0]["definition"] if profiles else None),
             "readiness": self._readiness(entry),
+            "target_access": _scenario_target_access(scenario_id, profiles),
         }
 
     def _scenario_profile(self, entry: dict[str, Any], profile: dict[str, Any], runs: list[dict[str, Any]]) -> dict[str, Any]:
@@ -1086,6 +1089,49 @@ def _minute(value: str) -> str:
         return datetime.fromisoformat(value).astimezone(UTC).strftime("%Y-%m-%dT%H:%M")
     except ValueError:
         return value[:16]
+
+
+TARGET_ACCESS_LABELS = {"SCREEN": "화면", "API": "API", "SOURCE": "소스 열람"}
+#: Spec 009 scenarios are read from their YAML even while the catalog lists no profile (before closure).
+_SPEC009_SCENARIO_PROFILES = {"N-01": "N01_NOTICE_V1", "N-03": "N03_STALE_CONSENT_V1"}
+
+
+def target_access_line(kinds: Any) -> str | None:
+    """"화면 + API" for a v9 definition; None when the definition declares no target access (v1~v7)."""
+    if not isinstance(kinds, list) or not kinds:
+        return None
+    return " + ".join(TARGET_ACCESS_LABELS.get(str(kind), str(kind)) for kind in kinds)
+
+
+def scope_item_lines(definition: dict[str, Any]) -> list[str]:
+    """Unverified-scope items with their follow-up condition, then limitations, as sealed in the definition."""
+    lines = []
+    for item in definition.get("unverified_scope_items") or []:
+        if isinstance(item, dict) and item.get("text"):
+            follow_up = f" — 후속 조건: {item['follow_up']}" if item.get("follow_up") else ""
+            lines.append(f"미검증: {item['text']}{follow_up}")
+    for item in definition.get("limitations") or []:
+        if isinstance(item, dict) and item.get("text"):
+            lines.append(f"한계: {item['text']}")
+    return lines
+
+
+def _scenario_target_access(scenario_id: str, profiles: list[dict[str, Any]]) -> str | None:
+    for profile in profiles:
+        line = target_access_line((profile.get("definition") or {}).get("target_access"))
+        if line:
+            return line
+    if scenario_id not in _SPEC009_SCENARIO_PROFILES:
+        return None
+    from engine.cli import _profile_scenario_path
+    from engine.models import ExecutionProfile
+
+    path = _profile_scenario_path(ExecutionProfile(_SPEC009_SCENARIO_PROFILES[scenario_id]))
+    try:
+        raw = yaml.safe_load(path.read_text(encoding="utf-8")) or {}
+    except (OSError, yaml.YAMLError):
+        return None
+    return target_access_line(raw.get("target_access"))
 
 
 def _read_json(path: Path) -> Any:

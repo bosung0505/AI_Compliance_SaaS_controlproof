@@ -14,6 +14,7 @@ from uuid import UUID, uuid4
 
 from pydantic import ValidationError
 
+from engine import spec009_recovery
 from engine.adapters.whyyou.adapter import create_whyyou_adapter
 from engine.config import ConfigError, Settings
 from engine.evidence import display_paths, redact, verify_bundle
@@ -23,6 +24,7 @@ from engine.models import (
     SPEC003_UNVERIFIED_SCOPE,
     SPEC004_PROFILES,
     SPEC004_UNVERIFIED_SCOPE,
+    SPEC009_PROFILES,
     AwsDeploymentStatus,
     EnvironmentKind,
     ExecutionProfile,
@@ -355,6 +357,7 @@ def _retest(args: argparse.Namespace) -> int:
             ExecutionProfile.H03_MINIMAL_V1,
             ExecutionProfile.N02_CONSENT_ORDER_V1,
             *SPEC004_PROFILES,
+            *SPEC009_PROFILES,
         }
         else None
     )
@@ -406,6 +409,15 @@ def _cleanup_confirm(args: argparse.Namespace) -> int:
         )
         if not safe:
             raise CliContractError("N02_SAFE_STATE_NOT_CONFIRMED", "N-02 target safety probe did not pass")
+    elif args.subject in spec009_recovery.BLOCK_SUBJECTS:
+        profile = spec009_recovery.BLOCK_SUBJECTS[args.subject]
+        run_id = _spec009_cleanup_run(blocks, args, evidence, profile)
+        counts = spec009_recovery.recount(settings, run_id=run_id, profile=profile)
+        safe = bool(counts) and not any(counts.values())
+        if not safe:
+            raise CliContractError(
+                "SPEC009_SAFE_STATE_NOT_CONFIRMED", "Spec 009 owned rows remain or could not be counted"
+            )
     elif args.subject in _SPEC004_BLOCK_SUBJECTS:
         profile = _SPEC004_BLOCK_SUBJECTS[args.subject]
         injections = _spec004_cleanup_injections(settings.run_root, blocks, args, profile)
@@ -433,6 +445,24 @@ def _cleanup_confirm(args: argparse.Namespace) -> int:
         run_root=settings.run_root,
     )
     return 0
+
+
+def _spec009_cleanup_run(blocks, args, evidence: bytes, profile: ExecutionProfile) -> str:
+    """The recovery evidence must name the blocked Run and its profile; returns that run_id."""
+    try:
+        record = json.loads(evidence)
+        block = json.loads(blocks.path_for(args.target, args.subject).read_text(encoding="utf-8"))
+        if (
+            record["schema_version"] != spec009_recovery.SCHEMA_VERSION
+            or record["run_id"] != block["run_id"]
+            or record["profile"] != profile.value
+        ):
+            raise ValueError("Spec 009 cleanup evidence does not match the block")
+        return str(block["run_id"])
+    except (OSError, KeyError, TypeError, ValueError, json.JSONDecodeError) as exc:
+        raise CliContractError(
+            "SPEC009_CLEANUP_EVIDENCE_INVALID", "Spec 009 cleanup evidence or block is invalid"
+        ) from exc
 
 
 _SPEC004_BLOCK_SUBJECTS = {
@@ -636,7 +666,7 @@ def _scenario_selection(
     args: argparse.Namespace,
 ) -> tuple[Path, ExecutionProfile]:
     raw_profile = getattr(args, "profile", None)
-    if args.scenario_id in {"E-03", "N-02", "E-01", "E-02"} and raw_profile is None:
+    if args.scenario_id in {"E-03", "N-02", "E-01", "E-02", "N-01", "N-03"} and raw_profile is None:
         raise CliContractError(
             "PROFILE_REQUIRED",
             f"{args.scenario_id} requires an explicit compatible --profile",
@@ -654,6 +684,8 @@ def _scenario_selection(
         "N-02": {ExecutionProfile.N02_CONSENT_ORDER_V1},
         "E-01": {ExecutionProfile.E01_CITATION_EVIDENCE_V1},
         "E-02": {ExecutionProfile.E02_SCORING_FREEZE_V1},
+        "N-01": {ExecutionProfile.N01_NOTICE_V1},
+        "N-03": {ExecutionProfile.N03_STALE_CONSENT_V1},
     }
     if profile not in allowed.get(args.scenario_id, set()):
         raise CliContractError(
@@ -675,6 +707,8 @@ def _profile_scenario_path(profile: ExecutionProfile) -> Path:
         ExecutionProfile.N02_CONSENT_ORDER_V1: root / "N-02.yaml",
         ExecutionProfile.E01_CITATION_EVIDENCE_V1: root / "E-01.yaml",
         ExecutionProfile.E02_SCORING_FREEZE_V1: root / "E-02.yaml",
+        ExecutionProfile.N01_NOTICE_V1: root / "N-01.yaml",
+        ExecutionProfile.N03_STALE_CONSENT_V1: root / "N-03.yaml",
     }[profile]
 
 

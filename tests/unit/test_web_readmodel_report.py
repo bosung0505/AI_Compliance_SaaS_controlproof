@@ -57,7 +57,7 @@ def test_fixed_sentence_is_the_matrix_quote(catalog, tmp_path) -> None:
 
 def test_counts_and_status_rows_copy_the_catalog(catalog, tmp_path) -> None:
     report = _report(catalog, tmp_path / "runs", tmp_path)
-    assert (report["counts"]["PASS"], report["counts"]["FAIL"], report["counts"]["NOT_RUN"]) == (7, 0, 2)
+    assert (report["counts"]["PASS"], report["counts"]["FAIL"], report["counts"]["NOT_RUN"]) == (9, 0, 0)
     assert report["counts"]["INCONCLUSIVE"]["by_reason"]["NO_TEST_TARGET"] == 3
     rows = {row["id"]: row for row in report["catalog_status"]}
     assert len(rows) == 12
@@ -89,9 +89,9 @@ def test_limits_and_unverified_scope(catalog, tmp_path) -> None:
     assert report["other_pc_reproduction"]["status"] == "NOT_VERIFIED"
     assert "보증하지" in report["legal_notice"]["text"]
     unverified = " ".join(report["unverified_scope"])
-    for scenario_id in ("N-01", "N-03", "A-01", "AWS"):
+    for scenario_id in ("N-03", "A-01", "AWS"):
         assert scenario_id in unverified
-    assert 'H-01' not in unverified and 'H-02' not in unverified
+    assert 'H-01' not in unverified and 'H-02' not in unverified and 'N-01' not in unverified
     assert report["claim_scope"] == "EXECUTED_SCENARIO_AND_EVIDENCE_ONLY"
 
 
@@ -110,7 +110,7 @@ def test_failures_lineages_and_expectations(catalog, tmp_path) -> None:
     assert all(item["impact"] for item in report["major_failures"])
     assert {item["scenario_id"] for item in report["lineages"]} == failures
     expectations = {item["scenario_id"] for item in report["scenario_expectations"]}
-    assert expectations == {"H-01", "H-02", "H-03", "E-03", "N-02", "E-01", "E-02"}
+    assert expectations == {"N-01", "N-03", "H-01", "H-02", "H-03", "E-03", "N-02", "E-01", "E-02"}
     n02 = next(item for item in report["evidence_summary"] if item["scenario_id"] == "N-02")
     assert n02["missing"] == []  # accepted actual evidence is complete
     assert n02["records_on_this_pc"] == 0 and n02["official_present"] is False

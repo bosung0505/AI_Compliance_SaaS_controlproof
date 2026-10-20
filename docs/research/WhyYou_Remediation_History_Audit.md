@@ -17,6 +17,13 @@ Validation/Implementation Decisions/actual closure와 이 PC의 봉인 자료로
 | N-02 | 과거검증에서동의없는면접시작/평가처리시작이발견돼WhyYou에동의확인과거부처리추가 | 서비스보호조치수정이력은있음. 최초전체판정은INC/중간자료일부INVALID이며실행기결함과구분. 2026-10-18 최종PASS의최근작업은문서분석테스트모델·환경준비와수집/정리보완. 이번에새동의결함을고쳐PASS로바꾼것이아님 | [Spec003 ID00317~18](../../specs/003-n02-consent-order/implementation-decisions.md), [후속준비범위](../../specs/003-n02-consent-order/analysis-preparation.md), [최종실행](../../specs/003-n02-consent-order/actual-closure.md) |
 | E-02 | 해당시나리오실패를이유로WhyYou보호조치를수정한근거를찾지못함 | 최초A1~A3PASS. 최신통합대상이다른시나리오수정을포함한다고E02문제보완으로분류하지않음. T087 NOT_REQUIRED | [Spec004 ID00434](../../specs/004-e01-e02-score-evidence/implementation-decisions.md), [Spec004 validation](../../specs/004-e01-e02-score-evidence/validation.md) |
 
+2026-10-20 Spec009 추가(연우):
+
+| 시나리오 | 확인한 문제와 보완 | 결과를 읽을 때 주의할 점 | 근거 |
+|---|---|---|---|
+| N-01 | WhyYou 보완 없음. 부모 PASS 뒤 ControlProof 측정이 숨김·투명·조상 잘림·line-clamp를 잡지 못함을 음성 대조로 발견해 ControlProof 측정을 v2로 보강 | 부모`48a70f5e` PASS(측정v1, 보존)→child`d3aac7d9` PASS(측정v2). WhyYou`0166d9e` 그대로. 서비스 보완 사례로 분류하지 않음 | [Spec009 actual closure](../../specs/009-n01-n03-notice-scenarios/actual-closure.md) |
+| N-03 | 해당 없음. 최초 Run PASS | `f27b68e8` PASS. N03-A1~A3만 판정, 정책 교체 주입·분석 작업 귀속은 미검증 범위 | [Spec009 validation](../../specs/009-n01-n03-notice-scenarios/validation.md) |
+
 H02 외 추가서비스보완이력은 H01/H03/E01/E03/N02 다섯 시나리오에서 확인했다.
 E03와N02는단순한'WhyYou수정만으로PASS'가아닌혼합이력이다. H03는두프로필을한시나리오로계산한다.
 이번사용자승인은H02화면반영+타사례조사이므로타사례화면에수정설명을추정확장하지않는다.

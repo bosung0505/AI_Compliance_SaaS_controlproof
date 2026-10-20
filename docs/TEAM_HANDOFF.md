@@ -1,5 +1,11 @@
 # ControlProof 팀 통합 인수인계
 
+2026-10-20 Spec 009 **N-01·N-03 실제 실행 완료**(연우, D-030 closure). N-03 final `f27b68e8-0df8-46b3-a198-c7917c2f08bb` PASS(일부 실행:
+이전 정책 거부·최신 정책 저장·과거 기록 불변, 실행 중 정책 교체는 미검증). N-01 부모 `48a70f5e-aa62-41fc-bf58-3624a6102b4f` PASS(측정 v1,
+보존) → final `d3aac7d9-0a52-4f9a-9c8f-f6e1f7b6de18` PASS(ControlProof 측정 v2 보강 뒤 재테스트, WhyYou 무수정). 세 Run 모두 VERIFIED,
+독립 44개 표 잔여 0. 현재 **12개 관리 / 9개 실제 실행(N-03은 일부 범위) / 0개 NOT_RUN / 3개 NO_TEST_TARGET**. 두 기록을 더한 새 공유본은
+보성 검토 뒤 확정한다. [Spec 009 마감 기록](../specs/009-n01-n03-notice-scenarios/actual-closure.md)
+
 2026-10-19 D-029: **검토한 실제 실행 기록을 함께 공유**하는 정책으로 변경했다.
 Spec008에서 `review-data/` 실제 원본 25건/600개 파일과 공유 읽기 모드를 구현했다. 7개 시나리오·9개 프로필
 대표 최종·주요 계보가 연결된다. 별도 Git clone의 API53개 일치, 근거24개·1280/1024px 화면 검증을 수행했다.
@@ -24,6 +30,10 @@ AI·워커 연결42개 항목을 수집했다. 간접 연결1개와 조회 중 �
 세 경로×다섯 주체15조건 통과, 복구 성공, 독립 읽기 감사44개 테이블 잔여행0·기본 회사/사용자 각1 보존.
 최초 SYSTEM 일괄 이동 FAIL을 보존하고 해당 경로를 수정한 child 결과다. 고정 테스트용 AI이며 AWS/H-02는 미실행.
 현재6개 실제 실행 완료·3개 NOT_RUN·3개 NO_TEST_TARGET. [상세 검증](../specs/006-h01-human-decision/validation.md).
+
+2026-10-19 Spec 009 시작(연우): 남은 `NOT_RUN` 2개(N-01·N-03)를 D-030에 따라 브랜치 `009-n01-n03-notice-scenarios`(`fixes-and-remaining-work` `b76af4c` 기준)에서 준비한다. 1단계(코드·자동 시험·하네스)까지는 공식 상태 `NOT_RUN`과 12/7/2/3을 유지하고, 실제 Run과 숫자 갱신은 2단계 승인 뒤 closure에서 한다. 이전 `006-notice-authority-scenarios` 초안 브랜치는 병합하지 않는다. [Spec 009](../specs/009-n01-n03-notice-scenarios/spec.md)
+
+2026-10-20 Spec 009 **1단계 준비 완료, actual NOT_RUN**(연우): N-01·N-03 프로필·판정·화면 어댑터·시드·정리·실행기·증적·preflight·복구 경로·워크벤치 한 줄·하네스까지 구현했고 자동 시험 1674 passed / 1 skipped, ruff 통과다. 실제 Run·카탈로그 숫자(12/7/2/3)·공유본 재생성은 2단계 승인 뒤 closure에서 한다. [Spec 009 검증 기록](../specs/009-n01-n03-notice-scenarios/validation.md)
 
 현재 후속 통합 브랜치: **`fixes-and-remaining-work`**. 사용자는 2026-10-18 현재 마감 상태의
 커밋·푸시와 향후 수정·남은 작업의 계속 통합을 승인했다. 두 작업 폴더에서 같은 이름을 사용하며,
@@ -78,6 +88,7 @@ EMPTY 조건은 답변이 있지만 점수에 연결하지 않은 입력임을 �
 | Spec 005 | 웹 구현·실제 검증 기록·내부 UX 개편 중 | 공통 디자인을 유지하면서 E-01 조건별 관찰·근거, E-02 설명과 결과 진입을 개선한다. 비작성자 사용성 검토와 전체 converge는 완료로 선언하지 않는다. |
 | Spec 006 / H-01 | Complete — actual·독립 감사·웹 QA·문서 수렴 완료 | final `39a0d317-b36d-4cf1-8b09-aebb404d5891` A1~A6 PASS/VERIFIED17, 독립 DB44개 테이블 잔여행0. 최초 FAIL·중간 판정 불가 보존. |
 | Spec 008 / 실제 기록 공유 | 공동 열람 구현·실제 Git clone 검증 | 원본25건/600파일, 공유 snapshot 검증·읽기 전용 웹. 기존 Run 판정과 source SHA 유지. 새 WhyYou Run/독립 PC 실행/AWS 검증이 아님. |
+| Spec 009 / N-01·N-03 | Complete (LOCAL_EMULATED, N-03 일부 실행) | N-01 final `d3aac7d9…` A1~A3 PASS/VERIFIED17(부모 `48a70f5e…` PASS 보존, 측정 v2), N-03 final `f27b68e8…` A1~A3 PASS/VERIFIED17, 독립 DB44개 테이블 잔여행0. 정책 교체 주입·분석 작업 귀속 미검증. |
 | 실제 AWS | `NOT_RUN` | AWS SQS·ECS·IAM·CloudWatch·운영 네트워크는 검증하지 않았다. |
 | ControlProof 웹 워크벤치 | 로컬 구현됨 | 봉인 결과를 읽기 전용으로 검토한다. 새 Run·재시험은 CLI로 수행한다. |
 | 2주 MVP 전체 | 미완료 | Spec 001·002 완료를 전체 제품 또는 전체 시나리오 완료로 확대하면 안 된다. |

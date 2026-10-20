@@ -2,10 +2,10 @@
 
 from __future__ import annotations
 
-from collections.abc import Mapping
+from collections.abc import Callable, Mapping
 from dataclasses import dataclass, field
 from datetime import datetime
-from typing import Any, Protocol
+from typing import Any, Protocol, runtime_checkable
 
 from engine.models import (
     BusinessEffectSnapshot,
@@ -17,8 +17,11 @@ from engine.models import (
     ConsentStateSnapshot,
     CriteriaVersionSnapshot,
     DecisionPathCapability,
+    ExecutionProfile,
     FaultBoundaryReceipt,
     ModelEmissionReceipt,
+    N01LaneId,
+    N03LaneId,
     ProcessingAttemptReceipt,
     ProtectedEffectSnapshot,
     ProtectedProcessingPath,
@@ -30,6 +33,7 @@ from engine.models import (
     ReportReadSnapshot,
     ReportRecordSnapshot,
     RunSubjectLane,
+    Spec009SubjectLane,
     TargetEnvironmentSnapshot,
     TargetSnapshot,
 )
@@ -109,6 +113,41 @@ class BrowserAdapter(Protocol):
     def capture_review(self, *, subject: Mapping[str, Any]) -> AdapterResult: ...
 
     def close(self) -> None: ...
+
+
+@runtime_checkable
+class ApplicantBrowserPort(Protocol):
+    """Spec 009 N-01: open the applicant consent step at one viewport and measure the notices."""
+
+    def observe_consent(
+        self,
+        *,
+        subject: Mapping[str, Any],
+        viewport: Mapping[str, int],
+        fragment_builder: Callable[[Mapping[str, Any]], Mapping[str, list[tuple[str, str]]]],
+        display_name: str,
+    ) -> AdapterResult: ...
+
+    def close(self) -> None: ...
+
+
+@runtime_checkable
+class Spec009SeedPort(Protocol):
+    """Spec 009 N-01/N-03: Run-scoped lanes, owned-row teardown and a residue recount."""
+
+    def seed_lanes(
+        self, *, run_id: str, profile: ExecutionProfile
+    ) -> tuple[Spec009SubjectLane, ...] | AdapterResult: ...
+
+    def subject_for(self, *, run_id: str, lane_id: N01LaneId | N03LaneId) -> dict[str, Any]: ...
+
+    def display_name_for(self, *, run_id: str, lane_id: N01LaneId | N03LaneId) -> str: ...
+
+    def read_consent_facts(self, *, subject: Mapping[str, Any]) -> AdapterResult: ...
+
+    def teardown_lanes(
+        self, *, run_id: str, lanes: tuple[Spec009SubjectLane, ...]
+    ) -> AdapterResult: ...
 
 
 class Clock(Protocol):
@@ -388,3 +427,6 @@ class AdapterSet:
     spec004_versions: CriteriaVersionAdapter | None = None
     spec004_emissions: ModelEmissionAdapter | None = None
     spec004_scoring_source: ScoringSourceAdapter | None = None
+    applicant_browser: ApplicantBrowserPort | None = None
+    spec009_seed: Spec009SeedPort | None = None
+    spec009_consent: ConsentAdapter | None = None

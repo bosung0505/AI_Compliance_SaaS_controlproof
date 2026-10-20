@@ -85,6 +85,8 @@ class Presence(StrEnum):
 class ExecutionProfile(StrEnum):
     H02_CAPABILITY_SURFACE_V1 = "H02_CAPABILITY_SURFACE_V1"
     H01_HUMAN_DECISION_V1 = "H01_HUMAN_DECISION_V1"
+    N01_NOTICE_V1 = "N01_NOTICE_V1"
+    N03_STALE_CONSENT_V1 = "N03_STALE_CONSENT_V1"
     H03_MINIMAL_V1 = "H03_MINIMAL_V1"
     H03_DLQ_V2 = "H03_DLQ_V2"
     E03_BEFORE_V2 = "E03_BEFORE_V2"
@@ -97,6 +99,12 @@ class ExecutionProfile(StrEnum):
 SPEC004_PROFILES = frozenset(
     {ExecutionProfile.E01_CITATION_EVIDENCE_V1, ExecutionProfile.E02_SCORING_FREEZE_V1}
 )
+#: Spec 009 (contracts/scenario-profile-v9.md): the only profiles that carry v9 scenario fields.
+SPEC009_PROFILES = frozenset({ExecutionProfile.N01_NOTICE_V1, ExecutionProfile.N03_STALE_CONSENT_V1})
+N01_ASSERTIONS = ("N01-A1", "N01-A2", "N01-A3")
+N03_ASSERTIONS = ("N03-A1", "N03-A2", "N03-A3")
+N01_EVIDENCE = ("EV9-01", "EV9-02", "EV9-03", "EV9-04", "EV9-06", "EV9-07")
+N03_EVIDENCE = ("EV9-01", "EV9-02", "EV9-05", "EV9-06", "EV9-07")
 #: Spec 004 timing (contracts/scenario-profile-v4.md): N-02 values without a fault marker TTL.
 SPEC004_TIMING_POLICY = {
     "poll_seconds": 2,
@@ -173,6 +181,24 @@ class E01LaneId(StrEnum):
 class E02LaneId(StrEnum):
     E02_FIRST_APPLICANT = "E02_FIRST_APPLICANT"
     E02_SECOND_APPLICANT = "E02_SECOND_APPLICANT"
+
+
+class N01LaneId(StrEnum):
+    PC = "pc"
+    MOBILE = "mobile"
+
+
+class N03LaneId(StrEnum):
+    STALE = "stale"
+    PAST = "past"
+
+
+class TargetAccessKind(StrEnum):
+    """Access a Spec 009 judgement needs (spec FR-005); declaration order is the canonical list order."""
+
+    SCREEN = "SCREEN"
+    API = "API"
+    SOURCE = "SOURCE"
 
 
 class BaselineKind(StrEnum):
@@ -340,6 +366,11 @@ class ScenarioProfile(FrozenModel):
             return cls(execution_profile=profile, scenario_id='H-01', scenario_version='1.0.0',
                        fault_variant=None, applicable_assertion_ids=tuple(f'H01-A{i}' for i in range(1,7)),
                        required_evidence=tuple(f'EV6-{i:02d}' for i in range(1,7)), timing_policy={})
+        if profile in SPEC009_PROFILES:
+            n01 = profile is ExecutionProfile.N01_NOTICE_V1
+            return cls(execution_profile=profile, scenario_id='N-01' if n01 else 'N-03', scenario_version='1.0.0',
+                       fault_variant=None, applicable_assertion_ids=N01_ASSERTIONS if n01 else N03_ASSERTIONS,
+                       required_evidence=N01_EVIDENCE if n01 else N03_EVIDENCE, timing_policy={})
         timing = {
             "poll_seconds": 2,
             "dlq_deadline_seconds": 360,
@@ -448,6 +479,8 @@ class ScenarioProfile(FrozenModel):
         canonical = {
             ExecutionProfile.H02_CAPABILITY_SURFACE_V1: ('H-02', None, tuple(f'H02-A{i}' for i in range(1,7))),
             ExecutionProfile.H01_HUMAN_DECISION_V1: ('H-01', None, tuple(f'H01-A{i}' for i in range(1,7))),
+            ExecutionProfile.N01_NOTICE_V1: ('N-01', None, N01_ASSERTIONS),
+            ExecutionProfile.N03_STALE_CONSENT_V1: ('N-03', None, N03_ASSERTIONS),
             ExecutionProfile.H03_MINIMAL_V1: ("H-03", None, tuple(f"H03-A{i}" for i in range(1, 7))),
             ExecutionProfile.H03_DLQ_V2: (
                 "H-03",
@@ -907,6 +940,33 @@ class RunSubjectLane(FrozenModel):
         return self
 
 
+class Spec009SubjectLane(FrozenModel):
+    """Spec 009 seeded lane; its dump is the subject mapping the consent adapter reads."""
+
+    schema_version: str = "controlproof.spec009-subject-lane.v1"
+    run_id: UUID
+    lane_id: N01LaneId | N03LaneId
+    subject_ref: str
+    invitation_id: UUID
+    applicant_id: UUID
+    seed_kind: Literal["invited-token", "identity-verified-session"]
+    trace_namespace: str
+    seed_correlation_id: str
+
+    @model_validator(mode="after")
+    def validate_lane(self) -> Spec009SubjectLane:
+        expected_kind = (
+            "invited-token" if isinstance(self.lane_id, N01LaneId) else "identity-verified-session"
+        )
+        if self.seed_kind != expected_kind:
+            raise ValueError("seed_kind does not match the lane's profile")
+        if self.trace_namespace != f"controlproof:{self.run_id}:{self.lane_id.value}":
+            raise ValueError("trace_namespace must bind the Run and lane")
+        if not self.subject_ref.strip() or not self.seed_correlation_id.strip():
+            raise ValueError("lane identity fields must be non-empty")
+        return self
+
+
 class ProtectedProcessingPath(FrozenModel):
     schema_version: str = "controlproof.n02-processing-path.v1"
     path_id: ProtectedPathId
@@ -964,7 +1024,8 @@ class ConsentPolicySnapshot(FrozenModel):
 class ConsentStateSnapshot(FrozenModel):
     schema_version: str = "controlproof.n02-consent-state.v1"
     run_id: UUID
-    lane_id: N02LaneId
+    # Spec 009 reuses this projection for N-01/N-03 lanes; N-02 values serialize unchanged.
+    lane_id: N02LaneId | N01LaneId | N03LaneId
     subject_ref: str
     phase: Phase
     step_id: str
@@ -1832,6 +1893,15 @@ class Run(FrozenModel):
             or self.fault_variant is not None
         ):
             raise ValueError("H01 Run requires canonical local source/environment identity")
+        if self.execution_profile in SPEC009_PROFILES and (
+            self.scenario_id != ("N-01" if self.execution_profile is ExecutionProfile.N01_NOTICE_V1 else "N-03")
+            or self.scenario_version != "1.0.0"
+            or self.environment_kind is not EnvironmentKind.LOCAL_EMULATED
+            or self.aws_deployment_status is not AwsDeploymentStatus.NOT_RUN
+            or not _is_sha(self.environment_snapshot_digest)
+            or self.fault_variant is not None
+        ):
+            raise ValueError("Spec 009 Run requires canonical local source/environment identity")
         spec002_profiles = {
             ExecutionProfile.H03_DLQ_V2,
             ExecutionProfile.E03_BEFORE_V2,
