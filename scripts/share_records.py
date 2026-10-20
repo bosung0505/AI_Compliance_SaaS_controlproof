@@ -16,6 +16,7 @@ def main(argv: list[str] | None = None) -> int:
     parser.add_argument("--out", type=Path)
     parser.add_argument("--reviewed-png", action="append", default=[])
     parser.add_argument("--preserve-invalid", action="append", default=[])
+    parser.add_argument("--snapshot-id", default="shared-actual-20261019")
     args = parser.parse_args(argv)
     if args.verify:
         snapshot = load_snapshot(args.verify)
@@ -44,6 +45,7 @@ def main(argv: list[str] | None = None) -> int:
             args.out,
             reviewed_pngs=set(args.reviewed_png),
             expected_invalid=set(args.preserve_invalid),
+            snapshot_id=args.snapshot_id,
         )
     print(
         f"{snapshot['snapshot_id']} records={len(snapshot['records'])} missing={len(snapshot['missing_records'])} sha256={snapshot['snapshot_digest']}"

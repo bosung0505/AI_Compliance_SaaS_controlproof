@@ -23,11 +23,12 @@ def _records() -> list[dict]:
     return json.loads(SNAPSHOT.read_text(encoding="utf-8"))["records"] if SNAPSHOT.is_file() else []
 
 
-def test_snapshot_lists_twenty_five_records() -> None:
+def test_snapshot_lists_twenty_eight_records() -> None:
+    """25 records of `shared-actual-20261019` byte-for-byte plus N-01 parent/final and N-03 final (Spec 009 closure)."""
     records = _records()
-    assert len(records) == 25
+    assert len(records) == 28
     statuses = [record["verification"]["bundle_status"] for record in records]
-    assert statuses.count("VERIFIED") == 24 and statuses.count("INVALID") == 1
+    assert statuses.count("VERIFIED") == 27 and statuses.count("INVALID") == 1
 
 
 @pytest.mark.parametrize("record", _records(), ids=lambda record: record["run_id"])

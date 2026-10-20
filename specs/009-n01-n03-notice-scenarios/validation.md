@@ -149,6 +149,21 @@ PC는 오른쪽에 INTERVIEW BRIEF 카드가, 모바일은 동의 카드 아래�
   시험 이름은 출력에 남지 않았고, 같은 코드로 다시 돌린 2회차는 시스템 메모리 부족으로 중단, 스택을 내린 뒤 3회차는 317 passed /
   6 xfailed로 실패가 없었다. 원인은 확인하지 못했다.
 
+## 공유본 제안과 새 checkout 확인 (2026-10-20)
+
+`scripts.share_records`로 기존 `review-data/bundles` 25건과 `cp-local\spec009-local\s009\runs`의 세 건을 새 폴더에 다시 구성했다
+(`--snapshot-id shared-actual-20261020`, `--preserve-invalid ce5f2750…`, 검토 PNG는 기존 공유본의 H03 PNG 1종과 N-01 캡처 4장).
+결과 `shared-actual-20261020 records=28 missing=1 sha256=0c51f56e67f753047635399c2c66ee146cd7f3d520d05195171910c0e62068ee`, 652개 파일.
+이전 snapshot의 25건은 record(파일 해시·무결성 상태·메타데이터)와 바이트 모두 차이 0, 새 세 건은 VERIFIED이고 원본과 바이트가
+같다. 누락 기록(N-02 `7b59237e…`) 메모는 그대로다. 세 bundle의 문자열 검사에서 세션 쿠키·초대 토큰 키·접근 경로는 0건이다.
+review-data에는 snapshot.json과 새 세 폴더만 더했다. 커밋 `cbdc716`을 `git worktree add … --detach`로 별도 폴더에 꺼내 원래
+`.venv` Python으로 `scripts.share_records --verify`를 실행했고(`engine.__file__`이 그 폴더를 가리킴) 같은 출력을 얻었다. 같은
+폴더에서 `engine.web --shared-snapshot review-data/snapshot.json --port 8768`을 띄워 `/`, `/scenarios/N-01`, `/scenarios/N-03`, 세
+Run 결과 화면, `/compare/d3aac7d9…`가 모두 HTTP 200이었다. 대상 접근 줄은 N-01 화면들에 "화면 + API", N-03 화면들에 "API"로
+보였고 N-03 결과 화면에 미검증·한계 네 줄이 있었다. 어느 화면에도 WhyYou 코드 보완 문구는 없었다. 서버를 내리고 확인용 worktree를
+지웠다. 이 공유본은 보성 검토 전 제안본이다. Closure 전체 자동 시험: 1700 passed, 1 skipped(unit 744, contract 525/1 skipped,
+integration 321, web 92, 폴더 밖 두 파일 18), ruff 통과.
+
 ## 범위
 
 - 1단계 gate(위 자동 시험)는 fake adapter·fake 트랜잭션으로만 돌았고 WhyYou·DB·브라우저·Docker에 접속하지 않았다.
