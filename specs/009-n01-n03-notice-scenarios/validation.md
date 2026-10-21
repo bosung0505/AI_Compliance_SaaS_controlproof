@@ -164,6 +164,27 @@ Run 결과 화면, `/compare/d3aac7d9…`가 모두 HTTP 200이었다. 대상 �
 지웠다. 이 공유본은 보성 검토 전 제안본이다. Closure 전체 자동 시험: 1700 passed, 1 skipped(unit 744, contract 525/1 skipped,
 integration 321, web 92, 폴더 밖 두 파일 18), ruff 통과.
 
+## closure 후속 (2026-10-20)
+
+브랜치 `009-closure-followups`(`f5d0e5e`에서). Run·설치·WhyYou 수정 없음, `review-data/bundles` 28건 바이트 불변.
+
+- 하네스 이식성: `scripts/spec009_local.py`의 지원자 앱 기동이 `getattr(subprocess, "CREATE_NO_WINDOW", 0)`을 쓴다. Windows 동작은
+  같고, 상수가 없는 환경에서는 `creationflags=0`으로 기동한다(`tests/unit/test_spec009_local_setup.py`에 상수를 지운 시험 1개).
+  scripts/는 공유본이 고정하지 않으므로 이 수정 뒤에도 `share_records --verify`는 `shared-actual-20261020`으로 통과했다.
+- N-03 시나리오 화면: 실행된 N-03의 시나리오 화면(`/scenarios/N-03`)에 "대상 접근" 줄 아래로 결과 화면과 같은 형식의 미검증 세 줄
+  (문구 — 후속 조건)과 한계 N03-L1을 보인다. 값은 `scenarios/N-03.yaml`의 `unverified_scope_items`·`limitations`에서 대상 접근과
+  같은 경로로 읽고, 실행 상태와 무관하다. N-01·H-01·E-01 시나리오 화면에는 없다. NOT_RUN 표시 로직은 그대로다. 시험은
+  `tests/web/test_spec009_display.py`에 RED 먼저(세 줄·후속 조건·한계, 다른 화면 부재, HTML 이스케이프 — 5개).
+- 공유본: 표시 코드가 바뀌어 `shared-actual-20261020-r2`를 새로 만들었다. 원천은 `review-data/bundles` 28건 그대로(`--run-root
+  review-data/bundles`, 카탈로그 밖 두 건 `691abd8a…`·`ce5f2750…`는 같은 폴더를 `--bundle`로), `--preserve-invalid ce5f2750…`,
+  검토 PNG는 직전 snapshot.json 기록의 PNG 해시 5종 그대로. 결과
+  `shared-actual-20261020-r2 records=28 missing=1 sha256=8e88ccf5bcccce7a870124cbd711b1ebe38e3fceab1c6c4484783e05d9e18bcb`.
+  직전 snapshot과 비교: 28건 record(files·hashes·verification·메타) 차이 0, missing_records(N-02 `7b59237e…`)·target 같음,
+  bundle 652개 파일 바이트 차이 0. 바뀐 최상위 키는 `snapshot_id`·`display_files`(`engine/web/readmodel.py`,
+  `engine/web/templates/scenario.html` 두 항목)·`snapshot_digest`, 그리고 빌드 시각 `reviewed_at`이다.
+- 자동 시험: 폴더별 1706 passed, 1 skipped(unit 745, contract 525/1 skipped, integration 321, web 97, 폴더 밖 두 파일 18), ruff 통과.
+  web 폴더는 이번 실행에서 46분이 걸렸다(원인 미조사).
+
 ## 범위
 
 - 1단계 gate(위 자동 시험)는 fake adapter·fake 트랜잭션으로만 돌았고 WhyYou·DB·브라우저·Docker에 접속하지 않았다.

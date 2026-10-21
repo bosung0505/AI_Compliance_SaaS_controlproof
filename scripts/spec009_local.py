@@ -81,7 +81,7 @@ def start_applicant_app(state: dict, *, timeout_seconds: int = APP_READY_SECONDS
             env=environment(state, for_cp=False),
             stdout=stream,
             stderr=subprocess.STDOUT,
-            creationflags=subprocess.CREATE_NO_WINDOW,
+            creationflags=getattr(subprocess, "CREATE_NO_WINDOW", 0),
         )
     # Same ownership record as the base harness, so `stop` re-checks creation time and ends it.
     state["pending_process"] = {"name": "applicant_app", "pid": process.pid}

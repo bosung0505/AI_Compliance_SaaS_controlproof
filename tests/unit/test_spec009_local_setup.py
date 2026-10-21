@@ -137,7 +137,7 @@ def test_applicant_app_runs_as_one_node_process_and_is_recorded(tmp_path, monkey
     why = tmp_path / "whyyou"
     assert argv == ["C:/node/node.exe", str(why / "node_modules" / "vite" / "bin" / "vite.js"), "--strictPort"]
     assert kwargs["cwd"] == why / "apps" / "applicant-interview"
-    assert kwargs["creationflags"] == subprocess.CREATE_NO_WINDOW
+    assert kwargs["creationflags"] == getattr(subprocess, "CREATE_NO_WINDOW", 0)
     assert kwargs["stderr"] == subprocess.STDOUT
     assert state["processes"]["applicant_app"] == {"ProcessId": 4242, "ParentProcessId": 1, "Created": "t1"}
     assert state["processes"]["api"]["ProcessId"] == 11  # existing roots kept, so `stop` ends both
@@ -145,6 +145,15 @@ def test_applicant_app_runs_as_one_node_process_and_is_recorded(tmp_path, monkey
     saved = json.loads((tmp_path / "evidence" / "state.json").read_text(encoding="utf-8"))
     assert saved["processes"]["applicant_app"]["ProcessId"] == 4242 and "pending_process" not in saved
     assert (tmp_path / "evidence" / "boot-test" / "applicant_app.log").exists()
+
+def test_applicant_app_starts_where_create_no_window_is_unavailable(tmp_path, monkeypatch) -> None:
+    """The constant exists only on Windows; elsewhere the launch passes creationflags=0."""
+    state, popen = _launch(tmp_path, monkeypatch)
+    monkeypatch.delattr(subprocess, "CREATE_NO_WINDOW", raising=False)
+    spec009_local.start_applicant_app(state)
+    (_argv, kwargs), = popen
+    assert kwargs["creationflags"] == 0
+    assert state["processes"]["applicant_app"]["ProcessId"] == 4242
 
 
 @pytest.mark.parametrize(("node", "vite"), [(None, True), ("C:/node/node.exe", False)])

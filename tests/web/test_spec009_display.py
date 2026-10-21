@@ -112,3 +112,39 @@ def test_scope_lines_are_escaped_when_rendered(site) -> None:
         lines=lines
     )
     assert "<script>" not in rendered and "&lt;script&gt;" in rendered and "a &amp; b" in rendered
+
+
+def test_n03_scenario_screen_lists_unverified_items_and_limitation_below_target_access(site) -> None:
+    """Closure follow-up: the executed N-03 scenario screen shows its unverified scope, read from scenarios/N-03.yaml."""
+    body = _page(site, "/scenarios/N-03")
+    access = '<p class="target-access">대상 접근: API</p>'
+    lines = [html.escape(f"미검증: {item.text} — 후속 조건: {item.follow_up}", quote=False) for item in N03.unverified_scope_items]
+    assert len(lines) == 3
+    for line in lines:
+        assert f'<li class="scope-item">{line}</li>' in body
+        assert body.index(access) < body.index(line)
+    assert '<li class="scope-item">한계: 이전 정책 식별값은 실제 교체 없이 만든 값' in body
+    assert body.count('<li class="scope-item">') == 4
+
+
+@pytest.mark.parametrize("path", ["/scenarios/N-01", "/scenarios/H-01", "/scenarios/E-01"])
+def test_other_scenario_screens_have_no_scope_items(site, path) -> None:
+    body = _page(site, path)
+    assert 'class="scope-item"' not in body and "후속 조건:" not in body
+
+
+def test_scenario_screen_scope_items_are_escaped(site, tmp_path, monkeypatch) -> None:
+    import engine.cli
+
+    source = tmp_path / "N-03.yaml"
+    source.write_text(
+        "target_access: [API]\n"
+        "unverified_scope_items:\n- {id: X, text: '<script>x</script>', follow_up: 'a & b'}\n"
+        "limitations:\n- {id: L, text: '<b>l</b>'}\n",
+        encoding="utf-8",
+    )
+    monkeypatch.setattr(engine.cli, "_profile_scenario_path", lambda profile: source)
+    body = _page(site, "/scenarios/N-03")
+    assert "<script>x</script>" not in body and "<b>l</b>" not in body
+    assert '<li class="scope-item">미검증: &lt;script&gt;x&lt;/script&gt; — 후속 조건: a &amp; b</li>' in body
+    assert '<li class="scope-item">한계: &lt;b&gt;l&lt;/b&gt;</li>' in body
