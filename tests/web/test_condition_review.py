@@ -7,7 +7,7 @@ def test_e01_conditions_open_all_sources_without_losing_the_run(screen, demo_sit
     run_id = find_run(demo_site.demo_root, "E-01", verdict="PASS")
     screen.goto(f"{demo_site.url}/demo/runs/{run_id}")
     review = screen.locator("[data-testid=condition-review]")
-    assert review.locator("tr.observation-row").count() == 7
+    assert review.locator(".service-observation").count() == 7
     assert "규칙 4개" in screen.locator("[data-testid=plain-explanation]").inner_text()
     assert no_overflow(screen)
     row = screen.locator("#condition-other-applicant")
@@ -32,13 +32,14 @@ def test_e01_conditions_open_all_sources_without_losing_the_run(screen, demo_sit
     assert screen.locator("#proof-other-applicant").is_visible()
 
 
-def test_scenario_recent_result_is_reachable_at_the_top(screen, demo_site):
+def test_scenario_history_and_profile_results_remain_reachable(screen, demo_site):
     screen.goto(f"{demo_site.url}/demo/scenarios/E-01")
-    recent = screen.locator("[data-testid=latest-result]")
-    assert recent.is_visible()
+    profiles = screen.locator(".profile-results")
+    assert profiles.is_visible()
     assert "다른 지원자" in screen.locator(".condition-chips").inner_text()
     assert no_overflow(screen)
-    assert recent.bounding_box()["y"] < 600
-    assert screen.locator("#runs").bounding_box()["y"] < screen.locator("[data-testid=run-guide]").bounding_box()["y"]
-    recent.locator("a").click()
+    # DEMO has no official ACTUAL representative; select its actual synthetic ID from its history.
+    screen.locator('a[href="#runs"]').click()
+    assert screen.locator("#runs").get_attribute("open") is not None
+    screen.locator("#runs .history-row a").first.click()
     assert "/demo/runs/" in screen.url

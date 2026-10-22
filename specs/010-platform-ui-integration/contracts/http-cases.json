@@ -1,0 +1,1124 @@
+{
+  "format_version": 1,
+  "purpose": "Spec010 HTTP navigation and PNG contract case inputs; not production API schema",
+  "baseline_commit": "fb219d0c6923c6be09691fcae0ead670f9700b39",
+  "validation_status": "NOT_EXECUTED",
+  "execution_note": "Prepared data-driven cases only. Existing regression cases must be connected to the current server harness; future cases require implementation. No endpoint PASS is claimed.",
+  "fixture_rules": [
+    "All tamper, missing-file, path, link and invalid-PNG fixtures use isolated temporary copies, never original review-data or local Runs.",
+    "SHARED_VALID means a verified matching-code snapshot with reviewed PNG tuples. A changed display context requires a newly reviewed candidate snapshot.",
+    "LOCAL_APPROVED and DEMO_APPROVED mean independent trusted PNG tuple allowlists; absent allowlist is deny by default.",
+    "Placeholders in request paths are substituted from the selected fixture, never interpreted as filesystem paths.",
+    "Read-only assertions compare files, readiness calls and memo store access before and after requests; response status alone is insufficient."
+  ],
+  "cases": [
+    {
+      "id": "HTTP-01",
+      "coverage": "EXISTING_REGRESSION",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "root remains workbench dashboard",
+          "snapshot identity and KST review time are present",
+          "no readiness or memo store access"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-02",
+      "coverage": "EXISTING_REGRESSION",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/demo"
+      },
+      "expected": {
+        "status": 301,
+        "location": "/demo/",
+        "assertions": [
+          "existing redirect preserved"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-03",
+      "coverage": "EXISTING_REGRESSION",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/api/workbench"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "schema_version remains controlproof.web.v1",
+          "existing fields and semantics preserved",
+          "12 scenarios; EXECUTED=9 NO_TEST_TARGET=3; absent NOT_RUN key interpreted as 0; existing treatment_counts keyset preserved",
+          "N-03 partial scope preserved"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-04",
+      "coverage": "EXISTING_REGRESSION",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/api/scenarios/N-01"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "v1 baseline response field/value parity",
+          "parent PASS measurement-v1 and child PASS measurement-v2 remain distinct"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-05",
+      "coverage": "EXISTING_REGRESSION",
+      "fixture": "SHARED_INVALID_RUN",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{invalid_run_id}"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "INVALID is shown without promoting to PASS",
+          "sealed run state and verdict preserved"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-06",
+      "coverage": "EXISTING_REGRESSION",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/scenarios/N-99"
+      },
+      "expected": {
+        "status": 404,
+        "code": "SCENARIO_NOT_FOUND",
+        "assertions": [
+          "no fallback to N-02"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-07",
+      "coverage": "EXISTING_REGRESSION",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/runs/unknown"
+      },
+      "expected": {
+        "status": 404,
+        "code": "RUN_NOT_FOUND",
+        "assertions": [
+          "no latest-run fallback"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-08",
+      "coverage": "EXISTING_REGRESSION",
+      "fixture": "LOCAL_VALID",
+      "request": {
+        "method": "POST",
+        "path": "/preflight",
+        "form": {
+          "scenario_id": "N-01",
+          "execution_profile": "N01_NOTICE_V1",
+          "csrf_token": "invalid"
+        }
+      },
+      "expected": {
+        "status": 403,
+        "code": "CSRF_TOKEN_MISMATCH",
+        "assertions": [
+          "preflight not called"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-09",
+      "coverage": "EXISTING_REGRESSION",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "POST",
+        "path": "/preflight",
+        "form": {
+          "csrf_token": "valid"
+        }
+      },
+      "expected": {
+        "status": 403,
+        "code": "SHARED_READ_ONLY",
+        "assertions": [
+          "preflight not called"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-10",
+      "coverage": "EXISTING_REGRESSION",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "POST",
+        "path": "/runs/{valid_run_id}/memos",
+        "form": {
+          "csrf_token": "valid",
+          "author": "synthetic reviewer",
+          "text": "test"
+        }
+      },
+      "expected": {
+        "status": 403,
+        "code": "SHARED_READ_ONLY",
+        "assertions": [
+          "memo store not read or written"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-11",
+      "coverage": "EXISTING_REGRESSION",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/api/workbench",
+        "headers": {
+          "Host": "untrusted.example"
+        }
+      },
+      "expected": {
+        "status": 421,
+        "code": "HOST_NOT_ALLOWED",
+        "assertions": [
+          "existing Host boundary remains"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-12",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/product"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "service introduction",
+          "ACTUAL and DEMO entry links are separate",
+          "no legal certification or continuous-monitoring claim"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-13",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/guide"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "guide checklist does not claim READY or execution approval",
+          "GET has no persistence or preflight side effect"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-14",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/results",
+        "navigation_context": {
+          "previous_url": "/results?q=score&control=E&status=PASS&treatment=EXECUTED",
+          "trigger": "dashboard whole-results link"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "all 12 items once",
+          "empty q and ALL status/treatment",
+          "groups N H A E; numeric scenario order",
+          "no storage-based filter carryover"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-15",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/results?control=N",
+        "navigation_context": {
+          "trigger": "N criterion card"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "only N-01 N-02 N-03 match",
+          "old q/status/treatment removed",
+          "N-03 partial scope remains visible"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-16",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/results?q=%20n-01%20&status=PASS&treatment=EXECUTED"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "q trimmed and casefold matches ID",
+          "all filters are AND",
+          "N-01 matches"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-17",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/results?control=A&status=PASS"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "zero matching items without fabricated record",
+          "valid empty-state and reset link"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-18",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/results?status=INCONCLUSIVE&treatment=NO_TEST_TARGET"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "A-01 A-02 A-03 match using separate result/reason/treatment axes",
+          "NO_TEST_TARGET not a new result enum"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-19",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/results?control=n"
+      },
+      "expected": {
+        "status": 400,
+        "code": "RESULT_FILTER_INVALID",
+        "assertions": [
+          "invalid enum is not silently widened to all"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-20",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/results?control=N&control=N"
+      },
+      "expected": {
+        "status": 400,
+        "code": "RESULT_FILTER_INVALID",
+        "assertions": [
+          "duplicate keys rejected even when equal"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-21",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/results?mode=LOCAL"
+      },
+      "expected": {
+        "status": 400,
+        "code": "RESULT_FILTER_INVALID",
+        "assertions": [
+          "unknown key rejected",
+          "query cannot switch server mode"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-22",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/results?q=%FF"
+      },
+      "expected": {
+        "status": 400,
+        "code": "RESULT_FILTER_INVALID",
+        "assertions": [
+          "invalid UTF-8 rejected"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-23",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/results?q=%GG"
+      },
+      "expected": {
+        "status": 400,
+        "code": "RESULT_FILTER_INVALID",
+        "assertions": [
+          "invalid percent escape rejected"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-24",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path_template": "/results?q={q}",
+        "parameters": {
+          "q": {
+            "generator": "repeat",
+            "text": "가",
+            "count": 201
+          }
+        }
+      },
+      "expected": {
+        "status": 400,
+        "code": "RESULT_FILTER_INVALID",
+        "assertions": [
+          "limit counted after trim in Unicode code points"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-25",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/results?q=%3Cscript%3Ealert(1)%3C%2Fscript%3E"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "query text is escaped in HTML",
+          "no executable markup or unsafe-inline policy"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-26",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "DEMO_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/demo/results",
+        "navigation_context": {
+          "previous_url": "/demo/results?control=H&q=old",
+          "trigger": "whole-results"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "DEMO indication persists",
+          "query reset",
+          "no ACTUAL record mixed"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-27",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/prepare"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "shared read-only preparation explanation",
+          "no local readiness or memo access",
+          "no preflight execution"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-28",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "LOCAL_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/prepare"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "existing local readiness displayed with check timestamp",
+          "GET does not run checks",
+          "no Run/retest/cleanup action"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-29",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "DEMO_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/demo/prepare"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "synthetic DEMO information only",
+          "no actual preflight or memo action"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-30",
+      "coverage": "EXISTING_REGRESSION",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/api/workbench?q=N-01&control=N"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "existing API v1 unchanged by new HTML-only query contract",
+          "same full workbench projection apart from allowed generated timestamp"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-31",
+      "coverage": "EXISTING_REGRESSION",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/api/compare/{n01_child_run_id}"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "requested N-01 child and actual parent",
+          "measurement-v2 CP correction not invented WhyYou fix",
+          "v1 field/value parity"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-32",
+      "coverage": "EXISTING_REGRESSION",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/api/report"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "v1 report fields preserved",
+          "N-03 A1-A3 scope, unverified items and follow-up preserved"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-33",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/results?q=&control=&status=&treatment="
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "blank values mean defaults",
+          "all 12 items",
+          "no forced redirect"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-34",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/results?q=%00"
+      },
+      "expected": {
+        "status": 400,
+        "code": "RESULT_FILTER_INVALID",
+        "assertions": [
+          "control character rejected"
+        ]
+      }
+    },
+    {
+      "id": "HTTP-35",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/results/"
+      },
+      "expected": {
+        "status": 404,
+        "code": "ROUTE_NOT_FOUND",
+        "assertions": [
+          "no undeclared trailing-slash alias"
+        ]
+      }
+    },
+    {
+      "id": "IMG-01",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID_N01_PC",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{n01_child_run_id}/evidence/content?ref=file%3An01-pc-capture.png"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "exact manifest and snapshot-approved bytes",
+          "image/png",
+          "fixed safe inline filename",
+          "exact Content-Length",
+          "no-store nosniff no-referrer existing CSP"
+        ]
+      }
+    },
+    {
+      "id": "IMG-02",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID_N01_MOBILE",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{n01_child_run_id}/evidence/content?ref=file%3An01-mobile-capture.png"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "mobile image mapped to requested child Run",
+          "not PC capture fallback"
+        ]
+      }
+    },
+    {
+      "id": "IMG-03",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID_N01_PARENT",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{n01_parent_run_id}/evidence/content?ref=file%3An01-pc-capture.png"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "parent image hash preserved",
+          "not child image substitution"
+        ]
+      }
+    },
+    {
+      "id": "IMG-04",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref=unregistered"
+      },
+      "expected": {
+        "status": 404,
+        "code": "EVIDENCE_NOT_FOUND",
+        "assertions": [
+          "no disk lookup from arbitrary ref"
+        ]
+      }
+    },
+    {
+      "id": "IMG-05",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/runs/unknown/evidence/content?ref=file%3An01-pc-capture.png"
+      },
+      "expected": {
+        "status": 404,
+        "code": "RUN_NOT_FOUND",
+        "assertions": [
+          "no current-run fallback"
+        ]
+      }
+    },
+    {
+      "id": "IMG-06",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_INVALID_RUN",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{invalid_run_id}/evidence/content?ref={registered_ref}"
+      },
+      "expected": {
+        "status": 422,
+        "code": "INTEGRITY_FAILED",
+        "assertions": [
+          "no original bytes served for INVALID"
+        ]
+      }
+    },
+    {
+      "id": "IMG-07",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID_THEN_FILE_TAMPERED",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref={png_ref}"
+      },
+      "expected": {
+        "status": 422,
+        "code": "INTEGRITY_FAILED",
+        "assertions": [
+          "post-startup tamper detected",
+          "stale verification cache cannot authorize changed bytes"
+        ]
+      }
+    },
+    {
+      "id": "IMG-08",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID_THEN_REGISTERED_FILE_REMOVED",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref={png_ref}"
+      },
+      "expected": {
+        "status": 422,
+        "code": "INTEGRITY_FAILED",
+        "assertions": [
+          "registered file absence is integrity error",
+          "no NOT_RUN substitution"
+        ]
+      }
+    },
+    {
+      "id": "IMG-09",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "LOCAL_VALID_NO_PNG_APPROVAL",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref={png_ref}"
+      },
+      "expected": {
+        "status": 403,
+        "code": "EVIDENCE_POLICY_BLOCKED",
+        "assertions": [
+          "local presence and VERIFIED alone insufficient"
+        ]
+      }
+    },
+    {
+      "id": "IMG-10",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "DEMO_VALID_NO_PNG_APPROVAL",
+      "request": {
+        "method": "GET",
+        "path": "/demo/runs/{demo_run_id}/evidence/content?ref={png_ref}"
+      },
+      "expected": {
+        "status": 403,
+        "code": "EVIDENCE_POLICY_BLOCKED",
+        "assertions": [
+          "DEMO does not bypass review policy"
+        ]
+      }
+    },
+    {
+      "id": "IMG-11",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "LOCAL_APPROVED",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref={png_ref}"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "exact LOCAL approval tuple and sealed hash required"
+        ]
+      }
+    },
+    {
+      "id": "IMG-12",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "DEMO_APPROVED",
+      "request": {
+        "method": "GET",
+        "path": "/demo/runs/{demo_run_id}/evidence/content?ref={png_ref}"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "independent DEMO-approved synthetic capture",
+          "no actual reader access"
+        ]
+      }
+    },
+    {
+      "id": "IMG-13",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "LOCAL_VERIFIED_APPROVED_NON_PNG_MIME",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref={registered_ref}"
+      },
+      "expected": {
+        "status": 403,
+        "code": "EVIDENCE_POLICY_BLOCKED",
+        "assertions": [
+          "application/json text/html SVG JPEG not served by PNG route"
+        ]
+      }
+    },
+    {
+      "id": "IMG-14",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "LOCAL_VERIFIED_APPROVED_BAD_PNG_SIGNATURE",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref={png_ref}"
+      },
+      "expected": {
+        "status": 422,
+        "code": "PNG_CONTENT_INVALID",
+        "assertions": [
+          "MIME and suffix alone insufficient",
+          "no failed bytes in error response"
+        ]
+      }
+    },
+    {
+      "id": "IMG-15",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "LOCAL_VERIFIED_APPROVED_PNG_8388609_BYTES",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref={png_ref}"
+      },
+      "expected": {
+        "status": 422,
+        "code": "PNG_CONTENT_INVALID",
+        "assertions": [
+          "8 MiB maximum",
+          "bounded read stops by limit plus one"
+        ]
+      }
+    },
+    {
+      "id": "IMG-16",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "LOCAL_VERIFIED_APPROVED_PNG_8388608_BYTES",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref={png_ref}"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "boundary size allowed when all other requirements hold"
+        ]
+      }
+    },
+    {
+      "id": "IMG-17",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "LOCAL_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref=file%3A..%2Fsecret.png"
+      },
+      "expected": {
+        "status": 404,
+        "code": "EVIDENCE_NOT_FOUND",
+        "assertions": [
+          "unregistered path-looking ref not resolved on disk"
+        ]
+      }
+    },
+    {
+      "id": "IMG-18",
+      "coverage": "FUTURE_CONTRACT",
+      "test_layer": "resolver_isolated",
+      "fixture": "RESOLVER_REGISTERED_PATH_TRAVERSAL",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref={registered_ref}"
+      },
+      "expected": {
+        "status": 403,
+        "code": "EVIDENCE_POLICY_BLOCKED",
+        "assertions": [
+          "resolver isolated test of ../ absolute backslash drive UNC ADS forms",
+          "status is resolver policy mapping; full HTTP integrity gate may reject earlier as422",
+          "no external bytes read"
+        ]
+      }
+    },
+    {
+      "id": "IMG-19",
+      "coverage": "FUTURE_CONTRACT",
+      "test_layer": "resolver_isolated",
+      "fixture": "RESOLVER_SYMLINK_OR_JUNCTION",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref={registered_ref}"
+      },
+      "expected": {
+        "status": 403,
+        "code": "EVIDENCE_POLICY_BLOCKED",
+        "assertions": [
+          "resolver isolated test of root intermediate or leaf links",
+          "status is resolver policy mapping; full HTTP integrity gate may reject earlier as422",
+          "platform missing junction support marked NOT_EXECUTED not PASS"
+        ]
+      }
+    },
+    {
+      "id": "IMG-20",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID_WRONG_SNAPSHOT_MEMBERSHIP",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{other_root_run_id}/evidence/content?ref={png_ref}"
+      },
+      "expected": {
+        "status": 404,
+        "code": "RUN_NOT_FOUND",
+        "assertions": [
+          "different root not searched",
+          "same hash elsewhere does not grant membership"
+        ]
+      }
+    },
+    {
+      "id": "IMG-21",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content"
+      },
+      "expected": {
+        "status": 400,
+        "code": "EVIDENCE_REF_INVALID",
+        "assertions": [
+          "ref required exactly once"
+        ]
+      }
+    },
+    {
+      "id": "IMG-22",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref=a&ref=a"
+      },
+      "expected": {
+        "status": 400,
+        "code": "EVIDENCE_REF_INVALID",
+        "assertions": [
+          "duplicate ref rejected"
+        ]
+      }
+    },
+    {
+      "id": "IMG-23",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref={png_ref}&path=C%3A%5Csecret.png"
+      },
+      "expected": {
+        "status": 400,
+        "code": "EVIDENCE_REF_INVALID",
+        "assertions": [
+          "unknown path parameter rejected"
+        ]
+      }
+    },
+    {
+      "id": "IMG-24",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID_N01_PC",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{n01_child_run_id}/evidence/content?ref=file%3An01-pc-capture.png",
+        "headers": {
+          "Range": "bytes=0-10"
+        }
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "whole validated bytes returned",
+          "no partial unvalidated data"
+        ]
+      }
+    },
+    {
+      "id": "IMG-25",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "DEMO_APPROVAL_ONLY_IN_ACTUAL",
+      "request": {
+        "method": "GET",
+        "path": "/demo/runs/{demo_run_id}/evidence/content?ref={png_ref}"
+      },
+      "expected": {
+        "status": 403,
+        "code": "EVIDENCE_POLICY_BLOCKED",
+        "assertions": [
+          "ACTUAL PNG approval cannot authorize DEMO tuple"
+        ]
+      }
+    },
+    {
+      "id": "IMG-26",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "PNG_VALIDATED_BUFFER_THEN_PATH_SWAPPED",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref={png_ref}"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "controlled swap after validated buffer is retained cannot substitute response bytes",
+          "never reopen path after verification",
+          "response buffer equals originally verified buffer"
+        ]
+      }
+    },
+    {
+      "id": "IMG-27",
+      "coverage": "EXISTING_REGRESSION",
+      "fixture": "SHARED_VALID_TEXT_EVIDENCE",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence?ref={text_ref}"
+      },
+      "expected": {
+        "status": 200,
+        "assertions": [
+          "existing text view strict scan and 256 KiB bound unchanged",
+          "condition context preserved"
+        ]
+      }
+    },
+    {
+      "id": "IMG-28",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "SHARED_VALID",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref={png_ref}",
+        "headers": {
+          "Host": "untrusted.example"
+        }
+      },
+      "expected": {
+        "status": 421,
+        "code": "HOST_NOT_ALLOWED",
+        "assertions": [
+          "existing Host boundary before binary content"
+        ]
+      }
+    },
+    {
+      "id": "IMG-29",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "LOCAL_VERIFIED_APPROVED_SIZE_METADATA_MISMATCH",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref={png_ref}"
+      },
+      "expected": {
+        "status": 422,
+        "code": "INTEGRITY_FAILED",
+        "assertions": [
+          "actual size must equal sealed metadata before transmission"
+        ]
+      }
+    },
+    {
+      "id": "IMG-30",
+      "coverage": "FUTURE_CONTRACT",
+      "fixture": "ABORTED_MISSING_REQUIRED_LINKS_RELAXED_TEXT_VIEW",
+      "request": {
+        "method": "GET",
+        "path": "/runs/{valid_run_id}/evidence/content?ref={png_ref}"
+      },
+      "expected": {
+        "status": 422,
+        "code": "INTEGRITY_FAILED",
+        "assertions": [
+          "binary route requires strict original verify_bundle VERIFIED",
+          "text-only ABORTED relaxation not imported"
+        ]
+      }
+    }
+  ]
+}

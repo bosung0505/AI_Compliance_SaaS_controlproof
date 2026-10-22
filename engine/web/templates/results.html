@@ -1,0 +1,37 @@
+{% extends "base.html" %}
+{% set active = "results" %}
+{% block title %}테스트 결과 · ControlProof{% endblock %}
+{% block content %}
+<section class="results-page" aria-labelledby="results-title">
+  <div class="overview-heading"><div><p class="section-kicker">TEST RESULTS</p><h2 id="results-title">테스트 결과</h2><p>네 기준에 따라 실행 결과와 미검증 범위를 구분합니다.</p></div><a class="btn sec" href="{{ prefix }}/report">검토 보고서 →</a></div>
+  <form class="result-filters" action="{{ prefix }}/results" method="get" aria-label="시나리오 검색과 필터">
+    <label class="search-field">시나리오 검색<input type="search" name="q" value="{{ view.filters.q }}" placeholder="항목 이름, 설명 또는 ID" autocomplete="off"></label>
+    <label>기준<select name="control"><option value="">전체 기준</option>{% for group in view.ui.groups %}<option value="{{ group.control }}"{% if view.filters.control == group.control %} selected{% endif %}>{{ group.control }} · {{ group.title }}</option>{% endfor %}</select></label>
+    <label>공식 결과<select name="status">{% for value, label in [('ALL','전체 결과'),('PASS','PASS · 통과'),('FAIL','FAIL · 실패'),('INCONCLUSIVE','INCONCLUSIVE · 판정 불가'),('NOT_RUN','NOT_RUN · 미실행')] %}<option value="{{ value }}"{% if view.filters.status == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <label>처리 범위<select name="treatment">{% for value, label in [('ALL','전체 범위'),('EXECUTED','로컬 테스트 실행'),('NOT_RUN','아직 테스트하지 않음'),('NO_TEST_TARGET','대상 기능 없음')] %}<option value="{{ value }}"{% if view.filters.treatment == value %} selected{% endif %}>{{ label }}</option>{% endfor %}</select></label>
+    <button class="btn" type="submit">적용</button><a class="text-link" href="{{ prefix }}/results">초기화</a>
+  </form>
+  <p class="result-count" role="status">전체 {{ view.ui.coverage.total }}개 중 <strong>{{ view.matched_count }}개</strong> 표시{% if view.filters.q %} · 검색어 “{{ view.filters.q }}”{% endif %}</p>
+  {% for group in view.filtered_groups %}<section class="result-group" aria-labelledby="group-{{ group.control }}"><div class="result-group-heading"><span class="control-letter" aria-hidden="true">{{ group.control }}</span><div><h3 id="group-{{ group.control }}">{{ group.title }}</h3><p>{{ group.purpose }}</p></div><span class="group-count">{{ group.scenarios | length }}개 항목</span></div>
+    {% for row in group.scenarios %}<article class="scenario-result" data-id="{{ row.id }}">
+      <div class="scenario-result-main"><div class="scenario-result-title"><span class="result-id">{{ row.id }}</span><h4><a href="{{ prefix }}/scenarios/{{ row.id }}">{{ row.title }}</a></h4>{% if row.ui.current_scope.partial %}<span class="scope-pill">일부 범위</span>{% endif %}</div><p>{{ row.description }}</p>
+        {% if not row.target_exists %}<p class="target-absent">WhyYou에 대상 기능이 없어 실행하지 않았습니다. 원래 판정은 INCONCLUSIVE · 사유 NO_TEST_TARGET입니다.</p>{% endif %}
+        {% for record in row.records_on_this_pc.official if record.integrity != "VERIFIED" %}<p class="warn">{{ badge("integrity_failed") }} <span class="mono">{{ record.run_id | short_id }}</span> · 원본 무결성을 확인해야 합니다.</p>{% endfor %}
+        {% if row.mismatch %}<p class="warn">봉인 기록 {{ row.mismatch.bundle_verdict }}와 공식 상태 {{ row.mismatch.catalog_result }}가 다릅니다. {{ row.mismatch.run_id | short_id }}</p>{% endif %}
+        {% if row.records_on_this_pc.note %}<p class="limit">{{ row.records_on_this_pc.note }} · {{ row.records_on_this_pc.validation_ref }}</p>{% endif %}
+      </div>
+      <div class="scenario-result-action">{{ badge(row.official.badge) }}<a class="text-link" href="{{ prefix }}/scenarios/{{ row.id }}">{{ '정의·대상 확인' if not row.target_exists else '결과·근거 보기' }} →</a></div>
+      {% if row.ui.current_scope.partial %}{% set scope = row.ui.current_scope %}<details class="result-disclosure scope-disclosure"><summary>실행한 조건과 미검증 범위</summary><p>현재 정의 {{ scope.source_ref }} · v{{ scope.version }} · API 접근. 실행한 조건: {{ scope.applicable_assertion_ids | join(' · ') }}. 과거 Run의 정의는 해당 실행 화면에서 확인합니다.</p><ul>{% for item in scope.unverified_items %}<li><b>{{ item.id }}</b> · 미검증: {{ item.text }}<p>후속 조건: {{ item.follow_up }}</p></li>{% endfor %}{% for item in scope.limitations %}<li>{{ item.id }} · 한계: {{ item.text }}</li>{% endfor %}</ul></details>{% endif %}
+      <details class="result-disclosure"><summary>공식 상태·보존 기록{% if not view.shared_snapshot %}·새 테스트 준비{% endif %}</summary>
+        <p>{{ row.official.summary }} {% if row.official.note %}{{ row.official.note }}{% endif %}</p><p>공식 상태 출처: {{ row.records_on_this_pc.validation_ref }} · 대상 {{ '있음' if row.target_exists else '없음' }} · 처리 범위 {{ row.mvp_treatment }} · 실행 방식 {{ row.execution_mode }}</p>
+        {% if view.shared_snapshot %}<p>새 테스트 준비는 별도 로컬 모드에서 확인합니다.</p>{% else %}<p>새 테스트 준비: {% if row.readiness.badge %}{{ badge(row.readiness.badge) }}{% endif %} {{ row.readiness.note or '' }} · 확인 {{ row.readiness.checked_at | when if row.readiness.checked_at else '기록 없음' }}</p><ul>{% for profile in row.readiness.profiles %}<li>{{ profile.execution_profile }} · {{ profile.value or (badges[profile.badge].label_ko if profile.badge else '확인 기록 없음') }}</li>{% endfor %}</ul>{% endif %}
+        <p>{{ 'DEMO 기록' if view.demo else '추가 보존 기록' if view.shared_snapshot else '이 PC 웹 검증 기록' }} {{ row.records_on_this_pc.web_validation_runs }}건 · 공식 상태와 별도입니다.</p>
+        <div class="result-links">{% for link in row.result_links %}<a class="result-link" href="{{ prefix }}/runs/{{ link.run_id }}">{{ '공식 기록' if link.role == 'OFFICIAL' else '추가 기록' }} {{ link.run_id | short_id }}</a>{% endfor %}</div><p><a href="{{ prefix }}/scenarios/{{ row.id }}#runs">전체 실행 이력과 프로필 보기 →</a></p>
+      </details>
+    </article>{% else %}<p class="empty-results">이 기준에서 조건에 맞는 항목이 없습니다. <a href="{{ prefix }}/results">전체 시나리오 보기</a></p>{% endfor %}
+  </section>{% endfor %}
+  <details class="results-support"><summary>준비 상태 확인과 보고서</summary>{% include "partials/list_preparation.html" %}</details>
+  <details class="results-support"><summary>상태 읽는 법</summary><dl class="status-glossary">{% for item in badges.values() %}<dt>{{ badge(item.key) if item.key != 'inconclusive' else '판정 불가' }}</dt><dd>{{ item.category }} · {{ item.description }}</dd>{% endfor %}</dl></details>
+  <p class="overview-disclaimer">‘미실행’과 ‘대상 기능 없음’은 서로 다른 상태입니다. PASS는 실행한 조건에만 적용되며, 일부 범위 표시는 판정을 바꾸지 않습니다.</p>
+</section>
+{% endblock %}

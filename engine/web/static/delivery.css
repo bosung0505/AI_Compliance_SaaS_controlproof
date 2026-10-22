@@ -1,0 +1,52 @@
+/* Compare/report/preparation: progressively disclosed original records, printable report. */
+.service-delivery .overview-heading h2 { font-size:clamp(24px,2.5vw,34px); line-height:1.5; margin:8px 0 14px; letter-spacing:-1px; }
+.service-delivery .overview-heading p { color:var(--cp-muted); font-size:12px; line-height:1.9; }
+.service-delivery .overview-heading .section-kicker { color:var(--cp-accent-dark); font-size:10px; }
+.service-delivery .overview-heading .btn { white-space:nowrap; flex-shrink:0; }
+.service-delivery pre { max-width:100%; overflow-wrap:anywhere; white-space:pre-wrap; font-size:10px; }
+.service-delivery .mono { overflow-wrap:anywhere; font-size:10px; }
+.service-delivery .service-card details { margin-top:16px; }
+.comparison-pair { display:grid; grid-template-columns:1fr 1fr; gap:20px; margin:28px 0 0; }
+.comparison-pair > article { margin:0; padding:24px; border-top:3px solid var(--cp-line); }
+.comparison-pair > article:last-child { border-top-color:var(--cp-accent); background:#fcfaff; }
+.comparison-pair h3 { margin:14px 0; }.comparison-pair .text-link { font-size:12px; }
+.change-explanation { background:var(--cp-tint); }.change-explanation > p { max-width:900px; }
+.comparison-rules { display:grid; grid-template-columns:1fr 1fr; gap:16px; }.comparison-rule { margin:0; }
+.comparison-rule h4 { margin:0; font-size:14px; line-height:1.8; }.comparison-rule-status { display:flex; align-items:center; flex-wrap:wrap; gap:15px; font-size:11px; margin-top:20px; }
+.comparison-evidence { display:grid; grid-template-columns:1fr 1fr; gap:20px; }.comparison-evidence li { overflow-wrap:anywhere; }.comparison-evidence h4 { margin-top:14px; }
+.dimension-list { display:grid; grid-template-columns:minmax(120px,1fr) 2fr; gap:10px 20px; font-size:12px; }.dimension-list dd { margin:0; overflow-wrap:anywhere; }.lineage-list { line-height:2.5; }
+.sealed-compare-scope { border:1px solid var(--cp-line); border-radius:12px; background:white; padding:20px; margin:20px 0; }
+.delivery-note { font-size:11px; line-height:1.9; color:var(--cp-muted); }.service-delivery > .delivery-note { margin:20px 0 28px; }
+.report-index { display:flex; flex-wrap:wrap; gap:8px 20px; padding:16px 0 22px; margin-bottom:20px; background:none; border:0; border-bottom:1px solid var(--cp-line); }.report-index a { font-size:11px; color:var(--cp-accent-dark); }
+.report-highlights { display:grid; grid-template-columns:repeat(4,minmax(0,1fr)); background:white; border:1px solid var(--cp-line); border-radius:14px; padding:24px 0; }
+.report-highlights article { padding:0 24px; border-right:1px solid var(--cp-line); }.report-highlights article:last-child { border:0; }.report-highlights span,.report-highlights small { display:block; color:var(--cp-muted); font-size:11px; line-height:1.9; }.report-highlights strong { display:block; font-size:38px; line-height:1.8; color:var(--cp-ink); font-weight:600; }
+.report-executive h3 { font-size:20px; }.report-executive blockquote { margin:18px 0; font-size:13px; line-height:2; padding:18px 22px; }
+.report-section { margin-top:48px; padding-top:28px; border-top:1px solid var(--cp-line); scroll-margin-top:20px; }.report-section > .section-heading h3 { font-size:21px; margin:4px 0 8px; }.report-section > p { font-size:12px; line-height:2; }
+.service-report .rep-item { display:none; }.delivery-table { overflow-x:auto; max-width:100%; }.delivery-table th,.delivery-table td { font-size:11px; line-height:1.8; padding:14px 12px; }.delivery-table p { font-size:11px; margin:7px 0; }.delivery-table th { white-space:normal; }.delivery-table .group th { font-size:12px; padding:16px 12px; }.service-report table { table-layout:fixed; width:100%; }.service-report td:first-child,.service-report th:first-child { width:90px; }.service-report td:last-child { width:170px; }
+.report-findings { display:grid; grid-template-columns:1fr 1fr; list-style:none; gap:16px; padding:0!important; margin:20px 0; }.report-findings > li { border:1px solid var(--cp-line); border-radius:12px; background:white; padding:22px; font-size:12px; line-height:1.9; min-width:0; }.report-findings .section-heading { align-items:center; gap:10px; }.report-findings .scenario-link { font-weight:600; font-size:12px; }.report-findings details summary { color:var(--cp-muted); font-size:10px; }.report-findings .mono { font-size:10px; }
+.report-comparisons { padding:0!important; list-style:none; }.report-comparisons > li { display:flex; justify-content:space-between; align-items:center; gap:20px; padding:18px 0; border-top:1px solid var(--cp-line); }.report-comparisons p { margin:6px 0; }.report-comparisons a { font-size:11px; white-space:nowrap; }
+.report-records { display:grid; grid-template-columns:1fr 1fr; gap:14px; margin-top:24px; }.report-record { border:1px solid var(--cp-line); border-radius:8px; padding:14px; min-width:0; overflow-wrap:anywhere; }.report-record p { font-size:11px; margin:5px 0; }.report-record a { font-size:11px; }.report-version { padding:14px 0; border-top:1px solid var(--cp-line); }.report-version a { font-size:11px; }
+.preparation-scenario > summary { font-size:14px; font-weight:600; line-height:1.9; }.preparation-scenario .section-kicker { margin-right:10px; }.preparation-profile { border-top:1px solid var(--cp-line); margin-top:24px; padding-top:10px; }.preparation-profile h4 { overflow-wrap:anywhere; }.preparation-profile form { margin:18px 0 10px; }.preparation-profile .btn { font-size:11px; }.preparation-profile .cmd { font-size:11px; }.memo-editor { margin-top:18px; }.service-memos .memo-form { margin-top:16px; }.service-memos summary { cursor:pointer; color:var(--cp-accent-dark); font-size:12px; }.service-memos li { margin-bottom:14px; }
+@media (max-width:980px) { .report-highlights article { padding:0 18px; }.report-findings { gap:12px; }.service-report td:first-child,.service-report th:first-child { width:70px; }.service-report td:last-child { width:145px; } }
+@media (max-width:650px) { .comparison-pair,.comparison-rules,.comparison-evidence,.report-findings,.report-records { grid-template-columns:1fr; }.report-highlights { grid-template-columns:1fr 1fr; gap:20px 0; padding:20px 0; }.report-highlights article:nth-child(2) { border:0; }.report-highlights strong { font-size:32px; }.report-highlights article { padding:0 18px; }.report-section { margin-top:32px; padding-top:22px; }.report-comparisons > li { align-items:start; flex-direction:column; gap:6px; }.service-delivery .overview-heading { display:block; }.service-delivery .overview-heading .btn,.service-delivery .overview-heading > .text-link { display:inline-block; margin-top:10px; }.service-report .delivery-table table { min-width:490px; }.report-executive blockquote { padding:14px; }.dimension-list { grid-template-columns:1fr; gap:4px; }.dimension-list dd { margin-bottom:12px; }.comparison-pair > article { padding:20px; }.report-index { gap:12px 18px; }.preparation-scenario > summary { font-size:12px; } }
+@media print {
+  @page {
+    size:A4; margin:14mm 12mm 17mm;
+    @bottom-left { content:"ControlProof · 테스트 검토 보고서"; font:8pt "Malgun Gothic",sans-serif; color:#70647f; }
+    @bottom-right { content:counter(page) " / " counter(pages); font:8pt sans-serif; color:#70647f; }
+  }
+  html,body.workspace-shell,.workspace-frame { min-height:0; background:white; }
+  .workspace-skip { display:none!important; }
+  .service-report { max-width:none; color:#111; }.service-report [data-print-report],.report-index { display:none; }
+  .service-report .report-highlights { grid-template-columns:repeat(4,1fr); }.service-report .report-section { margin-top:22px; padding-top:12px; }
+  .service-report details { display:block; }.service-report details > :not(summary) { display:revert!important; }.service-report details::details-content { content-visibility:visible; height:auto; }
+  .service-report details > summary { font-weight:bold; margin-bottom:10px; }.service-report .delivery-table { overflow:visible; }.service-report table { min-width:0!important; table-layout:fixed; }.service-report .report-findings,.service-report .report-records { display:block; }
+  .service-report .service-card,.service-report .report-section { break-inside:auto; }.service-report .report-findings > li,.service-report .report-record,.service-report tr { break-inside:avoid; }
+  .service-report .report-record { margin-bottom:10px; }.service-report pre { white-space:pre-wrap; overflow:visible; font-size:11px; line-height:1.6; }.service-report .mono { font-size:11px; line-height:1.6; }.service-report .report-highlights strong { font-size:24px; }
+  .service-report .report-section > .section-heading,.service-report h3,.service-report h4,.service-report summary { break-after:avoid; }
+  .service-report .service-card { box-shadow:none; }.service-report .report-version { break-inside:avoid; }
+  .service-report .report-version:has(pre) { break-inside:auto; }
+  .service-report .group { break-after:avoid; }.service-report p { orphans:3; widows:3; }
+  .service-report #report-method { break-before:page; }
+  .workspace-header { padding:0 0 12px; border-bottom:1px solid #aaa; }.workspace-main { background:white; }.shared-record-context { font-size:9px; }
+}

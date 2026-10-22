@@ -17,6 +17,21 @@ from engine.shared_records import (
 from tests.fixtures import web_bundles as wb
 
 
+@pytest.mark.parametrize("change", ["add", "edit"])
+def test_nested_template_changes_invalidate_display_context(source, change):
+    repo, bundle, out = source
+    partial = repo / "engine/web/templates/partials/condition.html"
+    partial.parent.mkdir(parents=True)
+    if change == "edit":
+        partial.write_text("<p>original observation</p>", encoding="utf-8")
+    snapshot = build_snapshot([bundle], out, repo=repo)
+    if change == "edit":
+        assert partial.relative_to(repo).as_posix() in snapshot["display_files"]
+    partial.write_text("<p>changed observation</p>", encoding="utf-8")
+    with pytest.raises(SnapshotError, match="code/catalog differs"):
+        load_snapshot(out / "snapshot.json", repo=repo)
+
+
 @pytest.fixture
 def source(tmp_path):
     built = wb.spec004_run(tmp_path / "actual", "E-02")

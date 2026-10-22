@@ -1,4 +1,4 @@
-"""T026 — workbench screen in a real browser at 1280px and 1024px (FR-001~007, SC-001, SC-006). RED until T032.
+"""T026 / Spec010 T012 — overview and results at 1280px and 1024px.
 
 Playwright's bundled Chromium is used when installed; otherwise the installed Edge channel (research R-014). The screen
 uses the DEMO root built by `scripts/prepare_web_demo.py`.
@@ -63,7 +63,11 @@ def page(request, browser, site):
 
 
 def _visible_rows(page):
-    return page.locator("tr.scenario-row:visible")
+    return page.locator("article.scenario-result:visible")
+
+
+def _results(page):
+    page.get_by_role("link", name="결과 검토하기 →", exact=True).click()
 
 
 def test_layout_demo_band_and_no_horizontal_overflow(page) -> None:
@@ -71,46 +75,47 @@ def test_layout_demo_band_and_no_horizontal_overflow(page) -> None:
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
     header = page.locator("header").inner_text()
     assert "LOCAL_EMULATED" in header and "NOT_RUN" in header
-    assert page.locator("nav [role=tab]").count() == 4
-    assert page.locator("tr.scenario-row").count() == 12
-    for cell in page.locator("td.scenario-id").all():
-        assert cell.evaluate("el => getComputedStyle(el).whiteSpace") == "nowrap"
+    assert page.locator(".workspace-nav a").count() == 5
+    assert page.locator(".control-card").count() == 4
+    assert page.locator(".scenario-tags a").count() == 12
+    _results(page)
+    assert _visible_rows(page).count() == 12
+    assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
 
 
-def test_count_cards_and_neutral_inconclusive_card(page) -> None:
-    assert page.locator("[data-count=PASS] .num").inner_text() == "9"
-    assert page.locator("[data-count=FAIL] .num").inner_text() == "0"
-    assert page.locator("[data-count=NOT_RUN] .num").inner_text() == "0"
-    card = page.locator("[data-count=INCONCLUSIVE]")
-    assert card.locator(".num").inner_text() == "3"
-    assert card.locator(".neutral-title").count() == 1
-    for key, icon, count in (("reason_no_test_target", "∅", "3"),):
-        in_card = card.locator(f"[data-badge={key}]")
-        assert in_card.locator(".ic").inner_text() == icon
-        assert in_card.get_attribute("data-count-value") == count
-        in_table = page.locator(f"tr.scenario-row [data-badge={key}]").first
-        assert in_table.get_attribute("class") == in_card.get_attribute("class")
-        assert in_table.locator(".ic").inner_text() == icon
+def test_coverage_graph_and_neutral_target_absence(page) -> None:
+    for treatment, count in (("EXECUTED", "9"), ("NOT_RUN", "0"), ("NO_TEST_TARGET", "3")):
+        assert page.locator(f'[data-coverage="{treatment}"]').inner_text() == count
+    assert page.locator(".chart-segment").count() == 2
+    assert "12" in page.locator(".coverage-chart svg").get_attribute("aria-label")
+    _results(page)
+    assert page.locator(".scenario-result [data-badge=reason_no_test_target]").count() == 3
 
 
-def test_one_common_checked_at_and_only_differing_rows_show_time(page) -> None:
+def test_common_checked_at_and_per_row_preparation_are_available(page) -> None:
+    _results(page)
     assert page.locator("[data-testid=common-checked-at]").count() == 1
-    differing = page.locator("tr.scenario-row .row-checked-at")
-    assert differing.count() == 1
-    assert page.locator("tr.scenario-row[data-id=N-02] .row-checked-at").count() == 1
+    row = page.locator('article.scenario-result[data-id="N-02"]')
+    assert "새 테스트 준비" in row.locator("details").inner_text()
+    assert row.locator("[data-badge=ready]").count() >= 1
 
 
-@pytest.mark.parametrize("name,expected", [("runnable", 9), ("failed", 0), ("inconclusive", 3)])
-def test_filters_5_0_4(page, name, expected) -> None:
-    page.locator(f"[data-filter={name}]").check()
+@pytest.mark.parametrize("status,expected", [("PASS", 9), ("FAIL", 0), ("INCONCLUSIVE", 3)])
+def test_result_filters_and_reset(page, status, expected) -> None:
+    _results(page)
+    page.get_by_role("combobox", name="공식 결과", exact=True).select_option(status)
+    page.get_by_role("button", name="적용", exact=True).click()
     assert _visible_rows(page).count() == expected
-    page.locator(f"[data-filter={name}]").uncheck()
+    page.get_by_role("link", name="초기화", exact=True).click()
     assert _visible_rows(page).count() == 12
 
 
 def test_a_rows_have_no_run_control_or_progress(page) -> None:
+    card = page.locator(".control-card").filter(has_text="이의제기와 구제")
+    assert card.locator("progress, [role=progressbar]").count() == 0
+    _results(page)
     for scenario_id in ("A-01", "A-02", "A-03"):
-        row = page.locator(f"tr.scenario-row[data-id={scenario_id}]")
+        row = page.locator(f'article.scenario-result[data-id="{scenario_id}"]')
         assert row.locator("button, form, progress, input, [role=progressbar]").count() == 0
         assert row.locator("[data-badge=pass]").count() == 0
 
@@ -120,8 +125,9 @@ def test_runner_not_ready_and_no_test_target_badges_differ(page) -> None:
     # its distinction from NO_TEST_TARGET is checked on the badge definitions and the A-01 row.
     from engine.web.badges import BADGES
 
-    assert page.locator("tr.scenario-row [data-badge=runner_not_ready]").count() == 0
-    ntt = page.locator("tr.scenario-row[data-id=A-01] [data-badge=readiness_no_test_target]")
+    _results(page)
+    assert page.locator(".scenario-result [data-badge=runner_not_ready]").count() == 0
+    ntt = page.locator('article.scenario-result[data-id="A-01"] [data-badge=readiness_no_test_target]')
     assert ntt.count() == 1
     rnr = BADGES["runner_not_ready"]
     assert ntt.locator(".ic").inner_text() == BADGES["readiness_no_test_target"].icon != rnr.icon
@@ -130,13 +136,17 @@ def test_runner_not_ready_and_no_test_target_badges_differ(page) -> None:
 
 
 def test_no_pass_badge_on_not_run_or_inconclusive_rows(page) -> None:
-    for row in page.locator("tr.scenario-row").all():
-        if row.get_attribute("data-result") in {"NOT_RUN", "INCONCLUSIVE"}:
-            assert row.locator("[data-badge=pass]").count() == 0
+    _results(page)
+    page.get_by_role("combobox", name="공식 결과", exact=True).select_option("INCONCLUSIVE")
+    page.get_by_role("button", name="적용", exact=True).click()
+    assert _visible_rows(page).count() == 3
+    assert page.locator(".scenario-result [data-badge=pass]").count() == 0
 
 
 def test_preflight_form_is_the_only_action_and_disabled_on_demo(page) -> None:
+    _results(page)
     form = page.locator("form[data-testid=preflight-form]")
     assert form.count() == 1
     assert form.locator("button[type=submit]").is_disabled()
-    assert page.locator("main form").count() == 1
+    assert page.locator('main form[method="post"]').count() == 1
+    assert page.locator('main form[method="get"]').count() == 1

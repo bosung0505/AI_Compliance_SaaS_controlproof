@@ -68,7 +68,7 @@ def display_hashes(repo: Path) -> dict[str, str]:
     """Pin the catalog, scenario definitions and code/assets that interpret the sealed bytes."""
     paths = [
         *repo.glob("engine/**/*.py"),
-        *repo.glob("engine/web/templates/*.html"),
+        *repo.glob("engine/web/templates/**/*.html"),
         *repo.glob("engine/web/static/*.css"),
         *repo.glob("engine/web/static/*.js"),
         *repo.glob("catalog/*.yaml"),

@@ -1,0 +1,16 @@
+{% set d = document.definition %}
+<details class="service-definition" data-testid="definition-document"><summary>{{ '이 실행에 봉인된 테스트 정의' if document.source == 'sealed_snapshot' else '현재 테스트 정의' }} · {{ document.version or '버전 확인 불가' }}</summary>
+{% if document.problem %}<p class="warn">정의를 읽을 수 없습니다. {{ document.problem }}</p>{% else %}
+  <p>{{ d.intent }}</p>
+  {% if document.scope.partial %}<p class="scope-pill">일부 범위 · {{ document.scope.applicable_assertion_ids | join(' · ') }}</p>{% endif %}
+  {% if document.scope.target_access %}<p>대상 접근: {{ document.scope.target_access | join(' + ') }}</p>{% endif %}
+  {% if document.scope.unverified_items or document.scope.limitations %}<ul>{% for item in document.scope.unverified_items %}<li><b>{{ item.id }}</b> · 미검증: {{ item.text }}{% if item.follow_up %}<p>후속 조건: {{ item.follow_up }}</p>{% endif %}</li>{% endfor %}{% for item in document.scope.limitations %}<li>{{ item.id }} · 한계: {{ item.text }}</li>{% endfor %}</ul>{% endif %}
+  <h4>실행 전제</h4><ul>{% for item in d.preconditions %}<li>{{ item.description }} <span class="muted">{{ item.kind }}</span></li>{% else %}<li>정의에 전제 항목이 없습니다.</li>{% endfor %}</ul>
+  <h4>테스트 단계</h4><ol>{% for step in d.steps %}<li>{{ step.phase }} · {{ step.step_id }}{% if step.always_run %} <b>항상 실행</b>{% endif %}</li>{% endfor %}</ol>
+  <h4>기대 결과와 필수 근거</h4><ul class="definition-rules">{% for item in d.assertions %}<li><b>{{ item.assertion_id }}</b> · {{ item.description }}<p>필수 근거: {{ item.required_evidence_ids | join(' · ') or '기록 없음' }}</p><details><summary>기대값 원문</summary><pre>{{ item.expectation | tojson(indent=2) }}</pre></details></li>{% endfor %}</ul>
+  <h4>수집 자료</h4><ul>{% for item in d.required_evidence %}<li>{{ item.evidence_id }} · {{ item.description }}</li>{% endfor %}</ul>
+  <details><summary>복구·제약 시간·연결 조건</summary><p>복구 정책</p><pre>{{ d.restore_policy | tojson(indent=2) }}</pre><p>제약 시간</p><pre>{{ d.timing_policy | tojson(indent=2) }}</pre><p>필요 capability</p><pre>{{ d.required_capabilities | tojson(indent=2) }}</pre></details>
+  {% if d.excluded_scope %}<p><b>제외 범위</b>: {{ d.excluded_scope | join(' · ') }}</p>{% endif %}
+{% endif %}
+<p class="definition-provenance">출처 {{ document.source }} · {{ document.source_ref }}{% if document.run_id %} · 실행 {{ document.run_id }}{% endif %}<br>SHA-256 {{ document.sha256 or '확인 불가' }}</p>
+</details>

@@ -18,7 +18,7 @@
       var keep = active.every(function (test) { return test(row); });
       row.classList.toggle("hidden", !keep);
     });
-    Array.prototype.forEach.call(document.querySelectorAll("tr.group"), function (header) {
+    Array.prototype.forEach.call(document.querySelectorAll("tr.group[data-group]"), function (header) {
       var visible = document.querySelector("tr.scenario-row[data-group='" + header.dataset.group + "']:not(.hidden)");
       header.classList.toggle("hidden", !visible);
     });

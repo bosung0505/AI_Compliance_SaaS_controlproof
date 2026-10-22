@@ -4,9 +4,16 @@
 <meta charset="utf-8">
 <meta name="viewport" content="width=device-width, initial-scale=1">
 <title>{% block title %}ControlProof 검증 워크벤치{% endblock %}{% if view.demo %} (DEMO DATA){% endif %}</title>
+<meta name="theme-color" content="#7560d9">
+<link rel="stylesheet" href="/static/theme.css">
 <link rel="stylesheet" href="/static/workbench.css">
+<link rel="stylesheet" href="/static/shell.css">
+<link rel="stylesheet" href="/static/overview.css">
+<link rel="stylesheet" href="/static/service.css">
+<link rel="stylesheet" href="/static/delivery.css">
 </head>
-<body>
+<body class="workspace-shell">
+<a class="workspace-skip" href="#main">본문으로 건너뛰기</a>
 {% macro badge(key, suffix="", count=None) -%}
 {%- set b = badges[key] -%}
 <span class="{{ b.css_class }}" data-badge="{{ b.key }}"{% if count is not none %} data-count-value="{{ count }}"{% endif %} title="{{ b.description }}"><span class="ic">{{ b.icon }}</span>{{ b.text }}{{ suffix }}</span>
@@ -14,8 +21,14 @@
 {% if view.demo %}
 <div class="demo-banner" role="note">DEMO DATA <small>합성 데이터로 만든 화면입니다. 실제 실행·판정·증적이 아니며 실제 결과 개수·보고서에 섞이지 않습니다.</small></div>
 {% endif %}
-<header>
-  <div class="brand-row"><h1>ControlProof <span>검증 워크벤치</span></h1><span class="record-context">{{ "합성 데모 보기" if view.demo else "공유된 실제 테스트 기록" if view.shared_snapshot else "보관된 테스트 기록 보기" }}</span></div>
+<div class="workspace-frame">
+<header class="workspace-header">
+  <div class="brand-row"><h1><a class="workspace-brand" href="/product"><span class="workspace-mark" aria-hidden="true">✓</span>ControlProof</a></h1></div>
+  <div class="workspace-header-actions"><a href="/product">서비스 소개</a><a href="/guide">도입 안내</a><span class="workspace-mode">{{ "DEMO" if view.demo else "공유 · 읽기 전용" if view.shared_snapshot else "로컬 기록" }}</span><button class="menu-toggle" aria-label="메뉴 열기" aria-expanded="false" aria-controls="primary-navigation">☰</button></div>
+  <p class="workspace-environment">WhyYou · {{ "합성 데모" if view.demo else "로컬 테스트" if (view.environment_kind or "LOCAL_EMULATED") == "LOCAL_EMULATED" else view.environment_kind }}</p>
+  <details class="verification-info workspace-target" data-testid="verification-info"><summary><span aria-hidden="true">ⓘ</span> 검증 정보</summary>
+  <div class="verification-info-panel">
+  <section aria-labelledby="verification-target-title"><h2 id="verification-target-title">대상과 실행 환경</h2>
   {% set tv = (view.target.target_version if view.target else none) or (view.run.target_version if view.run else none) or view.target_version_now %}
   <div class="target">검증 대상: <b>WhyYou</b> 테스트 환경
     {% set commit = (view.run.target_commit if view.run else none) or (view.latest_run.target_commit if view.latest_run else none) or (view.child.target_commit if view.child else none) or (view.target.target_commit if view.target else none) or view.target_commit_now %}
@@ -24,28 +37,50 @@
     · 실제 AWS <b>{{ view.aws_deployment_status or "NOT_RUN" }}</b>
     · 주장 범위: 실행한 시나리오와 확보한 증적
     <details class="dev-inline" data-testid="header-developer"><summary>개발자용 정보</summary><span class="mono">claim_scope: {{ view.claim_scope or "EXECUTED_SCENARIO_AND_EVIDENCE_ONLY" }}</span>{% if tv %} · <span class="mono">target_version: {{ tv }}</span>{% endif %}</details></div>
-  <nav role="tablist" aria-label="화면 선택">
-    <a role="tab" href="{{ prefix }}/" aria-selected="{{ 'true' if active == 'workbench' else 'false' }}">검증 목록</a>
-    {% set scenario_for_tab = view.id if active == "scenario" else (view.run.scenario_id if view.run else view.scenario_id) %}
-    {% if scenario_for_tab %}<a role="tab" href="{{ prefix }}/scenarios/{{ scenario_for_tab }}" aria-selected="{{ 'true' if active == 'scenario' else 'false' }}">테스트 개요</a>{% else %}<a role="tab" href="{{ prefix }}/#catalog" aria-selected="false">테스트 개요</a>{% endif %}
-    {% if active in ('run', 'evidence') %}<a role="tab" href="{{ prefix }}/runs/{{ view.run.run_id if view.run else view.run_id }}" aria-selected="true">실행 결과·근거</a>{% elif view.latest_run %}<a role="tab" href="{{ prefix }}/runs/{{ view.latest_run.run_id }}" aria-selected="false">최근 실행 결과</a>{% else %}<a role="tab" href="{{ prefix }}/{{ 'scenarios/' ~ scenario_for_tab ~ '#runs' if scenario_for_tab else '#catalog' }}" aria-selected="false">실행 기록 찾기</a>{% endif %}
-    <a role="tab" href="{{ prefix }}/report" aria-selected="{{ 'true' if active in ('report', 'compare') else 'false' }}">보고서·재테스트 비교</a>
-  </nav>
-</header>
-<main>
-{% if view.shared_snapshot %}
-<div class="card" role="note" data-testid="shared-records">
-  <b>팀과 함께 보는 실제 실행 기록</b>
-  <p class="muted">같은 공유본에서는 동일한 결과·상세 근거·재테스트 이력을 볼 수 있습니다. 기록 확인 {{ view.shared_snapshot.reviewed_at | when }} · 시각은 한국 시간(KST) · 읽기 전용</p>
-  <details><summary>공유본 정보{% if view.shared_snapshot.missing_records %} · 원본 미확보 이력 {{ view.shared_snapshot.missing_records | length }}건{% endif %}</summary>
+  </section>
+  <section aria-labelledby="verification-reading-title"><h2 id="verification-reading-title">집계와 판정 기준</h2>
+    <p>차트는 관리 중인 시나리오의 실행 여부를 구분합니다. PASS 비율이나 법적 준수율을 뜻하지 않습니다.</p>
+    <p>PASS는 실행한 조건과 확보한 근거에만 적용됩니다. 일부 범위·미실행·대상 기능 없음은 각각 구분합니다.</p>
+    <p>AI 점수는 참고 정보이며, 최종 채용 결정은 권한 있는 사람이 내립니다.</p>
+  </section>
+  <section aria-labelledby="verification-source-title"{% if view.shared_snapshot %} data-testid="shared-records"{% endif %}><h2 id="verification-source-title">기록 출처</h2>
+  {% if view.shared_snapshot %}
+    <p>팀과 함께 보는 실제 기록 · {{ view.shared_snapshot.reviewed_at | when }} KST · 읽기 전용{% if view.shared_snapshot.missing_records %} · 원본 미확보 {{ view.shared_snapshot.missing_records | length }}건{% endif %}</p>
+    <p>같은 공유본에서는 동일한 결과·상세 근거·재테스트 이력을 볼 수 있습니다. 공유본 열람은 새 독립 실행이 아닙니다.</p>
+    <p>보관된 실제 테스트 결과입니다. 이 PC에서 새로 실행한 결과나 현재 실행 준비 상태를 뜻하지 않습니다.</p>
     <p class="mono">{{ view.shared_snapshot.snapshot_id }} · SHA-256 {{ view.shared_snapshot.snapshot_digest }}</p>
-    <p class="muted">보관된 실제 테스트 결과입니다. 이 PC에서 새로 실행한 결과나 현재 실행 준비 상태를 뜻하지 않습니다.</p>
     {% for item in view.shared_snapshot.missing_records %}<p class="muted">{{ item.run_id }}: {{ item.note }}</p>{% endfor %}
+  {% elif view.demo %}
+    <p>DEMO DATA는 합성 예시입니다. 실제 실행·판정·증적이나 실제 결과 집계에 포함되지 않습니다.</p>
+  {% else %}
+    <p>이 PC에 보관된 실제 기록을 읽습니다. 준비 확인과 개인 메모는 해당 로컬 환경에 저장됩니다.</p>
+  {% endif %}
+  </section>
+  <section aria-labelledby="verification-limits-title"><h2 id="verification-limits-title">검증 범위</h2>
+    <p>합성 데이터와 고정된 테스트용 모델 출력을 사용한 테스트입니다. 외부 모델 품질과 실제 AWS 환경은 별도 검증 대상입니다.</p>
+    <p>원본 결과와 실행별 버전·미검증 조건은 각 테스트의 상세 화면 및 보고서에서 확인할 수 있습니다.</p>
+    <a href="{{ prefix }}/report">검토 보고서 보기 →</a>
+  </section>
+  </div>
   </details>
-</div>
-{% endif %}
+</header>
+<aside class="workspace-sidebar" aria-label="워크스페이스 탐색">
+  <p class="workspace-eyebrow">WHYYOU WORKSPACE</p>
+  <nav class="workspace-nav" id="primary-navigation" aria-label="화면 선택">
+    <a href="{{ prefix }}/" {% if active == 'workbench' %}aria-current="page"{% endif %}>전체 현황</a>
+    <a href="{{ prefix }}/results" {% if active == 'results' %}aria-current="page"{% endif %}>테스트 결과</a>
+    {% set scenario_for_tab = view.id if active == "scenario" else (view.run.scenario_id if view.run else view.scenario_id) %}
+    {% if active in ('run', 'evidence') %}<a href="{{ prefix }}/runs/{{ view.run.run_id if view.run else view.run_id }}" aria-current="page">실행 결과·근거</a>{% elif scenario_for_tab %}<a href="{{ prefix }}/scenarios/{{ scenario_for_tab }}" {% if active == 'scenario' %}aria-current="page"{% endif %}>테스트 개요·이력</a>{% else %}<a href="{{ prefix }}/#catalog">검증 기준 안내</a>{% endif %}
+    <a href="{{ prefix }}/report" {% if active in ('report', 'compare') %}aria-current="page"{% endif %}>보고서·재테스트 비교</a>
+    <a href="{{ prefix }}/prepare" {% if active == 'prepare' %}aria-current="page"{% endif %}>테스트 준비</a>
+  </nav>
+  <div class="sidebar-context"><a href="/product#controls">네 가지 보호조치 살펴보기 ↗</a></div>
+</aside>
+<main id="main" class="workspace-main" tabindex="-1">
 {% block content %}{% endblock %}
 </main>
+</div>
 <script src="/static/workbench.js"></script>
+<script src="/static/platform.js"></script>
 </body>
 </html>

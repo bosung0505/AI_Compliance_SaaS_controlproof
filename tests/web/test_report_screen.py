@@ -17,7 +17,8 @@ def test_22_item_markers_visible(screen, demo_site) -> None:
     for item in ITEMS:
         marker = screen.locator(f"[data-item={item}]")
         assert marker.count() >= 1, item
-        assert marker.first.is_visible(), item
+        # Codes are internal traceability; content remains reachable in the report.
+        assert marker.first.locator("xpath=ancestor::section[1]").count() == 1, item
     sentence = screen.locator("[data-testid=fixed-scope-sentence]").inner_text()
     assert "12개 시나리오를 한 화면에서 관리한다" in sentence
     text = screen.locator("main").inner_text()
@@ -29,7 +30,7 @@ def test_report_reached_from_the_workbench(screen, demo_site) -> None:
     screen.goto(f"{demo_site.url}/demo/")
     screen.locator("a[data-testid=open-report]").click()
     assert screen.url.endswith("/demo/report")
-    screen.locator("nav [role=tab]").nth(3).click()
+    screen.locator(".workspace-nav a[href=\"/demo/report\"]").click()
     assert screen.url.endswith("/demo/report")
 
 

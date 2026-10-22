@@ -1,0 +1,35 @@
+<p><a class="text-link" href="{{ prefix }}/prepare#prepare-{{ view.id }}">테스트 준비 화면에서 확인 →</a></p>
+  {% if view.shared_snapshot and view.profiles %}
+  <div class="card"><h3>새 테스트 준비</h3><p class="muted">공유 화면은 보관된 결과를 읽는 화면입니다. 새 테스트의 준비 확인·실행은 각 PC의 로컬 실행 모드에서 진행합니다.</p></div>
+  {% elif view.profiles %}
+  <div class="card" data-testid="run-guide"><h3>새 테스트 준비·실행 안내 <span class="muted">(웹은 실행을 시작하지 않습니다 · D-018)</span></h3>
+    <p class="muted">아래는 새 테스트을 시작하려는 실행 담당자용 안내입니다. 위의 과거 결과를 읽는 데 준비 설정은 필요하지 않습니다.</p>
+    {% if view.definition %}<details><summary>시나리오에 정의된 실행 전제 {{ view.definition.preconditions | length }}개</summary><ul>{% for item in view.definition.preconditions %}<li>{{ item.description }}</li>{% endfor %}</ul></details>{% endif %}
+    <div class="limit">전제: ① 준비 상태 READY(확인 시각 확인) ② 같은 대상의 다른 실행이 잠금을 잡고 있지 않음 ③ 이전 복구 실패로 남은 차단이 없음 ④ 사람의 실행 승인. 실행 중 실패해도 복구 단계는 항상 실행됩니다.</div>
+    {% for profile in view.profiles %}
+    <h3>{{ profile.execution_profile }}</h3>
+    <p data-testid="profile-readiness">준비 상태:
+      {% if profile.readiness.badge %}{{ badge(profile.readiness.badge) }}{% if profile.readiness.badge == "tool_error" %} <span class="muted">준비 상태가 아니라 확인 요청 자체의 오류입니다({{ profile.readiness.error_kind }}).</span>{% endif %}
+      {% else %}<span class="muted">확인 기록 없음</span>{% endif %}
+      {% if profile.readiness.checked_at %}<span class="muted">확인 <span data-testid="checked-at">{{ profile.readiness.checked_at | when }}</span></span>{% endif %}</p>
+    {% if profile.readiness.badge == "configuration_required" %}
+    <div class="limit" data-testid="configuration-guidance">
+      <p>{{ profile.readiness.note }}</p>
+      {% if profile.readiness.missing_settings %}<p>필요한 설정: {{ profile.readiness.missing_settings | join(" · ") }}</p>{% endif %}
+      <p>이 상태는 새 테스트 준비에만 해당합니다. 기존 실행 결과는 위의 최근 결과에서 확인할 수 있습니다.</p>
+      <details><summary>설정 오류 상세</summary><p>{{ profile.readiness.error_detail }}</p></details>
+    </div>
+    {% endif %}
+    <form method="post" action="/preflight" class="inline-form" data-testid="preflight-form">
+      <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+      <input type="hidden" name="scenario_id" value="{{ view.id }}">
+      <input type="hidden" name="execution_profile" value="{{ profile.execution_profile }}">
+      <input type="hidden" name="return_to" value="/scenarios/{{ view.id }}">
+      <button class="btn" type="submit"{% if view.demo %} disabled{% endif %}>준비 상태 확인</button>
+      {% if view.demo %}<span class="muted">DEMO DATA 화면에서는 실행하지 않습니다.</span>{% endif %}
+    </form>
+    <div class="cmd mono" id="cmd-{{ loop.index }}" data-testid="run-command" data-command="{{ profile.run_command }}">{{ profile.run_command }}<button type="button" data-copy="cmd-{{ loop.index }}">복사</button></div>
+    <p class="muted">재테스트: <span class="mono">{{ profile.retest_command }}</span></p>
+    {% endfor %}
+  </div>
+  {% endif %}

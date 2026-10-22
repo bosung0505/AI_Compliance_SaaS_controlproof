@@ -206,8 +206,12 @@ class WorkbenchReader:
         }
 
     def workbench(self) -> dict[str, Any]:
+        from engine.web.overview import current_scope, projection
+
         bundles = self._bundles_by_scenario()
         rows = [self._row(entry, bundles.get(entry["id"], [])) for entry in self.catalog["scenarios"]]
+        for row in rows:
+            row["ui"] = {"current_scope": current_scope(row["id"], _spec009_scenario_yaml(row["id"]))}
         common = _common_checked_at(rows)
         for row in rows:
             checked = row["readiness"].get("checked_at")
@@ -226,6 +230,7 @@ class WorkbenchReader:
             "count_members": _count_members(rows),
             "treatment_counts": dict(Counter(entry["mvp_treatment"] for entry in self.catalog["scenarios"])),
             "groups": groups,
+            "ui": projection(groups),
             "retest_needed": [{"scenario_id": row["id"]} for row in rows if row["official"]["result"] == "FAIL"],
             "preserved_first_failures": self._preserved_first_failures(),
             "fixed_scope_sentence": " ".join(self.catalog["fixed_scope_sentence"].split()),
@@ -387,6 +392,8 @@ class WorkbenchReader:
 
     # -- run view (US2) --------------------------------------------------------------------------------------------
     def run(self, run_id: str) -> dict[str, Any]:
+        from engine.web.details import run_projection
+
         bundle = self._bundle(run_id)
         record = _read_json(bundle / "run.json") or {}
         state = record.get("state")
@@ -421,6 +428,7 @@ class WorkbenchReader:
                 ],
             },
             "phase_summary": [],
+            "ui": {"sealed_definition": None, "notice_measurements": [], "problems": []},
         }
         if not verified:
             return view
@@ -521,6 +529,8 @@ class WorkbenchReader:
             )
         if self.origin == "ACTUAL" and summary["scenario_id"] == "H-02":
             view["remediation"] = h02_history(self.run_root, run_id, self.cache.verify)
+        view["ui"] = run_projection(bundle, record, describe=_definition, reader=self,
+                                    strict_verified=self.cache.verify(bundle).get("bundle_status") == "VERIFIED")
         return view
 
     def evidence(self, run_id: str, ref: str, *, condition_id: str | None = None) -> dict[str, Any]:
@@ -675,6 +685,8 @@ class WorkbenchReader:
 
     # -- scenario view (US4) -------------------------------------------------------------------------------------------
     def scenario(self, scenario_id: str) -> dict[str, Any]:
+        from engine.web.details import scenario_projection
+
         entry = self._catalog_entry(scenario_id)
         if entry is None:
             raise ScenarioNotFound(scenario_id)
@@ -724,6 +736,7 @@ class WorkbenchReader:
             "readiness": self._readiness(entry),
             "target_access": _scenario_target_access(scenario_id, profiles),
             "scope_items": _scenario_scope_items(scenario_id),
+            "ui": scenario_projection(self, entry, runs, describe=_definition),
         }
 
     def _scenario_profile(self, entry: dict[str, Any], profile: dict[str, Any], runs: list[dict[str, Any]]) -> dict[str, Any]:
@@ -844,6 +857,8 @@ class WorkbenchReader:
             "developer": {"retest_diff": _read_json(child_bundle / "retest-diff.json"), "retest_link": link or None},
         }
         if problem is not None:
+            from engine.web.delivery import compare_projection
+            view["ui"] = compare_projection(self, view, parent_view, child_view)
             return view
         view["changed_dimensions"] = link.get("changed_dimensions")
         before = {item["assertion_id"]: item for item in parent_view["assertions"] or []}
@@ -869,6 +884,8 @@ class WorkbenchReader:
         view["remaining_failures"] = sorted(
             item["assertion_id"] for item in changes if item["after"] in {"FAIL", "INCONCLUSIVE"}
         )
+        from engine.web.delivery import compare_projection
+        view["ui"] = compare_projection(self, view, parent_view, child_view)
         return view
 
     def _lineage(self, run_id: str) -> list[dict[str, Any]]:
@@ -1001,6 +1018,8 @@ class WorkbenchReader:
             "C9": report["legal_notice"],
         }
         report["items_present"] = {key: bool(value) for key, value in present.items()}
+        from engine.web.delivery import report_projection
+        report["ui"] = report_projection(self, report, workbench)
         return report
 
 

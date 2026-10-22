@@ -1,68 +1,34 @@
 {% extends "base.html" %}
 {% set active = "compare" %}
 {% block title %}재테스트 비교 · ControlProof{% endblock %}
-{% macro side_badge(side) -%}
-{%- if side.badge %}{% if side.verdict == "INCONCLUSIVE" %}<span class="neutral-title small">판정 불가</span> {% endif %}{{ badge(side.badge) }}{% else %}{{ badge("integrity_failed") }}{% endif %}
-{%- endmacro %}
+{% macro side_badge(side) -%}{% if side.badge %}{{ badge(side.badge) }}{% else %}{{ badge("integrity_failed") }}{% endif %}{%- endmacro %}
 {% block content %}
-{% set parent = view.parent %}
-{% set child = view.child %}
-<section aria-label="재테스트 비교">
-  <div class="page-heading"><p class="eyebrow">실행 기록 · 이전과 이후</p><h2>재테스트 비교</h2><p>{{ view.scenario_title }}</p><p class="page-meta">보존된 이전 결과와 재테스트의 판정·변경 조건·테스트 확인 자료를 함께 보여줍니다.</p></div>
-  {% if view.remediation %}{% include "_remediation_steps.html" %}
-  <details class="card" data-testid="history-technical"><summary>실행 버전·전체 이력·규칙별 비교 보기</summary>
-  {% endif %}
-  {% if view.lineage | length > 1 %}
-  <p class="muted">계보: {% for item in view.lineage %}<a href="{{ prefix }}/runs/{{ item.run_id }}" class="mono">{{ item.run_id | short_id }}</a>{% if item.badge %} {{ badge(item.badge) }}{% endif %}{% if not loop.last %} → {% endif %}{% endfor %}</p>
-  {% endif %}
-  <div class="side">
-    <div class="card" data-testid="compare-parent"><h3>{{ "이전 문제 확인" if view.remediation else "최초 실행" }} {{ side_badge(parent) }}</h3>
-      <p><a class="mono" href="{{ prefix }}/runs/{{ parent.run_id }}">{{ parent.run_id }}</a></p>
-      <p>대상 버전 {% if parent.target_commit %}WhyYou commit <span class="mono">{{ parent.target_commit }}</span>{% else %}<span class="muted">commit 기록 없음</span>{% endif %}</p>
-      <p class="muted">{{ parent.integrity_label or parent.integrity }}</p></div>
-    <div class="card" data-testid="compare-child"><h3>재테스트 {{ side_badge(child) }}</h3>
-      <p><a class="mono" href="{{ prefix }}/runs/{{ child.run_id }}">{{ child.run_id }}</a> · 부모: <span class="mono">{{ parent.run_id | short_id }}</span></p>
-      <p>대상 버전 {% if child.target_commit %}WhyYou commit <span class="mono">{{ child.target_commit }}</span>{% else %}<span class="muted">commit 기록 없음</span>{% endif %}</p>
-      <p class="muted">{{ child.integrity_label or child.integrity }}</p></div>
+{% set ui = view.ui %}{% set parent = view.parent %}{% set child = view.child %}
+<section class="service-detail service-delivery service-compare" aria-label="재테스트 비교">
+  <nav class="service-breadcrumb" aria-label="현재 위치"><a href="{{ prefix }}/report">보고서</a><span>/</span><a href="{{ prefix }}/scenarios/{{ ui.scenario_id }}">{{ ui.scenario_id }} 테스트 상세</a><span>/ 재테스트 비교</span></nav>
+  <div class="overview-heading"><div><p class="section-kicker">CHANGE REVIEW</p><h2>다시 확인한 결과, 무엇이 달라졌나요?</h2><p>{{ view.scenario_title }}</p></div><a class="btn" href="{{ prefix }}/runs/{{ child.run_id }}">선택한 실행 보기 →</a></div>
+  {% if ui.relationship_problem %}<div class="service-scope" role="alert"><b>계보를 확인할 수 없어 비교를 중단했습니다</b><p>{{ ui.relationship_problem.detail }}</p><p class="mono">{{ ui.relationship_problem.code }}</p><p>원래 실행 상태는 아래에서 확인할 수 있습니다. 비교 결과를 다른 PASS로 대신하지 않습니다.</p></div>{% endif %}
+  <div class="comparison-pair">
+  {% for side, label, testid in [(parent,"직전 부모 실행","compare-parent"),(child,"선택한 재테스트","compare-child")] %}
+    <article class="service-card" data-testid="{{ testid }}"><p class="section-kicker">{{ label }}</p><p class="delivery-note">봉인 판정</p><h3>{{ side_badge(side) }}</h3><p class="mono">{{ side.run_id }}</p><p>WhyYou commit <span class="mono">{{ side.target_commit or "기록 없음" }}</span></p><p>실행 상태: {{ ui.execution_states.parent if testid == "compare-parent" else ui.execution_states.child }}</p><p>{{ side.integrity_label or side.integrity }} · 정의 {{ side.scenario_version or "기록 없음" }}</p>{% if side.integrity != "UNREADABLE" %}<a class="text-link" href="{{ prefix }}/runs/{{ side.run_id }}">결과와 근거 읽기 →</a>{% else %}<p>원본 미확보 · 실행 링크 없음</p>{% endif %}</article>
+  {% endfor %}
   </div>
-
-  <div class="card">
-    <p data-testid="parent-unchanged">
-      {% if view.lineage_problem %}{{ badge("integrity_failed") }} <b>계보 문제</b>: {{ view.lineage_problem.detail }} 비교 항목은 보이지 않습니다.
-      {% elif view.parent_unchanged %}<span class="integrity-ok">✔ 부모 기록 불변 확인</span> 재테스트 기록에 남은 부모 무결성 값과 지금 부모 기록이 같습니다(<span class="mono">{{ (view.current_parent_digest or "")[:12] }}…</span>). 최초 결과는 지워지거나 바뀌지 않았습니다.
-      {% else %}<b>부모 불변 값 기록 없음(이전 형식)</b>: 이 계보의 재테스트 기록은 부모 무결성 값을 남기지 않습니다. 부모 기록 자체의 무결성: {{ parent.integrity_label or parent.integrity }}.{% endif %}</p>
-
-    {% if view.fix_description %}<h3>{{ "기록에 남긴 사유·메모" if view.remediation else "수정 내용" }}</h3><p>{{ (view.fix_description.text | replace("시험", "테스트")) if view.fix_description.source == "retest_link" else view.fix_description.text }} <span class="muted">({{ "수정 메모" if view.fix_description.source == "memo" else "재테스트 기록의 사유" }})</span></p>{% endif %}
-
-    {% if view.changed_dimensions is not none %}
-    <h3>바뀐 차원</h3>
-    <table><thead><tr><th>차원</th><th>변화</th></tr></thead><tbody>
-      {% for key, value in view.changed_dimensions.items() %}
-      <tr><td>{{ {"scenario": "시나리오 정의", "environment": "실행 환경", "model_fixture": "테스트용 고정 모델", "scoring_rule_source": "점수 규칙 원본", "target_paths": "대상 버전", "target": "대상 서비스 버전", "queue_topology": "작업 대기열 구성", "subject_initial_state": "합성 대상 초기 상태", "subject_role": "합성 대상 역할"}.get(key, key) }}</td>
-        <td>{% if value is sameas true %}바뀜{% elif value is sameas false %}같음{% elif value is none %}기록 없음{% elif value %}바뀜({{ value | join(", ") }}){% else %}같음{% endif %}</td></tr>
-      {% endfor %}
-    </tbody></table>
-    <details data-testid="developer"><summary>개발자용 원본 정보</summary><pre class="raw">{{ view.developer.retest_link | tojson }}
-{{ view.developer.retest_diff | tojson }}</pre></details>
-    {% endif %}
-
-    {% if view.assertion_changes is not none %}
-    <h3>규칙별 이전·이후</h3>
-    <table><thead><tr><th>규칙</th><th>최초</th><th>재테스트</th><th>이전 증적</th><th>이후 증적</th></tr></thead><tbody>
-      {% for item in view.assertion_changes %}
-      <tr class="assertion-change" data-changed="{{ 'true' if item.changed else 'false' }}"><td class="nowrap">{{ item.assertion_id }}</td>
-        <td>{% if item.before_badge %}{{ badge(item.before_badge) }}{% else %}—{% endif %}</td>
-        <td>{% if item.after_badge %}{{ badge(item.after_badge) }}{% else %}—{% endif %}</td>
-        <td>{% for ev in item.before_evidence[:2] %}<span class="mono" title="{{ ev.label }}">{{ ev.sha256[:12] }}…</span>{% if not loop.last %}<br>{% endif %}{% endfor %}{% if item.before_evidence | length > 2 %} <span class="muted">외 {{ item.before_evidence | length - 2 }}개</span>{% endif %}</td>
-        <td>{% for ev in item.after_evidence[:2] %}<span class="mono" title="{{ ev.label }}">{{ ev.sha256[:12] }}…</span>{% if not loop.last %}<br>{% endif %}{% endfor %}{% if item.after_evidence | length > 2 %} <span class="muted">외 {{ item.after_evidence | length - 2 }}개</span>{% endif %}</td></tr>
-      {% endfor %}
-    </tbody></table>
-    <p>결과 변화: {% set changed = view.assertion_changes | selectattr("changed") | list %}{% for item in changed %}{{ item.assertion_id }} {{ item.before or "—" }} → {{ item.after or "—" }}{% if not loop.last %}, {% endif %}{% else %}없음{% endfor %}. 남은 실패: {{ view.remaining_failures | join(", ") or "없음" }}.</p>
-    {% endif %}
-    <p>재테스트은 웹에서 시작하지 않습니다. 다시 재테스트하려면 명령을 쓰세요:</p>
-    <div class="cmd mono" id="cmd-retest" data-testid="retest-command" data-command="{{ view.retest_command }}">{{ view.retest_command }}<button type="button" data-copy="cmd-retest">복사</button></div>
-  </div>
-  {% if view.remediation %}</details>{% endif %}
-  <p><a href="{{ prefix }}/report">← 보고서로</a> · <a href="{{ prefix }}/">워크벤치로</a></p>
+  <div class="service-card change-explanation"><p class="section-kicker">{{ "VERIFIED CHANGE" if ui.cause.source else "CHANGE CONTEXT" }}</p><h3>{{ ui.cause.label }}</h3><p>{{ ui.cause.text }}</p>{% if ui.cause.source %}<details><summary>설명 출처</summary><p>{{ ui.cause.source }}</p></details>{% endif %}
+  {% if view.fix_description and ui.comparison_available %}<details><summary>{{ "별도 수정 메모" if view.fix_description.source == "memo" else "재테스트 기록에 남긴 사유" }}</summary><p>{{ view.fix_description.text }}</p><p>출처: {{ view.fix_description.source }}{% if view.fix_description.source == "memo" %} · 봉인 판정과 분리된 로컬 기록{% endif %}</p></details>{% endif %}
+  <p data-testid="parent-unchanged">{% if ui.relationship_problem %}계보 문제로 부모 불변 확인을 완료하지 못했습니다.{% elif view.parent_unchanged %}<b class="integrity-ok">✔ 부모 기록 불변 확인</b> · 원래 판정과 증거를 보존했습니다.{% else %}<b>부모 불변 값 기록 없음(이전 형식)</b> · 변조를 뜻하지 않습니다. 부모 자체 무결성: {{ parent.integrity_label or parent.integrity }}{% endif %}</p></div>
+  {% if ui.comparison_available %}
+    {% if view.remediation %}<details class="service-card" data-testid="history-technical"><summary>문제 발견 → 서비스 보완 → 재테스트의 실제 관찰</summary>{% include "_remediation_steps.html" %}</details>{% endif %}
+    {% if ui.measurement_versions.parent %}<div class="service-scope"><b>측정 v{{ ui.measurement_versions.parent }} → v{{ ui.measurement_versions.child }}</b><p>원본 측정 버전이 없던 v1은 호환 표시입니다. 원본 null은 유지하며, 각 실행에서 PC·모바일 캡처와 측정 근거를 확인할 수 있습니다.</p></div>{% endif %}
+    <div class="section-heading"><div><p class="section-kicker">ASSERTION COMPARISON</p><h3>같은 규칙의 이전과 이후</h3></div><span class="group-count">{{ ui.assertions | length }}개 원본 규칙</span></div>
+    <div class="comparison-rules">
+    {% for row in ui.assertions %}<article class="service-card comparison-rule" data-testid="assertion-change" data-changed="{{ 'true' if row.changed else 'false' }}"><h4>{{ row.description or row.assertion_id }}</h4><p class="muted mono">{{ row.assertion_id }} · {{ "판정 변화" if row.changed else "판정 유지" }}</p><div class="comparison-rule-status"><span>이전 {% if row.before_badge %}{{ badge(row.before_badge) }}{% else %}기록 없음{% endif %}</span><span aria-hidden="true">→</span><span>이후 {% if row.after_badge %}{{ badge(row.after_badge) }}{% else %}기록 없음{% endif %}</span></div><details><summary>양쪽 확인 자료 · {{ row.before_evidence | length }} / {{ row.after_evidence | length }}개</summary><div class="comparison-evidence">{% for side, label in [("before","이전"),("after","이후")] %}<div><h4>{{ label }} 근거</h4><ul>{% for ev in row[side ~ "_evidence"] %}<li><a href="{{ prefix }}/runs/{{ ev.run_id }}/evidence?ref={{ ev.ref | urlencode }}">{{ ev.label }}</a><p class="mono">SHA-256 {{ ev.sha256 }}</p></li>{% else %}<li>연결된 자료 없음</li>{% endfor %}</ul></div>{% endfor %}</div></details></article>{% endfor %}
+    </div><p class="delivery-note">남은 실패·판정 불가 규칙: {{ view.remaining_failures | join(", ") or "없음" }}. 이 표는 원본 판정을 비교하며 새로운 판정을 만들지 않습니다.</p>
+    <details class="service-card"><summary>실행 버전·변경 차원·부모 해시</summary><p>부모 무결성 출처: {{ view.parent_integrity_source }}</p><p class="mono">기록된 부모 digest: {{ view.recorded_parent_digest or "기록 없음" }}<br>현재 부모 digest: {{ view.current_parent_digest or "확인 불가" }}</p>
+    {% if view.changed_dimensions is not none %}<dl class="dimension-list">{% for key,value in view.changed_dimensions.items() %}<dt>{{ {"scenario":"시나리오 정의","environment":"실행 환경","model_fixture":"고정 모델","target":"대상 서비스 버전","target_paths":"대상 버전","scoring_rule_source":"점수 규칙 원본","queue_topology":"대기열 구성","subject_initial_state":"합성 대상 초기 상태","subject_role":"합성 대상 역할"}.get(key,key) }}</dt><dd>{% if value is sameas true %}바뀜{% elif value is sameas false %}같음{% elif value is none %}기록 없음{% else %}{{ value | tojson }}{% endif %}</dd>{% endfor %}</dl>{% else %}<p>변경 차원 기록 없음</p>{% endif %}
+    <details data-testid="developer"><summary>재테스트 원본 연결·차이 정보</summary><pre>{{ view.developer | tojson(indent=2) }}</pre></details></details>
+    {% for side in ("parent","child") %}{% set document = ui.scopes[side] %}{% if document %}<div class="sealed-compare-scope"><p class="delivery-note">{{ "부모" if side == "parent" else "재테스트" }} 실행에 봉인된 정의</p>{% include "partials/definition_document.html" %}</div>{% endif %}{% endfor %}
+  {% endif %}
+  <details class="service-card"><summary>전체 계보와 새 재테스트 담당자 안내</summary><ol class="lineage-list">{% for row in view.lineage %}<li><a href="{{ prefix }}/runs/{{ row.run_id }}">{{ row.run_id | short_id }}</a>{% if row.badge %} {{ badge(row.badge) }}{% endif %}<span class="muted"> {{ row.integrity }}</span></li>{% endfor %}</ol><p>웹에서는 재테스트를 실행하지 않습니다. 준비 확인과 담당자의 승인 후 별도 명령으로 실행합니다.</p><div class="cmd mono" id="cmd-retest" data-testid="retest-command" data-command="{{ view.retest_command }}">{{ view.retest_command }}<button type="button" data-copy="cmd-retest">복사</button></div><a href="{{ prefix }}/prepare">테스트 준비 안내 →</a></details>
+  <p><a href="{{ prefix }}/report">← 전체 보고서</a></p>
 </section>
 {% endblock %}

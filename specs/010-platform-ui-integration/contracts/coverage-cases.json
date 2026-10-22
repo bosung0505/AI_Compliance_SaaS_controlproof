@@ -1,0 +1,1815 @@
+{
+  "fixture_schema": "controlproof.ui-coverage-cases.v1",
+  "status": "DESIGN_CONTRACT_NOT_PRODUCTION_IMPLEMENTATION",
+  "baseline_commit": "fb219d0c6923c6be09691fcae0ead670f9700b39",
+  "notes": [
+    "모든 case는 합성 계약 fixture이며 실제 Run/판정 증거가 아니다.",
+    "partial은 표시 메타데이터이고 verdict enum이 아니다.",
+    "공식 대표는 프로필별 final/repeat의 카탈로그 선언 순서 마지막 항목이며 시각 최신 여부는 별도 검증한다.",
+    "selection_problems의 코드는 fixture/UI projection 전용이며 엔진 reason_code를 확장하지 않는다."
+  ],
+  "cases": [
+    {
+      "case_id": "COV-01",
+      "case_type": "aggregate",
+      "description": "현재 공식 범위 9·0·3. N-03 일부 범위는 네 번째 도넛 구분이 아니다.",
+      "input": {
+        "scenarios": [
+          {
+            "id": "N-01",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "N-02",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "N-03",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": true
+          },
+          {
+            "id": "H-01",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "H-02",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "H-03",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "A-01",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "A-02",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "A-03",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "E-01",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "E-02",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "E-03",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          }
+        ]
+      },
+      "expected": {
+        "total": 12,
+        "coverage_counts": {
+          "EXECUTED": 9,
+          "NOT_RUN": 0,
+          "NO_TEST_TARGET": 3
+        },
+        "verdict_counts": {
+          "PASS": 9,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "INCONCLUSIVE": {
+            "total": 3,
+            "by_reason": {
+              "NO_TEST_TARGET": 3
+            }
+          }
+        },
+        "partial_count": 1,
+        "segments": [
+          {
+            "treatment": "EXECUTED",
+            "count": 9,
+            "draw": true
+          },
+          {
+            "treatment": "NOT_RUN",
+            "count": 0,
+            "draw": false
+          },
+          {
+            "treatment": "NO_TEST_TARGET",
+            "count": 3,
+            "draw": true
+          }
+        ],
+        "groups": {
+          "N": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 1
+          },
+          "H": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 0
+          },
+          "A": {
+            "targeted_progress": null,
+            "partial_count": 0
+          },
+          "E": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 0
+          }
+        }
+      }
+    },
+    {
+      "case_id": "COV-02",
+      "case_type": "aggregate",
+      "description": "실행한 결과가 FAIL이어도 실행 범위는 9이며 대상 없음으로 바뀌지 않는다.",
+      "input": {
+        "scenarios": [
+          {
+            "id": "N-01",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "FAIL",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "N-02",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "N-03",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": true
+          },
+          {
+            "id": "H-01",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "H-02",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "H-03",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "A-01",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "A-02",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "A-03",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "E-01",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "E-02",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "E-03",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          }
+        ]
+      },
+      "expected": {
+        "total": 12,
+        "coverage_counts": {
+          "EXECUTED": 9,
+          "NOT_RUN": 0,
+          "NO_TEST_TARGET": 3
+        },
+        "verdict_counts": {
+          "PASS": 8,
+          "FAIL": 1,
+          "NOT_RUN": 0,
+          "INCONCLUSIVE": {
+            "total": 3,
+            "by_reason": {
+              "NO_TEST_TARGET": 3
+            }
+          }
+        },
+        "partial_count": 1,
+        "segments": [
+          {
+            "treatment": "EXECUTED",
+            "count": 9,
+            "draw": true
+          },
+          {
+            "treatment": "NOT_RUN",
+            "count": 0,
+            "draw": false
+          },
+          {
+            "treatment": "NO_TEST_TARGET",
+            "count": 3,
+            "draw": true
+          }
+        ],
+        "groups": {
+          "N": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 1
+          },
+          "H": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 0
+          },
+          "A": {
+            "targeted_progress": null,
+            "partial_count": 0
+          },
+          "E": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 0
+          }
+        }
+      }
+    },
+    {
+      "case_id": "COV-03",
+      "case_type": "aggregate",
+      "description": "실행한 판정 불가와 A의 대상 부재 판정 불가를 사유별로 구분한다.",
+      "input": {
+        "scenarios": [
+          {
+            "id": "N-01",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "INSUFFICIENT_EVIDENCE"
+            },
+            "partial": false
+          },
+          {
+            "id": "N-02",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "N-03",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": true
+          },
+          {
+            "id": "H-01",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "H-02",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "H-03",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "A-01",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "A-02",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "A-03",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "E-01",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "E-02",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "E-03",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          }
+        ]
+      },
+      "expected": {
+        "total": 12,
+        "coverage_counts": {
+          "EXECUTED": 9,
+          "NOT_RUN": 0,
+          "NO_TEST_TARGET": 3
+        },
+        "verdict_counts": {
+          "PASS": 8,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "INCONCLUSIVE": {
+            "total": 4,
+            "by_reason": {
+              "INSUFFICIENT_EVIDENCE": 1,
+              "NO_TEST_TARGET": 3
+            }
+          }
+        },
+        "partial_count": 1,
+        "segments": [
+          {
+            "treatment": "EXECUTED",
+            "count": 9,
+            "draw": true
+          },
+          {
+            "treatment": "NOT_RUN",
+            "count": 0,
+            "draw": false
+          },
+          {
+            "treatment": "NO_TEST_TARGET",
+            "count": 3,
+            "draw": true
+          }
+        ],
+        "groups": {
+          "N": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 1
+          },
+          "H": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 0
+          },
+          "A": {
+            "targeted_progress": null,
+            "partial_count": 0
+          },
+          "E": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 0
+          }
+        }
+      }
+    },
+    {
+      "case_id": "COV-04",
+      "case_type": "aggregate",
+      "description": "N 기준 PASS 0개여도 대상은 3개 존재하며 대상 부재 문구를 생성하지 않는다.",
+      "input": {
+        "scenarios": [
+          {
+            "id": "N-01",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "FAIL",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "N-02",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "FAIL",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "N-03",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "FAIL",
+              "reason_code": null
+            },
+            "partial": true
+          }
+        ]
+      },
+      "expected": {
+        "total": 3,
+        "coverage_counts": {
+          "EXECUTED": 3,
+          "NOT_RUN": 0,
+          "NO_TEST_TARGET": 0
+        },
+        "verdict_counts": {
+          "PASS": 0,
+          "FAIL": 3,
+          "NOT_RUN": 0,
+          "INCONCLUSIVE": {
+            "total": 0,
+            "by_reason": {}
+          }
+        },
+        "partial_count": 1,
+        "segments": [
+          {
+            "treatment": "EXECUTED",
+            "count": 3,
+            "draw": true
+          },
+          {
+            "treatment": "NOT_RUN",
+            "count": 0,
+            "draw": false
+          },
+          {
+            "treatment": "NO_TEST_TARGET",
+            "count": 0,
+            "draw": false
+          }
+        ],
+        "groups": {
+          "N": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 1
+          }
+        }
+      }
+    },
+    {
+      "case_id": "COV-05",
+      "case_type": "aggregate",
+      "description": "A 기준만 있으면 targeted_progress=null이며 0/3 진행률을 만들지 않는다.",
+      "input": {
+        "scenarios": [
+          {
+            "id": "A-01",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "A-02",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "A-03",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          }
+        ]
+      },
+      "expected": {
+        "total": 3,
+        "coverage_counts": {
+          "EXECUTED": 0,
+          "NOT_RUN": 0,
+          "NO_TEST_TARGET": 3
+        },
+        "verdict_counts": {
+          "PASS": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "INCONCLUSIVE": {
+            "total": 3,
+            "by_reason": {
+              "NO_TEST_TARGET": 3
+            }
+          }
+        },
+        "partial_count": 0,
+        "segments": [
+          {
+            "treatment": "EXECUTED",
+            "count": 0,
+            "draw": false
+          },
+          {
+            "treatment": "NOT_RUN",
+            "count": 0,
+            "draw": false
+          },
+          {
+            "treatment": "NO_TEST_TARGET",
+            "count": 3,
+            "draw": true
+          }
+        ],
+        "groups": {
+          "A": {
+            "targeted_progress": null,
+            "partial_count": 0
+          }
+        }
+      }
+    },
+    {
+      "case_id": "COV-06",
+      "case_type": "aggregate",
+      "description": "대상은 있지만 아직 미실행인 항목: NOT_RUN 증가, NO_TEST_TARGET 유지.",
+      "input": {
+        "scenarios": [
+          {
+            "id": "N-01",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "NOT_RUN",
+            "official": {
+              "result": "NOT_RUN",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "N-02",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "N-03",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": true
+          },
+          {
+            "id": "H-01",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "H-02",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "H-03",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "A-01",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "A-02",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "A-03",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "E-01",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "E-02",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "E-03",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          }
+        ]
+      },
+      "expected": {
+        "total": 12,
+        "coverage_counts": {
+          "EXECUTED": 8,
+          "NOT_RUN": 1,
+          "NO_TEST_TARGET": 3
+        },
+        "verdict_counts": {
+          "PASS": 8,
+          "FAIL": 0,
+          "NOT_RUN": 1,
+          "INCONCLUSIVE": {
+            "total": 3,
+            "by_reason": {
+              "NO_TEST_TARGET": 3
+            }
+          }
+        },
+        "partial_count": 1,
+        "segments": [
+          {
+            "treatment": "EXECUTED",
+            "count": 8,
+            "draw": true
+          },
+          {
+            "treatment": "NOT_RUN",
+            "count": 1,
+            "draw": true
+          },
+          {
+            "treatment": "NO_TEST_TARGET",
+            "count": 3,
+            "draw": true
+          }
+        ],
+        "groups": {
+          "N": {
+            "targeted_progress": {
+              "executed": 2,
+              "targeted": 3
+            },
+            "partial_count": 1
+          },
+          "H": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 0
+          },
+          "A": {
+            "targeted_progress": null,
+            "partial_count": 0
+          },
+          "E": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 0
+          }
+        }
+      }
+    },
+    {
+      "case_id": "COV-07",
+      "case_type": "aggregate",
+      "description": "공식 원본의 이 PC 부재는 카탈로그 EXECUTED/공식 판정을 NOT_RUN으로 바꾸지 않는다.",
+      "input": {
+        "scenarios": [
+          {
+            "id": "N-01",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "N-02",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false,
+            "records_on_this_pc": {
+              "official_present": false
+            }
+          },
+          {
+            "id": "N-03",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": true
+          },
+          {
+            "id": "H-01",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "H-02",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "H-03",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "A-01",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "A-02",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "A-03",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "E-01",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "E-02",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "E-03",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          }
+        ]
+      },
+      "expected": {
+        "total": 12,
+        "coverage_counts": {
+          "EXECUTED": 9,
+          "NOT_RUN": 0,
+          "NO_TEST_TARGET": 3
+        },
+        "verdict_counts": {
+          "PASS": 9,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "INCONCLUSIVE": {
+            "total": 3,
+            "by_reason": {
+              "NO_TEST_TARGET": 3
+            }
+          }
+        },
+        "partial_count": 1,
+        "segments": [
+          {
+            "treatment": "EXECUTED",
+            "count": 9,
+            "draw": true
+          },
+          {
+            "treatment": "NOT_RUN",
+            "count": 0,
+            "draw": false
+          },
+          {
+            "treatment": "NO_TEST_TARGET",
+            "count": 3,
+            "draw": true
+          }
+        ],
+        "groups": {
+          "N": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 1
+          },
+          "H": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 0
+          },
+          "A": {
+            "targeted_progress": null,
+            "partial_count": 0
+          },
+          "E": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 0
+          }
+        }
+      }
+    },
+    {
+      "case_id": "COV-08",
+      "case_type": "aggregate",
+      "description": "빈 카탈로그에는 0을 명시하고 도넛 경로를 그리지 않으며 분모 0을 나누지 않는다.",
+      "input": {
+        "scenarios": []
+      },
+      "expected": {
+        "total": 0,
+        "coverage_counts": {
+          "EXECUTED": 0,
+          "NOT_RUN": 0,
+          "NO_TEST_TARGET": 0
+        },
+        "verdict_counts": {
+          "PASS": 0,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "INCONCLUSIVE": {
+            "total": 0,
+            "by_reason": {}
+          }
+        },
+        "partial_count": 0,
+        "segments": [
+          {
+            "treatment": "EXECUTED",
+            "count": 0,
+            "draw": false
+          },
+          {
+            "treatment": "NOT_RUN",
+            "count": 0,
+            "draw": false
+          },
+          {
+            "treatment": "NO_TEST_TARGET",
+            "count": 0,
+            "draw": false
+          }
+        ],
+        "groups": {}
+      }
+    },
+    {
+      "case_id": "COV-09",
+      "case_type": "aggregate",
+      "description": "역사적 Run 판정 여러 건을 현재 시나리오 판정 개수에 합산하지 않는다.",
+      "input": {
+        "scenarios": [
+          {
+            "id": "N-01",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false,
+            "history_verdicts": [
+              "FAIL",
+              "INCONCLUSIVE",
+              "PASS"
+            ]
+          },
+          {
+            "id": "N-02",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false,
+            "history_verdicts": [
+              "INCONCLUSIVE",
+              "INCONCLUSIVE",
+              "PASS"
+            ]
+          },
+          {
+            "id": "N-03",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": true
+          },
+          {
+            "id": "H-01",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "H-02",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "H-03",
+            "control": "H",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "A-01",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "A-02",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "A-03",
+            "control": "A",
+            "target_exists": false,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          },
+          {
+            "id": "E-01",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "E-02",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          },
+          {
+            "id": "E-03",
+            "control": "E",
+            "target_exists": true,
+            "mvp_treatment": "EXECUTED",
+            "official": {
+              "result": "PASS",
+              "reason_code": null
+            },
+            "partial": false
+          }
+        ]
+      },
+      "expected": {
+        "total": 12,
+        "coverage_counts": {
+          "EXECUTED": 9,
+          "NOT_RUN": 0,
+          "NO_TEST_TARGET": 3
+        },
+        "verdict_counts": {
+          "PASS": 9,
+          "FAIL": 0,
+          "NOT_RUN": 0,
+          "INCONCLUSIVE": {
+            "total": 3,
+            "by_reason": {
+              "NO_TEST_TARGET": 3
+            }
+          }
+        },
+        "partial_count": 1,
+        "segments": [
+          {
+            "treatment": "EXECUTED",
+            "count": 9,
+            "draw": true
+          },
+          {
+            "treatment": "NOT_RUN",
+            "count": 0,
+            "draw": false
+          },
+          {
+            "treatment": "NO_TEST_TARGET",
+            "count": 3,
+            "draw": true
+          }
+        ],
+        "groups": {
+          "N": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 1
+          },
+          "H": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 0
+          },
+          "A": {
+            "targeted_progress": null,
+            "partial_count": 0
+          },
+          "E": {
+            "targeted_progress": {
+              "executed": 3,
+              "targeted": 3
+            },
+            "partial_count": 0
+          }
+        }
+      }
+    },
+    {
+      "case_id": "COV-10",
+      "case_type": "profile_compatibility",
+      "description": "확인된 H03 legacy raw null은 표시 호환 프로필과 원본 null을 함께 보존한다.",
+      "input": {
+        "scenario_id": "H-03",
+        "raw_execution_profile": null,
+        "legacy_h03_confirmed": true
+      },
+      "expected": {
+        "execution_profile": "H03_MINIMAL_V1",
+        "raw_execution_profile": null,
+        "profile_source": "LEGACY_H03_COMPATIBILITY",
+        "extra_profile_count": 0
+      }
+    },
+    {
+      "case_id": "COV-11",
+      "case_type": "profile_compatibility",
+      "description": "다른 시나리오의 null 프로필을 H03으로 분류하지 않는다.",
+      "input": {
+        "scenario_id": "N-01",
+        "raw_execution_profile": null,
+        "legacy_h03_confirmed": false
+      },
+      "expected": {
+        "execution_profile": null,
+        "raw_execution_profile": null,
+        "profile_source": "UNKNOWN",
+        "problem": "PROFILE_UNAVAILABLE",
+        "extra_profile_count": 0
+      }
+    },
+    {
+      "case_id": "COV-12",
+      "case_type": "official_selection",
+      "description": "최신 승인 repeat를 대표로 선택하고 원래 final과 더 늦은 비공식 로컬 실행을 모두 이력에 보존한다.",
+      "input": {
+        "profile": "E02_SCORING_FREEZE_V1",
+        "catalog_records": [
+          {
+            "run_id": "final-1",
+            "role": "final"
+          },
+          {
+            "run_id": "repeat-2",
+            "role": "repeat"
+          }
+        ],
+        "records": [
+          {
+            "run_id": "final-1",
+            "started_at": "2026-10-01T00:00:00+00:00",
+            "present": true,
+            "integrity": "VERIFIED",
+            "verdict": "PASS"
+          },
+          {
+            "run_id": "repeat-2",
+            "started_at": "2026-10-02T00:00:00+00:00",
+            "present": true,
+            "integrity": "VERIFIED",
+            "verdict": "PASS"
+          },
+          {
+            "run_id": "local-3",
+            "started_at": "2026-10-03T00:00:00+00:00",
+            "present": true,
+            "integrity": "VERIFIED",
+            "verdict": "FAIL"
+          }
+        ]
+      },
+      "expected": {
+        "selected_run_id": "repeat-2",
+        "catalog_role": "repeat",
+        "selection_problems": [],
+        "latest_temporally_confirmed": true,
+        "history_run_ids": [
+          "local-3",
+          "repeat-2",
+          "final-1"
+        ],
+        "original_final_run_id": "final-1"
+      }
+    },
+    {
+      "case_id": "COV-13",
+      "case_type": "official_selection",
+      "description": "최신 카탈로그 대표가 INVALID면 이전 PASS로 대체하지 않는다.",
+      "input": {
+        "profile": "H02_CAPABILITY_SURFACE_V1",
+        "catalog_records": [
+          {
+            "run_id": "parent-1",
+            "role": "parent"
+          },
+          {
+            "run_id": "final-2",
+            "role": "final"
+          }
+        ],
+        "records": [
+          {
+            "run_id": "parent-1",
+            "started_at": "2026-10-01T00:00:00+00:00",
+            "present": true,
+            "integrity": "VERIFIED",
+            "verdict": "PASS"
+          },
+          {
+            "run_id": "final-2",
+            "started_at": "2026-10-02T00:00:00+00:00",
+            "present": true,
+            "integrity": "INVALID",
+            "verdict": null
+          }
+        ]
+      },
+      "expected": {
+        "selected_run_id": "final-2",
+        "catalog_role": "final",
+        "selection_problems": [
+          "INTEGRITY_BLOCKED"
+        ],
+        "selected_verdict": null,
+        "history_run_ids": [
+          "final-2",
+          "parent-1"
+        ]
+      }
+    },
+    {
+      "case_id": "COV-14",
+      "case_type": "official_selection",
+      "description": "대표 원본이 없으면 시간 추정·과거 PASS 대체 없이 누락과 최신 시각 미확인을 표시한다.",
+      "input": {
+        "profile": "N02_CONSENT_ORDER_V1",
+        "catalog_records": [
+          {
+            "run_id": "parent-1",
+            "role": "parent"
+          },
+          {
+            "run_id": "final-2",
+            "role": "final"
+          }
+        ],
+        "records": [
+          {
+            "run_id": "parent-1",
+            "started_at": "2026-10-01T00:00:00+00:00",
+            "present": true,
+            "integrity": "VERIFIED",
+            "verdict": "PASS"
+          },
+          {
+            "run_id": "final-2",
+            "started_at": null,
+            "present": false,
+            "integrity": null,
+            "verdict": null
+          }
+        ]
+      },
+      "expected": {
+        "selected_run_id": "final-2",
+        "catalog_role": "final",
+        "selection_problems": [
+          "RECORD_MISSING",
+          "TEMPORAL_ORDER_UNCONFIRMED"
+        ],
+        "latest_temporally_confirmed": false,
+        "selected_verdict": null,
+        "history_run_ids": [
+          "parent-1",
+          "final-2"
+        ],
+        "unknown_time_run_ids": [
+          "final-2"
+        ]
+      }
+    },
+    {
+      "case_id": "COV-15",
+      "case_type": "official_selection",
+      "description": "E03 before/after는 서로 다른 프로필이며 각 대표를 유지한다.",
+      "input": {
+        "catalog_profiles": [
+          "E03_BEFORE_V2",
+          "E03_AFTER_V2"
+        ],
+        "catalog_records": [
+          {
+            "run_id": "before-final",
+            "role": "final",
+            "execution_profile": "E03_BEFORE_V2"
+          },
+          {
+            "run_id": "after-final",
+            "role": "final",
+            "execution_profile": "E03_AFTER_V2"
+          }
+        ],
+        "records": [
+          {
+            "run_id": "before-final",
+            "started_at": "2026-10-01T00:00:00+00:00",
+            "present": true,
+            "integrity": "VERIFIED",
+            "verdict": "PASS"
+          },
+          {
+            "run_id": "after-final",
+            "started_at": "2026-10-02T00:00:00+00:00",
+            "present": true,
+            "integrity": "VERIFIED",
+            "verdict": "PASS"
+          }
+        ]
+      },
+      "expected": {
+        "profile_selections": {
+          "E03_BEFORE_V2": "before-final",
+          "E03_AFTER_V2": "after-final"
+        },
+        "default_profile": "E03_BEFORE_V2",
+        "history_run_ids": [
+          "after-final",
+          "before-final"
+        ]
+      }
+    },
+    {
+      "case_id": "COV-16",
+      "case_type": "scope_provenance",
+      "description": "현재 정의의 후속 범위가 달라져도 이전 실행의 봉인 미검증 범위를 덮어쓰지 않는다.",
+      "input": {
+        "scenario_id": "N-03",
+        "mvp_treatment": "EXECUTED",
+        "official_result": "PASS",
+        "current_scope": {
+          "source": "scenario_file",
+          "partial": true,
+          "unverified_ids": [
+            "N03-U1",
+            "N03-U2",
+            "N03-U3",
+            "FUTURE-U4"
+          ]
+        },
+        "sealed_scope": {
+          "source": "sealed_snapshot",
+          "run_id": "f27b68e8-0df8-46b3-a198-c7917c2f08bb",
+          "partial": true,
+          "applicable_assertion_ids": [
+            "N03-A1",
+            "N03-A2",
+            "N03-A3"
+          ],
+          "unverified_ids": [
+            "N03-U1",
+            "N03-U2",
+            "N03-U3"
+          ],
+          "limitation_ids": [
+            "N03-L1"
+          ]
+        }
+      },
+      "expected": {
+        "coverage_treatment": "EXECUTED",
+        "official_result": "PASS",
+        "run_scope_unverified_ids": [
+          "N03-U1",
+          "N03-U2",
+          "N03-U3"
+        ],
+        "current_scope_unverified_ids": [
+          "N03-U1",
+          "N03-U2",
+          "N03-U3",
+          "FUTURE-U4"
+        ],
+        "extra_verdict_enum": false,
+        "extra_donut_segment": false
+      }
+    },
+    {
+      "case_id": "COV-17",
+      "case_type": "mode_isolation",
+      "description": "공유본 28/652를 로컬 보유 수로 재사용하거나 현재 PC READY·메모를 공유 화면에 섞지 않는다.",
+      "input": {
+        "data_origin": "ACTUAL",
+        "shared_snapshot": {
+          "snapshot_id": "shared-actual-20261020-r2",
+          "record_count": 28,
+          "file_count": 652,
+          "missing_count": 1
+        },
+        "local_readiness": {
+          "value": "READY"
+        },
+        "local_memos": [
+          {
+            "text": "synthetic local memo"
+          }
+        ]
+      },
+      "expected": {
+        "mode": "SHARED",
+        "read_only": true,
+        "readiness_allowed": false,
+        "memo_allowed": false,
+        "read_local_readiness": false,
+        "read_local_memos": false,
+        "record_inventory_source": "SHARED_SNAPSHOT"
+      }
+    },
+    {
+      "case_id": "COV-18",
+      "case_type": "aggregate_rejection",
+      "description": "대상 존재와 NO_TEST_TARGET의 모순을 조용히 고치지 않는다.",
+      "input": {
+        "scenarios": [
+          {
+            "id": "N-01",
+            "control": "N",
+            "target_exists": true,
+            "mvp_treatment": "NO_TEST_TARGET",
+            "official": {
+              "result": "INCONCLUSIVE",
+              "reason_code": "NO_TEST_TARGET"
+            },
+            "partial": false
+          }
+        ]
+      },
+      "expected": {
+        "contract_error": "TARGET_TREATMENT_CONFLICT",
+        "render_success_graph": false
+      }
+    }
+  ]
+}

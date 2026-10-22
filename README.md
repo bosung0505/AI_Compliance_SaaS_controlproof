@@ -1,5 +1,53 @@
 # ControlProof
 
+2026-10-22 main 게시 승인: 사용자가 현재 완성한 프로젝트를 ControlProof `origin/main`에 커밋/push하도록 지시했다.
+이번 전달 대상은 main이며 기존 작업 기준fb219d0에 누적된 완료 기능/기록과 새 플랫폼 UI를 함께 반영한다.
+현재 기본 공유본은 `shared-ui-main-20261022-r2`(하위 템플릿5개도 표시 pin에 포함)이다.
+[게시 전 검증/범위](specs/010-platform-ui-integration/main-publication.md) · [화면 실행](specs/010-platform-ui-integration/quickstart.md).
+아래 미커밋/미게시·기본 공유본 이름은 당시 단계 이력이다.
+
+2026-10-22 최신: 안내/주의 문구를 상단의 닫힌 **검증 정보**로 통합했다. 본문은 수치·네 기준·실제 결과를 먼저 보여준다.
+N03 일부/DEMO·오류는 유지하며95개 관련 검사와 실제8개 너비/열림 상태를 검수했다.
+[현재 실행/변경/한계](specs/010-platform-ui-integration/presentation-polish.md). 기본 공유본은 `shared-ui-presentation-20261022-r1`이며,
+이전 r3 JSON과28건/652원본은 보존한다. 아래 기본 r3/8784는 이전 시점 기록이다.
+
+2026-10-21 최신: **Spec010 플랫폼 UI 전환 0~7단계 완료**. 새 화면이 기본 실행에 반영됐다.
+현황·네 기준별 결과·정의/실행/증빙·실제 비교·보고서·테스트 준비를 기존 프로젝트 데이터와 연결했다.
+사용자는 팀 검토를 완료로 간주하여 기본 전환을 승인했다. 원본28건/652파일·12/9/0/3·N03 일부는 불변이다.
+[실행·화면 안내·복구](specs/010-platform-ui-integration/quickstart.md) · [최종 검증](specs/010-platform-ui-integration/stage7-validation.md).
+작업은 미커밋/미게시이며 아래 단계별 대기/전환 전 문구는 당시 이력이다.
+
+2026-10-21 Spec010 **6단계 T020/T021 완료**. 웹 관련324개 검사와 실제 앱44개 너비·키보드/동선 검수,
+A4 26페이지 PDF의22개 내용·버전·근거/누락 링크·페이지 검수를 통과했다. 탐색 의미·DEMO 오류 복귀와 인쇄를 보완했다.
+[현재 검수·실행](specs/010-platform-ui-integration/stage6-validation.md). 최종 후보 `stage6-shared-r3`; 원본28건/652파일 불변.
+7단계 팀 이해도·기본 공유본 전환/복구가 남아 있다. 아래0~5단계는 당시 이력이다. 새 actual/게시는 없다.
+
+2026-10-21 Spec010 **5단계 T018/T019 완료**. 실제 child 비교·22개 내용의 보고서·별도 테스트 준비와 로컬 메모 외형을 반영했다.
+N01 측정 보강과 H02 서비스 보완, 원본 누락/무결성·N03 일부 범위를 구분한다. 현재 후보 `stage5-shared-r4`.
+[현재 실행·검증](specs/010-platform-ui-integration/stage5-validation.md). 6단계 통합/PDF 검수·7단계 기본 전환은 남아 있다.
+아래0~4단계 설명은 당시 이력이다. 원본28건/652파일과 기본 snapshot은 불변이며 새 실제 Run/게시는 없다.
+
+2026-10-21 Spec010 **4단계 T013~T017 완료**: 실제 테스트 상세→선택 실행→증빙을 새 서비스 화면으로 연결했다.
+프로필별 공식 대표/전체 이력·현재/봉인 정의·N03 일부 범위와 N01 PC/모바일 PNG·v1/v2를 구분한다.
+현재 후보는 `stage4-shared-r4`이며 원본28건/652파일은 불변이다. 기본 공유본 전환·비교/보고서/별도 준비 화면 개편은 남아 있다.
+[현재 실행 방법·검증](specs/010-platform-ui-integration/stage4-validation.md). 아래 0~3단계 문단은 당시 이력이다.
+
+2026-10-21 Spec010 **3단계 T011/T012 완료**: 실제 업무 대시보드의 9/0/3 도넛·네 기준 카드,
+`/results` 기준별 결과·검색/필터와 전체 진입 초기화를 적용했다. N03 일부 범위와 A 대상 없음, 기존 상세/이력을 보존한다.
+현재 미리보기는 새 후보 `stage3-shared-r2`와 실행한다. 기본 공유본 전환·상세/PNG 개편은 후속 단계다.
+[현재 실행 방법·검증](specs/010-platform-ui-integration/stage3-validation.md). 아래 0·1·2단계 문단은 당시 이력이다.
+
+2026-10-21 Spec010 **2단계 완료**: 팀원 디자인의 서비스 소개 `/product`·도입 안내 `/guide`, 공통 헤더/탐색/테마를
+현재 웹에 연결했다. 9/0/3은 카탈로그에서 읽으며 실제 기록과 합성 DEMO를 구분한다. 대시보드/목록 개편은 다음 단계다.
+기존 28건/652파일은 보존했고 현재 표시 코드는 새 로컬 후보 공유본으로 실행한다. 기본 공유본은 아직 전환하지 않았다.
+[실행 명령·56개 검사·브라우저 확인](specs/010-platform-ui-integration/stage2-validation.md).
+
+2026-10-21 Spec010: 팀원 플랫폼 디자인을 실제 웹에 반영하기 위한 **0·1단계 명세·데이터/HTTP/PNG 계약 준비**를
+`010-platform-ui-integration`에서 마쳤다. 현재 화면·API·판정·봉인 자료는 유지하며 신규 화면과 PNG 경로는 미구현이다.
+현재 공유 기준은 `shared-actual-20261020-r2`, 28개 실행/11개 프로필/652파일이다.
+[프론트엔드 반영 명세](specs/010-platform-ui-integration/spec.md) · [단계별 작업](specs/010-platform-ui-integration/tasks.md) ·
+[이번 검증과 미실시 범위](specs/010-platform-ui-integration/validation.md).
+
 2026-10-20 Spec 009: **N-01·N-03 실제 실행 완료**. N-01 final `d3aac7d9-0a52-4f9a-9c8f-f6e1f7b6de18` PASS(PC·390px 모바일
 동의 화면의 다섯 고지와 정책 식별값; ControlProof 측정 보강 뒤 재테스트, 부모 `48a70f5e…` PASS 보존), N-03 final
 `f27b68e8-0df8-46b3-a198-c7917c2f08bb` PASS(이전 정책 거부·최신 정책 저장·과거 기록 불변; 실행 중 정책 교체는 미검증).
@@ -77,7 +125,7 @@ Spec 005 전체 종료와 비작성자 사용성 검토는 아직 완료로 선�
 ## 현재 개발 기준
 
 - 제품 범위: [ControlProof × WhyYou 2주 MVP 기능 범위 V4](./docs/product/ControlProof_WhyYou_2주_MVP_기능범위_v4.md)
-- 시나리오 범위표: [12개 관리·7개 실행·2개 NOT_RUN·3개 NO_TEST_TARGET](./docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md)
+- 시나리오 범위표: [12개 관리·9개 실행(N-03 일부)·0개 NOT_RUN·3개 NO_TEST_TARGET](./docs/product/ControlProof_MVP_Scenario_Coverage_Matrix.md)
 - 제품 정의: [MVP Product Brief](./docs/product/ControlProof_MVP_Product_Brief.md)
 - 제품 결정: [MVP Decision Log](./docs/product/ControlProof_MVP_Decision_Log.md)
 - 개발 원칙: [ControlProof Constitution](./.specify/memory/constitution.md)

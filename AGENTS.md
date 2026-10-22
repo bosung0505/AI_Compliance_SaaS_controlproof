@@ -201,3 +201,86 @@ not a WhyYou change; `engine/n01.py` keeps the v1 rule for v1 records so sealed 
 VERIFIED with 44-table residue 0. Catalog/matrix are now 12/9/0/3 (`tests/unit/test_catalog_matrix_parity.py`). Do not rewrite
 `cp-local/spec009-local/s009/runs`. The proposed shared snapshot adding these three records needs 보성's review before publishing.
 Closure follow-up 2026-10-20 (branch `009-closure-followups`): harness uses `getattr(subprocess, "CREATE_NO_WINDOW", 0)`; the N-03 scenario screen shows its unverified scope and limit from `scenarios/N-03.yaml`; shared snapshot is now `shared-actual-20261020-r2` (same 28 records and bundle bytes, display code re-pinned).
+
+## Platform frontend preparation (2026-10-21)
+
+User authorized stages 0 and 1 in parallel: baseline/specify/clarify/plan/tasks/analyze and data/HTTP/state/PNG contracts.
+Feature branch `010-platform-ui-integration`, baseline `fixes-and-remaining-work` `fb219d0` + shared r2.
+Read `specs/010-platform-ui-integration/spec.md`, contracts, tasks and validation before continuing.
+This stage does not implement the new UI/routes/PNG endpoint or change engine behavior. Keep existing API v1 semantics;
+future UI projections are explicitly additive. Preserve 12/9/0/3 (N03 partial), 28 records/11 profiles/652 files,
+27 VERIFIED/1 original INVALID, missing N02 history, source SHAs and original bytes. No new actual target Run.
+Stage2+ implementation follows its own tasks after stage0/1 analysis; do not infer completion from prepared contract cases.
+Keep the existing dirty `.gitignore` change and ignored UI proposal/design archives. No commit/push/PR/main merge in this preparation.
+
+User subsequently authorized the next stage. Stage2 T009/T010 is complete: `/product`, `/guide`, catalog-based introduction,
+common workspace shell and accessible local menu/tabs/checklist. Read `specs/010-platform-ui-integration/stage2-validation.md`.
+Current preview requires the NEW local candidate `.controlproof/ui-integration-20261021/stage2-shared-r3/snapshot.json`;
+its matching display code was verified, 28 records/652 sealed files unchanged. Default tracked r2 is preserved and intentionally
+rejects this changed display code until the later reviewed default transition. Do not disable the check or rewrite sealed bytes.
+Stage3+ (overview graph/list, detail migration, PNG endpoint) remains pending. No new actual target Run or publication.
+
+Subsequent authorization completed stage3 T011/T012: `/` overview and `/results`/`/demo/results`, additive ui projections,
+strict GET filters and whole-results reset. Existing API groups order and verdicts stay unchanged; ui groups order N/H/A/E.
+Read `specs/010-platform-ui-integration/stage3-validation.md`. Current preview uses NEW candidate
+`.controlproof/ui-integration-20261021/stage3-shared-r2/snapshot.json` (28 records/652 files unchanged).
+Earlier stage2/stage3-pending statements above are historical. Stage4 detail/PNG and later stages remain pending.
+Do not rewrite original snapshot or sealed bytes, disable display pinning, execute actual target Runs or publish from this UI closure.
+
+Stage4 T013~T017 was subsequently authorized and completed: scenario_service, selected Run/condition cards,
+current/sealed definition hashes, profile representatives/full history and strict reviewed PNG content endpoints.
+Read `specs/010-platform-ui-integration/stage4-validation.md`. Current code/preview pair is
+`.controlproof/ui-integration-20261021/stage4-shared-r4/snapshot.json`; original28 records/652 files remain unchanged.
+Earlier stage4-pending statements are historical. Stage5 compare/report/preparation migration and default snapshot transition remain pending.
+Keep original API v1 fields/semantics, null legacy fields, partial N03 and all original evidence. No new actual Run/publication.
+
+Stage5 T018/T019 subsequently completed: child comparison and cause provenance/relationship safety, report22 items,
+`/prepare` and DEMO counterpart, existing local preflight/memo presentation. Preparation GET reads current definitions/stored
+readiness only, never scans Run archives or runs preflight. Only exact `/prepare` return input is newly allowed; server
+redirects to the validated scenario anchor. Shared/DEMO forms remain absent; original API fields and immutable records stay intact.
+Current preview requires `.controlproof/ui-integration-20261021/stage5-shared-r4/snapshot.json`. Read stage5-validation.
+Earlier pending statements are historical. Stage6 integrated/PDF QA and stage7 default transition/team review remain pending.
+Keep default snapshot/28 records/652 files unchanged. No new actual Run/WhyYou change/publication.
+
+Stage6 T020/T021 subsequently completed:324 web/readmodel/security checks passed without skips, actual app keyboard/44 viewport
+checks and Edge155 actual report PDF26 pages/22 content items validated. Use page links/aria-current in workspace nav; real product
+workflow tabs remain tabs. HTML errors retain selected mode, JSON errors stay unchanged. Print hides skip links and uses A4/footer;
+legacy missing environment refs stay absent and commit display retains raw source values. Read stage6-validation.md for evidence/limits.
+Current preview uses `.controlproof/ui-integration-20261021/stage6-shared-r3/snapshot.json`; original28/652/default snapshot preserved.
+Earlier pending stage6 paragraphs are history. Stage7 T022 team understanding/default transition/rollback remains pending.
+No new actual Run, WhyYou edits, installs, publication, commit/push/PR/main merge.
+
+## Spec010 final local frontend transition (2026-10-21)
+
+Stage7 T022 completed on the user's instruction to treat team review as done and proceed. This records user acceptance,
+not a newly observed non-author usability session. Spec010 local frontend scope is Complete (T001~T022).
+Default `review-data/snapshot.json` is now the exact reviewed stage6 r3 JSON (`shared-ui-stage6-20261021-r3`), matching current
+display code. Old r2 bytes are preserved at `review-data/snapshot.shared-actual-20261020-r2.json`; baseline.json is unchanged.
+Earlier default-preservation/pending-transition instructions describe their stage, superseded by this authorized promotion.
+Keep all28 records/652 sealed files, INVALID/missing states, N03 partial scope and API meanings unchanged. Candidate builder
+resolves only the exact frozen SHA of the original or named archived source. Never disable display pins or reseal evidence.
+Read `specs/010-platform-ui-integration/quickstart.md` and `stage7-validation.md` for current launch/rollback/evidence/limits.
+Default CLI/HTTP17 requests,51 distinct transition/shared checks, actual app navigation and old fb219d0 loader+r2 verification
+passed; stage6 code/viewport/PDF checks still apply to identical display bytes. Current normal-launch preview uses8784;
+existing8782 stays alive. Work is uncommitted/unpublished; remote delivery, Spec005 full closure and external usability remain
+separate. No new actual Run, WhyYou edits, installs, publication, commit/push/PR/main merge.
+
+## Presentation information hierarchy follow-up (2026-10-22)
+
+User requested on-demand annotations and a cleaner real-product presentation. T023/T024/FR-017 completed. Base shell now has
+one native closed `verification-info` details containing source/snapshot/hash, target/environment/AWS and interpretation notes.
+Keep N03 partial/result/error states and SHARED/DEMO distinction visible; report's22 contents and sealed evidence remain intact.
+Default is now `shared-ui-presentation-20261022-r1`; preceding r3 JSON is preserved byte-for-byte beside it. New display pin verified;
+all28/652 original bytes/records/target/missing states unchanged. Read `presentation-polish.md` for95 tests and8 actual viewport/open
+state/keyboard checks. Latest preview8785 uses the verified candidate identical to default. Earlier r3 default/8784 is history.
+No new actual Run, dependencies, PDF generation, publication or commit/push/main merge.
+
+## Explicit ControlProof main publication approval (2026-10-22)
+
+The user explicitly authorized committing and pushing the completed project to ControlProof origin/main. This supersedes
+earlier no-publication/no-main instructions for this release only; WhyYou remains untouched. Future feature work still uses
+feature branches. Release scope includes the existing fb219d0 ancestry (172 commits beyond initial main) and Spec010 UI work.
+Read `specs/010-platform-ui-integration/main-publication.md` for checks and provenance. Recursive display hashes now include
+all5 nested HTML partials; add/edit rejection tests prevent missing these in future shared contexts. Preserve old snapshot
+JSONs and immutable28/652 records; current default is `shared-ui-main-20261022-r2`. Source/UI scope/interpretation unchanged.
+No force push, new actual Run, external SaaS deployment or source change in WhyYou is authorized by this publication.

@@ -1,5 +1,64 @@
 # ControlProof 팀 통합 인수인계
 
+2026-10-22 main 전달 승인: 사용자가 현재 프로젝트를 ControlProof origin/main에 commit/push하도록 명시 승인했다.
+최신 표시 pin은 하위partials5개까지 포함한 `shared-ui-main-20261022-r2`이며 원본28/652·12/9/0/3·N03 일부는 불변이다.
+[main 게시 범위/검증](../specs/010-platform-ui-integration/main-publication.md). WhyYou 저장소/실제 Run은 변경하지 않는다.
+이전 main 미승인/미커밋 상태는 당시 이력이다. 향후 새 기능은 다시 기능 브랜치에서 진행한다.
+
+2026-10-22 최신: 사용자 요청의 발표 화면 정보 정돈 T023/T024 완료. 상단 `검증 정보` 한곳에서 출처/해시·환경·집계/판정
+안내를 확인하고 기본 본문에서는 접는다. SHARED/DEMO 구분·N03 일부·실제 결과/오류는 유지한다.
+[요구/구현/검증/미실시](../specs/010-platform-ui-integration/presentation-polish.md). 관련95개/실제8개 너비·열림/키보드 검사 통과.
+기본 `shared-ui-presentation-20261022-r1`, 최신 미리보기8785. 기존r3 JSON/원본28/652 보존; 미커밋/미게시/새actual 없음.
+아래7단계 기본r3·8784와 그 이전 문구는 당시 기록이다.
+
+2026-10-21 최신: **Spec010 Complete — T001~T022/0~7단계 로컬 프론트엔드 전환 완료**.
+사용자의 팀 검토 완료 간주/진행 승인에 따라 검증한 stage6 r3를 기본 `review-data/snapshot.json`으로 승격했다.
+별도 후보 옵션 없이 새 실제 업무 화면을 연다. 이전 r2 JSON/28건652원본과 fb219d0 복구 쌍을 보존/실제 로드 검증했다.
+[최종 실행·화면별 안내·복구](../specs/010-platform-ui-integration/quickstart.md) · [검증/한계](../specs/010-platform-ui-integration/stage7-validation.md).
+기존324검사/44너비/PDF26페이지에 더해 전환 관련51개 고유 검사와 일반 실행 HTTP17개·실제 앱 동선을 확인했다.
+12/9/0/3·N03 일부·INVALID/누락·원본은 불변이다. 별도 비작성자 사용성 시험/Spec005 전체 마감·원격 게시·새 actual은 없다.
+현재 미커밋 상태이며 push/PR/main 병합은 수행하지 않았다. 아래 단계별 미완료 문구는 당시 이력이다.
+
+2026-10-21 Spec010 **6단계 T020/T021 완료**. 최종 웹 관련324 passed/skip0, 앱44개 너비·키보드/탐색과
+실제 Edge A4 26페이지 PDF의22개 내용·29개 이력·27개 버전/해시·누락/계보 링크를 확인했다.
+탐색의 링크/aria-current·DEMO HTML 오류 복귀·실제 존재하는 버전 출처와 인쇄 가독성/페이지 배치를 보완했다.
+최종 후보 `shared-ui-stage6-20261021-r3`, 원본28건/652파일·기본 snapshot 불변.
+[현재 검수와 실행](../specs/010-platform-ui-integration/stage6-validation.md). 7단계 팀 이해도·기본 전환/복구·인계는 남아 있다.
+아래0~5단계는 이력이다. 새 actual/설치/WhyYou 수정/게시/commit/push/병합은 없다.
+
+2026-10-21 Spec010 **5단계 T018/T019 완료**. 실제 부모/child·규칙/다중 근거·원인 출처·각 sealed 정의를 비교하고,
+보고서22개 내용을 요약/본문/부록으로 배치했다. N03 일부·28건/미확보1건·INVALID와 각 실행의 버전/증거를 보존한다.
+별도 `/prepare`는 현재 정의와 저장된 준비 정보만 읽으며, LOCAL의 기존 CSRF 확인/메모만 허용한다. GET은 실행하지 않는다.
+현재 후보 `shared-ui-stage5-20261021-r4`. [현재 실행·검증](../specs/010-platform-ui-integration/stage5-validation.md).
+아래0~4단계 미착수 문구는 당시 이력이다. 6단계 통합/PDF·7단계 기본 전환/팀 검수는 남아 있으며 actual/게시/commit/push는 없다.
+
+2026-10-21 Spec010 **4단계 T013~T017 완료**. 시나리오별 프로필 대표/전체 이력·현재/봉인 정의와
+선택 Run의 조건별 관찰·다중 근거/원문·N01 검토 PNG를 새 화면에 연결했다. N03 일부 범위/누락·INVALID를 보존한다.
+현재 후보 `shared-ui-stage4-20261021-r4`, 원본28건/652파일 불변, 기존 API 의미 유지·ui만 추가했다.
+[현재 실행·검증](../specs/010-platform-ui-integration/stage4-validation.md). 5단계 비교/보고서/준비 본문 개편은 남아 있다.
+아래 단계0~3의 미착수/후속 문구는 당시 이력이다. 새 actual Run·WhyYou 수정·기본 게시/전환·commit/push/PR/병합은 없다.
+
+2026-10-21 Spec010 **3단계 T011/T012 완료**: 업무 화면의 전체 현황·9/0/3 도넛·N/H/A/E 목적/시나리오 카드와
+`/results`·`/demo/results`의 기준별 목록·URL 필터/초기화를 구현했다. API 기존 의미/순서는 유지하고 ui만 추가했다.
+N03 일부 범위·미검증 U1~U3/L1, A 기능 부재를 구분한다. 기존 상세/기록/준비 form/비교/보고서 경로를 보존한다.
+현재 후보 `shared-ui-stage3-20261021-r2`, 원본28건/652파일 불변. 기존 기본 r2와 새 표시 코드를 강제로 맞추지 않는다.
+[현재 실행·검증](../specs/010-platform-ui-integration/stage3-validation.md). 4단계 상세/PNG 이후는 미착수다.
+아래 0·1·2단계 및 그 이전 완료 문단은 이력이다. 실제 WhyYou Run·publication은 없다.
+
+2026-10-21 Spec010 **2단계 T009/T010 완료**(후속 진행 승인). `/product`·`/guide`, 공통 테마·헤더/메뉴·모드 표시,
+실제/DEMO 진입과 로컬 체크리스트를 구현했다. 후보 `shared-ui-stage2-20261021-r3`은 원본28건/652파일·INVALID/누락을 그대로 유지한다.
+기본 `review-data/`는 보존하며 현재 새 표시 코드에서는 해시 불일치로 거부하므로 새 후보를 명시해 실행한다.
+56개 자동 검사 및 앱 브라우저의 너비/메뉴/키보드/다운로드 확인 완료. 실제 WhyYou 실행·PNG 제공·3단계 개편은 미수행.
+[현재 실행/검증 기록](../specs/010-platform-ui-integration/stage2-validation.md).
+
+2026-10-21 프론트엔드 후속 **Spec010 0·1단계**: 사용자가 팀원 `ControlProof_전체사이트`의 화면 구성을 반영하기 위한
+명세·데이터/라우팅/상태/PNG 계약 준비를 병렬 진행하도록 지시했다. 작업 브랜치는 `010-platform-ui-integration`,
+기준은 `fixes-and-remaining-work` `fb219d0` + `shared-actual-20261020-r2`다.
+현재 공유 28건/11프로필/652파일, 27 VERIFIED/1 INVALID 및 미확보 N02 1건을 기준 고정했다.
+신규 화면·표시 `ui` 투영·PNG content 경로는 아직 구현하지 않았으며 WhyYou 실제 실행도 없다.
+단계별 완료 상태와 현재 검사/미실시는 [Spec010 Validation](../specs/010-platform-ui-integration/validation.md)을 따른다.
+아래 공유본 제안/검토 대기 문구와 25건 숫자는 당시 단계 이력이며 이번 기준 데이터와 구분한다.
+
 2026-10-20 Spec 009 **N-01·N-03 실제 실행 완료**(연우, D-030 closure). N-03 final `f27b68e8-0df8-46b3-a198-c7917c2f08bb` PASS(일부 실행:
 이전 정책 거부·최신 정책 저장·과거 기록 불변, 실행 중 정책 교체는 미검증). N-01 부모 `48a70f5e-aa62-41fc-bf58-3624a6102b4f` PASS(측정 v1,
 보존) → final `d3aac7d9-0a52-4f9a-9c8f-f6e1f7b6de18` PASS(ControlProof 측정 v2 보강 뒤 재테스트, WhyYou 무수정). 세 Run 모두 VERIFIED,

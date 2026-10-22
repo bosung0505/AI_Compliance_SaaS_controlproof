@@ -1,0 +1,19 @@
+      {% if not view.shared_snapshot %}<form method="post" action="/preflight" class="inline-form" data-testid="preflight-form">
+        <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
+        <input type="hidden" name="return_to" value="/">
+        <label>준비 상태 확인 대상
+          <select name="profile_choice" data-preflight-choice{% if view.demo %} disabled{% endif %}>
+            {% for entry in catalog.scenarios %}{% for profile in entry.profiles %}
+            <option value="{{ entry.id }}|{{ profile.execution_profile }}">{{ entry.id }} · {{ profile.execution_profile }}</option>
+            {% endfor %}{% endfor %}
+          </select></label>
+        <input type="hidden" name="scenario_id" value="">
+        <input type="hidden" name="execution_profile" value="">
+        <button class="btn" type="submit" title="웹에서 시작할 수 있는 유일한 동작"{% if view.demo %} disabled{% endif %}>준비 상태 확인</button>
+      </form>{% endif %}
+      <a class="btn sec" data-testid="open-report" href="{{ prefix }}/report">보고서 열기 →</a>
+
+    {% if view.demo %}<p class="limit">DEMO DATA 화면에서는 준비 상태 확인을 실행하지 않습니다. 실제 기록 화면(<a href="/">/</a>)에서 실행하세요.</p>{% endif %}
+    {% if view.shared_snapshot %}<p class="muted">새 테스트 준비는 각 PC의 로컬 실행 모드에서 확인합니다. 공유 결과를 읽는 데 실행 환경 설정은 필요하지 않습니다.</p>
+    {% else %}<p>준비 상태 확인 시각: <b data-testid="common-checked-at">{{ view.readiness_checked_at | when if view.readiness_checked_at else "확인 기록 없음" }}</b>
+      <span class="muted">— 시각이 다른 줄만 그 줄에 따로 표시합니다. 실행·재테스트·정리 확인은 명령줄 안내를 따릅니다.</span></p>{% endif %}

@@ -1,0 +1,35 @@
+{% extends "base.html" %}
+{% set active = "workbench" %}
+{% block title %}전체 현황 · ControlProof{% endblock %}
+{% block content %}
+{% set coverage = view.ui.coverage %}
+<section class="overview" aria-labelledby="overview-title">
+  <div class="overview-heading"><div><h2 id="overview-title">VERIFICATION OVERVIEW</h2><p>WhyYou의 보호조치, 실행한 범위와 남은 과제를 한눈에.</p></div><a class="btn" href="{{ prefix }}/results">결과 검토하기 →</a></div>
+  <section class="coverage-panel" aria-labelledby="coverage-title">
+    <div class="coverage-intro"><p class="section-kicker">TEST COVERAGE</p><h3 id="coverage-title">현재 테스트 범위</h3><p>관리 중인 {{ coverage.total }}개 시나리오</p></div>
+    <div class="coverage-chart"><svg viewBox="0 0 160 160" role="img" aria-label="{{ view.ui.chart.label }}">
+      <circle class="chart-track" cx="80" cy="80" r="60" pathLength="100"/>
+      {% for segment in view.ui.chart.segments if segment.draw %}<circle class="chart-segment segment-{{ segment.treatment }}" cx="80" cy="80" r="60" pathLength="100" stroke-dasharray="{{ segment.dash }}" stroke-dashoffset="{{ segment.offset }}" transform="rotate(-90 80 80)"/>{% endfor %}
+      <text x="80" y="78" class="chart-number" text-anchor="middle">{{ coverage.counts.EXECUTED }}<tspan class="chart-denominator"> / {{ coverage.total }}</tspan></text><text x="80" y="100" class="chart-caption" text-anchor="middle">로컬 테스트 실행</text>
+    </svg></div>
+    <div class="coverage-legend"><dl>{% for segment in view.ui.chart.segments %}<div><dt><i class="legend-dot dot-{{ segment.treatment }}" aria-hidden="true"></i>{{ view.ui.chart.labels[segment.treatment] }}</dt><dd><strong data-coverage="{{ segment.treatment }}">{{ segment.count }}</strong><span>개</span></dd></div>{% endfor %}</dl>
+      {% if coverage.partial_count %}<p class="partial-note"><span class="scope-pill">일부 범위 {{ coverage.partial_count }}개</span> N-03은 일부 조건만 실행했습니다. 미검증 범위는 결과에서 확인하세요.</p>{% endif %}
+    </div>
+  </section>
+  <section id="catalog" class="controls-section" aria-labelledby="controls-title"><div class="section-heading"><div><h3 id="controls-title">네 가지 보호조치</h3><p>서비스의 각 접점에서, 필요한 통제가 작동하는지 살펴보세요.</p></div><a class="text-link" href="{{ prefix }}/results">전체 시나리오 →</a></div>
+    <div class="control-cards">{% for group in view.ui.groups %}{% set gc = group.ui.coverage %}<article class="control-card">
+      <div class="control-card-heading"><span class="control-letter" aria-hidden="true">{{ group.control }}</span><h4>{{ group.title }}</h4><span class="control-index">0{{ loop.index }} / CONTROL</span></div>
+      <p class="control-purpose">{{ group.purpose }}</p>
+      <ul class="scenario-tags">{% for row in group.scenarios %}<li><a href="{{ prefix }}/scenarios/{{ row.id }}"><span>{{ row.id }}</span>{{ row.title }}{% if row.ui.current_scope.partial %}<span class="tag-partial">일부 범위</span>{% endif %}</a></li>{% endfor %}</ul>
+      <div class="control-card-footer"><span>{% if gc.targeted_progress %}대상 {{ gc.targeted_progress.targeted }}개 중 {{ gc.targeted_progress.executed }}개 실행{% if gc.partial_count %} · 일부 범위 포함{% endif %}{% else %}대상 기능 미제공 · {{ gc.counts.NO_TEST_TARGET }}개{% endif %}</span><a class="text-link" href="{{ prefix }}/results?control={{ group.control }}">결과 보기 →</a></div>
+    </article>{% endfor %}</div>
+  </section>
+  <section class="updates-section" aria-labelledby="updates-title"><div class="section-heading"><div><h3 id="updates-title">변화와 검토 과제</h3><p>최초 발견한 문제와, 아직 확인하지 못한 범위를 이어서 살펴보세요.</p></div></div><div class="update-cards">
+    <article class="update-card"><p class="section-kicker">CHANGE REVIEW</p><h4>문제 발견 이후, 무엇이 달라졌을까요?</h4><p>최초 실패와 재테스트를 함께 보존합니다. 수정 전후의 관찰과 근거를 비교하세요.</p>
+      <ul class="change-links">{% for item in view.preserved_first_failures if item.child_present %}<li><a href="{{ prefix }}/compare/{{ item.child_run_id }}">{{ item.scenario_id }} · {{ item.execution_profile }} <span>비교 →</span></a></li>{% else %}<li>이 모드에서 확인할 수 있는 비교 기록이 없습니다.</li>{% endfor %}</ul>
+      {% if view.retest_needed %}<p class="warn">현재 실패 {{ view.retest_needed | length }}개 · <a href="{{ prefix }}/results?status=FAIL">검토할 결과 보기</a></p>{% endif %}
+    </article>
+    <article class="update-card"><p class="section-kicker">LATEST UPDATE</p><h4>이번 기록에서 확인한 범위</h4><p>{{ coverage.counts.EXECUTED }}개 항목을 로컬에서 실행했습니다. {% if coverage.partial_count %}그중 N-03은 이전 정책 거부·최신 정책 저장·과거 동의 불변을 확인한 일부 범위입니다.{% endif %}</p><p>N-03의 실행 중 정책 교체와 분석 작업의 정책 귀속은 추가 검증이 필요합니다.</p><a class="text-link" href="{{ prefix }}/scenarios/N-03">N-03 범위와 후속 조건 →</a><a class="text-link update-report" href="{{ prefix }}/report">전체 검토 보고서 →</a></article>
+  </div></section>
+</section>
+{% endblock %}

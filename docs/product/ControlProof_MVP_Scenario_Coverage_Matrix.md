@@ -1,5 +1,41 @@
 # ControlProof MVP 시나리오 범위표
 
+2026-10-22 main 전달: 사용자 승인에 따라 현재 완료 범위와 플랫폼 UI를 origin/main으로 전달한다.
+`shared-ui-main-20261022-r2`로 표시 pin을 보완했으며 아래 시나리오/판정/원본/12/9/0/3·N03 일부는 변경하지 않았다.
+[게시 검증](../../specs/010-platform-ui-integration/main-publication.md). 새 actual/AWS/모델 검증은 아니다.
+
+2026-10-22 표시 정돈: 부가 안내를 공통 검증 정보에 접어두었다. 집계12/9/0/3·N03 일부·대상 부재와 원본28/652·모든 판정은 불변이다.
+기본 `shared-ui-presentation-20261022-r1`을 검증했다. [실제 변경/95개 검증](../../specs/010-platform-ui-integration/presentation-polish.md).
+새 대상 실행이나 AWS/외부 모델 검증은 없다. 아래 공유본/기본 상태는 당시 기록이다.
+
+2026-10-21 최신: Spec010 **0~7단계 프론트엔드 전환 완료**. 기본 공유본은 검수한 stage6 r3다.
+사용자가 팀 검토를 완료로 간주하고 전환을 승인했다. [최종 실행/복구](../../specs/010-platform-ui-integration/quickstart.md) ·
+[최종 검증](../../specs/010-platform-ui-integration/stage7-validation.md). 원본28건/652파일·27VERIFIED/1INVALID·미확보1건과
+12/9/0/3(N03 일부)은 그대로다. 새 실제 대상 테스트나 외부 사용성 시험은 수행하지 않았다. 아래 상태는 단계별 이력이다.
+
+2026-10-21 후속: Spec010 **6단계 통합·PDF·후보 검수 완료**. 웹 관련324개 통과, 실제 앱44개 너비와 A4 PDF26페이지를 확인했다.
+원본28건/652파일·27VERIFIED/1INVALID·미확보1건과12/9/0/3(N03 일부)은 그대로다. 실제 대상 테스트를 새로 실행하지 않았다.
+[현재 프론트엔드 검수·실행](../../specs/010-platform-ui-integration/stage6-validation.md). 기본 전환/팀 검수는7단계다.
+
+2026-10-21 후속: Spec010 **5단계 비교/보고서/테스트 준비 완료**. 기존 범위12/9/0/3·N03 일부와 모든 봉인 원본/판정은 불변이다.
+보고서에 현재/봉인 범위·프로필 계보·누락·INVALID·D-019 재현 인정 범위와 출처를 연결했다. 새 실제 실행은 없다.
+[현재 프론트엔드 검증·후보 실행](../../specs/010-platform-ui-integration/stage5-validation.md).
+
+2026-10-21 후속: Spec010 **4단계 상세/실행/증빙·PNG 열람 완료**. 기존 12/9/0/3·N03 일부와 봉인 판정은 불변이다.
+현재/봉인 정의·11프로필/전체 이력·누락/INVALID·N01 측정 버전과 원본 캡처를 구분한다. 새 실제 실행은 없다.
+[최신 프론트엔드 검증과 실행](../../specs/010-platform-ui-integration/stage4-validation.md).
+
+2026-10-21 후속: Spec010 **3단계 전체 현황/기준별 결과 목록 완료**. 아래 시나리오·봉인 판정은 그대로이며
+9/0/3 집계·N03 일부·A 대상 부재를 같은 표시 모델로 안내한다. 실제 테스트 재실행은 하지 않았다.
+[최신 프론트엔드 검증과 후보 실행](../../specs/010-platform-ui-integration/stage3-validation.md).
+
+2026-10-21 후속: Spec010 2단계 소개/안내·공통 디자인 적용을 마쳤다. 아래 시나리오 범위·봉인 판정은 그대로다.
+[현재 프론트엔드 검증](../../specs/010-platform-ui-integration/stage2-validation.md).
+
+2026-10-21 Spec010은 플랫폼 프론트엔드의 0·1단계 명세·계약 준비다. 카탈로그/봉인 결과를 변경하지 않으며
+현재 **12개 관리/9개 실행(N-03 일부)/0개 NOT_RUN/3개 NO_TEST_TARGET**를 그대로 사용한다.
+[프론트엔드 준비 상태](../../specs/010-platform-ui-integration/validation.md).
+
 2026-10-20 Spec 009 **N-01·N-03 실제 실행 완료**(D-030 closure). N-03 `f27b68e8-0df8-46b3-a198-c7917c2f08bb` PASS(일부 실행:
 이전 정책 거부·최신 정책 저장·과거 기록 불변), N-01 부모 `48a70f5e-aa62-41fc-bf58-3624a6102b4f` PASS(측정 v1, 보존) → child
 `d3aac7d9-0a52-4f9a-9c8f-f6e1f7b6de18` PASS(ControlProof 측정 v2 보강 뒤, WhyYou 무수정). 모두 VERIFIED·독립 잔여 0.

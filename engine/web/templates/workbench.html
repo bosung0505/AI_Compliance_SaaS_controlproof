@@ -5,7 +5,7 @@
 {% set members = view.count_members %}
 {% set treatments = view.treatment_counts %}
 <section aria-label="워크벤치">
-  <div class="page-heading"><p class="eyebrow">시나리오 목록 · 테스트 기록 검토</p><h2>검증 현황</h2><p class="page-meta">12개 시나리오 관리 · {{ treatments.EXECUTED }}개 실제 실행 대상 · {{ treatments.NOT_RUN }}개 NOT_RUN · {{ treatments.NO_TEST_TARGET }}개 NO_TEST_TARGET</p></div>
+  <div class="page-heading"><p class="eyebrow">시나리오 목록 · 테스트 기록 검토</p><h2>검증 현황</h2><p class="page-meta">12개 시나리오 관리 · {{ treatments.EXECUTED | default(0) }}개 실제 실행 대상 · {{ treatments.NOT_RUN | default(0) }}개 NOT_RUN · {{ treatments.NO_TEST_TARGET | default(0) }}개 NO_TEST_TARGET</p></div>
   <p class="muted">{{ view.fixed_scope_sentence }} 숫자는 범위표·Validation에서 옮긴 공식 상태를 센 값이며, 이 화면은 판정을 계산하지 않습니다.</p>
 
   <div class="grid c4 counts">

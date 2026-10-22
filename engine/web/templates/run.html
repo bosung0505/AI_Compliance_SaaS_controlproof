@@ -7,12 +7,14 @@
 {% block content %}
 {% set run = view.run %}
 {% set integrity = view.integrity %}
-<section aria-label="실행 결과·증적">
+<section class="service-detail service-run" aria-label="실행 결과·증적">
+  <nav class="service-breadcrumb" aria-label="현재 위치"><a href="{{ prefix }}/results">테스트 결과</a><span> / </span><a href="{{ prefix }}/scenarios/{{ run.scenario_id }}">{{ run.scenario_id }} 테스트 상세</a><span> / 선택한 실행</span></nav>
   <div class="page-heading"><p class="eyebrow">{{ run.scenario_id or "테스트" }} · 선택한 실행 결과</p>
   <h2>{{ view.review.title if view.review else (run.scenario_title or "테스트 실행 결과") }}</h2>
   {% if view.review.description %}<p class="scenario-description">{{ view.review.description }}</p>{% endif %}
   <p class="page-meta">{{ run.started_at | when }} · WhyYou{% if run.target_commit %} 버전 <span class="mono">{{ run.target_commit }}</span>{% endif %} · {{ "DEMO DATA 합성 기록" if view.demo else "실제 보관 기록" }}</p></div>
   <p class="tool">{% if run.scenario_id %}<a class="btn sec" href="{{ prefix }}/scenarios/{{ run.scenario_id }}">시나리오 상세</a>{% endif %}{% if run.parent_run_id %} <a class="btn sec" data-testid="open-compare" href="{{ prefix }}/compare/{{ run.run_id }}">재테스트 비교(부모 <span class="mono">{{ run.parent_run_id | short_id }}</span>)</a>{% endif %}</p>
+  {% if view.ui.related_runs %}<div class="record-picker"><label>검토할 실행 기록<select data-run-picker aria-label="검토할 실행 기록">{% for item in view.ui.related_runs %}<option value="{{ prefix }}/runs/{{ item.run_id }}"{% if item.run_id == run.run_id %} selected{% endif %}{% if not item.present %} disabled{% endif %}>{{ item.started_at | when if item.started_at else '시각 확인 불가' }} · {{ item.execution_profile or '프로필 불명' }} · {{ item.verdict or item.integrity or '원본 미확보' }} · {{ item.run_id | short_id }}</option>{% endfor %}</select></label><p>선택한 실행의 원본을 엽니다. 누락 기록은 <a href="{{ prefix }}/scenarios/{{ run.scenario_id }}#runs">전체 이력</a>에서 확인하세요.</p></div>{% endif %}
 
   <div class="card lead" data-testid="run-lead">
     {% for part in view.display_order %}
@@ -39,6 +41,7 @@
     <p><b>이 기록의 판정은 사실로 표시하지 않습니다.</b> 봉인 무결성을 확인하지 못해 판정·규칙별 결과·증적을 보이지 않습니다. 문제 항목은 아래 개발자용 원본 정보에 있습니다.</p>
   </div>
   {% endif %}
+  {% if view.ui.sealed_definition and view.ui.sealed_definition.scope.partial %}<aside class="service-scope"><b>일부 범위를 실행한 결과입니다</b><p>이 실행에 봉인된 {{ view.ui.sealed_definition.scope.applicable_assertion_ids | join(' · ') }}에 판정이 적용됩니다. 실행 중 정책 교체·근접 제출·분석 작업의 정책 귀속은 미검증입니다.</p><a class="text-link" href="#sealed-definition">이 실행의 정의와 후속 조건 ↓</a></aside>{% endif %}
 
   <div class="card result-summary" data-testid="plain-explanation" data-verdict="{{ view.verdict.value if view.verdict else 'UNAVAILABLE' }}">
     <h3>{% if view.remediation and view.remediation.selected_stage == "retest" %}보완 후 재테스트 결과{% elif view.remediation %}문제가 확인된 당시 테스트 결과{% else %}이번 테스트 결과{% endif %}</h3>
@@ -61,11 +64,13 @@
   </div>
   {% endif %}
   {% if view.review %}<div class="note test-process" data-testid="test-process">{{ view.review.process }}{% if run.scenario_id == "E-01" %}<br>점수 보류는 0점 처리나 지원자의 답변 삭제가 아닙니다. 해당 점수를 미확정 상태로 두는 처리입니다.{% endif %}</div>{% endif %}
-  {% if view.review %}{% include "_review.html" %}{% endif %}
+  {% include "partials/notice_captures.html" %}
+  {% if view.review %}{% include "partials/service_review.html" %}{% endif %}
+  {% if view.ui.sealed_definition %}<section class="service-card" id="sealed-definition">{% set document = view.ui.sealed_definition %}{% include 'partials/definition_document.html' %}</section>{% endif %}
   {% if view.restore %}<p data-testid="restore" class="{{ 'warn' if view.restore.manual_cleanup_required else 'page-meta' }}">환경 복구: {{ view.restore.status or "기록 없음" }} · 수동 정리 {{ "필요 — 실행 안전 문제를 먼저 확인하세요" if view.restore.manual_cleanup_required else "필요 없음" }}</p>{% endif %}
 <details class="card execution-metadata"><summary>실행 시각·버전·복구·식별 정보</summary><table class="kv">
       <tr><th>실행 ID</th><td class="mono">{{ run.run_id }}</td></tr>
-      <tr><th>시나리오·프로필</th><td>{{ run.scenario_id }} · {{ run.execution_profile }} · 정의 {{ run.scenario_version }}</td></tr>
+      <tr><th>시나리오·프로필</th><td>{{ run.scenario_id }} · {{ view.ui.profile.execution_profile if view.ui.profile else run.execution_profile }} · 정의 {{ run.scenario_version }}</td></tr>
       <tr><th>대상 버전</th><td>{% if run.target_commit %}WhyYou commit <span class="mono">{{ run.target_commit }}</span>{% else %}<span class="muted">commit 기록 없음(개발자용 정보에 대상 snapshot)</span>{% endif %}</td></tr>
       <tr><th>실행 시각</th><td>{{ run.started_at | when }} – {{ run.ended_at | when }}</td></tr>
       <tr><th>실행 상태</th><td>{{ run.run_state }}</td></tr>
@@ -143,19 +148,21 @@ detail: {{ item.detail or "" }}</pre></details></td>
     {% if view.scope_items %}<ul class="scope-items">{% for line in view.scope_items %}<li class="scope-item">{{ line }}</li>{% endfor %}</ul>{% endif %}</div>
   {% endif %}
 
-  <div class="card" id="memos" data-testid="memo-section"><h3>수정 메모</h3>
+  <div class="card service-card service-memos" id="memos" data-testid="memo-section"><h3>수정 메모</h3>
     {% if view.shared_snapshot %}<p class="muted">공유 결과는 읽기 전용입니다. 별도 개발 보완과 재테스트 설명은 위의 실행 기록에 연결돼 있습니다.</p>
+    {% elif view.demo %}<p class="muted">DEMO DATA 기록에는 메모를 남기지 않습니다.</p>
     {% else %}
     <div class="note">메모는 봉인 기록과 분리된 별도 기록입니다. 판정·증적·무결성 값은 바뀌지 않습니다.</div>
     {% if view.memos %}<ul>{% for memo in view.memos %}<li><b>{{ memo.author }}</b> <span class="muted">{{ memo.created_at | when }}</span><br>{{ memo.text }}</li>{% endfor %}</ul>
     {% else %}<p class="muted">메모가 없습니다.</p>{% endif %}
+    <details class="memo-editor"><summary>이 실행에 수정 메모 남기기</summary>
     <form method="post" action="/runs/{{ run.run_id }}/memos" class="memo-form">
       <input type="hidden" name="csrf_token" value="{{ csrf_token }}">
       <label>작성자 <input type="text" name="author" maxlength="80" required{% if not view.memo_allowed %} disabled{% endif %}></label>
       <label>메모 <textarea name="text" maxlength="2000" required{% if not view.memo_allowed %} disabled{% endif %}></textarea></label>
       <button class="btn" type="submit"{% if not view.memo_allowed %} disabled{% endif %}>메모 추가</button>
       {% if not view.memo_allowed %}<p class="muted">DEMO DATA 기록에는 메모를 남기지 않습니다.</p>{% endif %}
-    </form>
+    </form></details>
     {% endif %}
   </div>
   <p><a href="{{ prefix }}/">← 워크벤치로</a></p>

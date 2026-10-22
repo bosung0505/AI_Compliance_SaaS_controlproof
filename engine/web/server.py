@@ -22,8 +22,12 @@ from jinja2 import Environment, FileSystemLoader, select_autoescape
 
 from engine.evidence import display_paths, redact
 from engine.web import badges
+from engine.web.details import CONDITION_SETUPS, CONDITION_TITLES, EVIDENCE_TITLES
 from engine.web.memos import MemoRejected, MemoStore
+from engine.web.overview import FilterInvalid, chart, filter_groups, parse_filters
+from engine.web.png_evidence import PNGRejected, parse_ref, read_png
 from engine.web.preflight import PreflightBusy, PreflightRunner, ReadinessStore, UnknownProfile
+from engine.web.public import public_view
 from engine.web.readmodel import (
     SCHEMA_VERSION,
     EvidenceNotFound,
@@ -47,15 +51,20 @@ SECURITY_HEADERS = {
     "Referrer-Policy": "no-referrer",
 }
 MAX_FORM_BYTES = 8192
-RETURN_TO = re.compile(r"^/(?:scenarios/[NHEA]-0\d)?$")
+RETURN_TO = re.compile(r"^/(?:prepare|scenarios/[NHEA]-0\d)?$")
 
 # (method, path pattern, handler name). Patterns are matched exactly; `{name}` is one path segment.
 ROUTES = (
+    ("GET", "/product", "product_html"),
+    ("GET", "/guide", "guide_html"),
     ("GET", "/", "workbench_html"),
+    ("GET", "/results", "results_html"),
+    ("GET", "/prepare", "prepare_html"),
     ("GET", "/api/workbench", "workbench_json"),
     ("GET", "/runs/{run_id}", "run_html"),
     ("GET", "/api/runs/{run_id}", "run_json"),
     ("GET", "/runs/{run_id}/evidence", "evidence_html"),
+    ("GET", "/runs/{run_id}/evidence/content", "evidence_content"),
     ("GET", "/report", "report_html"),
     ("GET", "/scenarios/{scenario_id}", "scenario_html"),
     ("GET", "/api/scenarios/{scenario_id}", "scenario_json"),
@@ -63,10 +72,13 @@ ROUTES = (
     ("GET", "/api/compare/{run_id}", "compare_json"),
     ("GET", "/api/report", "report_json"),
     ("GET", "/demo/", "workbench_html"),
+    ("GET", "/demo/results", "results_html"),
+    ("GET", "/demo/prepare", "prepare_html"),
     ("GET", "/demo/api/workbench", "workbench_json"),
     ("GET", "/demo/runs/{run_id}", "run_html"),
     ("GET", "/demo/api/runs/{run_id}", "run_json"),
     ("GET", "/demo/runs/{run_id}/evidence", "evidence_html"),
+    ("GET", "/demo/runs/{run_id}/evidence/content", "evidence_content"),
     ("GET", "/demo/report", "report_html"),
     ("GET", "/demo/scenarios/{scenario_id}", "scenario_html"),
     ("GET", "/demo/api/scenarios/{scenario_id}", "scenario_json"),
@@ -126,6 +138,7 @@ def make_server(
     target: str = "whyyou-local",
     preflight_runner: Any = None,
     shared_snapshot: dict[str, Any] | None = None,
+    png_approvals: dict[str, set[tuple[str, str, str]]] | None = None,
 ) -> WebServer:
     """Create the server on 127.0.0.1:<port> (0 picks a free port). The caller runs `serve_forever`."""
     catalog = catalog or load_catalog()
@@ -134,13 +147,17 @@ def make_server(
     memos = None if shared_snapshot else MemoStore(Path(state_dir) / "memos")
     demo_store = ReadinessStore(Path(demo_root).parent / "preflight")
     runner = None if shared_snapshot else preflight_runner or PreflightRunner(catalog, actual_store, target=target, cwd=REPO_ROOT)
-    return WebServer(
+    instance = WebServer(
         port,
         actual=WorkbenchReader(catalog, run_root, readiness=actual_store, origin="ACTUAL", cache=cache, memos=memos, target=target, shared_snapshot=shared_snapshot),
         demo=WorkbenchReader(catalog, demo_root, readiness=demo_store, origin="DEMO", cache=cache, target=target),
         runner=runner,
         catalog=catalog,
     )
+    instance.png_approvals = {mode: frozenset((png_approvals or {}).get(mode, ())) for mode in ('ACTUAL', 'DEMO')}
+    for mode, reader in instance.readers.items():
+        reader.png_approvals = instance.png_approvals[mode]
+    return instance
 
 
 class _NoLocalReadiness:
@@ -190,6 +207,17 @@ class _Handler(BaseHTTPRequestHandler):
         self._error("NOT_FOUND", "ROUTE_NOT_FOUND", "요청한 화면이 없습니다.")
 
     # -- routes --------------------------------------------------------------------------------------------------
+    def _route_product_html(self, path: str) -> None:
+        self._public_html("product")
+
+    def _route_guide_html(self, path: str) -> None:
+        self._public_html("guide")
+
+    def _public_html(self, name: str) -> None:
+        reader = self.server.readers["ACTUAL"]
+        view = _boundary(public_view(self.server.catalog, reader.header(name)), reader.run_root)
+        self._html(HTTPStatus.OK, f"{name}.html", view=view, prefix="")
+
     def _reader(self, path: str) -> WorkbenchReader:
         return self.server.readers["DEMO" if path.startswith("/demo/") else "ACTUAL"]
 
@@ -200,7 +228,22 @@ class _Handler(BaseHTTPRequestHandler):
     def _route_workbench_html(self, path: str) -> None:
         reader = self._reader(path)
         view = _boundary(reader.workbench(), reader.run_root)
-        self._html(HTTPStatus.OK, "workbench.html", view=view, prefix="/demo" if view["demo"] else "")
+        view["ui"]["chart"] = chart(view["ui"]["coverage"])
+        self._html(HTTPStatus.OK, "overview.html", view=view, prefix="/demo" if view["demo"] else "")
+
+    def _route_results_html(self, path: str) -> None:
+        try:
+            filters = parse_filters(urllib.parse.urlsplit(self.path).query)
+        except FilterInvalid:
+            self._error("USAGE", "RESULT_FILTER_INVALID", "검색 조건을 확인하세요. 기준·결과·처리 범위는 제공된 값만 사용하며 검색어는 200자까지 입력할 수 있습니다.")
+            return
+        reader = self._reader(path)
+        view = _boundary(reader.workbench(), reader.run_root)
+        # Escape is provided by Jinja; filters are not verdicts and are never sent to the engine.
+        view["filters"] = filters
+        view["filtered_groups"] = filter_groups(view["ui"]["groups"], filters)
+        view["matched_count"] = sum(len(g["scenarios"]) for g in view["filtered_groups"])
+        self._html(HTTPStatus.OK, "results.html", view=_boundary(view, reader.run_root), prefix="/demo" if view["demo"] else "")
 
     def _route_run_json(self, path: str, run_id: str) -> None:
         reader = self._reader(path)
@@ -235,7 +278,39 @@ class _Handler(BaseHTTPRequestHandler):
         except IntegrityBlocked:
             self._error("INTEGRITY", "INTEGRITY_FAILED", "무결성 실패 기록의 증적 원본은 보이지 않습니다.")
             return
-        self._html(HTTPStatus.OK, "evidence.html", view=view, prefix="/demo" if view["demo"] else "")
+        prefix = "/demo" if view["demo"] else ""
+        view["display_title"] = EVIDENCE_TITLES.get(ref, view["evidence_name"])
+        condition = view.get("context", {}).get("condition")
+        if condition:
+            view["condition_title"] = CONDITION_TITLES.get(condition.get("assertion_id"), condition["title"])
+            view["condition_setup"] = CONDITION_SETUPS.get(condition.get("assertion_id"), condition["setup"])
+        view["image"] = None
+        if view.get("mime_type") == "image/png":
+            try:
+                read_png(reader, run_id, ref, approved=self.server.png_approvals[reader.origin])
+                view["image"] = {"available": True, "url": f"{prefix}/runs/{run_id}/evidence/content?{urllib.parse.urlencode({'ref': ref})}"}
+            except PNGRejected as error:
+                view["image"] = {"available": False, "code": error.code}
+        self._html(HTTPStatus.OK, "evidence.html", view=view, prefix=prefix)
+
+    def _route_evidence_content(self, path: str, run_id: str) -> None:
+        reader = self._reader(path)
+        try:
+            ref = parse_ref(urllib.parse.urlsplit(self.path).query)
+            body = read_png(reader, run_id, ref, approved=self.server.png_approvals[reader.origin])
+        except PNGRejected as error:
+            messages = {'USAGE': '자료 식별값을 확인하세요.', 'CONTRACT': '이 자료는 이미지 열람 정책상 제공할 수 없습니다.',
+                        'NOT_FOUND': '선택한 기록에서 해당 자료를 찾을 수 없습니다.', 'INTEGRITY': '원본 무결성 또는 PNG 내용을 확인하지 못해 이미지를 제공하지 않습니다.'}
+            self._error(error.kind, error.code, messages[error.kind], status=HTTPStatus(error.status))
+            return
+        self.send_response(HTTPStatus.OK)
+        self.send_header('Content-Type', 'image/png')
+        self.send_header('Content-Length', str(len(body)))
+        self.send_header('Content-Disposition', 'inline; filename="controlproof-evidence.png"')
+        for name, value in SECURITY_HEADERS.items():
+            self.send_header(name, value)
+        self.end_headers()
+        self.wfile.write(body)
 
     def _route_scenario_json(self, path: str, scenario_id: str) -> None:
         reader = self._reader(path)
@@ -253,7 +328,7 @@ class _Handler(BaseHTTPRequestHandler):
         except ScenarioNotFound:
             self._error("NOT_FOUND", "SCENARIO_NOT_FOUND", "카탈로그에 없는 시나리오입니다.")
             return
-        self._html(HTTPStatus.OK, "scenario.html", view=view, prefix="/demo" if view["demo"] else "")
+        self._html(HTTPStatus.OK, "scenario_service.html", view=view, prefix="/demo" if view["demo"] else "")
 
     def _route_compare_json(self, path: str, run_id: str) -> None:
         reader = self._reader(path)
@@ -281,6 +356,12 @@ class _Handler(BaseHTTPRequestHandler):
         reader = self._reader(path)
         view = _boundary(reader.report(), reader.run_root)
         self._html(HTTPStatus.OK, "report.html", view=view, prefix="/demo" if view["demo"] else "")
+
+    def _route_prepare_html(self, path: str) -> None:
+        from engine.web.delivery import preparation
+        reader = self._reader(path)
+        view = _boundary(preparation(reader), reader.run_root)
+        self._html(HTTPStatus.OK, "prepare.html", view=view, prefix="/demo" if view["demo"] else "")
 
     def _route_memo(self, path: str, run_id: str) -> None:
         form = self._form()
@@ -336,6 +417,8 @@ class _Handler(BaseHTTPRequestHandler):
         except PreflightBusy:
             self._error("BUSY", "PREFLIGHT_RUNNING", "준비 상태 확인이 이미 진행 중입니다. 끝난 뒤 다시 시도하세요.")
             return
+        if return_to == "/prepare":
+            return_to = f"/prepare#prepare-{scenario_id}"
         self._redirect(return_to, HTTPStatus.SEE_OTHER)
 
     # -- responses -----------------------------------------------------------------------------------------------
@@ -365,7 +448,9 @@ class _Handler(BaseHTTPRequestHandler):
         if self._wants_json():
             self._json(status, payload)
         else:
-            self._html(status, "error.html", view=payload, prefix="")
+            reader = self._reader(urllib.parse.urlsplit(self.path).path)
+            view = _boundary({**reader.header("error"), **payload}, reader.run_root)
+            self._html(status, "error.html", view=view, prefix="/demo" if view["demo"] else "")
 
     def _json(self, status: HTTPStatus, payload: dict[str, Any]) -> None:
         body = json.dumps(payload, ensure_ascii=False, sort_keys=True).encode("utf-8")

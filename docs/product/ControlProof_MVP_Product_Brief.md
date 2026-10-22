@@ -1,5 +1,18 @@
 # ControlProof × WhyYou 2주 MVP Product Brief
 
+2026-10-22 전달 대상: 사용자 승인으로 현재 완료 프로젝트/플랫폼 UI를 ControlProof main에 반영한다.
+[게시 범위와 검증](../../specs/010-platform-ui-integration/main-publication.md). 코드 게시이며 외부 서비스 호스팅/WhyYou 수정/새 actual은 없다.
+
+2026-10-22 화면 정보 계층 정돈: 수치/기준/결과를 우선 노출하고 기록 원천·기술 환경·판정 주석을 상단 검증 정보에서
+필요할 때 펼친다. 결과/범위 의미나 로컬·공유/DEMO 경계는 바꾸지 않는다.
+[최신 화면/검증](../../specs/010-platform-ui-integration/presentation-polish.md).
+
+2026-10-21 최신: Spec010의 플랫폼 화면을 기존 Python/Jinja 서비스에 반영하고 기본 실행으로 전환했다.
+소개/도입 안내→전체 현황/네 기준별 결과→정의/프로필/실행/증빙→비교/보고서/준비가 실제 기록과 연결된다.
+검수한 stage6 r3가 기본 공유본이며28건/652파일·12/9/0/3(N03 일부)을 유지한다.
+[사용/복구](../../specs/010-platform-ui-integration/quickstart.md) · [전환 검증](../../specs/010-platform-ui-integration/stage7-validation.md).
+로컬 읽기 서비스의 UI 전환이며 별도 외부 사용성 시험·원격 배포·인증/테넌트 기능은 포함하지 않는다.
+
 2026-10-19 기록 공유 방향(D-029): 검토한 실제 실행 원본·상세 근거·최초 FAIL부터 재테스트까지의 계보를 코드와 함께 배포한다.
 같은 코드와 같은 공유 snapshot이면 팀원이 같은 공식 결과·근거·비교를 열람할 수 있어야 한다. 새 독립 실행과는 구분한다.
 Spec008에서 원본25건/600파일의 공유 기능과 별도 Git clone 열람 검증을 구현했다.

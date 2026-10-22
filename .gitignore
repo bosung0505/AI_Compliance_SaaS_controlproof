@@ -23,3 +23,7 @@ fault-receipts/
 Thumbs.db
 .vscode/
 .idea/
+
+# Local UI/UX proposal and sharing archive
+/docs/ui-ux-proposal/
+/docs/ui-ux-proposal.zip

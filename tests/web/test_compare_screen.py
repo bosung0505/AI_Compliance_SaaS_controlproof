@@ -30,12 +30,13 @@ def test_two_runs_side_by_side_parent_unchanged(screen, demo_site) -> None:
     assert left.locator("[data-badge=fail]").count() == 1
     assert right.locator("[data-badge=pass]").count() == 1
     assert "부모 기록 불변 확인" in screen.locator("[data-testid=parent-unchanged]").inner_text()
-    assert screen.locator("tr.assertion-change").count() >= 4
+    assert screen.locator("[data-testid=assertion-change]").count() >= 4
 
 
 def test_retest_only_as_a_command(screen, demo_site) -> None:
     child, _ = _e01_child(demo_site.demo_root)
     screen.goto(f"{demo_site.url}/demo/compare/{child}")
+    screen.get_by_text("전체 계보와 새 재테스트 담당자 안내", exact=True).click()
     assert "python -m engine.cli retest" in screen.locator("[data-testid=retest-command]").inner_text()
     labels = [button.inner_text() for button in screen.locator("main button").all()]
     assert all(label == "복사" for label in labels), labels

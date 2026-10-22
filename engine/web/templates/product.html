@@ -1,0 +1,376 @@
+{% extends "public_base.html" %}
+{% block content %}
+
+<section class="hero wrap">
+<div class="hero-copy">
+<div class="eyebrow">
+<span class="live-dot">
+</span>AI CONTROL ASSURANCE</div>
+<h1>AI의 신뢰를,<br>
+<em>작동하는 근거로.</em>
+</h1>
+<p>보호조치가 실제로 작동하는지 시험하고,<br class="desktop"> 그 결과를 설명할 수 있는 증적으로 연결하세요.</p>
+<div class="actions">
+<a class="button primary" href="/">실제 검토 워크스페이스 열기 <span>↗</span>
+</a>
+<a class="button secondary" href="#workflow">작동 방식 살펴보기 <span>↓</span>
+</a>
+</div>
+<div class="hero-note">
+<span>01 기준 설정</span>
+<i>
+</i>
+<span>02 통제 검증</span>
+<i>
+</i>
+<span>03 증적 검토</span>
+</div>
+</div>
+<div class="hero-art" aria-label="통제 검증 흐름 예시">
+<div class="orbit orbit-one">
+</div>
+<div class="orbit orbit-two">
+</div>
+<div class="art-label">FROM POLICY TO PROOF</div>
+<div class="stack stack-back">
+<span>POLICY & CONTROLS</span>
+<b>보호조치 기준</b>
+<div class="stack-lines">
+<i>
+</i>
+<i>
+</i>
+<i>
+</i>
+</div>
+</div>
+<div class="stack stack-middle">
+<span>SCENARIO VALIDATION</span>
+<b>실제 동작 검증</b>
+<div class="nodes">
+<i>정상</i>
+<i>경계</i>
+<i>장애</i>
+</div>
+</div>
+<div class="stack stack-front">
+<div>
+<span>VERIFIABLE EVIDENCE</span>
+<b>검토 가능한 근거</b>
+</div>
+<div class="proof-mark">✓</div>
+<div class="proof-line">
+<span>실행 결과</span>
+<span>관찰 기록</span>
+<span>수정 이력</span>
+</div>
+</div>
+<div class="floating-tag">
+<span class="live-dot">
+</span>모든 판단에, 연결된 근거.</div>
+</div>
+</section>
+<div class="audience-band">
+<div class="wrap audience">
+<span>AI 서비스의 중요한 순간을 위해</span>
+<b>납품·고객 실사 준비</b>
+<span class="cross">+</span>
+<b>서비스 업데이트 점검</b>
+<span class="cross">+</span>
+<b>내부 검토·감사 준비</b>
+</div>
+</div>
+<section class="section wrap" id="product">
+<div class="section-heading">
+<div>
+<div class="eyebrow">CLARITY BEFORE CONFIDENCE</div>
+<h2>어디까지 확인했는지,<br>명확하게 보입니다.</h2>
+</div>
+<p>완료한 시험과 아직 확인하지 못한 범위를 구분합니다.<br>결과에서 관찰 기록까지, 판단의 맥락을 따라가세요.</p>
+</div>
+<p class="scope-summary">{{ view.scope_sentence }}</p>
+<div class="product-window">
+<div class="window-bar">
+<span class="window-dots">● ● ●</span>
+<span>ControlProof / WhyYou 검토 워크스페이스</span>
+<span class="sample">공식 이력 요약</span>
+</div>
+<div class="product-body">
+<aside class="mini-sidebar">
+<strong>
+<span class="mini-mark">✓</span>ControlProof</strong>
+<span class="mini-project">W &nbsp; WhyYou</span>
+<span class="selected">▦ &nbsp; 전체 현황</span>
+<span>☷ &nbsp; 테스트 결과</span>
+<span>▤ &nbsp; 검토 보고서</span>
+<small>ASSURANCE WORKSPACE</small>
+</aside>
+<div class="product-content">
+<div class="preview-title">
+<div>
+<span class="eyebrow">VERIFICATION OVERVIEW</span>
+<h3>확인한 결과와 남은 범위.</h3>
+</div>
+<a href="/" class="preview-open">실제 결과 열기 ↗</a>
+</div>
+<div class="preview-metrics">
+<a class="metric lavender" href="/results">
+<span>실행 기록 있음</span>
+<strong>
+<span data-coverage="EXECUTED">{{ view.coverage.EXECUTED }}</span> <small>/ {{ view.total }}</small>
+</strong>
+<p>N-03 일부 실행 포함</p>
+<div class="bars" aria-hidden="true">{% for n in range(view.total) %}<i{% if n >= view.coverage.EXECUTED %} class="off"{% endif %}>
+</i>{% endfor %}</div>
+</a>
+<div class="metric">
+<span>미실행</span>
+<strong data-coverage="NOT_RUN">{{ view.coverage.NOT_RUN }}</strong>
+<p>카탈로그의 미실행 항목</p>
+<span class="pill amber">실행 범위와 별도 구분</span>
+</div>
+<div class="metric">
+<span>대상 기능 없음</span>
+<strong data-coverage="NO_TEST_TARGET">{{ view.coverage.NO_TEST_TARGET }}</strong>
+<p>대상 서비스에 기능 미제공</p>
+<span class="pill gray">범위 분리</span>
+</div>
+</div>
+<div class="preview-table">
+<div class="preview-row table-head">
+<span>대표 시나리오</span>
+<span>공식 결과</span>
+<span>검토</span>
+</div>
+{% for entry in view.representatives %}<a class="preview-row" href="/scenarios/{{ entry.id }}">
+<span>
+<small>{{ entry.id }}</small>{{ entry.question }}</span>
+<span class="pill green">{{ '✓ 통과' if entry.official_status.result == 'PASS' else entry.official_status.result }}</span>
+<span>기록 보기 ↗</span>
+</a>{% endfor %}</div>
+</div>
+</div>
+<div class="preview-caption">
+<span>카탈로그에 등록된 공식 이력의 요약입니다. 실제 결과에서 실행 기록과 원본 증빙을 확인할 수 있습니다.</span>
+<a href="/">직접 탐색하기 →</a>
+</div>
+</div>
+<div class="value-row">
+<article>
+<span>01 / VISIBILITY</span>
+<h3>확인한 범위를 투명하게</h3>
+<p>실행 기록·미실행·대상 기능 없음을 나눠, 검토 가능한 범위를 명확히 드러냅니다.</p>
+</article>
+<article>
+<span>02 / TRACEABILITY</span>
+<h3>판단에서 근거까지</h3>
+<p>기대 동작, 관찰 결과, 관련 기록을 연결해 결과의 이유를 살펴봅니다.</p>
+</article>
+<article>
+<span>03 / CONTINUITY</span>
+<h3>수정 이후에도 이어지는 검증</h3>
+<p>최초 실패를 보존하고, 수정 후 재시험을 별도 이력으로 비교합니다.</p>
+</article>
+</div>
+</section>
+<section class="workflow section" id="workflow">
+<div class="wrap">
+<div class="section-heading">
+<div>
+<div class="eyebrow">HOW CONTROLPROOF WORKS</div>
+<h2>기준이 시험이 되고,<br>시험은 근거가 됩니다.</h2>
+</div>
+<p>서비스의 경계와 시험 조건을 먼저 합의합니다.<br>정상·경계·장애 상황에서 확인한 행동을 결과로 연결합니다.</p>
+</div>
+<div class="workflow-grid">
+<div class="workflow-tabs" role="tablist" aria-label="검증 과정">
+<button role="tab" aria-selected="true" aria-controls="workflow-panel-0" id="step-0" data-step="0">
+<span>01</span>
+<div>
+<h3>시험 기준을 정합니다</h3>
+<p>요구사항을 관찰 가능한 동작으로 바꿉니다.</p>
+</div>
+<b>↗</b>
+</button>
+<button role="tab" aria-selected="false" aria-controls="workflow-panel-1" id="step-1" data-step="1" tabindex="-1">
+<span>02</span>
+<div>
+<h3>실제 동작을 확인합니다</h3>
+<p>정상·예외·장애 조건에서 통제를 시험합니다.</p>
+</div>
+<b>↗</b>
+</button>
+<button role="tab" aria-selected="false" aria-controls="workflow-panel-2" id="step-2" data-step="2" tabindex="-1">
+<span>03</span>
+<div>
+<h3>증적을 검토하고 재확인합니다</h3>
+<p>결과를 설명하고, 수정 이후의 변화를 추적합니다.</p>
+</div>
+<b>↗</b>
+</button>
+</div>
+<div class="workflow-panels">
+<div class="workflow-panel" id="workflow-panel-0" role="tabpanel" aria-labelledby="step-0" tabindex="0">
+<span>CONTROL SPECIFICATION</span>
+<h3>“동의 전에 처리가 시작되지 않는가?”</h3>
+<div class="workflow-example">
+<small>대상 보호조치</small>
+<p>AI 사용에 대한 사전 동의</p>
+</div>
+<div class="workflow-example">
+<small>테스트할 동작</small>
+<p>동의 전·후의 분석, 녹화, 평가 요청을 구분하고 기대 동작을 정의합니다.</p>
+</div>
+<p class="panel-note">N-02 · 사전 동의 이후에만 처리 시작</p>
+</div>
+<div class="workflow-panel" id="workflow-panel-1" role="tabpanel" aria-labelledby="step-1" tabindex="0" hidden>
+<span>SCENARIO EXECUTION</span>
+<h3>정상 동작부터 장애 상황까지.</h3>
+<div class="workflow-example">
+<small>실행 조건</small>
+<p>동의 전 요청 → 동의 완료 → 처리 요청</p>
+</div>
+<div class="workflow-example">
+<small>관찰할 사실</small>
+<p>요청의 허용·거부, 처리 시작과 결과 생성, 저장 장애 이후의 복구를 함께 확인합니다.</p>
+</div>
+<p class="panel-note">실제 실행은 합의된 테스트 환경과 권한 안에서 수행합니다.</p>
+</div>
+<div class="workflow-panel" id="workflow-panel-2" role="tabpanel" aria-labelledby="step-2" tabindex="0" hidden>
+<span>EVIDENCE & REVALIDATION</span>
+<h3>결과의 이유를 따라갈 수 있도록.</h3>
+<div class="workflow-example">
+<small>검토 자료</small>
+<p>기대 동작 + 관찰 결과 + 실행 기록</p>
+</div>
+<div class="workflow-example">
+<small>수정 이후</small>
+<p>최초 기록을 보존하고, 수정 후 별도 실행으로 보호조치의 변화를 비교합니다.</p>
+</div>
+<p class="panel-note">공유된 실제 실행 기록과 별도로 합성 DEMO를 제공합니다.</p>
+</div>
+</div>
+</div>
+</div>
+</section>
+<section class="section wrap" id="controls">
+<div class="section-heading">
+<div>
+<div class="eyebrow">FOUR CONTROL DOMAINS</div>
+<h2>보호조치를 살피는<br>네 가지 관점.</h2>
+</div>
+<p>이용자에게 알리는 순간부터 최종 결정과 기록까지.<br>각 보호조치를 구체적인 시나리오로 살펴봅니다.</p>
+</div>
+<div class="control-cards">
+<a href="/scenarios/N-02" class="control">
+<span class="control-icon purple">◎</span>
+<small>01 / NOTICE & CONSENT</small>
+<h3>고지·동의</h3>
+<p>AI 사용을 알리고, 유효한 동의 이후에만 처리가 시작되는지 확인합니다.</p>
+<div>AI 고지 · 사전 동의 · 정책 변경</div>
+<span class="control-link">대표 시나리오 보기 ↗</span>
+</a>
+<a href="/scenarios/H-03" class="control">
+<span class="control-icon blue">♙</span>
+<small>02 / HUMAN OVERSIGHT</small>
+<h3>사람의 결정</h3>
+<p>권한 있는 사람이 충분한 정보를 바탕으로 최종 결정을 내릴 수 있는지 확인합니다.</p>
+<div>권한 제한 · AI 결정 제한 · 장애 중 보호</div>
+<span class="control-link">대표 시나리오 보기 ↗</span>
+</a>
+<a href="/scenarios/A-01" class="control">
+<span class="control-icon sand">↗</span>
+<small>03 / APPEAL & REVIEW</small>
+<h3>이의제기</h3>
+<p>접수·독립적인 재검토·결과 통지를 관리합니다. 현재 WhyYou에는 해당 기능이 없어 세 항목 모두 대상 없음으로 구분합니다.</p>
+<div>접수·확인 · 결정 중지 · 재검토·통지</div>
+<span class="control-link">대상 부재 사유 보기 ↗</span>
+</a>
+<a href="/scenarios/E-01" class="control">
+<span class="control-icon mint">▤</span>
+<small>04 / EVIDENCE & RECORDS</small>
+<h3>근거·기록</h3>
+<p>평가 당시의 근거와 기준을 남기고, 결정 이력이 보존되는지 확인합니다.</p>
+<div>근거 인용 · 기준 보존 · 누락·중복 방지</div>
+<span class="control-link">대표 시나리오 보기 ↗</span>
+</a>
+</div>
+</section>
+<section class="proof-section">
+<div class="wrap proof-grid">
+<div>
+<div class="eyebrow">A CLEARER REVIEW</div>
+<h2>결과 한 줄 너머,<br>판단의 맥락까지.</h2>
+<p>문제가 발견된 이유와 수정 후 달라진 동작을<br>같은 흐름에서 검토하세요.</p>
+<ul>
+<li>최초 실패와 수정 후 결과를 나란히 비교</li>
+<li>검증한 범위와 미검증 범위를 구분</li>
+<li>검토 내용을 보고서로 확인하고 PDF로 저장</li>
+</ul>
+<a class="button light" href="/report">실제 보고서 보기 <span>↗</span>
+</a>
+</div>
+<div class="review-card">
+<div class="review-card-top">
+<span>H-03 / CHANGE REVIEW</span>
+<span>공식 검증 사례</span>
+</div>
+<h3>장애 중 최종 결정 보호</h3>
+<div class="review-before">
+<span class="pill rose">최초 실행 · 문제 발견</span>
+<h4>실패가 준비 완료처럼 보였습니다.</h4>
+<p>리포트 생성 실패와 결정 거부 사유를<br>명확하게 구분하기 어려웠습니다.</p>
+</div>
+<div class="review-connector">↓ <span>수정 후 별도 재테스트</span>
+</div>
+<div class="review-after">
+<span class="pill green">재테스트 · 통과</span>
+<h4>실패를 구분하고, 이유를 안내합니다.</h4>
+<p>실패 상태를 표시하고, 준비되지 않은 리포트로<br>최종 결정이 이뤄지지 않도록 보호합니다.</p>
+</div>
+<a href="/scenarios/H-03#runs">최초·재테스트 기록 보기 ↗</a>
+</div>
+</div>
+</section>
+<section class="section wrap faq-section" id="faq">
+<div>
+<div class="eyebrow">QUESTIONS, ANSWERED</div>
+<h2>도입 전에<br>궁금한 점.</h2>
+<a class="text-link" href="/guide">도입 안내 살펴보기 ↗</a>
+</div>
+<div class="faqs">
+<details open>
+<summary>어떤 기업을 위한 서비스인가요?</summary>
+<p>초기에는 납품·실사·서비스 업데이트를 앞두고 보호조치의 동작과 증빙을 확인하려는 AI 채용·평가 솔루션 공급기업을 대상으로 합니다. 시험할 서비스의 경계와 권한을 합의하는 것부터 시작합니다.</p>
+</details>
+<details>
+<summary>통과하면 법적 준수가 인증되나요?</summary>
+<p>통과는 합의한 시나리오와 확보한 증거의 범위에 한정됩니다. 서비스 전체의 법적 준수 인증을 의미하지 않습니다. 보고서에는 미실행 항목과 검증하지 않은 범위도 함께 표시합니다.</p>
+</details>
+<details>
+<summary>데모에서 실제 테스트를 실행할 수 있나요?</summary>
+<p>현재 데모는 문서 기반 공식 이력 요약를 사용하는 검토 화면입니다. 결과 조회, 이력 비교, 보고서 확인을 체험할 수 있습니다. 실제 환경 연결과 테스트 실행, 원본 증적 검증은 포함하지 않습니다.</p>
+</details>
+<details>
+<summary>고객이 준비해야 할 것은 무엇인가요?</summary>
+<p>점검 목적, 대상 서비스와 버전, 확인할 보호조치, 시험 가능한 환경과 권한을 정리합니다. 합성 데이터와 장애 시험의 복구 조건, 결과를 검토할 담당자도 함께 협의합니다.</p>
+</details>
+<details>
+<summary>문제를 발견하면 어떤 절차로 진행하나요?</summary>
+<p>관찰 결과와 관련 근거를 검토한 뒤 서비스 개발 담당자가 수정합니다. 이후 같은 조건으로 재시험해 수정 효과를 비교하며 최초 기록은 보존합니다.</p>
+</details>
+</div>
+</section>
+<section class="cta-section wrap">
+<div class="eyebrow">MAKE YOUR NEXT REVIEW CLEARER</div>
+<h2>우리 AI의 보호조치,<br>어디까지 확인했나요?</h2>
+<p>검토 워크스페이스에서 결과와 근거를 직접 살펴보세요.</p>
+<div class="actions">
+<a class="button primary" href="/">실제 결과 살펴보기 <span>↗</span>
+</a>
+<a class="button secondary" href="/guide">도입 준비 살펴보기 <span>→</span>
+</a>
+</div>
+</section>
+
+{% endblock %}

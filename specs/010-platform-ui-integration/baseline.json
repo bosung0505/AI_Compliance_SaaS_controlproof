@@ -1,0 +1,331 @@
+{
+  "schema_version": "controlproof.ui-baseline.v1",
+  "captured_date": "2026-10-21",
+  "baseline_commit": "fb219d0c6923c6be09691fcae0ead670f9700b39",
+  "feature_branch": "010-platform-ui-integration",
+  "preexisting_dirty_paths": [
+    ".gitignore"
+  ],
+  "design_package": "ControlProof_전체사이트",
+  "design_files": {
+    "index.html": {
+      "sha256": "eeb3c1ce86cd44c6a1d52ef48d77061f8a0ed00353c6bf026c08bc7b49418e57",
+      "size_bytes": 14081
+    },
+    "guide.html": {
+      "sha256": "69c5487cd4f2dc7cf39657f5bc2a640e545be0a6578ddd75c189cf61f7183ea8",
+      "size_bytes": 5301
+    },
+    "workspace.html": {
+      "sha256": "bdefb0d0d8ae2b9c55891e43a3e69c73fb70d93ead4b2e79599763cc52d808f2",
+      "size_bytes": 88506
+    },
+    "site.css": {
+      "sha256": "2cecc99b6ae714a402be7a3bc099a1ea756bf13dac6d2b1dd5dd1dc81df26113",
+      "size_bytes": 21340
+    },
+    "site.js": {
+      "sha256": "d0ef22156e332e731901dbc6ebde2f1aa0a6f548c76c7fdebe5e791eae01fa09",
+      "size_bytes": 3363
+    }
+  },
+  "design_archive_local": ".controlproof/ui-integration-20261021/design",
+  "catalog": {
+    "path": "catalog/mvp-scenarios.yaml",
+    "sha256": "63e095d5d7d9fb1bd7ac29d6c94c73ec63a6529d9f4493d85ce507c59bc4b013",
+    "scenario_count": 12,
+    "coverage": {
+      "EXECUTED": 9,
+      "NOT_RUN": 0,
+      "NO_TEST_TARGET": 3
+    },
+    "profile_count": 11
+  },
+  "snapshot": {
+    "path": "review-data/snapshot.json",
+    "snapshot_id": "shared-actual-20261020-r2",
+    "snapshot_digest": "8e88ccf5bcccce7a870124cbd711b1ebe38e3fceab1c6c4484783e05d9e18bcb",
+    "file_sha256": "26df887d6a8b26bf2a29b311e805de7a7eaebb0eb6ccdcf19710e358d64d99df",
+    "reviewed_at": "2026-10-20T13:43:59.872762+00:00",
+    "record_count": 28,
+    "sealed_file_count": 652,
+    "verification_counts": {
+      "VERIFIED": 27,
+      "INVALID": 1
+    },
+    "missing_run_ids": [
+      "7b59237e-0a96-403a-9add-28b91011e950"
+    ],
+    "inventory_canonical_sha256": "33026b0ddfe292128c37faf4fffd8535817748601333f11860fa36fcff71ce40",
+    "display_context_canonical_sha256": "a147c1fa1c89cfcf59e589e78941328cb9f45b9abb32060a0408fa1fc15960fc"
+  },
+  "records": [
+    {
+      "execution_profile": "E01_CITATION_EVIDENCE_V1",
+      "official": true,
+      "parent_run_id": null,
+      "run_id": "09c9d9bb-82a3-4485-9c9d-e9721f2452e4",
+      "scenario_id": "E-01",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "N02_CONSENT_ORDER_V1",
+      "official": true,
+      "parent_run_id": null,
+      "run_id": "15cef078-ee24-4f0e-91ef-381e0f7a1cc2",
+      "scenario_id": "N-02",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "N02_CONSENT_ORDER_V1",
+      "official": true,
+      "parent_run_id": "15cef078-ee24-4f0e-91ef-381e0f7a1cc2",
+      "run_id": "16dbd987-23a5-4030-bb62-77787488969b",
+      "scenario_id": "N-02",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "H01_HUMAN_DECISION_V1",
+      "official": true,
+      "parent_run_id": "faa0a306-678e-4af8-97ed-a842c52d8264",
+      "run_id": "39a0d317-b36d-4cf1-8b09-aebb404d5891",
+      "scenario_id": "H-01",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "H03_DLQ_V2",
+      "official": true,
+      "parent_run_id": "60b19e5a-6693-427b-bf87-039e45181cfc",
+      "run_id": "3ff1c0c7-7937-4d0a-996c-de4d63f4f1af",
+      "scenario_id": "H-03",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "E01_CITATION_EVIDENCE_V1",
+      "official": true,
+      "parent_run_id": null,
+      "run_id": "4030503c-a24c-42f9-b926-7aba49b4c467",
+      "scenario_id": "E-01",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "N01_NOTICE_V1",
+      "official": true,
+      "parent_run_id": null,
+      "run_id": "48a70f5e-aa62-41fc-bf58-3624a6102b4f",
+      "scenario_id": "N-01",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "E03_BEFORE_V2",
+      "official": true,
+      "parent_run_id": "e17e0af0-b46a-4022-93a4-a91a3247f16d",
+      "run_id": "5a7f09ff-d80f-4a7d-926c-2a522ad51bbb",
+      "scenario_id": "E-03",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "H03_DLQ_V2",
+      "official": true,
+      "parent_run_id": null,
+      "run_id": "60b19e5a-6693-427b-bf87-039e45181cfc",
+      "scenario_id": "H-03",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "N02_CONSENT_ORDER_V1",
+      "official": false,
+      "parent_run_id": "15cef078-ee24-4f0e-91ef-381e0f7a1cc2",
+      "run_id": "691abd8a-0a58-465d-8543-6314f2c76a11",
+      "scenario_id": "N-02",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "H01_HUMAN_DECISION_V1",
+      "official": true,
+      "parent_run_id": "9a297b8d-1ea0-4c98-927c-b5c34e3efe52",
+      "run_id": "7d6024ce-02a6-4bac-ba35-35f85ae26af6",
+      "scenario_id": "H-01",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "E03_AFTER_V2",
+      "official": true,
+      "parent_run_id": null,
+      "run_id": "9251db5f-42a2-490d-93be-a155f25fef72",
+      "scenario_id": "E-03",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "H02_CAPABILITY_SURFACE_V1",
+      "official": true,
+      "parent_run_id": null,
+      "run_id": "9532d923-7209-4af8-8bf8-c2a6d6f3a404",
+      "scenario_id": "H-02",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "E02_SCORING_FREEZE_V1",
+      "official": true,
+      "parent_run_id": null,
+      "run_id": "970108fe-8eae-4ce0-b230-400887ba3e24",
+      "scenario_id": "E-02",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "H01_HUMAN_DECISION_V1",
+      "official": true,
+      "parent_run_id": null,
+      "run_id": "9a297b8d-1ea0-4c98-927c-b5c34e3efe52",
+      "scenario_id": "H-01",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "E01_CITATION_EVIDENCE_V1",
+      "official": true,
+      "parent_run_id": "09c9d9bb-82a3-4485-9c9d-e9721f2452e4",
+      "run_id": "a5ad4676-333b-44d0-8657-95ab434f3b3d",
+      "scenario_id": "E-01",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "H02_CAPABILITY_SURFACE_V1",
+      "official": true,
+      "parent_run_id": "dd52deb1-cf07-4268-9547-3db21294514b",
+      "run_id": "c12c2ce8-f607-4be3-9524-0dec27dc7260",
+      "scenario_id": "H-02",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "N02_CONSENT_ORDER_V1",
+      "official": false,
+      "parent_run_id": "15cef078-ee24-4f0e-91ef-381e0f7a1cc2",
+      "run_id": "ce5f2750-5b31-48e8-aca5-f1d85d440ca3",
+      "scenario_id": "N-02",
+      "bundle_status": "INVALID"
+    },
+    {
+      "execution_profile": "N01_NOTICE_V1",
+      "official": true,
+      "parent_run_id": "48a70f5e-aa62-41fc-bf58-3624a6102b4f",
+      "run_id": "d3aac7d9-0a52-4f9a-9c8f-f6e1f7b6de18",
+      "scenario_id": "N-01",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "H02_CAPABILITY_SURFACE_V1",
+      "official": true,
+      "parent_run_id": "9532d923-7209-4af8-8bf8-c2a6d6f3a404",
+      "run_id": "dd52deb1-cf07-4268-9547-3db21294514b",
+      "scenario_id": "H-02",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "E03_BEFORE_V2",
+      "official": true,
+      "parent_run_id": null,
+      "run_id": "e17e0af0-b46a-4022-93a4-a91a3247f16d",
+      "scenario_id": "E-03",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "E02_SCORING_FREEZE_V1",
+      "official": true,
+      "parent_run_id": null,
+      "run_id": "e39e62ae-be73-4e52-8cab-1f878637a0c6",
+      "scenario_id": "E-02",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": null,
+      "official": true,
+      "parent_run_id": "f738081a-5fb3-4f21-af22-685a12355096",
+      "run_id": "e42482c9-ba84-42c6-984d-209e0f80b7d8",
+      "scenario_id": "H-03",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "E03_BEFORE_V2",
+      "official": true,
+      "parent_run_id": "5a7f09ff-d80f-4a7d-926c-2a522ad51bbb",
+      "run_id": "ebeed35e-5779-4480-8d3b-e246a0bb72b6",
+      "scenario_id": "E-03",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "E01_CITATION_EVIDENCE_V1",
+      "official": true,
+      "parent_run_id": "09c9d9bb-82a3-4485-9c9d-e9721f2452e4",
+      "run_id": "ec0c895d-4617-457a-94ce-7d0198e1c6a5",
+      "scenario_id": "E-01",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "N03_STALE_CONSENT_V1",
+      "official": true,
+      "parent_run_id": null,
+      "run_id": "f27b68e8-0df8-46b3-a198-c7917c2f08bb",
+      "scenario_id": "N-03",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": null,
+      "official": true,
+      "parent_run_id": null,
+      "run_id": "f738081a-5fb3-4f21-af22-685a12355096",
+      "scenario_id": "H-03",
+      "bundle_status": "VERIFIED"
+    },
+    {
+      "execution_profile": "H01_HUMAN_DECISION_V1",
+      "official": true,
+      "parent_run_id": "7d6024ce-02a6-4bac-ba35-35f85ae26af6",
+      "run_id": "faa0a306-678e-4af8-97ed-a842c52d8264",
+      "scenario_id": "H-01",
+      "bundle_status": "VERIFIED"
+    }
+  ],
+  "reviewed_png_files": [
+    {
+      "run_id": "48a70f5e-aa62-41fc-bf58-3624a6102b4f",
+      "ref": "file:n01-mobile-capture.png",
+      "sha256": "cc26329f405ce557b5da90958ba666f5e7a6fd4d9f9fc6d2ca18fe604aa7e8b4",
+      "size_bytes": 179372
+    },
+    {
+      "run_id": "48a70f5e-aa62-41fc-bf58-3624a6102b4f",
+      "ref": "file:n01-pc-capture.png",
+      "sha256": "dbd26af795674def3b63fcfeae6ad3790773d6e22a3756ef0fc35c29fa89c5da",
+      "size_bytes": 99579
+    },
+    {
+      "run_id": "d3aac7d9-0a52-4f9a-9c8f-f6e1f7b6de18",
+      "ref": "file:n01-mobile-capture.png",
+      "sha256": "d008f3ebe52b3e52fab0e2222af8b395789ccdff28cd84b8b0e2c4f85df54abd",
+      "size_bytes": 178488
+    },
+    {
+      "run_id": "d3aac7d9-0a52-4f9a-9c8f-f6e1f7b6de18",
+      "ref": "file:n01-pc-capture.png",
+      "sha256": "05633a4fd98ab57f08152c84ddb105a0c6a77bb6eca5a5d0e1507051c64928a8",
+      "size_bytes": 99409
+    },
+    {
+      "run_id": "e42482c9-ba84-42c6-984d-209e0f80b7d8",
+      "ref": "file:artifacts/d62e8b7e-0187-4ae4-b302-1e5032626329.png",
+      "sha256": "61d4691b0ff4435b531efa9aa56f6791cfa1e0cc1b7d19f3e05f8c827fb0023d",
+      "size_bytes": 46852
+    },
+    {
+      "run_id": "f738081a-5fb3-4f21-af22-685a12355096",
+      "ref": "file:artifacts/ac78b968-30f1-4aca-9212-90b23edd4a67.png",
+      "sha256": "61d4691b0ff4435b531efa9aa56f6791cfa1e0cc1b7d19f3e05f8c827fb0023d",
+      "size_bytes": 46852
+    }
+  ],
+  "scope": {
+    "n03": "PARTIAL; N03-A1..A3 only; N03-U1..U3 unverified; N03-L1 limitation",
+    "why_you_actual_run": "NOT_PERFORMED_IN_THIS_WORK",
+    "frontend_runtime": "NOT_IMPLEMENTED_IN_STAGE_0_1"
+  }
+}

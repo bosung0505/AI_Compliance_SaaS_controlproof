@@ -1,0 +1,38 @@
+<!doctype html>
+<html lang="ko">
+<head>
+  <meta charset="utf-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1">
+  <meta name="theme-color" content="#7560d9">
+  <meta name="description" content="AI 서비스의 보호조치가 실제로 작동하는지 확인하고, 실행 결과를 검토 가능한 증적과 보고서로 연결하는 ControlProof.">
+  <title>{% block title %}ControlProof — AI 신뢰, 작동하는 근거로.{% endblock %}</title>
+  <link rel="stylesheet" href="/static/theme.css">
+  <link rel="stylesheet" href="/static/platform.css">
+</head>
+<body class="public-site">
+<a class="skip" href="#main">본문으로 건너뛰기</a>
+<header class="header">
+  <div class="nav-wrap">
+    <a class="brand" href="/product"><span class="mark" aria-hidden="true">✓</span>ControlProof</a>
+    <button class="menu-toggle" aria-label="메뉴 열기" aria-expanded="false" aria-controls="primary-navigation">☰</button>
+    <nav class="nav" id="primary-navigation" aria-label="주 메뉴">
+      <a href="/product#product">제품 소개</a>
+      <a href="/product#workflow">검증 방식</a>
+      <a href="/product#controls">보호조치</a>
+      <a href="/guide"{% if view.view == 'guide' %} aria-current="page"{% endif %}>도입 안내</a>
+    </nav>
+    <a class="button small primary desktop-demo" href="/">실제 결과 열기 <span aria-hidden="true">↗</span></a>
+  </div>
+</header>
+<main id="main">{% block content %}{% endblock %}</main>
+<footer class="footer wrap">
+  <div class="footer-main">
+    <a class="brand" href="/product"><span class="mark" aria-hidden="true">✓</span>ControlProof</a>
+    <p>AI 신뢰, 작동하는 근거로.</p>
+    <nav aria-label="하단 메뉴"><a href="/product#product">제품 소개</a><a href="/guide">도입 안내</a><a href="/">실제 결과</a><a href="/demo/">합성 데모</a></nav>
+  </div>
+  <div class="footer-bottom"><span>© 2026 ControlProof</span><span>실행한 시나리오와 확보한 증적에 한정된 결과이며, 법적 준수 인증이 아닙니다.</span></div>
+</footer>
+<script src="/static/platform.js"></script>
+</body>
+</html>

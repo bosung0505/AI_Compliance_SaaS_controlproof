@@ -1,0 +1,17 @@
+/* Shared ControlProof identity. Local fonts and assets only. */
+:root {
+  --cp-accent: #7560d9;
+  --cp-accent-dark: #5e47bd;
+  --cp-tint: #f0ebfb;
+  --cp-ink: #30283d;
+  --cp-muted: #70647f;
+  --cp-line: #e5dfee;
+  --cp-surface: #fff;
+  --cp-canvas: #f8f6fc;
+  --cp-radius: 14px;
+}
+:focus-visible { outline: 3px solid var(--cp-accent-dark); outline-offset: 4px; }
+[hidden] { display: none !important; }
+@media (prefers-reduced-motion: reduce) {
+  *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
+}
