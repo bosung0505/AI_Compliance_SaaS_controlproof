@@ -128,7 +128,9 @@ def conditions(assertions, sources, records=()):
                     "request_id": record.get("subject", {}).get("request_id"),
                     "rule_status": path["status"],
                     "recorded": bool(before and after),
-                    "expected": "권한 있는 담당자의 요청만 실제 채용 상태를 변경해야 합니다."
+                    "expected": "담당자의 최종 결정으로 채용 단계가 변경되고, 결정 검토·감사 기록이 저장돼야 합니다."
+                    if case == "COMPANY_CONTROL" and path["path"] == "FINAL_DECISION"
+                    else "담당자가 요청한 채용 단계로 이동하고 감사 기록이 저장돼야 합니다. 이 경로는 별도 결정 검토 기록을 만들지 않습니다."
                     if case == "COMPANY_CONTROL"
                     else "채용 단계와 최종 결정·검토 기록이 변경되지 않아야 합니다.",
                     "observed": path["observation"],

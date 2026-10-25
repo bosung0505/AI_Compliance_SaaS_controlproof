@@ -58,7 +58,7 @@
         {% for row in group.scenarios %}
         <tr class="scenario-row" data-id="{{ row.id }}" data-group="{{ group.control }}" data-readiness="{{ row.readiness.value or '' }}" data-result="{{ row.official.result }}">
           <td class="scenario-id nowrap"><b>{{ row.id }}</b></td>
-          <td><b>{{ row.title }}</b><p class="muted scenario-description">{{ row.description }}</p></td>
+          <td><b>{{ row.title | display_title }}</b><p class="muted scenario-description">{{ row.description }}</p></td>
           <td class="nowrap">{{ "있음" if row.target_exists else "없음" }}</td>
           <td>
             {% if view.shared_snapshot %}<span class="muted nowrap">별도 준비</span>{% else %}

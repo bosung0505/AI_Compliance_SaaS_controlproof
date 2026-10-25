@@ -7,6 +7,9 @@ from pathlib import Path
 from typing import Any
 
 from engine.web import h01_review, h02_review, n02_review
+from engine.web.result_copy import RULES as PLAIN_RULES
+from engine.web.result_copy import SETUPS as PLAIN_SETUPS
+from engine.web.result_copy import observed_detail
 
 TITLES = {
     "N-01": "동의 화면의 필수 고지 항목 표시 — PC·모바일",
@@ -111,10 +114,10 @@ def rule_display(assertion: dict[str, Any]) -> dict[str, str]:
     if rule in n02_review.RULES:
         label, expected = n02_review.RULES[rule]
         return {"label": label, "expected": expected, "observed": n02_review.observation(assertion)[0]}
-    label, expected = RULES.get(rule, (rule, assertion.get("description") or "원본 규칙의 기대 동작 확인"))
+    label, expected = (RULES | PLAIN_RULES).get(rule, (rule, assertion.get("description") or "원본 규칙의 기대 동작 확인"))
     detail = assertion.get("detail")
     actual = assertion.get("actual")
-    observed = detail if detail else ("관찰 기록 없음" if actual is None else json.dumps(actual, ensure_ascii=False))
+    observed = observed_detail(detail) if detail else ("관찰 기록 없음" if actual is None else json.dumps(actual, ensure_ascii=False))
     return {"label": label, "expected": expected, "observed": observed}
 
 
@@ -317,8 +320,9 @@ def build_review(
                 "expected": display["expected"], "observed": display["observed"],
                 "group": n02_review.GROUPS.get(assertion["assertion_id"], "테스트 조건과 관찰 결과"), "assertion_id": assertion["assertion_id"],
                 "rule_status": assertion["status"], "recorded": assertion.get("actual") is not None,
+                "observation_source": "SEALED_DETAIL" if scenario_id != "N-02" and assertion.get("detail") else "ACTUAL_VALUES",
                 "facts": assertion.get("actual"), "sources": _sources(assertion.get("evidence_refs", []), evidence),
-                "setup": n02_review.SETUPS.get(assertion["assertion_id"], display["expected"]), "comparison": [],
+                "setup": (n02_review.SETUPS | PLAIN_SETUPS).get(assertion["assertion_id"], display["expected"]), "comparison": [],
                 "proof_rows": (n02_review.observation(assertion)[1] + n02_review.path_facts(assertion["assertion_id"], _rows(bundle / "causal-events.jsonl"))) if scenario_id == "N-02" else [],
             })
     sentences = _result_sentences(scenario_id, conditions)

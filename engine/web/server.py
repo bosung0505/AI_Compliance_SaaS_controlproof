@@ -38,6 +38,7 @@ from engine.web.readmodel import (
     WorkbenchReader,
     load_catalog,
 )
+from engine.web.result_copy import display_integrity, display_title, h02_summary, n02_capture_copy
 
 BIND_ADDRESS = "127.0.0.1"
 PACKAGE = Path(__file__).resolve().parent
@@ -121,6 +122,10 @@ class WebServer(ThreadingHTTPServer):
         self.templates.filters["short_id"] = lambda value: f"{value[:8]}…" if value else ""
         self.templates.filters["size"] = _size
         self.templates.filters["mime_label"] = _mime_label
+        self.templates.filters["display_title"] = display_title
+        self.templates.filters["display_integrity"] = display_integrity
+        self.templates.filters["h02_summary"] = h02_summary
+        self.templates.filters["n02_capture_copy"] = n02_capture_copy
 
     @property
     def allowed_hosts(self) -> set[str]:

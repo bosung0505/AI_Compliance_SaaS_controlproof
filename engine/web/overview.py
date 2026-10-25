@@ -4,11 +4,13 @@ from __future__ import annotations
 import re
 from urllib.parse import parse_qsl, urlencode
 
+from engine.web.result_copy import display_title
+
 CONTROLS = {
-    "N": {"title": "고지와 동의", "purpose": "AI 사용을 알리고, 지원자가 확인한 정책과 동의 기록이 일치하는지 살펴봅니다."},
-    "H": {"title": "사람의 통제", "purpose": "AI가 최종 결정을 대신하지 않고, 권한 있는 사람이 판단하고 개입할 수 있는지 확인합니다."},
-    "A": {"title": "이의제기와 구제", "purpose": "결과에 이의를 제기하고, 사람의 재검토와 후속 조치를 요청할 수 있는지 확인합니다."},
-    "E": {"title": "평가의 근거", "purpose": "AI 평가가 정해진 기준과 근거에 연결되고, 잘못된 결과가 차단되는지 확인합니다."},
+    "N": {"title": "AI 사용 사전 고지", "purpose": "AI 사용을 알리고, 지원자가 확인한 정책과 동의 기록이 일치하는지 살펴봅니다."},
+    "H": {"title": "인간 개입 · 안전한 예외처리", "purpose": "AI가 최종 결정을 대신하지 않고, 권한 있는 사람이 판단하고 개입할 수 있는지 확인합니다."},
+    "A": {"title": "이용자 보호 · 이의처리", "purpose": "결과에 이의를 제기하고, 사람의 재검토와 후속 조치를 요청할 수 있는지 확인합니다."},
+    "E": {"title": "증적 기록의 완전성", "purpose": "AI 평가가 정해진 기준과 근거에 연결되고, 잘못된 결과가 차단되는지 확인합니다."},
 }
 TREATMENTS = ("EXECUTED", "NOT_RUN", "NO_TEST_TARGET")
 TREATMENT_LABELS = {"EXECUTED": "로컬 테스트 실행", "NOT_RUN": "아직 테스트하지 않은 항목", "NO_TEST_TARGET": "대상 기능이 없는 항목"}
@@ -109,7 +111,10 @@ def filter_groups(groups: list[dict], filters: dict) -> list[dict]:
             continue
         rows = []
         for row in group["scenarios"]:
-            text = " ".join(str(row.get(k) or "") for k in ("id", "title", "question", "description")).casefold()
+            text = " ".join([
+                *(str(row.get(k) or "") for k in ("id", "title", "question", "description")),
+                display_title(row.get("title") or ""),
+            ]).casefold()
             if filters["q"].casefold() not in text:
                 continue
             if filters["status"] != "ALL" and row["official"]["result"] != filters["status"]:

@@ -9,7 +9,7 @@
       <tr class="observation-row" id="condition-{{ row.id }}" data-condition="{{ row.id }}" data-rule-status="{{ row.rule_status or '' }}" data-recorded="{{ 'true' if row.recorded else 'false' }}">
         <td><b>{{ row.title }}</b><p class="case-setup">{{ row.setup }}</p><div class="muted">원본 {{ row.assertion_id }}</div></td>
         <td>{{ row.expected }}</td>
-        <td><span class="observed-fact">{{ row.observed }}</span><div class="muted">{% if not row.recorded %}세부 관찰 기록이 없어 동작을 추정하지 않습니다.{% elif row.rule_status %}{{ "이 경로의 관찰 판정" if run.scenario_id == "H-01" else "연결된 규칙" }}: {{ row.rule_status }}{% endif %}</div></td>
+        <td><span class="observed-fact">{{ row.observed }}</span><div class="muted">{% if not row.recorded %}{% if row.observation_source|default('') == 'SEALED_DETAIL' %}원본 판정 설명을 표시했습니다. 별도 세부 관찰값은 이 기록에 없습니다.{% else %}세부 관찰 기록이 없어 동작을 추정하지 않습니다.{% endif %}{% elif row.rule_status %}{{ "이 경로의 관찰 판정" if run.scenario_id == "H-01" else "연결된 규칙" }}: {{ row.rule_status }}{% endif %}</div></td>
         <td><button type="button" class="btn sec inspect-button" data-inspect="proof-{{ row.id }}" aria-expanded="false" aria-controls="proof-{{ row.id }}">이 결과의 확인 자료 보기</button></td>
       </tr>
       <tr class="condition-proof" id="proof-{{ row.id }}" hidden><td colspan="4">

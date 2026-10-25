@@ -284,3 +284,12 @@ Read `specs/010-platform-ui-integration/main-publication.md` for checks and prov
 all5 nested HTML partials; add/edit rejection tests prevent missing these in future shared contexts. Preserve old snapshot
 JSONs and immutable28/652 records; current default is `shared-ui-main-20261022-r2`. Source/UI scope/interpretation unchanged.
 No force push, new actual Run, external SaaS deployment or source change in WhyYou is authorized by this publication.
+
+## Explicit UI follow-up main publication approval (2026-10-25)
+
+The user reviewed the T025~T037 follow-up and explicitly authorized committing/pushing it to ControlProof origin/main
+and starting the local server. Commit the feature work first, then integrate main without force pushing. The current
+default is `shared-ui-n02-capture-20261023-r3`; preserve all28/652 original records, verdicts and lineage. Read
+`specs/010-platform-ui-integration/copy-publication-20261025.md` for121 passing scoped tests, clean-export HTTP9 checks
+and the pre-existing browser selector failure/global lint22 findings. Do not claim the entire suite passed.
+Earlier uncommitted/unpublished statements are history for this approved release. No new WhyYou Run or external deployment.

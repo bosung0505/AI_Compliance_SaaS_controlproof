@@ -1,5 +1,7 @@
 import json
 
+import pytest
+
 from engine.h02 import encode_contract_labels
 from engine.web.h02_review import READERS, conditions, result_sentences
 from engine.web.review import test_plan as make_plan
@@ -74,3 +76,43 @@ def test_missing_h02_records_do_not_look_successful(tmp_path):
     rows = conditions(tmp_path, [], lambda _: [])
     assert not any(r["recorded"] for r in rows)
     assert "0개에 전후 상태 기록" in result_sentences(rows)[0]
+
+
+@pytest.mark.parametrize(
+    "effect,verified,expected",
+    [
+        ("AUXILIARY_WRITE", True, "명령 경로는 발견되지 않았습니다"),
+        ("HIRING_DECISION_WRITE", True, "명령 경로가 1개 발견됐습니다"),
+        ("UNKNOWN", True, "부재를 확인하지 못했습니다"),
+        ("AUXILIARY_WRITE", False, "부재를 확인하지 못했습니다"),
+    ],
+)
+def test_worker_observation_answers_command_presence_without_inventing_execution(
+    tmp_path, effect, verified, expected
+):
+    review = [{"id": "worker", "kind": "WORKER_HANDLER", "effect": effect,
+               "source_verified": True}]
+    for name, value in {
+        "h02-review.json": review,
+        "h02-facts.json": {"worker_effects_verified": verified, "inventory_ids": ["worker"]},
+    }.items():
+        (tmp_path / name).write_text(json.dumps(value), encoding="utf-8")
+    row = next(r for r in conditions(tmp_path, [], lambda _: []) if r["id"] == "H02-A3")
+    assert expected in row["observed"]
+    assert "정상 처리했습니다" not in row["observed"]
+    assert "전수 실행은 아님" in str(row["proof_rows"])
+
+
+def test_classification_and_cleanup_report_missing_parts_separately(tmp_path):
+    (tmp_path / "h02-review.json").write_text(json.dumps([
+        {"id": "one", "effect": "AUXILIARY_WRITE", "source_verified": False}
+    ]), encoding="utf-8")
+    (tmp_path / "h02-facts.json").write_text(json.dumps({
+        "inventory_ids": ["one", "missing"], "cleanup_verified": True,
+        "source_identity_verified": False,
+    }), encoding="utf-8")
+    rows = {r["id"]: r for r in conditions(tmp_path, [], lambda _: [])}
+    assert "소스 근거 미확인 1개" in rows["H02-A4"]["observed"]
+    assert "검토 완료 여부는 확인하지 못" in rows["H02-A4"]["observed"]
+    assert "잔여행은 0건" in rows["H02-A6"]["observed"]
+    assert "소스가 실행 중 유지됐는지는 확인하지 못" in rows["H02-A6"]["observed"]

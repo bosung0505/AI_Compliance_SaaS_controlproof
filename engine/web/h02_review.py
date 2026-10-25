@@ -114,7 +114,7 @@ def conditions(bundle, assertions, sources):
         "기능 목록과 실제 연결 대조",
         "AI·워커의 기능과 입출력 계약을 모으고 실행 환경의 연결 목록과 비교했습니다.",
         "빠진 기능이나 해석하지 못한 연결이 없어야 합니다.",
-        f"수집한 {len(review)}개 항목을 실제 연결과 대조했습니다. 워커의 실제 처리 이벤트는 {workers}개입니다."
+        f"수집한 {len(review)}개 항목이 실제 기능 연결 목록과 일치했습니다. 실제 워커 처리 연결은 {workers}개입니다."
         if connected
         else "수집 목록과 실제 연결이 모두 일치하는지 확인하지 못했습니다.",
         {"inventory_count": len(review), "runtime_verified": connected},
@@ -126,32 +126,61 @@ def conditions(bundle, assertions, sources):
         connected,
     )
     worker_rows = [r for r in review if r.get("kind") in {"WORKER_HANDLER", "API_WORKER_HELPER"}]
+    hiring_writers = sum(r.get("effect") == "HIRING_DECISION_WRITE" for r in worker_rows)
+    auxiliary_writers = sum(r.get("effect") == "AUXILIARY_WRITE" for r in worker_rows)
+    worker_verified = (
+        facts.get("worker_effects_verified") is True
+        and bool(worker_rows)
+        and all(r.get("source_verified") is True and r.get("effect") in EFFECTS
+                and r.get("effect") != "UNKNOWN" for r in worker_rows)
+    )
+    worker_observed = (
+        f"워커·보조 기능의 검토 기록에서 합격·불합격을 변경하는 명령 경로가 {hiring_writers}개 발견됐습니다."
+        if hiring_writers
+        else f"확인한 워커·보조 기능 {len(worker_rows)}개에서 합격·불합격을 변경하는 명령 경로는 발견되지 않았습니다. "
+             f"업무상 보조 저장 경로는 {auxiliary_writers}개입니다."
+        if worker_verified
+        else "워커·보조 기능의 실제 연결이나 저장 영향에 미확인 항목이 있어, 합격·불합격 변경 명령의 부재를 확인하지 못했습니다."
+    )
     add(
         "H02-A3",
         "H02-A3",
         "1. 연결된 기능과 저장 영향",
         "워커·보조 기능의 채용 명령 검사",
-        "보고서 생성·자료 처리·삭제·용량 계획 등의 처리 경로를 확인했습니다.",
-        "정상 업무 데이터는 처리하되 합격·불합격 결정 명령은 제공하지 않아야 합니다.",
-        f"워커·보조 기능 {len(worker_rows)}개 항목의 저장 대상을 구분했습니다."
-        if facts.get("worker_effects_verified")
-        else "워커의 실제 연결과 저장 영향을 모두 확인하지 못했습니다.",
+        "보고서 생성·자료 처리·삭제·용량 계획 등의 소스와 실제 기능 연결을 검토했습니다.",
+        "워커·보조 기능에는 업무상 필요한 저장만 허용하고, 합격·불합격을 변경하는 명령 경로는 없어야 합니다.",
+        worker_observed,
         {"review": worker_rows},
         [
             {"label": "처리 기능", "value": "보고서·검색 자료·진행 상태·삭제·처리 용량"},
             {"label": "검사한 연결", "value": f"{len(worker_rows)}개 항목"},
+            {"label": "확인 범위", "value": "검토한 소스와 실제 기능 연결 · 각 업무의 정상 처리 전수 실행은 아님"},
             {
                 "label": "합격 결정 변경 경로",
                 "value": "발견됨"
                 if any(r.get("effect") == "HIRING_DECISION_WRITE" for r in worker_rows)
                 else "수집한 검토 기록에서 없음"
-                if facts.get("worker_effects_verified")
+                if worker_verified
                 else "확인 불가",
             },
         ],
-        facts.get("worker_effects_verified"),
+        bool(worker_rows),
     )
     counts = {effect: sum(r.get("effect") == effect for r in review) for effect in EFFECTS}
+    unclassified = sum(r.get("effect") not in EFFECTS or r.get("effect") == "UNKNOWN" for r in review)
+    without_source = sum(r.get("source_verified") is not True for r in review)
+    inventory_ids = facts.get("inventory_ids", [])
+    reviewed_ids = [r.get("id") for r in review]
+    # Missing inventory coverage is never inferred from counts alone.
+    coverage_matches = bool(inventory_ids) and len(reviewed_ids) == len(set(reviewed_ids)) and set(reviewed_ids) == set(inventory_ids)
+    classification_observed = (
+        f"전체 {len(review)}개 항목에 저장 영향 분류와 소스 근거가 있으며, 미분류·근거 누락 항목은 없습니다."
+        if review and not unclassified and not without_source and coverage_matches
+        else f"검토 기록 {len(review)}개 중 미분류 {unclassified}개, 소스 근거 미확인 {without_source}개입니다."
+             + (" 전체 기능 목록의 검토 완료 여부는 확인하지 못했습니다." if not coverage_matches else "")
+        if review
+        else "저장 영향과 소스 근거를 확인할 검토 기록이 없습니다."
+    )
     add(
         "H02-A4",
         "H02-A4",
@@ -159,7 +188,7 @@ def conditions(bundle, assertions, sources):
         "전체 항목의 저장 영향 분류",
         "조회·답변, 업무상 보조 저장, 채용 결정 변경을 구분했습니다.",
         "모든 항목에 저장 영향과 소스 근거가 있어야 합니다.",
-        " · ".join(f"{label} {counts[key]}개" for key, label in EFFECTS.items()),
+        classification_observed,
         {"review": review},
         [{"label": label, "value": f"{counts[key]}개"} for key, label in EFFECTS.items()],
         bool(review),
@@ -258,6 +287,14 @@ def conditions(bundle, assertions, sources):
             name,
         )
     clean = facts.get("cleanup_verified") is True
+    source_fixed = facts.get("source_identity_verified") is True
+    cleanup_observed = (
+        "이 실행 소유 데이터의 DB 잔여행은 0건입니다."
+        if clean else "테스트 데이터가 모두 정리됐는지 확인하지 못했습니다."
+    ) + (
+        " 검사한 소스가 실행 중 바뀌지 않은 것도 확인했습니다."
+        if source_fixed else " 검사한 소스가 실행 중 유지됐는지는 확인하지 못했습니다."
+    )
     add(
         "H02-A6",
         "H02-A6",
@@ -265,9 +302,7 @@ def conditions(bundle, assertions, sources):
         "테스트 데이터 정리와 소스 확인",
         "이번 실행 소유 데이터만 정리하고 독립적으로 다시 조회했습니다.",
         "데이터가 남지 않고 검사한 소스가 실행 중 바뀌지 않아야 합니다.",
-        "이 실행 소유 데이터의 DB 잔여행은 0건입니다."
-        if clean
-        else "테스트 데이터 정리를 확인하지 못했습니다.",
+        cleanup_observed,
         recovery,
         [
             {"label": "DB 잔여행", "value": "0건" if clean else "확인 불가"},

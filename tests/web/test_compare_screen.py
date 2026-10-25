@@ -46,5 +46,6 @@ def test_retest_only_as_a_command(screen, demo_site) -> None:
 def test_compare_reached_from_run_and_report(screen, demo_site) -> None:
     child, _ = _e01_child(demo_site.demo_root)
     screen.goto(f"{demo_site.url}/demo/runs/{child}")
+    screen.locator('[data-testid=run-navigation] > summary').click()
     screen.locator("a[data-testid=open-compare]").click()
     assert screen.url.endswith(f"/demo/compare/{child}")

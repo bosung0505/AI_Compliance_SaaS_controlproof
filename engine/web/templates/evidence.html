@@ -4,7 +4,7 @@
 {% block content %}
 <section class="service-detail service-evidence" aria-label="증적 원본">
   <nav class="service-breadcrumb" aria-label="현재 위치"><a href="{{ prefix }}/results">테스트 결과</a><span> / </span><a href="{{ prefix }}/scenarios/{{ view.scenario_id }}">{{ view.scenario_id }}</a><span> / </span><a href="{{ prefix }}/runs/{{ view.run_id }}">선택한 실행</a><span> / 확인 자료</span></nav>
-  <div class="page-heading"><p class="eyebrow">{{ view.scenario_id or "테스트" }} · 테스트 확인 자료</p><h2>{{ view.condition_title if view.context.condition else view.display_title }}</h2><p class="page-meta">{{ view.scenario_title }} · {{ view.context.run.started_at | when }} · {{ view.display_title }}</p></div>
+  <div class="page-heading"><p class="eyebrow">{{ view.scenario_id or "테스트" }} · 테스트 확인 자료</p><h2>{{ view.condition_title if view.context.condition else view.display_title }}</h2><p class="page-meta">{{ view.scenario_title | display_title }} · {{ view.context.run.started_at | when }} · {{ view.display_title }}</p></div>
   {% if view.context.condition %}{% set condition = view.context.condition %}
   <div class="card result-summary" data-testid="evidence-context"><h3>이 자료로 확인하는 내용</h3>
     <p><b>만든 테스트 상황</b>: {{ view.condition_setup }}</p><p><b>기대했던 반응</b>: {{ condition.expected }}</p><p><b>실제로 관찰한 반응</b>: {{ condition.observed }}</p>
@@ -13,7 +13,7 @@
     <p class="muted">원본 규칙 {{ condition.assertion_id }} · 판정 {{ condition.rule_status or "기록 없음" }} · 아래 원문에서 이 관찰의 근거를 확인할 수 있습니다.</p>
     <details data-testid="developer"><summary>이 조건과 연결된 관찰값 발췌</summary><pre class="raw">{{ condition.facts | tojson }}</pre></details>
   </div>{% else %}<div class="note">이 자료는 테스트 결과를 확인하기 위해 수집한 기록입니다. 관련 규칙: {{ view.evidence_requirement_ids | join(", ") or "원본 식별 정보 참고" }}. 개별 조건의 ‘이 결과의 확인 자료 보기’에서 테스트 상황과 실제 반응을 함께 볼 수 있습니다.</div>{% endif %}
-  {% if view.image and view.image.available %}<article class="service-card image-evidence"><h3>봉인된 화면 캡처</h3><p>검토 허용과 원본 무결성을 확인한 PNG입니다. 원본 바이트를 변환하지 않고 제공합니다.</p><img src="{{ view.image.url }}" alt="{{ view.scenario_id }} · {{ view.evidence_name }} · 선택한 실행의 원본 캡처"><a class="text-link" href="{{ view.image.url }}" download="controlproof-evidence.png">PNG 원본 저장 →</a></article>{% elif view.image %}<p class="limit">이 모드의 이미지 열람 정책 또는 원본 무결성을 확인해야 합니다. {{ view.image.code }} · 아래 식별 정보는 유지합니다.</p>{% endif %}
+  {% if view.image and view.image.available %}<article class="service-card image-evidence"><h3>테스트 당시 저장한 화면 캡처</h3><p>검토 허용과 원본 무결성을 확인한 PNG입니다. 원본 바이트를 변환하지 않고 제공합니다.</p><img src="{{ view.image.url }}" alt="{{ view.scenario_id }} · {{ view.evidence_name }} · 선택한 실행의 원본 캡처"><a class="text-link" href="{{ view.image.url }}" download="controlproof-evidence.png">PNG 원본 저장 →</a></article>{% elif view.image %}<p class="limit">이 모드의 이미지 열람 정책 또는 원본 무결성을 확인해야 합니다. {{ view.image.code }} · 아래 식별 정보는 유지합니다.</p>{% endif %}
   <details class="card evidence-metadata"><summary>자료 식별·무결성 정보</summary><table class="kv">
     <tr><th>이름</th><td>{{ view.evidence_name }}</td></tr>
     <tr><th>형식</th><td>{{ view.mime_type | mime_label }} <span class="muted">({{ view.mime_type }})</span></td></tr>

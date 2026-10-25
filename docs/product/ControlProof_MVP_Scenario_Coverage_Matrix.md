@@ -1,5 +1,24 @@
 # ControlProof MVP 시나리오 범위표
 
+2026-10-25 UI 후속 main 전달 승인. [전달 범위·검증·남은 기존 문제](../../specs/010-platform-ui-integration/copy-publication-20261025.md). 범위12/9/0/3(N03 일부)·원본28/652·판정/계보·기본 `shared-ui-n02-capture-20261023-r3`는 불변이다.
+
+2026-10-23 N02 캡처 후속: 좌우 비교 박스/표 여백 보완. 기본 `shared-ui-n02-capture-20261023-r3`, 범위12/9/0/3·원본28/652·판정 불변. [검증](../../specs/010-platform-ui-integration/n02-recovery-capture.md).
+
+2026-10-23 N02 장애·복구 캡처 전용 배치: 기본 `shared-ui-n02-capture-20261023-r2`, 범위12/9/0/3·원본28/652·판정 불변. [검증/한계](../../specs/010-platform-ui-integration/n02-recovery-capture.md).
+
+2026-10-23 H02 화면 명칭 통일: 기본 `shared-ui-scenario-title-20261023-r1`, 범위12/9/0/3·원본28/652·판정 불변. [검증](../../specs/010-platform-ui-integration/scenario-title-consistency.md).
+
+2026-10-23 H02 요약 두 문장·강조 후속: 기본 `shared-ui-result-summary-20261023-r1`, 범위12/9/0/3·원본28/652·판정 불변. [검증](../../specs/010-platform-ui-integration/result-summary-emphasis.md).
+
+2026-10-23 결과 상단 탐색 이동·쉬운 용어 후속 완료. 기본 `shared-ui-result-header-20261023-r1`, 범위12/9/0/3·원본28/652·판정 불변. [검증/한계](../../specs/010-platform-ui-integration/result-header-readability.md).
+
+2026-10-23: 기대 조건에 대응하는 관찰 설명과 확인 범위·기록 출처를 보완했다.
+`shared-ui-observations-20261023-r2`, 실행 범위12/9/0/3·원본28/652·기존 판정은 불변.
+[변경과 검증](../../specs/010-platform-ui-integration/observation-readability.md).
+
+2026-10-23: [보호조치 카드 표시 명칭·링크 정리](../../specs/010-platform-ui-integration/control-card-readability.md).
+새 표시 공유본 `shared-ui-cards-20261023-r1`; 이 표의12/9/0/3·N03 일부·판정/증적 범위는 바뀌지 않았다.
+
 2026-10-22 main 전달: 사용자 승인에 따라 현재 완료 범위와 플랫폼 UI를 origin/main으로 전달한다.
 `shared-ui-main-20261022-r2`로 표시 pin을 보완했으며 아래 시나리오/판정/원본/12/9/0/3·N03 일부는 변경하지 않았다.
 [게시 검증](../../specs/010-platform-ui-integration/main-publication.md). 새 actual/AWS/모델 검증은 아니다.

@@ -1,10 +1,32 @@
 {% set review = view.review %}
+{% macro source_records(row) -%}
+<p>연결된 원본 규칙: {{ row.assertion_id }}. 아래 자료는 테스트 결과의 근거이며 AI가 점수에 붙이는 답변 근거와 구분합니다.</p>{% if row.sources %}<ul class="source-list">{% for source in row.sources %}<li><a class="condition-source" href="{{ prefix }}/runs/{{ run.run_id }}/evidence?ref={{ source.ref | urlencode }}&amp;condition={{ row.id | urlencode }}">{{ view.ui.evidence_titles.get(source.ref,source.label) }}</a></li>{% endfor %}</ul>{% else %}<p class="warn">연결된 자료가 없습니다.</p>{% endif %}<details data-testid="developer"><summary>이 조건의 관찰값 원문</summary><pre class="raw">{{ row.facts | tojson(indent=2) }}</pre></details>
+{%- endmacro %}
 <section class="service-observations" aria-label="테스트 조건별 관찰 결과" data-testid="condition-review">
   <div class="section-heading"><div><h3>조건별 관찰 결과</h3><p>기대했던 반응과 실제 관찰을 읽고, 필요한 근거만 펼쳐 확인하세요.</p></div><span class="group-count">원본 규칙 {{ review.rule_count }}개 · 표시 조건 {{ review.conditions | length }}개</span></div>
-  {% for group in review.conditions | groupby('group') %}<section class="service-condition-group"><h4>{{ group.grouper }}</h4>
-    {% for row in group.list %}<article class="service-observation" id="condition-{{ row.id }}" data-condition="{{ row.id }}" data-rule-status="{{ row.rule_status or '' }}" data-recorded="{{ 'true' if row.recorded else 'false' }}"><div class="service-observation-title"><h4>{{ view.ui.condition_titles.get(row.assertion_id, row.title) }}</h4><span class="condition-rule">{{ row.assertion_id }} · {{ row.rule_status or '관찰 없음' }}</span></div>
-      <p class="condition-setup"><b>테스트 상황</b> {{ view.ui.condition_setups.get(row.assertion_id, row.setup) }}</p><div class="expect-observe"><div><span>기대했던 반응</span><p>{{ row.expected }}</p></div><div><span>실제로 관찰한 반응</span><p>{{ row.observed }}</p>{% if not row.recorded %}<p class="warn">세부 관찰이 없어 동작을 추정하지 않습니다.</p>{% endif %}</div></div>
+  {% for group in review.conditions | groupby('group') %}
+  {% set capture_group = run.scenario_id == 'N-02' and group.grouper == '4. 동의 저장 장애와 복구' %}
+  <section class="service-condition-group{% if capture_group %} n02-capture-group{% endif %}"{% if capture_group %} id="n02-consent-recovery"{% endif %}><h4>{{ group.grouper }}</h4>
+    {% for row in group.list %}{% set capture_condition = capture_group and row.assertion_id in ('N02-A6', 'N02-A7') %}
+    <article class="service-observation{% if capture_condition %} n02-capture-condition{% endif %}" id="condition-{{ row.id }}" data-condition="{{ row.id }}" data-rule-status="{{ row.rule_status or '' }}" data-recorded="{{ 'true' if row.recorded else 'false' }}"><div class="service-observation-title"><h4>{{ view.ui.condition_titles.get(row.assertion_id, row.title) }}</h4><span class="condition-rule">{{ row.assertion_id }} · {{ row.rule_status or '관찰 없음' }}</span></div>
+      {% if capture_condition %}
+      <div class="capture-lines">
+        <p class="capture-line"><b>테스트 상황</b><span>{{ view.ui.condition_setups.get(row.assertion_id, row.setup) | n02_capture_copy }}</span></p>
+        <div class="expect-observe capture-comparison">
+          <div class="capture-expected"><span>기대했던 반응</span><p>{{ row.expected | n02_capture_copy }}</p></div>
+          <div class="capture-observed"><span>실제로 관찰한 반응</span><p>{{ row.observed | n02_capture_copy }}</p></div>
+        </div>
+        {% if not row.recorded %}<p class="warn">세부 관찰이 없어 동작을 추정하지 않습니다.</p>{% endif %}
+      </div>
+      {% else %}
+      <p class="condition-setup"><b>테스트 상황</b> {{ view.ui.condition_setups.get(row.assertion_id, row.setup) }}</p><div class="expect-observe"><div><span>기대했던 반응</span><p>{{ row.expected }}</p></div><div><span>실제로 관찰한 반응</span><p>{{ row.observed }}</p>{% if not row.recorded %}<p class="warn">{% if row.observation_source|default('') == 'SEALED_DETAIL' %}원본 판정 설명을 표시했습니다. 별도 세부 관찰값은 이 기록에 없습니다.{% else %}세부 관찰이 없어 동작을 추정하지 않습니다.{% endif %}</p>{% endif %}</div></div>
       <button type="button" class="btn sec inspect-button" data-inspect="proof-{{ row.id }}" aria-expanded="false" aria-controls="proof-{{ row.id }}">이 결과의 확인 자료 보기</button>
-      <div class="condition-proof service-proof" id="proof-{{ row.id }}" hidden><div class="section-heading"><h4>{{ view.ui.condition_titles.get(row.assertion_id, row.title) }} · 연결된 자료</h4><button type="button" class="btn sec" data-close-proof="proof-{{ row.id }}">닫기</button></div>{% include '_comparison.html' %}{% include '_n02_facts.html' %}<p>연결된 원본 규칙: {{ row.assertion_id }}. 아래 자료는 테스트 결과의 근거이며 AI가 점수에 붙이는 답변 근거와 구분합니다.</p>{% if row.sources %}<ul class="source-list">{% for source in row.sources %}<li><a class="condition-source" href="{{ prefix }}/runs/{{ run.run_id }}/evidence?ref={{ source.ref | urlencode }}&amp;condition={{ row.id | urlencode }}">{{ view.ui.evidence_titles.get(source.ref,source.label) }}</a></li>{% endfor %}</ul>{% else %}<p class="warn">연결된 자료가 없습니다.</p>{% endif %}<details data-testid="developer"><summary>이 조건의 관찰값 원문</summary><pre class="raw">{{ row.facts | tojson(indent=2) }}</pre></details></div>
+      {% endif %}
+      <div class="condition-proof service-proof" id="proof-{{ row.id }}"{% if not capture_condition %} hidden{% endif %}>
+        {% if not capture_condition %}<div class="section-heading"><h4>{{ view.ui.condition_titles.get(row.assertion_id, row.title) }} · 연결된 자료</h4><button type="button" class="btn sec" data-close-proof="proof-{{ row.id }}">닫기</button></div>{% endif %}
+        {% include '_comparison.html' %}{% include '_n02_facts.html' %}
+        {% if capture_condition %}<details class="capture-source-details"><summary>원본 자료·관찰값</summary>{{ source_records(row) }}</details>
+        {% else %}{{ source_records(row) }}{% endif %}
+      </div>
     </article>{% endfor %}</section>{% endfor %}
 </section>

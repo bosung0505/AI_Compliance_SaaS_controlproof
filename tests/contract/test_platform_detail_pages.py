@@ -3,6 +3,7 @@ from __future__ import annotations
 
 import io
 import json
+import re
 from pathlib import Path
 
 import pytest
@@ -85,6 +86,54 @@ def test_selected_runs_scope_and_condition_cards(site):
     assert not any('D1' in str(c['facts'].get('mode','')) for c in data['review']['conditions'] if isinstance(c['facts'],dict))
     html=request(site,f'/runs/{run_id}')[0].decode()
     assert '원본 규칙 4개 · 표시 조건 7개' in html and 'data-testid="all-evidence"' in html
+
+
+@pytest.mark.parametrize('run_id', [
+    'c12c2ce8-f607-4be3-9524-0dec27dc7260',
+    'dd52deb1-cf07-4268-9547-3db21294514b',
+])
+def test_result_header_keeps_navigation_below_observations_for_pass_and_fail(site, run_id):
+    html = request(site, f'/runs/{run_id}')[0].decode()
+    assert html.index('data-testid="plain-explanation"') < html.index('data-testid="condition-review"') < html.index('data-testid="run-navigation"')
+    nav = next(attrs for tag, attrs in Markup(html).tags if attrs.get('data-testid') == 'run-navigation')
+    assert 'open' not in nav
+    assert html.index('data-testid="run-navigation"') < html.index('data-run-picker')
+    assert 'href="/scenarios/H-02"' in html and '검토할 실행 기록' in html
+    assert 'AI·자동 처리 기능의 채용 결정 변경 가능성 검사</h2>' in html
+    assert '원본 기록 변경 없음 확인 (VERIFIED)' in html
+    assert '봉인 판정' not in html
+    summary = html.split('data-testid="plain-explanation"', 1)[1].split('data-testid="remediation-reason"', 1)[0]
+    assert summary.count('<p class="result-') == 2 and '<strong>' in summary
+    assert '원본 판정 규칙' not in summary and '누락 증적' not in summary
+    details = html.split('data-testid="summary-details"', 1)[1].split('data-testid="run-navigation"', 1)[0]
+    assert '원본 판정 규칙 6개' in details and '누락 증적' in details
+    if run_id.startswith('c12c2ce8'):
+        assert '조회·답변으로 채용 상태가 바뀌지 않았습니다.' in summary
+        assert '35점 합격·90점 불합격' in summary
+    else:
+        assert '조회·답변만으로 채용 상태가 바뀌었습니다.' in summary
+        assert '4조건 중 2조건에서 발생' in summary
+
+
+def test_n02_recovery_capture_is_readable_and_always_open_only_for_a6_a7(site):
+    html = request(site, '/runs/16dbd987-23a5-4030-bb62-77787488969b')[0].decode()
+    assert 'id="n02-consent-recovery"' in html
+    for key in ('N02-A6', 'N02-A7'):
+        card = re.search(r'<article[^>]*id="condition-' + key + r'".*?</article>', html, re.DOTALL).group()
+        tags = Markup(card).tags
+        proof = next(attrs for tag, attrs in tags if attrs.get('id') == 'proof-' + key)
+        assert 'hidden' not in proof
+        assert not any('data-inspect' in attrs or 'data-close-proof' in attrs for tag, attrs in tags)
+        assert '· 연결된 자료' not in card and '실행 기록에서 확인된 값' in card
+        assert 'capture-source-details' in card and 'condition-source' in card and '관찰값 원문' in card
+        assert 'n02-capture-condition' in card and 'capture-observed' in card
+        assert 'expect-observe capture-comparison' in card and 'capture-expected' in card
+    card = re.search(r'<article[^>]*id="condition-N02-A5".*?</article>', html, re.DOTALL).group()
+    proof = next(attrs for tag, attrs in Markup(card).tags if attrs.get('id') == 'proof-N02-A5')
+    assert 'hidden' in proof and 'data-inspect="proof-N02-A5"' in card
+    assert 'n02-capture-condition' not in card
+    h02 = request(site, '/runs/c12c2ce8-f607-4be3-9524-0dec27dc7260')[0].decode()
+    assert 'n02-capture-condition' not in h02 and 'data-inspect="proof-H02-A3"' in h02
 
 
 def test_png_response_bytes_headers_range_and_strict_query(site):

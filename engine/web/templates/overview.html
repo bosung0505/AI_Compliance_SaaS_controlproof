@@ -20,7 +20,7 @@
     <div class="control-cards">{% for group in view.ui.groups %}{% set gc = group.ui.coverage %}<article class="control-card">
       <div class="control-card-heading"><span class="control-letter" aria-hidden="true">{{ group.control }}</span><h4>{{ group.title }}</h4><span class="control-index">0{{ loop.index }} / CONTROL</span></div>
       <p class="control-purpose">{{ group.purpose }}</p>
-      <ul class="scenario-tags">{% for row in group.scenarios %}<li><a href="{{ prefix }}/scenarios/{{ row.id }}"><span>{{ row.id }}</span>{{ row.title }}{% if row.ui.current_scope.partial %}<span class="tag-partial">일부 범위</span>{% endif %}</a></li>{% endfor %}</ul>
+      <ul class="scenario-tags">{% for row in group.scenarios %}<li><div class="scenario-tag"><span>{{ row.id }}</span>{{ row.title | display_title }}{% if row.ui.current_scope.partial %}<span class="tag-partial">일부 범위</span>{% endif %}</div></li>{% endfor %}</ul>
       <div class="control-card-footer"><span>{% if gc.targeted_progress %}대상 {{ gc.targeted_progress.targeted }}개 중 {{ gc.targeted_progress.executed }}개 실행{% if gc.partial_count %} · 일부 범위 포함{% endif %}{% else %}대상 기능 미제공 · {{ gc.counts.NO_TEST_TARGET }}개{% endif %}</span><a class="text-link" href="{{ prefix }}/results?control={{ group.control }}">결과 보기 →</a></div>
     </article>{% endfor %}</div>
   </section>

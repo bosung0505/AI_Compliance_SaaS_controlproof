@@ -527,6 +527,13 @@ class WorkbenchReader:
                 summary["scenario_id"], _definition(snapshot, "sealed_snapshot", run_id),
                 view["assertions"], bundle, view["evidence"],
             )
+            if summary["scenario_id"] == "H-02":
+                # H-02 sealed detail describes the rule, not its observed outcome.
+                # Reuse the same fact-backed explanation in rule lists, comparisons and reports.
+                for assertion in view["assertions"]:
+                    observed = [row["observed"] for row in view["review"]["conditions"]
+                                if row["assertion_id"] == assertion["assertion_id"]]
+                    assertion["display"]["observed"] = " ".join(observed)
         if self.origin == "ACTUAL" and summary["scenario_id"] == "H-02":
             view["remediation"] = h02_history(self.run_root, run_id, self.cache.verify)
         view["ui"] = run_projection(bundle, record, describe=_definition, reader=self,

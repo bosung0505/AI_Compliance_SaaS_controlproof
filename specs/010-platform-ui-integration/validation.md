@@ -1,5 +1,26 @@
 # Spec010 Validation — 0·1단계
 
+2026-10-25 UI 후속 main 전달 승인: 변경 관련121개 passed/skip0, 수정 Python Ruff/diff check, 게시 파일만 복사한 환경의 공유본 verify/HTTP9개 통과. 기존 main에서도 재현된 브라우저 선택자 실패와 전역 lint22건을 별도 명시한다. [범위·검증 근거](copy-publication-20261025.md). 전체 suite 통과나 새 실제 대상 시험으로 해석하지 않는다.
+
+2026-10-23 T037 완료: 관련31개 passed/skip0, Ruff 통과, 실제 기대15px/관찰16px·좌우 동일 폭·표 상하5px/가로 넘침0. 기본 `shared-ui-n02-capture-20261023-r3`, 이전 r2/원본28/652 보존. [측정·캡처·한계](n02-recovery-capture.md). 아래 r2의 한 화면 높이 측정은 이전 배치 이력이다.
+
+2026-10-23 T035/T036 N02 캡처 구간 완료: 관련48개 passed/skip0, Ruff/diff·실제1280×720에서688.65px/줄바꿈·넘침0, 다른 조건 접힘과 원본 링크 확인. 기본 `shared-ui-n02-capture-20261023-r2`, 원본28/652 보존. [상세](n02-recovery-capture.md).
+
+2026-10-23 T033/T034 제목 일관성 보완 완료: 관련60개 passed/skip0, Ruff/diff·실제 현황/결과/새 제목 검색 확인. 기본 `shared-ui-scenario-title-20261023-r1`, 이전 기본/원본28/652·판정 보존. [상세](scenario-title-consistency.md).
+
+2026-10-23 T031/T032 H02 핵심 두 문장·강조 완료: 관련41개 passed/skip0, Ruff/diff·실제 PASS/FAIL/상세 펼침 확인. 기본 `shared-ui-result-summary-20261023-r1`, 이전 기본/원본28/652·판정 보존. [상세](result-summary-emphasis.md).
+
+2026-10-23 T029/T030 결과 상단·용어 정리 완료: 관련49개 passed/skip0, Ruff/diff 및 실제 PASS/FAIL·탐색 확인. 기본 `shared-ui-result-header-20261023-r1`, 직전 JSON·원본28/652·판정 보존. [상세 검증](result-header-readability.md).
+
+2026-10-23 T027/T028: 기대·관찰 설명과 확인 범위·원본 설명/세부 값 안내 보완 완료.
+최종 관련150개 passed/skip0, Ruff·diff check 및 실제 H02 실행→근거/E03 FAIL 화면 확인.
+기본 `shared-ui-observations-20261023-r2`, 이전 카드 JSON·원본28/652·판정/계보 보존.
+[상세 변경·검증·미실시](observation-readability.md). 새 실제 대상 시험/게시 없음.
+
+2026-10-23 T025/T026: 카드 명칭·비링크 정리, 새 기본 공유본 `shared-ui-cards-20261023-r1` 전환 완료.
+기존 관련70개 통과·Ruff 통과·실제 HTTP/카드/결과 보기 동선 확인. 원본28/652·12/9/0/3 불변.
+[상세 검증·한계](control-card-readability.md). 글자 확대/슬라이드 수정·새 실제 대상 시험은 없다.
+
 2026-10-22 main 마감 검증: 고유1762개 통과/OS 의존1개 skip, 최종 공유/기본 UI50개 재검증 통과.
 현재 기본 shared-ui-main-20261022-r2·원본28/652 불변·부분 템플릿5개 pin 보완. [상세 근거/한계](main-publication.md).
 

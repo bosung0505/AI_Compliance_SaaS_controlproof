@@ -77,3 +77,15 @@ def test_n02_plan_explains_consent_fault_and_retry():
     plan = make_plan("N-02", {})
     assert len(plan["stages"]) == 4
     assert "동의 저장 장애" in " ".join(plan["conditions"])
+
+
+def test_n02_observed_leaks_are_explicit_instead_of_generic_uncertainty(tmp_path):
+    row = review(tmp_path, 6, {
+        "partial_consent": True, "leaked_effect_ids": ["effect"],
+    }, "FAIL")["conditions"][0]
+    assert "후속 처리 기록이 남았습니다" in row["observed"]
+    assert "확인하지 못" not in row["observed"]
+    retry = review(tmp_path, 7, {
+        "logical_consent_count": 2, "consent_completed_event_count": 2,
+    }, "FAIL")["conditions"][0]
+    assert "중복됐습니다" in retry["observed"]

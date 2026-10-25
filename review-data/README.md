@@ -1,5 +1,25 @@
 # 팀 공유용 실제 실행 기록
 
+2026-10-25 UI 후속 main 전달 승인. 기본 `shared-ui-n02-capture-20261023-r3`와 대응 표시 코드, 이전 공유본 보존 JSON을 함께 커밋·push한다. 원본28/652·records/target/missing 불변. [검증·기존 문제](../specs/010-platform-ui-integration/copy-publication-20261025.md).
+
+2026-10-23 현재 기본 `shared-ui-n02-capture-20261023-r3`: N02 A6/A7 좌우 비교 복원/표 여백 보완. 직전 r2 JSON 그대로 보존, 원본28/652·records/target/missing 불변. [31개 검사·실제 확인](../specs/010-platform-ui-integration/n02-recovery-capture.md). 아래 기본 이름은 이전 이력이다.
+
+2026-10-23 현재 기본 `shared-ui-n02-capture-20261023-r2`: N02 그룹4 A6/A7만 캡처용 가독성/상시 표 적용. 직전 scenario-title JSON 보존, 원본28/652·records/target/missing 불변. [검증](../specs/010-platform-ui-integration/n02-recovery-capture.md).
+
+2026-10-23 현재 기본 `shared-ui-scenario-title-20261023-r1`: H02 전체 화면 표시 제목/검색 통일. 직전 summary 기본 JSON 보존, 원본28/652·records/target/missing 불변. [검증](../specs/010-platform-ui-integration/scenario-title-consistency.md).
+
+2026-10-23 현재 기본 `shared-ui-result-summary-20261023-r1`: H02 핵심 두 문장·강조. 직전 header 기본 JSON 보존, 원본28/652·records/target/missing 불변. [검증](../specs/010-platform-ui-integration/result-summary-emphasis.md).
+
+2026-10-23 현재 기본 `shared-ui-result-header-20261023-r1`: 결과 상단 탐색 이동·쉬운 표시 용어. 직전 observations r2 JSON을 같은 폴더에 보존했다. 원본28/652·records/target/missing 불변. [검증](../specs/010-platform-ui-integration/result-header-readability.md).
+
+2026-10-23 현재 기본은 `shared-ui-observations-20261023-r2`다. 기대/관찰 대응과 기록 출처 안내를 보완했다.
+이전 카드 기본 JSON은 `snapshot.shared-ui-cards-20261023-r1.json`에 그대로 보존했다.
+원본28건/652파일·판정/계보/미확보 선언 불변. [범위·검증](../specs/010-platform-ui-integration/observation-readability.md).
+
+2026-10-23 기본 표시 공유본은 `shared-ui-cards-20261023-r1`이다. 카드 제목·비링크 표시만 정리했다.
+이전 main 기본 JSON을 같은 폴더의 `snapshot.shared-ui-main-20261022-r2.json`에 그대로 보존했다.
+28개 실행/652개 원본·판정/계보/미확보 선언은 불변이다. [변경과 검증](../specs/010-platform-ui-integration/control-card-readability.md).
+
 이 폴더는 합성 지원자·격리 로컬 환경에서 실제 실행한 봉인 기록의 공유본이다. DEMO 화면용 생성 데이터가 아니다.
 같은 코드와 `snapshot.json`을 받으면 같은 결과·근거·계보를 조회한다.
 새 테스트를 실행한 것, 외부 AI 품질이나 AWS를 검증한 것은 아니다.

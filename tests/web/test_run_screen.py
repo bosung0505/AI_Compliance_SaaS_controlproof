@@ -79,7 +79,7 @@ def test_aborted_run_shows_state_first_and_missing_evidence(screen, demo_site) -
     _open(screen, demo_site, run_id)
     lead = screen.locator("[data-testid=run-lead]")
     assert lead.locator("[data-testid=run-state]").first.inner_text().startswith("중단")
-    assert "봉인 무결성 확인됨" in lead.inner_text()
+    assert "확보한 원본의 변경 없음 확인" in lead.inner_text()
     assert "EV-06" in screen.locator("[data-testid=aborted-missing]").inner_text()
 
 

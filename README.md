@@ -1,5 +1,25 @@
 # ControlProof
 
+2026-10-25 main 전달: 사용자가 검토 완료된 화면 가독성 후속(T025~T037)의 커밋·origin/main push와 로컬 서버 실행을 승인했다. [전달 범위·121개 검사·기존 테스트 문제](specs/010-platform-ui-integration/copy-publication-20261025.md). 기본 `shared-ui-n02-capture-20261023-r3`, 원본28/652 보존. 아래 미커밋/미게시 문구는 당시 이력이다.
+
+2026-10-23 N02 후속: 기대/관찰을 좌우 두 박스로 복원하고 표 행의 상하 패딩을 1px→5px로 늘렸다. 확대 글씨·상시 표 유지. 기본 `shared-ui-n02-capture-20261023-r3`. [31개 검사·실제 확인](specs/010-platform-ui-integration/n02-recovery-capture.md). 아래 r2 배치는 이전 이력이다.
+
+2026-10-23 N02 캡처 구간: 장애·복구 A6/A7만 큰 글씨·전폭 설명·상시 표로 밀집 배치했다. 기본 `shared-ui-n02-capture-20261023-r2`. [48개 검사·실측/캡처](specs/010-platform-ui-integration/n02-recovery-capture.md). 다른 조건·원본28/652·판정/API 보존.
+
+2026-10-23 H02 제목 누락 보완: 전체 현황/결과/준비/보고서도 공통 새 표시 제목을 사용하고 검색에 새 이름을 반영했다. 기본 `shared-ui-scenario-title-20261023-r1`. [60개 검사·실제 확인](specs/010-platform-ui-integration/scenario-title-consistency.md). 원본28/652·API/판정 보존.
+
+2026-10-23 H02 결과 핵심 요약: 문제 발견/재테스트 블록을 두 문장과 색·굵기로 강조하고 상세는 아래 접힌 영역으로 이동했다. 기본 `shared-ui-result-summary-20261023-r1`. [41개 검사·실제 화면·범위](specs/010-platform-ui-integration/result-summary-emphasis.md). 원본28/652·판정/API 보존.
+
+2026-10-23 실행 결과 상단: 상세/비교·기록 선택을 결과 아래의 닫힌 영역으로 이동하고 제목·원본 확인 용어를 쉽게 표시했다. 기본 `shared-ui-result-header-20261023-r1`. [49개 검사·실제 PASS/FAIL 캡처](specs/010-platform-ui-integration/result-header-readability.md). 원본28/652·판정/API 불변.
+
+2026-10-23 관찰 설명 보완: 기대 조건에 직접 답하는 결과, 소스 검토/실제 실행 범위와 세부 기록의 유무를 구분했다.
+기본 `shared-ui-observations-20261023-r2`, 이전 카드 공유본·원본28/652·판정·계보 보존.
+[변경·검증·한계](specs/010-platform-ui-integration/observation-readability.md). 작업 브랜치 미커밋/미게시.
+
+2026-10-23 화면 명칭·탐색 정리: 보호조치 제목을 발표자료와 맞추고 현황 카드의 시나리오 링크를 일반 텍스트로 바꿨다.
+기준별 ‘결과 보기’는 유지한다. 기본 공유본 `shared-ui-cards-20261023-r1`, 원본28/652·판정·12/9/0/3 불변.
+[변경·검증·범위](specs/010-platform-ui-integration/control-card-readability.md). 작업 브랜치에서 미커밋/미게시다.
+
 2026-10-22 main 게시 승인: 사용자가 현재 완성한 프로젝트를 ControlProof `origin/main`에 커밋/push하도록 지시했다.
 이번 전달 대상은 main이며 기존 작업 기준fb219d0에 누적된 완료 기능/기록과 새 플랫폼 UI를 함께 반영한다.
 현재 기본 공유본은 `shared-ui-main-20261022-r2`(하위 템플릿5개도 표시 pin에 포함)이다.

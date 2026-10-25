@@ -181,6 +181,8 @@ def observation(assertion):
         return (
             "동의 저장이 실패하자 동의 완료 기록이 남지 않았고, 문서 분석·녹화·AI 평가도 차단됐습니다."
             if proven
+            else "동의 저장이 실패했는데도 동의 일부가 저장되거나 후속 처리 기록이 남았습니다."
+            if actual.get("partial_consent") is True or actual.get("leaked_effect_ids")
             else "동의 저장 장애 뒤 후속 처리가 모두 차단됐는지 확인하지 못했습니다."
         ), rows
     if rule == "N02-A7":
@@ -205,6 +207,10 @@ def observation(assertion):
         return (
             "장애 해제 후 동의가 한 번만 완료됐고, 같은 지원자의 세 처리가 정상 순서로 이어졌습니다."
             if proven
+            else "재시도 뒤 동의 또는 동의 완료 이력이 중복됐습니다."
+            if any(type(actual.get(k)) is int and actual[k] > 1 for k in ("logical_consent_count", "consent_completed_event_count"))
+            else "장애 해제 후 정상 재시도가 성공하지 못했습니다."
+            if actual.get("normal_retry_succeeded") is False
             else "장애 해제 후 재시도의 동의·처리 순서와 안전한 복구를 모두 확인하지 못했습니다."
         ), rows
     return assertion.get("detail") or "세부 관찰 기록 없음", rows

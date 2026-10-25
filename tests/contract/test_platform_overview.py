@@ -8,8 +8,8 @@ from pathlib import Path
 import pytest
 
 from engine.web.overview import FilterInvalid, coverage, filter_groups, parse_filters, projection
-from engine.web.readmodel import WorkbenchReader, load_catalog
 from engine.web.preflight import ReadinessStore
+from engine.web.readmodel import WorkbenchReader, load_catalog
 from tests.contract.test_platform_public_pages import Markup, page, site  # noqa: F401
 
 CASES = json.loads((Path(__file__).parents[2] / "specs/010-platform-ui-integration/contracts/coverage-cases.json").read_text(encoding="utf-8"))["cases"]
@@ -93,10 +93,25 @@ def test_filter_and_empty_groups(tmp_path):
     assert [r["id"] for g in result for r in g["scenarios"]] == ["N-03"]
 
 
+@pytest.mark.parametrize('query', ['채용 결정 변경 가능성', '쓰기 권한 표면'])
+def test_search_accepts_both_visible_title_and_historical_title(tmp_path, query):
+    groups = WorkbenchReader(load_catalog(), tmp_path / 'runs', readiness=ReadinessStore(tmp_path / 'state')).workbench()['ui']['groups']
+    result = filter_groups(groups, parse_filters('q=' + query))
+    assert [r['id'] for g in result for r in g['scenarios']] == ['H-02']
+
+
+@pytest.mark.parametrize('path', ['/', '/results', '/prepare', '/report', '/scenarios/H-02'])
+def test_h02_visible_title_is_consistent_across_all_navigation_surfaces(site, path):  # noqa: F811
+    body = page(site, path)
+    assert 'AI·자동 처리 기능의 채용 결정 변경 가능성 검사' in body
+    if path in ('/', '/results'):
+        assert 'AI 어시스턴트·워커의 쓰기 권한 표면 검사' not in body
+
+
 def test_overview_and_results_are_separate_and_all_links_reset(site):  # noqa: F811
     body = page(site, "/")
     assert "VERIFICATION OVERVIEW" in body and "확인한 것과, 아직 남은 것" not in body
-    assert all(label in body for label in ("고지와 동의", "사람의 통제", "이의제기와 구제", "평가의 근거"))
+    assert all(label in body for label in ("AI 사용 사전 고지", "인간 개입 · 안전한 예외처리", "이용자 보호 · 이의처리", "증적 기록의 완전성"))
     assert "[REDACTED]" not in body
     assert 'data-coverage="EXECUTED">9<' in body and 'data-coverage="NOT_RUN">0<' in body
     links = [a["href"] for tag, a in Markup(body).tags if tag == "a"]

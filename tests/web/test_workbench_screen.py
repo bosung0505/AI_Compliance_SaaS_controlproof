@@ -77,7 +77,8 @@ def test_layout_demo_band_and_no_horizontal_overflow(page) -> None:
     assert "LOCAL_EMULATED" in header and "NOT_RUN" in header
     assert page.locator(".workspace-nav a").count() == 5
     assert page.locator(".control-card").count() == 4
-    assert page.locator(".scenario-tags a").count() == 12
+    assert page.locator(".scenario-tags li").count() == 12
+    assert page.locator(".scenario-tags a").count() == 0
     _results(page)
     assert _visible_rows(page).count() == 12
     assert page.evaluate("document.documentElement.scrollWidth <= window.innerWidth")
@@ -111,7 +112,7 @@ def test_result_filters_and_reset(page, status, expected) -> None:
 
 
 def test_a_rows_have_no_run_control_or_progress(page) -> None:
-    card = page.locator(".control-card").filter(has_text="이의제기와 구제")
+    card = page.locator(".control-card").filter(has_text="이용자 보호 · 이의처리")
     assert card.locator("progress, [role=progressbar]").count() == 0
     _results(page)
     for scenario_id in ("A-01", "A-02", "A-03"):

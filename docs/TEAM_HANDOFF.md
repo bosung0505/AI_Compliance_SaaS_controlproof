@@ -1,5 +1,27 @@
 # ControlProof 팀 통합 인수인계
 
+2026-10-25 main 전달 승인: T025~T037의 화면 문구·배치와 대응 검사/공유본/문서를 함께 커밋·push한다. [검증121개·독립 복사본 HTTP9개·기존 lint/브라우저 문제](../specs/010-platform-ui-integration/copy-publication-20261025.md). 기본 `shared-ui-n02-capture-20261023-r3`, 원본28/652·판정/계보 불변. 아래 미커밋/미게시 상태는 이전 작업 이력이다.
+
+2026-10-23 T037 완료: N02 A6/A7 기대/관찰 좌우 박스 복원, 표 상하 패딩 5px. 글씨 크기 유지. 기본 `shared-ui-n02-capture-20261023-r3`, r2 JSON/원본28/652 보존. [31개 검사·실측](../specs/010-platform-ui-integration/n02-recovery-capture.md). 아래 688.65px는 이전 배치 측정이다. 미커밋/미게시.
+
+2026-10-23 T035/T036: N02 그룹4 A6/A7만 글씨 확대·짧은 전폭 설명·상시 표와 참조 접힘을 적용했다. 1280×720에서688.65px/넘침0. [48개 검사·실측·원본 링크/캡처](../specs/010-platform-ui-integration/n02-recovery-capture.md). 기본 `shared-ui-n02-capture-20261023-r2`, 이전 기본/원본28/652 보존, 미커밋/미게시.
+
+2026-10-23 T033/T034: 목록에 남은 H02 이전 표시 제목을 현황/결과/준비/보고서에서 통일하고 새 제목 검색도 보완했다. 기본 `shared-ui-scenario-title-20261023-r1`. [60개 검사·실제 현황/검색 확인](../specs/010-platform-ui-integration/scenario-title-consistency.md). 원본28/652·API/판정 보존, 미커밋/미게시.
+
+2026-10-23 T031/T032: H02 FAIL/PASS 핵심 두 문장·강조와 상세 요약 이동 완료. [41개 검사·실제 화면/상세 펼침](../specs/010-platform-ui-integration/result-summary-emphasis.md). 기본 `shared-ui-result-summary-20261023-r1`, 이전 header JSON·원본28/652·API/판정 보존, 미커밋/미게시.
+
+2026-10-23 결과 상단 후속: 상세/비교·실행 기록 선택을 조건별 관찰 아래 닫힌 탐색으로 이동했다. PASS/FAIL 공통 적용, 쉬운 제목·원본 확인 표시. [49개 검사·실제 화면/탐색·캡처](../specs/010-platform-ui-integration/result-header-readability.md). 기본 `shared-ui-result-header-20261023-r1`, 원본28/652·API/판정 보존, 미커밋/미게시.
+
+2026-10-23 관찰 설명: 사용자 지적의 H02-A3 및 유사 문구를 보완했다. 작업 설명과 결과를 분리하고
+확인된 위반/미확인을 구분한다. H01 경로별 기대, H03/E03 쉬운 설명·실제 테스트 상황, N01 정책 일치,
+N02 위반 설명과 원본 판정 설명/세부 값 유무를 보완했다. [범위·검증](../specs/010-platform-ui-integration/observation-readability.md).
+기본 `shared-ui-observations-20261023-r2`; 이전 카드 JSON·원본28/652·12/9/0/3·판정/계보 보존, 새 actual 없음.
+
+2026-10-23: 사용자 요청으로 네 보호조치 표시 제목을 발표 이미지와 일치시키고 현황 카드 내 시나리오 링크/파란 강조를 제거했다.
+기준별 결과 보기와 목록의 상세 진입 유지. 기본 `shared-ui-cards-20261023-r1`, 원본28/652·12/9/0/3 불변.
+[70개 관련 검사·실제 동선·이전 공유본 보존](../specs/010-platform-ui-integration/control-card-readability.md).
+`fix/overview-control-card-copy` 미커밋/미게시. 글자 확대/캡처 전용 레이아웃은 설명만 요청되어 미반영.
+
 2026-10-22 main 전달 승인: 사용자가 현재 프로젝트를 ControlProof origin/main에 commit/push하도록 명시 승인했다.
 최신 표시 pin은 하위partials5개까지 포함한 `shared-ui-main-20261022-r2`이며 원본28/652·12/9/0/3·N03 일부는 불변이다.
 [main 게시 범위/검증](../specs/010-platform-ui-integration/main-publication.md). WhyYou 저장소/실제 Run은 변경하지 않는다.

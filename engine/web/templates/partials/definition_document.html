@@ -1,5 +1,5 @@
 {% set d = document.definition %}
-<details class="service-definition" data-testid="definition-document"><summary>{{ '이 실행에 봉인된 테스트 정의' if document.source == 'sealed_snapshot' else '현재 테스트 정의' }} · {{ document.version or '버전 확인 불가' }}</summary>
+<details class="service-definition" data-testid="definition-document"><summary>{{ '실행 당시 저장한 테스트 정의' if document.source == 'sealed_snapshot' else '현재 테스트 정의' }} · {{ document.version or '버전 확인 불가' }}</summary>
 {% if document.problem %}<p class="warn">정의를 읽을 수 없습니다. {{ document.problem }}</p>{% else %}
   <p>{{ d.intent }}</p>
   {% if document.scope.partial %}<p class="scope-pill">일부 범위 · {{ document.scope.applicable_assertion_ids | join(' · ') }}</p>{% endif %}
