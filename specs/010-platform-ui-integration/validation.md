@@ -1,5 +1,7 @@
 # Spec010 Validation — 0·1단계
 
+2026-11-01 T038/T039 소개 홈페이지: 제공 HTML과 새 `/product`의 7개 너비 전체 페이지 픽셀 차이0·가로 넘침0·콘솔 오류0, 관련47개 passed/기존 skip1, 변경 Python Ruff 통과. 전체 tests는 브랜치 1853 passed/32 failed이고 실패 32개는 같은 환경 main에서도 실패하는 기존 `tests/web` 기대다. 기본 `shared-ui-homepage-20261101-r1`, 직전 r3/원본28/652 보존. [상세·한계](homepage-explore-20261101.md).
+
 2026-10-25 UI 후속 main 전달 승인: 변경 관련121개 passed/skip0, 수정 Python Ruff/diff check, 게시 파일만 복사한 환경의 공유본 verify/HTTP9개 통과. 기존 main에서도 재현된 브라우저 선택자 실패와 전역 lint22건을 별도 명시한다. [범위·검증 근거](copy-publication-20261025.md). 전체 suite 통과나 새 실제 대상 시험으로 해석하지 않는다.
 
 2026-10-23 T037 완료: 관련31개 passed/skip0, Ruff 통과, 실제 기대15px/관찰16px·좌우 동일 폭·표 상하5px/가로 넘침0. 기본 `shared-ui-n02-capture-20261023-r3`, 이전 r2/원본28/652 보존. [측정·캡처·한계](n02-recovery-capture.md). 아래 r2의 한 화면 높이 측정은 이전 배치 이력이다.

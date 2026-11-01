@@ -15,3 +15,13 @@
 @media (prefers-reduced-motion: reduce) {
   *, *::before, *::after { animation: none !important; transition: none !important; scroll-behavior: auto !important; }
 }
+
+/* Supplied logo: center the original transparent image without altering its pixels. */
+.cp-logo { display: inline-flex; align-items: center; justify-content: center; width: 230px; height: 42px; overflow: hidden; vertical-align: middle; flex-shrink: 0; }
+.cp-logo img { display: block; width: 230px; height: auto; max-width: none; flex-shrink: 0; }
+.mini-sidebar .cp-logo { width: 142px; height: 28px; }
+.mini-sidebar .cp-logo img { width: 142px; }
+@media (max-width:600px) {
+  .cp-logo { width: 195px; height: 36px; }
+  .cp-logo img { width: 195px; }
+}

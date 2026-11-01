@@ -44,7 +44,11 @@ BIND_ADDRESS = "127.0.0.1"
 PACKAGE = Path(__file__).resolve().parent
 REPO_ROOT = PACKAGE.parents[1]
 STATIC = PACKAGE / "static"
-STATIC_TYPES = {".css": "text/css; charset=utf-8", ".js": "text/javascript; charset=utf-8"}
+STATIC_TYPES = {
+    ".css": "text/css; charset=utf-8",
+    ".js": "text/javascript; charset=utf-8",
+    ".png": "image/png",  # public-site logo only; evidence PNGs keep the strict content endpoint
+}
 SECURITY_HEADERS = {
     "Content-Security-Policy": "default-src 'self'; script-src 'self'; style-src 'self'",
     "X-Content-Type-Options": "nosniff",
@@ -390,7 +394,7 @@ class _Handler(BaseHTTPRequestHandler):
 
     def _route_static(self, path: str, name: str) -> None:
         target = STATIC / name
-        if not re.fullmatch(r"[a-z0-9_-]+\.(css|js)", name) or not target.is_file():
+        if not re.fullmatch(r"[a-z0-9_-]+\.(css|js|png)", name) or not target.is_file():
             self._error("NOT_FOUND", "STATIC_NOT_FOUND", "요청한 파일이 없습니다.")
             return
         self._send(HTTPStatus.OK, target.read_bytes(), STATIC_TYPES[target.suffix])

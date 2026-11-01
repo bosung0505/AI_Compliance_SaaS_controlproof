@@ -1,5 +1,7 @@
 # ControlProof
 
+2026-11-01 소개 홈페이지 개편: 팀에서 받은 단독 HTML을 기준으로 `/product` 소개 화면과 공용 헤더·푸터(로고·펼침 메뉴)를 바꿨다. 수치는 카탈로그에서 계산한다. 기본 `shared-ui-homepage-20261101-r1`, 직전 r3 JSON·원본28/652 보존. [반영 범위·검증](specs/010-platform-ui-integration/homepage-explore-20261101.md). 워크스페이스 화면·API·판정은 그대로다.
+
 2026-10-25 main 전달: 사용자가 검토 완료된 화면 가독성 후속(T025~T037)의 커밋·origin/main push와 로컬 서버 실행을 승인했다. [전달 범위·121개 검사·기존 테스트 문제](specs/010-platform-ui-integration/copy-publication-20261025.md). 기본 `shared-ui-n02-capture-20261023-r3`, 원본28/652 보존. 아래 미커밋/미게시 문구는 당시 이력이다.
 
 2026-10-23 N02 후속: 기대/관찰을 좌우 두 박스로 복원하고 표 행의 상하 패딩을 1px→5px로 늘렸다. 확대 글씨·상시 표 유지. 기본 `shared-ui-n02-capture-20261023-r3`. [31개 검사·실제 확인](specs/010-platform-ui-integration/n02-recovery-capture.md). 아래 r2 배치는 이전 이력이다.
