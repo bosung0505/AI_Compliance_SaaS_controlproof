@@ -1,5 +1,7 @@
 # 팀 공유용 실제 실행 기록
 
+2026-11-01 현재 기본 `shared-ui-homepage-20261101-r1`: 소개 홈페이지·공용 헤더/푸터 표시 코드를 다시 고정했다. 직전 `shared-ui-n02-capture-20261023-r3` JSON은 같은 폴더에 바이트 그대로 보존했다. 원본28/652·records/target/missing 불변. `share_records --verify` 기대 출력: `shared-ui-homepage-20261101-r1 records=28 missing=1 sha256=ea95f9dee8215281a995787a5b29d1f08156e771904775748e09a2cbd94802a8`. [검증](../specs/010-platform-ui-integration/homepage-explore-20261101.md). 아래 기본 이름은 이전 이력이다.
+
 2026-10-25 UI 후속 main 전달 승인. 기본 `shared-ui-n02-capture-20261023-r3`와 대응 표시 코드, 이전 공유본 보존 JSON을 함께 커밋·push한다. 원본28/652·records/target/missing 불변. [검증·기존 문제](../specs/010-platform-ui-integration/copy-publication-20261025.md).
 
 2026-10-23 현재 기본 `shared-ui-n02-capture-20261023-r3`: N02 A6/A7 좌우 비교 복원/표 여백 보완. 직전 r2 JSON 그대로 보존, 원본28/652·records/target/missing 불변. [31개 검사·실제 확인](../specs/010-platform-ui-integration/n02-recovery-capture.md). 아래 기본 이름은 이전 이력이다.

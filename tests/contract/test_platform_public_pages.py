@@ -66,13 +66,17 @@ def test_public_routes_do_not_inspect_runs_or_readiness(site, monkeypatch, path)
 def test_intro_uses_catalog_coverage_and_keeps_partial_scope(site):
     body = page(site, "/product")
     assert 'data-coverage="EXECUTED">9<' in body
-    assert 'data-coverage="NOT_RUN">0<' in body
+    # 2026-11-01 homepage: a NOT_RUN count is shown only when the catalog has one (currently 0).
+    assert 'data-coverage="NOT_RUN"' not in body
     assert 'data-coverage="NO_TEST_TARGET">3<' in body
     assert "N-03" in body and "일부" in body and "법적" in body
     assert "실제 원본 증적은 연결되지 않았습니다" not in body
     entry = next(e for e in site.catalog["scenarios"] if e["id"] == "N-01")
     entry["mvp_treatment"] = "NOT_RUN"
-    assert 'data-coverage="EXECUTED">8<' in page(site, "/product")
+    changed = page(site, "/product")
+    assert 'data-coverage="EXECUTED">8<' in changed
+    assert 'data-coverage="NOT_RUN">1<' in changed
+    assert ">2개 실행 · 1개 미실행 · N-03 일부 범위<" in changed
 
 
 def test_guide_has_nine_local_only_checks_and_no_post_form(site):

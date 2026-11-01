@@ -1,5 +1,7 @@
 # ControlProof 팀 통합 인수인계
 
+2026-11-01 소개 홈페이지 개편(T038/T039, 연우): 팀에서 받은 `ControlProof_홈페이지.html`을 `/product`와 공용 헤더·푸터(로고·5개 펼침 메뉴)에 반영했다. 내장 CSS/JS/로고는 `/static/` 파일로 분리, 링크는 상대 경로, 전체·보호조치별 수치는 카탈로그 계산. 기본 `shared-ui-homepage-20261101-r1`, 직전 r3 JSON·원본28/652·판정/계보 보존. [반영 범위·검증·한계](../specs/010-platform-ui-integration/homepage-explore-20261101.md). 기능 브랜치 `yeonwoo/homepage-explore`, main 반영은 보성 검토 뒤.
+
 2026-10-25 main 전달 승인: T025~T037의 화면 문구·배치와 대응 검사/공유본/문서를 함께 커밋·push한다. [검증121개·독립 복사본 HTTP9개·기존 lint/브라우저 문제](../specs/010-platform-ui-integration/copy-publication-20261025.md). 기본 `shared-ui-n02-capture-20261023-r3`, 원본28/652·판정/계보 불변. 아래 미커밋/미게시 상태는 이전 작업 이력이다.
 
 2026-10-23 T037 완료: N02 A6/A7 기대/관찰 좌우 박스 복원, 표 상하 패딩 5px. 글씨 크기 유지. 기본 `shared-ui-n02-capture-20261023-r3`, r2 JSON/원본28/652 보존. [31개 검사·실측](../specs/010-platform-ui-integration/n02-recovery-capture.md). 아래 688.65px는 이전 배치 측정이다. 미커밋/미게시.

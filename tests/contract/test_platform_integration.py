@@ -29,7 +29,11 @@ def test_public_workflow_keeps_real_in_page_tabs_separate(shared):
     html,_ = request(shared,'/product')
     tags=Markup(html).tags
     tabs=[a for tag,a in tags if a.get('role')=='tab']
-    assert tabs and all('data-step' in a for a in tabs)
+    panels={a['id'] for tag,a in tags if a.get('role')=='tabpanel'}
+    # 2026-11-01 homepage: feature preview tabs (explore.js) replace the old workflow tabs (data-step).
+    assert tabs and all(a['aria-controls'] in panels for a in tabs)
+    assert [a['aria-selected'] for a in tabs].count('true')==1
+    assert not any('data-step' in a for a in tabs)
 
 
 def test_report_version_provenance_does_not_claim_missing_files_or_print_raw_commit_dict(shared):

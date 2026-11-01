@@ -13,3 +13,7 @@ Stage6 shell.css selects page links by aria-current. delivery.css print uses A4 
 
 2026-10-22: shell.css의 verification-info/panel은 native details의 버튼/포커스와2열→모바일1열을 정의한다.
 추가 JavaScript 없이 접근하며 기존 workspace-target 인쇄 숨김이 적용된다.
+
+2026-11-01 소개 홈페이지: `ControlProof_홈페이지.html`의 내장 자원을 원래 파일로 분리했다. `explore.css`(소개 본문·공용 펼침 메뉴),
+`explore.js`(기능 미리보기 탭, 자동 전환 없음), `navigation.js`(공용 헤더 hover/키보드/모바일 펼침), `theme.css`의 `.cp-logo` 블록,
+`controlproof-logo.png`(제공 로고 원본 바이트). 정적 경로는 css/js와 이 폴더의 png만 응답하며 봉인 증적 PNG는 기존 content 경로만 쓴다.

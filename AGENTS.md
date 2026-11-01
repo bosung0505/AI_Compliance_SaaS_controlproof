@@ -293,3 +293,15 @@ default is `shared-ui-n02-capture-20261023-r3`; preserve all28/652 original reco
 `specs/010-platform-ui-integration/copy-publication-20261025.md` for121 passing scoped tests, clean-export HTTP9 checks
 and the pre-existing browser selector failure/global lint22 findings. Do not claim the entire suite passed.
 Earlier uncommitted/unpublished statements are history for this approved release. No new WhyYou Run or external deployment.
+
+## Homepage redesign (2026-11-01, 연우)
+
+The supplied standalone `ControlProof_홈페이지.html` now drives `/product` and the shared public header/footer
+(`public_base.html`, `product.html`, `explore.css`, `explore.js`, `navigation.js`, the `theme.css` logo block and the
+unchanged logo bytes in `controlproof-logo.png`). The static route serves only `[a-z0-9_-]+.(css|js|png)` from
+`engine/web/static/`; reviewed evidence PNGs keep the strict content endpoint. Intro counts and per-control labels come
+from the catalog (`engine/web/public.py`); the remaining copy is static and pinned to catalog facts by
+`tests/contract/test_platform_homepage.py`. Current default `shared-ui-homepage-20261101-r1`; the preceding
+`shared-ui-n02-capture-20261023-r3` JSON is preserved byte-for-byte. Workspace screens, API v1 and the 28/652 records
+are unchanged. Feature branch `yeonwoo/homepage-explore`; merging to main follows 보성's review. Read
+`specs/010-platform-ui-integration/homepage-explore-20261101.md`.
