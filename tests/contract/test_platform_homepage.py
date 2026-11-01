@@ -130,3 +130,36 @@ def test_feature_preview_tabs_start_on_the_first_panel(site):
     assert [t["aria-selected"] for t in tabs] == ["true", "false", "false"]
     assert [t["tabindex"] for t in tabs] == ["0", "-1", "-1"]
     assert ["hidden" in panels[t["aria-controls"]] for t in tabs] == [False, True, True]
+
+
+HEADER = re.compile(r'<header class="header explore-header">.*?</header>', re.DOTALL)
+FOOTER = re.compile(r'<footer class="footer wrap">.*?</footer>', re.DOTALL)
+WORKSPACE_PAGES = [
+    ("/", 200), ("/results", 200), ("/prepare", 200), ("/report", 200), ("/scenarios/N-03", 200),
+    (f"/runs/{N02_FINAL}", 200), (f"/runs/{N02_FINAL}/evidence", 404), ("/compare/d3aac7d9-0a52-4f9a-9c8f-f6e1f7b6de18", 200),
+    ("/demo/", 200), ("/demo/results", 200), ("/scenarios/N-99", 404),
+]
+
+
+@pytest.mark.parametrize("path,status", WORKSPACE_PAGES)
+def test_workspace_pages_share_the_homepage_header_and_footer(site, path, status):
+    """Same partials as /product: only the menu id differs (the sidebar keeps primary-navigation) and the logo is the h1."""
+    body = request(site, path, expected=status)[0].decode("utf-8")
+    product = html(site, "/product")
+    headers = HEADER.findall(body)
+    assert len(headers) == 1 and "workspace-mark" not in body and "workspace-brand" not in body
+    header = headers[0]
+    assert '<h1 class="brand-heading"><a class="brand" href="/product"><span class="cp-logo">' in header
+    assert 'id="site-navigation"' in header and 'aria-controls="site-navigation"' in header
+    normalized = header.replace("site-navigation", "primary-navigation")
+    normalized = normalized.replace('<h1 class="brand-heading">', "").replace("</a></h1>", "</a>")
+    assert normalized == HEADER.search(product).group()
+    assert FOOTER.findall(body) == FOOTER.findall(product)
+    assert body.index('<div class="workspace-top">') < body.index(header) < body.index('<div class="workspace-frame">')
+    assert ('class="demo-banner"' in body) == path.startswith("/demo/")
+    if path.startswith("/demo/"):
+        assert body.index('<div class="workspace-top">') < body.index('class="demo-banner"') < body.index(header)
+    sidebar = re.search(r'<nav class="workspace-nav" id="primary-navigation".*?</nav>', body, re.DOTALL).group()
+    assert sidebar.count("<a ") == 5 and 'aria-controls="primary-navigation"' in body
+    for asset in ("/static/explore-workspace.css", "/static/navigation.js", "/static/platform.js"):
+        assert asset in body

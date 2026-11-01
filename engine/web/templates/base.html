@@ -11,6 +11,7 @@
 <link rel="stylesheet" href="/static/overview.css">
 <link rel="stylesheet" href="/static/service.css">
 <link rel="stylesheet" href="/static/delivery.css">
+<link rel="stylesheet" href="/static/explore-workspace.css">
 </head>
 <body class="workspace-shell">
 <a class="workspace-skip" href="#main">본문으로 건너뛰기</a>
@@ -18,14 +19,16 @@
 {%- set b = badges[key] -%}
 <span class="{{ b.css_class }}" data-badge="{{ b.key }}"{% if count is not none %} data-count-value="{{ count }}"{% endif %} title="{{ b.description }}"><span class="ic">{{ b.icon }}</span>{{ b.text }}{{ suffix }}</span>
 {%- endmacro %}
+<div class="workspace-top">
 {% if view.demo %}
 <div class="demo-banner" role="note">DEMO DATA <small>합성 데이터로 만든 화면입니다. 실제 실행·판정·증적이 아니며 실제 결과 개수·보고서에 섞이지 않습니다.</small></div>
 {% endif %}
+{% with site_nav_id="site-navigation", brand_heading=True %}{% include "partials/site_header.html" %}{% endwith %}
+</div>
 <div class="workspace-frame">
-<header class="workspace-header">
-  <div class="brand-row"><h1><a class="workspace-brand" href="/product"><span class="workspace-mark" aria-hidden="true">✓</span>ControlProof</a></h1></div>
-  <div class="workspace-header-actions"><a href="/product">서비스 소개</a><a href="/guide">도입 안내</a><span class="workspace-mode">{{ "DEMO" if view.demo else "공유 · 읽기 전용" if view.shared_snapshot else "로컬 기록" }}</span><button class="menu-toggle" aria-label="메뉴 열기" aria-expanded="false" aria-controls="primary-navigation">☰</button></div>
-  <p class="workspace-environment">WhyYou · {{ "합성 데모" if view.demo else "로컬 테스트" if (view.environment_kind or "LOCAL_EMULATED") == "LOCAL_EMULATED" else view.environment_kind }}</p>
+<div class="workspace-header">
+  <div class="workspace-context"><p class="workspace-environment">WhyYou · {{ "합성 데모" if view.demo else "로컬 테스트" if (view.environment_kind or "LOCAL_EMULATED") == "LOCAL_EMULATED" else view.environment_kind }}</p><span class="workspace-mode">{{ "DEMO" if view.demo else "공유 · 읽기 전용" if view.shared_snapshot else "로컬 기록" }}</span></div>
+  <div class="workspace-header-actions"><button class="menu-toggle workspace-menu-toggle" data-menu-label="화면 메뉴" aria-label="화면 메뉴 열기" aria-expanded="false" aria-controls="primary-navigation">화면 메뉴 <span aria-hidden="true">☰</span></button></div>
   <details class="verification-info workspace-target" data-testid="verification-info"><summary><span aria-hidden="true">ⓘ</span> 검증 정보</summary>
   <div class="verification-info-panel">
   <section aria-labelledby="verification-target-title"><h2 id="verification-target-title">대상과 실행 환경</h2>
@@ -63,7 +66,7 @@
   </section>
   </div>
   </details>
-</header>
+</div>
 <aside class="workspace-sidebar" aria-label="워크스페이스 탐색">
   <p class="workspace-eyebrow">WHYYOU WORKSPACE</p>
   <nav class="workspace-nav" id="primary-navigation" aria-label="화면 선택">
@@ -80,7 +83,9 @@
 {% block content %}{% endblock %}
 </main>
 </div>
+<div class="site-footer-band">{% include "partials/site_footer.html" %}</div>
 <script src="/static/workbench.js"></script>
 <script src="/static/platform.js"></script>
+<script src="/static/navigation.js"></script>
 </body>
 </html>

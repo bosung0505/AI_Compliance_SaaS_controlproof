@@ -17,3 +17,6 @@ Stage6 shell.css selects page links by aria-current. delivery.css print uses A4 
 2026-11-01 소개 홈페이지: `ControlProof_홈페이지.html`의 내장 자원을 원래 파일로 분리했다. `explore.css`(소개 본문·공용 펼침 메뉴),
 `explore.js`(기능 미리보기 탭, 자동 전환 없음), `navigation.js`(공용 헤더 hover/키보드/모바일 펼침), `theme.css`의 `.cp-logo` 블록,
 `controlproof-logo.png`(제공 로고 원본 바이트). 정적 경로는 css/js와 이 폴더의 png만 응답하며 봉인 증적 PNG는 기존 content 경로만 쓴다.
+같은 날 후속: `explore-workspace.css`는 워크스페이스에만 실어 공용 헤더·푸터 값을 `.workspace-shell` 아래에 두고(공개 화면의
+`platform.css`·`explore.css`는 내보내기 그대로) 본문 글꼴·링크·소제목·카드 모서리·버튼을 맞춘다. `platform.js`는 모든 `.menu-toggle`이
+각자의 `aria-controls` 대상을 연다(워크스페이스의 공용 메뉴·화면 메뉴). `theme.css`는 모든 푸터 로고를 184×36으로 맞춘다.

@@ -1,6 +1,6 @@
 # ControlProof 팀 통합 인수인계
 
-2026-11-01 소개 홈페이지 개편(T038/T039, 연우): 팀에서 받은 `ControlProof_홈페이지.html`을 `/product`와 공용 헤더·푸터(로고·5개 펼침 메뉴)에 반영했다. 내장 CSS/JS/로고는 `/static/` 파일로 분리, 링크는 상대 경로, 전체·보호조치별 수치는 카탈로그 계산. 기본 `shared-ui-homepage-20261101-r1`, 직전 r3 JSON·원본28/652·판정/계보 보존. [반영 범위·검증·한계](../specs/010-platform-ui-integration/homepage-explore-20261101.md). 기능 브랜치 `yeonwoo/homepage-explore`, main 반영은 보성 검토 뒤.
+2026-11-01 소개 홈페이지 개편(T038~T040, 연우): 팀에서 받은 `ControlProof_홈페이지.html`을 `/product`와 공용 헤더·푸터(로고·5개 펼침 메뉴)에 반영하고, 다른 모든 화면도 같은 헤더·푸터·로고와 본문 스타일로 맞췄다(왼쪽 메뉴·본문 배치 유지, 이전 ✓ 마크 제거). 내장 CSS/JS/로고는 `/static/` 파일로 분리, 링크는 상대 경로, 전체·보호조치별 수치는 카탈로그 계산. 기본 `shared-ui-homepage-20261101-r2`, r1·직전 r3 JSON·원본28/652·판정/계보 보존. [반영 범위·검증·한계](../specs/010-platform-ui-integration/homepage-explore-20261101.md). T038/T039는 PR #5로 main 반영(`cebced7`, 연우 병합 — 보성 사후 검토 요청), 후속 T040은 `yeonwoo/all-pages-layout` PR로 보성 검토 뒤 반영.
 
 2026-10-25 main 전달 승인: T025~T037의 화면 문구·배치와 대응 검사/공유본/문서를 함께 커밋·push한다. [검증121개·독립 복사본 HTTP9개·기존 lint/브라우저 문제](../specs/010-platform-ui-integration/copy-publication-20261025.md). 기본 `shared-ui-n02-capture-20261023-r3`, 원본28/652·판정/계보 불변. 아래 미커밋/미게시 상태는 이전 작업 이력이다.
 
