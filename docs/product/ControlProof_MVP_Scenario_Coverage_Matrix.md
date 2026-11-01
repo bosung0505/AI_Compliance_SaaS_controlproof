@@ -1,6 +1,6 @@
 # ControlProof MVP 시나리오 범위표
 
-2026-11-01 소개 홈페이지 개편: 소개 화면 수치를 이 표와 같은 카탈로그에서 계산한다. 기본 `shared-ui-homepage-20261101-r1`, 범위12/9/0/3(N03 일부)·원본28/652·판정/계보 불변. [검증](../../specs/010-platform-ui-integration/homepage-explore-20261101.md).
+2026-11-01 소개 홈페이지 개편: 소개 화면 수치를 이 표와 같은 카탈로그에서 계산한다. 기본 `shared-ui-homepage-20261101-r2`, 범위12/9/0/3(N03 일부)·원본28/652·판정/계보 불변. [검증](../../specs/010-platform-ui-integration/homepage-explore-20261101.md).
 
 2026-10-25 UI 후속 main 전달 승인. [전달 범위·검증·남은 기존 문제](../../specs/010-platform-ui-integration/copy-publication-20261025.md). 범위12/9/0/3(N03 일부)·원본28/652·판정/계보·기본 `shared-ui-n02-capture-20261023-r3`는 불변이다.
 

@@ -5,7 +5,8 @@ with the same 25 records byte-for-byte plus the three N-01/N-03 records. The clo
 lines) re-pinned the display code as `-r2` with the same 28 records. Spec010 stage7 promotes
 the exact reviewed stage6 r3 bytes; the preceding r2 is preserved beside the default JSON.
 2026-11-01: the homepage redesign re-pins the display code as `shared-ui-homepage-20261101-r1` (same 28 records);
-the preceding `shared-ui-n02-capture-20261023-r3` JSON is preserved beside it.
+the preceding `shared-ui-n02-capture-20261023-r3` JSON is preserved beside it. The follow-up that puts the same logo in
+the workspace header re-pins it as `-r2`; the r1 JSON is preserved beside it.
 """
 
 from __future__ import annotations
@@ -19,7 +20,7 @@ pytestmark = pytest.mark.skipif(not DEFAULT_SNAPSHOT.is_file(), reason="review-d
 
 def test_shared_snapshot_loads_with_current_display_code() -> None:
     snapshot = load_snapshot(DEFAULT_SNAPSHOT)
-    assert snapshot["snapshot_id"] == "shared-ui-homepage-20261101-r1"
+    assert snapshot["snapshot_id"] == "shared-ui-homepage-20261101-r2"
     assert snapshot["display_files"] == display_hashes(DEFAULT_SNAPSHOT.parents[1])
     assert len(snapshot["records"]) == 28
     official = {record["run_id"] for record in snapshot["records"] if record["official"]}

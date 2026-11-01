@@ -25,3 +25,6 @@
   .cp-logo { width: 195px; height: 36px; }
   .cp-logo img { width: 195px; }
 }
+/* 2026-11-01: every page's footer uses the /product footer logo size (the guide previously showed the 230px default). */
+.footer .cp-logo { width: 184px; height: 36px; }
+.footer .cp-logo img { width: 184px; }

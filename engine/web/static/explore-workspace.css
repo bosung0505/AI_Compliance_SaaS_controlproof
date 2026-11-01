@@ -1,0 +1,144 @@
+/* 2026-11-01: the homepage design (ControlProof_홈페이지.html) applied to the workspace screens.
+   1) The site header/footer partials are shared with /product and /guide. Public pages style them with platform.css and
+      explore.css, kept identical to the supplied export. Those files also carry global element rules (body, h1-h4, p, a)
+      and generic classes that would restyle workspace content, so the values the header/footer need are repeated here
+      under .workspace-shell. tests/web/test_workspace_chrome.py compares the computed header/footer styles of /product and
+      the workspace so the two copies cannot drift apart silently.
+   2) Workspace content keeps its structure and result semantics (badge shapes per the badge table are unchanged); only
+      fonts, link colours, kickers, card corners and buttons follow the homepage. */
+
+/* ---- 1. Shared header: sticky top area (DEMO banner + header) ---------------------------------------------------- */
+.workspace-shell .workspace-top { position: sticky; top: 0; z-index: 60; }
+.workspace-shell .workspace-top .demo-banner { position: static; }
+.workspace-shell .explore-header {
+  position: relative; z-index: 60; isolation: isolate; margin: 0; padding: 0;
+  background: rgba(255,255,255,.94); backdrop-filter: blur(18px); border-bottom: 1px solid var(--cp-line);
+  font: 15px/1.7 -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", sans-serif;
+  letter-spacing: -.35px; word-break: keep-all; color: var(--cp-ink);
+}
+/* Element resets keep the public specificity (platform.css `a`, `button`) via :where(). */
+:where(.workspace-shell .explore-header) a { color: inherit; text-decoration: none; }
+:where(.workspace-shell .explore-header) button { font: inherit; cursor: pointer; }
+:where(.workspace-shell .explore-header) :is(a, button):focus-visible { outline: 3px solid #a990ed; outline-offset: 5px; }
+.workspace-shell .explore-header .nav-wrap { max-width: 1440px; margin: auto; padding: 13px 44px; display: flex; align-items: center; gap: 30px; min-height: 72px; }
+.workspace-shell .explore-header .brand-heading { margin: 0; font: inherit; display: flex; }
+.workspace-shell .explore-header .brand { display: flex; align-items: center; gap: 9px; font-size: 22px; letter-spacing: -.9px; font-weight: 800; }
+.workspace-shell .explore-header .cp-logo { width: 196px; height: 36px; }
+.workspace-shell .explore-header .cp-logo img { width: 196px; }
+.workspace-shell .explore-header .nav { display: flex; flex-wrap: nowrap; gap: 26px; margin: auto; padding: 0; font-size: 12px; color: #51465f; }
+.workspace-shell .explore-header .nav a:hover { color: var(--cp-accent-dark); }
+.workspace-shell .explore-header .menu-toggle { display: none; }
+.workspace-shell .explore-header .button { display: inline-flex; align-items: center; justify-content: center; gap: 20px; border: 1px solid transparent; font-weight: 600; transition: transform .2s, background .2s; }
+.workspace-shell .explore-header .button:hover { transform: translateY(-2px); }
+.workspace-shell .explore-header .desktop-demo { padding: 9px 17px; font-size: 12px; border-radius: 24px; background: var(--cp-accent-dark); color: white; box-shadow: none; }
+.workspace-shell .explore-header .desktop-demo:hover { background: #654fc7; }
+
+/* Disclosure menus (explore.css .public-site rules) */
+.workspace-shell .nav-trigger { font: inherit; color: inherit; border: 0; background: transparent; padding: 14px 0; cursor: pointer; white-space: nowrap; }
+.workspace-shell .nav-trigger > span { display: none; }
+.workspace-shell .nav-trigger[aria-expanded="true"] { color: #7560d9; }
+.workspace-shell .explore-header .nav-trigger:focus-visible, .workspace-shell .explore-header .nav-panel a:focus-visible { outline: 2px solid #7560d9; outline-offset: 5px; border-radius: 3px; }
+.workspace-shell .nav-panel { position: absolute; top: 100%; left: 0; right: 0; background: #fcfaff; border-bottom: 1px solid var(--cp-line); box-shadow: 0 18px 28px #3523470a; visibility: hidden; opacity: 0; transform: translateY(-8px); pointer-events: none; transition: opacity .2s ease, transform .25s ease, visibility .25s; }
+.workspace-shell .nav-disclosure.is-open .nav-panel { visibility: visible; opacity: 1; transform: translateY(0); pointer-events: auto; }
+.workspace-shell .nav-panel-inner { max-width: 1440px; margin: auto; padding: 38px 44px 46px; display: grid; grid-template-columns: minmax(340px, 1.4fr) 1fr; gap: 72px; }
+.workspace-shell .nav-panel p { font-size: 12px; color: #82748f; margin: 0 0 17px; font-weight: 400; }
+.workspace-shell .explore-header .nav-panel a { display: block; width: fit-content; color: #30283d; transition: color .18s; }
+.workspace-shell .explore-header .nav-panel a:hover { color: #7560d9; }
+.workspace-shell .nav-panel-primary a { font-size: 28px; font-weight: 650; letter-spacing: -1px; line-height: 1.5; margin: 8px 0; }
+.workspace-shell .nav-panel-primary a span { font-size: 23px; color: #9884ce; margin-left: 8px; }
+.workspace-shell .nav-panel-secondary a { font-size: 14px; margin: 15px 0; }
+.workspace-shell .nav-backdrop { position: fixed; inset: 0; z-index: 55; background: #3024421f; backdrop-filter: blur(9px); -webkit-backdrop-filter: blur(9px); opacity: 0; visibility: hidden; transition: opacity .25s, visibility .25s; }
+.workspace-shell.nav-expanded .nav-backdrop { opacity: 1; visibility: visible; }
+@media (min-width: 981px) {
+  .workspace-shell .explore-header .nav-wrap { position: static; }
+  .workspace-shell .nav-disclosure { display: flex; align-items: center; }
+}
+@media (max-width: 1100px) {
+  .workspace-shell .explore-header .nav { gap: 18px; }
+  .workspace-shell .explore-header .nav-wrap { gap: 22px; padding-inline: 30px; }
+}
+@media (max-width: 980px) {
+  .workspace-shell .explore-header .nav-wrap { position: relative; gap: 16px; }
+  .workspace-shell .explore-header .menu-toggle { display: block; margin-left: auto; border: 1px solid var(--cp-line); background: var(--cp-tint); border-radius: 7px; color: var(--cp-accent-dark); padding: 3px 10px; font-size: 20px; }
+  .workspace-shell .explore-header .desktop-demo { display: none; }
+  .workspace-shell .explore-header .nav { display: none; position: absolute; top: 100%; left: 0; right: 0; margin: 0; background: white; padding: 22px 30px; flex-direction: column; gap: 0; border-bottom: 1px solid var(--cp-line); box-shadow: 0 12px 25px #35234708; z-index: 30; max-height: calc(100dvh - 72px); overflow: auto; overscroll-behavior: contain; }
+  .workspace-shell .explore-header .nav.open { display: flex; }
+  .workspace-shell .nav-disclosure { width: 100%; border-bottom: 1px solid var(--cp-line); }
+  .workspace-shell .nav-trigger { display: flex; justify-content: space-between; align-items: center; width: 100%; text-align: left; padding: 16px 0; font-size: 16px; }
+  .workspace-shell .nav-trigger > span { display: inline-block; transition: transform .2s; }
+  .workspace-shell .nav-trigger[aria-expanded="true"] > span { transform: rotate(180deg); }
+  .workspace-shell .nav-panel { display: none; position: static; box-shadow: none; border: 0; transform: none; }
+  .workspace-shell .nav-disclosure.is-open .nav-panel { display: block; }
+  .workspace-shell .nav-panel-inner { padding: 8px 16px 24px; display: grid; grid-template-columns: 1fr; gap: 24px; }
+  .workspace-shell .nav-panel-primary a { font-size: 21px; }
+  .workspace-shell .nav-panel-primary a span { font-size: 18px; }
+  .workspace-shell.nav-expanded .nav-backdrop { visibility: hidden; opacity: 0; }
+}
+@media (max-width: 820px) { .workspace-shell .explore-header .brand { font-size: 19px; } }
+@media (max-width: 760px) {
+  .workspace-shell .explore-header .nav-wrap { padding: 12px 20px; }
+  .workspace-shell .explore-header .cp-logo { width: 185px; height: 34px; }
+  .workspace-shell .explore-header .cp-logo img { width: 185px; }
+}
+
+/* ---- 1. Shared footer (platform.css .footer* and the /product footer sizes in explore.css) -------------------------- */
+.workspace-shell .site-footer-band {
+  background: var(--cp-surface); border-top: 1px solid var(--cp-line);
+  font: 15px/1.7 -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", sans-serif;
+  letter-spacing: -.35px; word-break: keep-all; color: var(--cp-ink);
+}
+:where(.workspace-shell .site-footer-band) a { color: inherit; text-decoration: none; }
+:where(.workspace-shell .site-footer-band) a:focus-visible { outline: 3px solid #a990ed; outline-offset: 5px; }
+:where(.workspace-shell .site-footer-band) p { margin: 0; }
+.workspace-shell .footer { max-width: 1200px; width: calc(100% - 96px); margin: auto; padding-top: 32px; }
+.workspace-shell .footer-main { display: flex; align-items: center; gap: 30px; padding-bottom: 28px; }
+.workspace-shell .footer .brand { display: flex; align-items: center; gap: 9px; font-size: 20px; letter-spacing: -.9px; font-weight: 800; color: #796289; }
+.workspace-shell .footer .cp-logo { width: 184px; height: 36px; }
+.workspace-shell .footer .cp-logo img { width: 184px; }
+.workspace-shell .footer-main p { font-size: 11px; color: #6d5e7b; }
+.workspace-shell .footer-main nav { display: flex; flex-wrap: nowrap; gap: 26px; margin: 0 0 0 auto; padding: 0; font-size: 10px; color: #a78eb9; }
+.workspace-shell .footer a:hover { color: #7560d9; }
+.workspace-shell .footer-bottom { border-top: 1px solid #ece3f2; padding: 21px 0 28px; display: flex; justify-content: space-between; gap: 20px; font-size: 9px; color: #7f6b90; }
+.workspace-shell .company-leadership { display: inline-block; margin-top: 8px; line-height: 1.7; }
+@media (max-width: 1100px) { .workspace-shell .footer { width: calc(100% - 64px); } }
+@media (max-width: 820px) {
+  .workspace-shell .footer-main { flex-wrap: wrap; gap: 20px; }
+  .workspace-shell .footer-main nav { width: 100%; margin: 0; }
+}
+@media (max-width: 600px) { .workspace-shell .footer-main nav { flex-wrap: wrap; } }
+@media (max-width: 540px) {
+  .workspace-shell .footer { width: calc(100% - 40px); }
+  .workspace-shell .footer-main p { font-size: 10px; }
+  .workspace-shell .footer-bottom { font-size: 8px; flex-direction: column; gap: 8px; }
+}
+@media (prefers-reduced-motion: reduce) {
+  .workspace-shell .nav-panel, .workspace-shell .nav-backdrop, .workspace-shell .nav-trigger > span { transition: none; }
+}
+@media print {
+  .workspace-shell .workspace-top { position: static; }
+  .workspace-shell .explore-header { position: static; background: none; border: 0; backdrop-filter: none; }
+  .workspace-shell .explore-header .nav-wrap { padding: 0 0 8px; min-height: 0; }
+  .workspace-shell .explore-header .nav, .workspace-shell .explore-header .menu-toggle, .workspace-shell .explore-header .desktop-demo,
+  .workspace-shell .nav-backdrop, .workspace-shell .site-footer-band { display: none; }
+}
+
+/* ---- 2. Workspace content in the homepage style --------------------------------------------------------------------- */
+/* Selectors repeat the specificity of the workbench rules they recolour, so special-purpose link/button styles still win. */
+.workspace-shell { font-family: -apple-system, BlinkMacSystemFont, "Pretendard", "Noto Sans KR", sans-serif; }
+.workspace-frame :is(a, button, summary, input):focus-visible { outline-color: var(--cp-accent-dark); }
+/* Links: purple like the homepage, still underlined and with a hover background (D-022 clickable affordance). */
+main a:not(.btn) { color: var(--cp-accent-dark); text-decoration-color: #5e47bd66; }
+main a:not(.btn):hover { color: #4e36a9; background-color: var(--cp-tint); text-decoration-color: currentColor; }
+details summary:hover { color: var(--cp-accent-dark); }
+.workspace-nav a { color: var(--cp-ink); }
+.workspace-nav a:hover { color: var(--cp-accent-dark); }
+/* Kickers: the homepage section-kicker (12px, 650, 1.1px tracking) */
+.workspace-main .section-kicker, .service-delivery .overview-heading .section-kicker { font-size: 12px; font-weight: 650; letter-spacing: 1.1px; line-height: 1.5; }
+/* Cards: homepage corner radius (borders and accent edges unchanged) */
+.workspace-main .card, .coverage-panel, .control-card, .update-card, .result-filters, .result-group,
+.service-card, .service-observation, .report-highlights { border-radius: 20px; }
+.results-support, .service-status, .service-scope, .record-picker, .sealed-compare-scope,
+.report-findings > li, .verification-info-panel { border-radius: 16px; }
+/* Buttons: homepage pill buttons */
+.workspace-main .btn { border-radius: 99px; padding-left: 20px; padding-right: 20px; font-weight: 600; }
+.workspace-main .btn:not(.sec):hover { background: #4e36a9; border-color: #4e36a9; }

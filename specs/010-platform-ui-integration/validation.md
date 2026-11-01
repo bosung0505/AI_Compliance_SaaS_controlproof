@@ -1,5 +1,7 @@
 # Spec010 Validation — 0·1단계
 
+2026-11-01 T040 모든 화면 틀·스타일: `/product`와 워크스페이스의 헤더·푸터 계산 스타일·위치가 7개 너비·닫힘/펼침에서 차이0, 소개 화면 픽셀 차이0 유지, 보고서 인쇄 A4 26쪽. 관련 묶음 73 passed/기존 skip1. 전체 tests의 남은 실패 32개는 같은 환경 main과 같은 기존 `tests/web` 목록이다. 기본 `shared-ui-homepage-20261101-r2`, r1·r3 JSON/원본28/652 보존. [상세·한계](homepage-explore-20261101.md).
+
 2026-11-01 T038/T039 소개 홈페이지: 제공 HTML과 새 `/product`의 7개 너비 전체 페이지 픽셀 차이0·가로 넘침0·콘솔 오류0, 관련47개 passed/기존 skip1, 변경 Python Ruff 통과. 전체 tests는 브랜치 1853 passed/32 failed이고 실패 32개는 같은 환경 main에서도 실패하는 기존 `tests/web` 기대다. 기본 `shared-ui-homepage-20261101-r1`, 직전 r3/원본28/652 보존. [상세·한계](homepage-explore-20261101.md).
 
 2026-10-25 UI 후속 main 전달 승인: 변경 관련121개 passed/skip0, 수정 Python Ruff/diff check, 게시 파일만 복사한 환경의 공유본 verify/HTTP9개 통과. 기존 main에서도 재현된 브라우저 선택자 실패와 전역 lint22건을 별도 명시한다. [범위·검증 근거](copy-publication-20261025.md). 전체 suite 통과나 새 실제 대상 시험으로 해석하지 않는다.

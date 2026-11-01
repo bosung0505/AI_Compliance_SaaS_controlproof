@@ -1,16 +1,17 @@
 // Local presentation only: navigation, workflow tabs and a browser-only guide download.
 (function () {
   "use strict";
-  const menu = document.querySelector(".menu-toggle");
-  const nav = menu && document.getElementById(menu.getAttribute("aria-controls"));
-  function setMenu(open, restoreFocus) {
-    if (!menu || !nav) return;
-    menu.setAttribute("aria-expanded", String(open));
-    menu.setAttribute("aria-label", open ? "메뉴 닫기" : "메뉴 열기");
-    nav.classList.toggle("open", open);
-    if (restoreFocus) menu.focus();
-  }
-  if (menu && nav) {
+  // Every .menu-toggle opens its own aria-controls target (site menu, and the workspace screen menu on work pages).
+  document.querySelectorAll(".menu-toggle").forEach(menu => {
+    const nav = document.getElementById(menu.getAttribute("aria-controls"));
+    if (!nav) return;
+    const label = menu.dataset.menuLabel || "메뉴";
+    function setMenu(open, restoreFocus) {
+      menu.setAttribute("aria-expanded", String(open));
+      menu.setAttribute("aria-label", `${label} ${open ? "닫기" : "열기"}`);
+      nav.classList.toggle("open", open);
+      if (restoreFocus) menu.focus();
+    }
     menu.addEventListener("click", () => setMenu(menu.getAttribute("aria-expanded") !== "true"));
     nav.querySelectorAll("a").forEach(link => link.addEventListener("click", () => setMenu(false)));
     document.addEventListener("keydown", event => {
@@ -20,7 +21,7 @@
       if (!nav.contains(event.target) && !menu.contains(event.target)) setMenu(false);
     });
     window.addEventListener("resize", () => { if (window.innerWidth > 980) setMenu(false); });
-  }
+  });
   const tabs = [...document.querySelectorAll("[data-step]")];
   function showStep(index, focus) {
     tabs.forEach((tab, i) => {

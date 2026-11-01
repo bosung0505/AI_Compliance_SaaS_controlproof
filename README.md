@@ -1,6 +1,6 @@
 # ControlProof
 
-2026-11-01 소개 홈페이지 개편: 팀에서 받은 단독 HTML을 기준으로 `/product` 소개 화면과 공용 헤더·푸터(로고·펼침 메뉴)를 바꿨다. 수치는 카탈로그에서 계산한다. 기본 `shared-ui-homepage-20261101-r1`, 직전 r3 JSON·원본28/652 보존. [반영 범위·검증](specs/010-platform-ui-integration/homepage-explore-20261101.md). 워크스페이스 화면·API·판정은 그대로다.
+2026-11-01 소개 홈페이지 개편: 팀에서 받은 단독 HTML을 기준으로 `/product` 소개 화면과 공용 헤더·푸터(로고·펼침 메뉴)를 바꾸고, 다른 모든 화면도 같은 헤더·푸터·로고와 스타일로 맞췄다(왼쪽 메뉴·본문 배치 유지). 수치는 카탈로그에서 계산한다. 기본 `shared-ui-homepage-20261101-r2`, r1·직전 r3 JSON·원본28/652 보존. [반영 범위·검증](specs/010-platform-ui-integration/homepage-explore-20261101.md). 워크스페이스 본문·API·판정은 그대로다.
 
 2026-10-25 main 전달: 사용자가 검토 완료된 화면 가독성 후속(T025~T037)의 커밋·origin/main push와 로컬 서버 실행을 승인했다. [전달 범위·121개 검사·기존 테스트 문제](specs/010-platform-ui-integration/copy-publication-20261025.md). 기본 `shared-ui-n02-capture-20261023-r3`, 원본28/652 보존. 아래 미커밋/미게시 문구는 당시 이력이다.
 

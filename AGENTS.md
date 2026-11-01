@@ -301,7 +301,12 @@ The supplied standalone `ControlProof_홈페이지.html` now drives `/product` a
 unchanged logo bytes in `controlproof-logo.png`). The static route serves only `[a-z0-9_-]+.(css|js|png)` from
 `engine/web/static/`; reviewed evidence PNGs keep the strict content endpoint. Intro counts and per-control labels come
 from the catalog (`engine/web/public.py`); the remaining copy is static and pinned to catalog facts by
-`tests/contract/test_platform_homepage.py`. Current default `shared-ui-homepage-20261101-r1`; the preceding
-`shared-ui-n02-capture-20261023-r3` JSON is preserved byte-for-byte. Workspace screens, API v1 and the 28/652 records
-are unchanged. Feature branch `yeonwoo/homepage-explore`; merging to main follows 보성's review. Read
+`tests/contract/test_platform_homepage.py`. Every workspace screen (`base.html`) now uses the same header/footer partials
+(`templates/partials/site_header.html`, `site_footer.html`; menu id `site-navigation`, sidebar keeps `primary-navigation`)
+and `explore-workspace.css`, which repeats the public header/footer values under `.workspace-shell` and aligns fonts,
+links, kickers, card corners and buttons; `tests/web/test_workspace_chrome.py` compares the computed styles with /product.
+Current default `shared-ui-homepage-20261101-r2`; the same-day r1 and the preceding
+`shared-ui-n02-capture-20261023-r3` JSONs are preserved byte-for-byte. Workspace page bodies, API v1 and the 28/652
+records are unchanged. T038/T039 reached main through PR #5 (`cebced7`, merged by 연우; 보성's post-review requested).
+The T040 follow-up uses branch `yeonwoo/all-pages-layout`; merging it to main follows 보성's review. Read
 `specs/010-platform-ui-integration/homepage-explore-20261101.md`.

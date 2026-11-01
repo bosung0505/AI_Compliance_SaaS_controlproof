@@ -16,3 +16,5 @@ overview 본문 중복 주석은 이동했으며 N03 일부·DEMO/공유 구분�
 
 2026-11-01: `public_base.html`은 로고 이미지·5개 펼침 메뉴 헤더와 대표자 표기 푸터를, `product.html`은 제공 홈페이지의 소개 본문을 쓴다.
 링크는 같은 서버의 상대 경로이며 전체·보호조치별 수치는 카탈로그(`engine/web/public.py`)에서 계산한다. `/guide` 본문은 그대로다.
+같은 날 후속: 헤더·푸터는 `partials/site_header.html`·`partials/site_footer.html`로 분리해 `public_base.html`과 `base.html`이 함께 쓴다.
+워크스페이스에서는 상단 메뉴 id가 `site-navigation`이고(왼쪽 메뉴는 `primary-navigation`), 로고가 화면 h1이며, 첫 줄은 맥락 줄이다.

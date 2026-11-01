@@ -12,70 +12,9 @@
 </head>
 <body class="public-site">
 <a class="skip" href="#main">본문으로 건너뛰기</a>
-<header class="header explore-header">
-  <div class="nav-wrap">
-    <a class="brand" href="/product"><span class="cp-logo"><img src="/static/controlproof-logo.png" alt="ControlProof" width="2172" height="724"></span></a>
-    <button class="menu-toggle" aria-label="메뉴 열기" aria-expanded="false" aria-controls="primary-navigation">☰</button>
-    <nav class="nav" id="primary-navigation" aria-label="주 메뉴">
-      <div class="nav-disclosure">
-        <button class="nav-trigger" id="nav-trigger-1" aria-expanded="false" aria-controls="nav-panel-1">서비스 소개<span aria-hidden="true">⌄</span></button>
-        <div class="nav-panel" id="nav-panel-1" aria-labelledby="nav-trigger-1" inert>
-          <div class="nav-panel-inner">
-            <div class="nav-panel-primary"><p>ControlProof 살펴보기</p><a href="/product#product">서비스 소개 <span aria-hidden="true">›</span></a><a href="/results">실제 검증 사례 <span aria-hidden="true">›</span></a></div>
-            <div class="nav-panel-secondary"><p>함께 살펴보기</p><a href="/product#workflow">작동 방식</a><a href="/demo/">합성 데모</a></div>
-          </div>
-        </div>
-      </div>
-      <div class="nav-disclosure">
-        <button class="nav-trigger" id="nav-trigger-2" aria-expanded="false" aria-controls="nav-panel-2">보호조치<span aria-hidden="true">⌄</span></button>
-        <div class="nav-panel" id="nav-panel-2" aria-labelledby="nav-trigger-2" inert>
-          <div class="nav-panel-inner">
-            <div class="nav-panel-primary"><p>확인할 보호조치</p><a href="/product#controls">보호조치 한눈에 보기 <span aria-hidden="true">›</span></a><a href="/results">시나리오별 검증 범위 <span aria-hidden="true">›</span></a></div>
-            <div class="nav-panel-secondary"><p>함께 살펴보기</p><a href="/scenarios/N-02">고지·동의 검증</a><a href="/">실제 결과 살펴보기</a></div>
-          </div>
-        </div>
-      </div>
-      <div class="nav-disclosure">
-        <button class="nav-trigger" id="nav-trigger-3" aria-expanded="false" aria-controls="nav-panel-3">검증 방식<span aria-hidden="true">⌄</span></button>
-        <div class="nav-panel" id="nav-panel-3" aria-labelledby="nav-trigger-3" inert>
-          <div class="nav-panel-inner">
-            <div class="nav-panel-primary"><p>근거를 만드는 과정</p><a href="/product#workflow">검증 과정 살펴보기 <span aria-hidden="true">›</span></a><a href="/scenarios/N-02">N-02 실제 시험 순서 <span aria-hidden="true">›</span></a></div>
-            <div class="nav-panel-secondary"><p>함께 살펴보기</p><a href="/prepare">테스트 준비</a><a href="/">결과와 근거 검토</a></div>
-          </div>
-        </div>
-      </div>
-      <div class="nav-disclosure">
-        <button class="nav-trigger" id="nav-trigger-4" aria-expanded="false" aria-controls="nav-panel-4">결과 보고서<span aria-hidden="true">⌄</span></button>
-        <div class="nav-panel" id="nav-panel-4" aria-labelledby="nav-trigger-4" inert>
-          <div class="nav-panel-inner">
-            <div class="nav-panel-primary"><p>검증 결과 살펴보기</p><a href="/report">실제 보고서 열기 <span aria-hidden="true">›</span></a><a href="/product#report">보고서 구성 살펴보기 <span aria-hidden="true">›</span></a></div>
-            <div class="nav-panel-secondary"><p>함께 살펴보기</p><a href="/results">시나리오별 결과</a><a href="/">실제 검토 워크스페이스</a></div>
-          </div>
-        </div>
-      </div>
-      <div class="nav-disclosure">
-        <button class="nav-trigger" id="nav-trigger-5" aria-expanded="false" aria-controls="nav-panel-5">도입 안내<span aria-hidden="true">⌄</span></button>
-        <div class="nav-panel" id="nav-panel-5" aria-labelledby="nav-trigger-5" inert>
-          <div class="nav-panel-inner">
-            <div class="nav-panel-primary"><p>첫 검증 시작하기</p><a href="/guide"{% if view.view == 'guide' %} aria-current="page"{% endif %}>도입 준비 안내 <span aria-hidden="true">›</span></a><a href="/prepare">시험 목적과 프로필 <span aria-hidden="true">›</span></a></div>
-            <div class="nav-panel-secondary"><p>함께 살펴보기</p><a href="/product#product">서비스 소개</a><a href="/demo/">합성 데모 체험</a></div>
-          </div>
-        </div>
-      </div>
-    </nav>
-    <a class="button small primary desktop-demo" href="/">실제 결과 열기 <span aria-hidden="true">↗</span></a>
-  </div>
-</header>
-<div class="nav-backdrop" aria-hidden="true"></div>
+{% with site_nav_id="primary-navigation", brand_heading=False %}{% include "partials/site_header.html" %}{% endwith %}
 <main id="main">{% block content %}{% endblock %}</main>
-<footer class="footer wrap">
-  <div class="footer-main">
-    <a class="brand" href="/product"><span class="cp-logo"><img src="/static/controlproof-logo.png" alt="ControlProof" width="2172" height="724"></span></a>
-    <p>AI 신뢰, 작동하는 근거로.</p>
-    <nav aria-label="하단 메뉴"><a href="/product#product">서비스 소개</a><a href="/guide">도입 안내</a><a href="/">실제 결과</a><a href="/demo/">합성 데모</a></nav>
-  </div>
-  <div class="footer-bottom"><span>© 2026 ControlProof<br><span class="company-leadership">CEO 김태오 · CTO 이보성, 최연우</span></span><span>실행한 시나리오와 확보한 증적에 한정된 결과이며, 법적 준수 인증이 아닙니다.</span></div>
-</footer>
+{% include "partials/site_footer.html" %}
 <script src="/static/platform.js"></script>
 <script src="/static/navigation.js"></script>
 </body>

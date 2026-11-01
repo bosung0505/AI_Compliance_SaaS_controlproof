@@ -57,12 +57,16 @@ def test_reviewed_stage6_release_is_preserved_and_current_default_loads():
     assert hashlib.sha256(capture_r3.read_bytes()).hexdigest() == (
         "c608290e3b5d0a82053d11fe223f8a30a7be21d053d887051d9dce1361e222aa"
     )
-    assert hashlib.sha256(DEFAULT_SNAPSHOT.read_bytes()).hexdigest() == (
+    homepage_r1 = DEFAULT_SNAPSHOT.with_name("snapshot.shared-ui-homepage-20261101-r1.json")
+    assert hashlib.sha256(homepage_r1.read_bytes()).hexdigest() == (
         "1606a2c925a209beea131d5c2bbb2f96c9701404092967a1aef7863545fa1710"
     )
+    assert hashlib.sha256(DEFAULT_SNAPSHOT.read_bytes()).hexdigest() == (
+        "7d1f4dae59f87e6f8a13672690831dd4cf4f366f14d62d945e62e6488381af13"
+    )
     current = load_snapshot()
-    assert current["snapshot_id"] == "shared-ui-homepage-20261101-r1"
-    assert current["snapshot_digest"] == "ea95f9dee8215281a995787a5b29d1f08156e771904775748e09a2cbd94802a8"
+    assert current["snapshot_id"] == "shared-ui-homepage-20261101-r2"
+    assert current["snapshot_digest"] == "214b365e29fbb7aa5e66e4b33c1a1c6c112dde02989d7cb98233360eb28dc846"
     presentation = DEFAULT_SNAPSHOT.with_name("snapshot.shared-ui-presentation-20261022-r1.json")
     assert hashlib.sha256(presentation.read_bytes()).hexdigest() == (
         "a7545eeffdb977760a595b4e9a6193a1b83c0ecc8e82a0a06d9871604056a39e"
